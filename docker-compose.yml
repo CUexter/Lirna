@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: lirna
+      POSTGRES_PASSWORD: lirna
+      POSTGRES_USER: lirna
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lirna"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+    ports:
+      - "5432:5432"
+    volumes:
+      - lirna-postgres:/var/lib/postgresql/data
+
+volumes:
+  lirna-postgres:
