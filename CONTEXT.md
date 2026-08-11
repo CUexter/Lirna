@@ -103,6 +103,10 @@ _Avoid_: content page, lecture
 A contextual assessment of understanding that creates a feedback loop for teaching and learning. A Quiz may span a Lesson's elicitation, feedback, repair, and retries, while only clearly signposted committed answers become assessment evidence; Quiz items do not automatically become scheduled repetition items.
 _Avoid_: flashcard session, test
 
+**Repetition item**:
+A durable, application-owned recall prompt that Nathan explicitly promotes from a Quiz candidate. A Repetition item has stable identity, accepted content revisions, exact grounding and promotion provenance, while its scheduling state and review evidence remain distinct; ordinary repetition performance maintains accessible recall but does not establish Demonstrated understanding.
+_Avoid_: Quiz item, due card, Vault card note
+
 **Demonstrated understanding**:
 A scoped, dated judgment that Nathan has shown understanding through quiz evidence. It describes demonstrated performance rather than permanent mastery.
 _Avoid_: mastery, learned
