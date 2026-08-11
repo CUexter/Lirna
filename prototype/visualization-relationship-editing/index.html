@@ -1,0 +1,283 @@
+<!doctype html>
+<!-- OBSOLETE PROTOTYPE DRAFT: redirected after Nathan clarified that Visualizations are concept-scoped. -->
+<html lang="en">
+<head>
+  <script>location.replace("concept.html" + location.search + location.hash)</script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lirna visualization and relationship editing prototype</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #18211f; --muted: #66706d; --paper: #f1eee5; --panel: #fffdf8;
+      --line: #d7d2c6; --green: #1e6553; --green-soft: #e1efe9;
+      --blue: #355f8a; --blue-soft: #e5edf6; --amber: #96601c; --amber-soft: #f7ead4;
+      --red: #97483e; --shadow: 0 18px 55px rgba(25, 32, 29, .15);
+      font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: var(--paper); color: var(--ink); }
+    button, select { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, select:focus-visible { outline: 3px solid #8bbcad; outline-offset: 2px; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1, h2 { font-family: Georgia, serif; font-weight: 600; }
+    h1 { font-size: clamp(28px, 4vw, 46px); line-height: 1.05; }
+    h2 { font-size: 22px; }
+    h3 { font-size: 14px; }
+    p { line-height: 1.55; }
+    .muted { color: var(--muted); }
+    .eyebrow { color: var(--muted); font-size: 10px; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
+    .prototype-flag { position: fixed; z-index: 60; top: 9px; left: 9px; border: 1px solid #dfb867; border-radius: 999px; background: #fff1c4; color: #654500; padding: 6px 9px; font: 750 10px/1 ui-monospace, monospace; letter-spacing: .08em; }
+    .topbar { min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-bottom: 1px solid var(--line); background: rgba(255,253,248,.94); padding: 10px 22px 10px 160px; }
+    .brand { font: 700 20px/1 Georgia, serif; }
+    .task-tabs, .row { display: flex; align-items: center; gap: 7px; }
+    .task-tabs { flex-wrap: wrap; }
+    .task-tabs button, .button, .icon-button { border: 1px solid var(--line); border-radius: 9px; background: var(--panel); padding: 8px 11px; }
+    .task-tabs button.active { border-color: var(--ink); background: var(--ink); color: white; }
+    .button.primary { border-color: var(--green); background: var(--green); color: white; }
+    .button.amber { border-color: #d5a256; background: var(--amber-soft); color: #71430e; }
+    .pill { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 5px 8px; background: #e8e4da; font-size: 11px; }
+    .pill.green { background: var(--green-soft); color: #154f41; }
+    .pill.blue { background: var(--blue-soft); color: #294e73; }
+    .pill.amber { background: var(--amber-soft); color: #75480f; }
+    .card { border: 1px solid var(--line); border-radius: 14px; background: var(--panel); padding: 16px; }
+    .relation-line { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line); font-size: 13px; }
+    .relation-line:first-child { border-top: 0; }
+    .relation-line strong { margin-left: auto; color: var(--green); font-size: 11px; text-transform: uppercase; }
+    .shell { min-height: calc(100vh - 64px); padding-bottom: 92px; }
+    .state-dump { position: fixed; z-index: 35; right: 12px; bottom: 82px; width: min(390px, calc(100vw - 24px)); max-height: 38vh; overflow: auto; border-radius: 10px; background: #101816; color: #d4e9e3; padding: 10px 12px; box-shadow: var(--shadow); font: 11px/1.5 ui-monospace, monospace; }
+    .state-dump summary { cursor: pointer; font-weight: 800; }
+    .state-dump pre { margin-bottom: 0; white-space: pre-wrap; }
+    .switcher { position: fixed; z-index: 50; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; align-items: center; gap: 5px; border: 1px solid #41504c; border-radius: 999px; background: #111a18; color: white; padding: 6px; box-shadow: var(--shadow); }
+    .switcher button { width: 35px; height: 35px; border: 0; border-radius: 50%; background: #2c3936; color: white; }
+    .switcher span { min-width: 220px; text-align: center; font-size: 12px; font-weight: 750; }
+
+    /* A: spatial, local, direct manipulation. */
+    .a-layout { display: grid; grid-template-columns: minmax(0, 1fr) 315px; min-height: calc(100vh - 64px); }
+    .a-canvas { position: relative; min-height: 680px; overflow: hidden; background-color: #ece9df; background-image: radial-gradient(#c2beb2 1px, transparent 1px); background-size: 22px 22px; }
+    .a-heading { position: absolute; z-index: 3; top: 33px; left: 36px; max-width: 510px; }
+    .node { position: absolute; z-index: 2; width: 170px; border: 1px solid #8a9b95; border-radius: 13px; background: var(--panel); padding: 13px; box-shadow: 0 7px 22px rgba(27,37,34,.1); text-align: left; }
+    .node.center { width: 210px; border: 2px solid var(--green); background: #f2faf6; }
+    .node.source { border-color: #7d9abb; }
+    .node.annotation { border-style: dashed; border-color: #bc8b49; }
+    .node small { display: block; margin-bottom: 5px; color: var(--muted); font-weight: 800; text-transform: uppercase; }
+    .edge { position: absolute; z-index: 1; height: 2px; transform-origin: left center; background: #82958f; }
+    .edge.blue { background: #6f90b1; }
+    .edge.dashed { height: 0; border-top: 2px dashed #b17b38; background: transparent; }
+    .edge-label { position: absolute; z-index: 2; border-radius: 999px; background: #f8f6ef; padding: 3px 7px; color: var(--muted); font-size: 10px; }
+    .a-inspector { border-left: 1px solid var(--line); background: #f8f6ef; padding: 27px 17px; }
+    .a-inspector .card { margin-bottom: 12px; }
+
+    /* B: structured, scan-first atlas. */
+    .b-wrap { max-width: 1180px; margin: auto; padding: 38px 24px; }
+    .b-intro { display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: end; margin-bottom: 24px; }
+    .b-atlas { display: grid; grid-template-columns: 235px minmax(0, 1fr) 280px; border: 1px solid var(--line); background: var(--panel); min-height: 570px; }
+    .b-index, .b-detail, .b-context { padding: 19px; }
+    .b-index { border-right: 1px solid var(--line); background: #e8e4da; }
+    .b-context { border-left: 1px solid var(--line); background: #f0f3ee; }
+    .atlas-row { width: 100%; display: flex; justify-content: space-between; gap: 9px; border: 0; border-radius: 8px; background: transparent; padding: 10px; text-align: left; }
+    .atlas-row.active { background: white; box-shadow: 0 2px 8px rgba(20,30,27,.08); }
+    .branch { margin: 10px 0 20px; border-left: 2px solid #a8b2ad; padding-left: 16px; }
+    .branch h3 { display: flex; justify-content: space-between; }
+    .branch-item { display: grid; grid-template-columns: minmax(120px, 1fr) 125px auto; gap: 12px; align-items: center; border-top: 1px solid var(--line); padding: 11px 0; font-size: 13px; }
+
+    /* C: generated sequence, presentation-first. */
+    .c-layout { display: grid; grid-template-columns: 255px minmax(0, 1fr); min-height: calc(100vh - 64px); background: #17201e; color: #f5f4ef; }
+    .c-scenes { border-right: 1px solid #3d4b47; padding: 28px 14px; background: #111917; }
+    .scene-button { width: 100%; display: grid; grid-template-columns: 32px 1fr; gap: 9px; align-items: start; border: 0; border-radius: 9px; background: transparent; color: #bac7c3; padding: 11px; text-align: left; }
+    .scene-button.active { background: #2a3a35; color: white; }
+    .scene-number { display: grid; place-items: center; width: 27px; height: 27px; border-radius: 50%; background: #3b4c47; font-size: 11px; }
+    .c-stage { display: grid; grid-template-rows: 1fr auto; min-width: 0; }
+    .stage { display: grid; place-items: center; padding: 42px; }
+    .stage-card { width: min(820px, 100%); border: 1px solid #52635e; border-radius: 18px; background: #f8f5ed; color: var(--ink); padding: clamp(25px, 5vw, 55px); box-shadow: 0 26px 70px rgba(0,0,0,.3); }
+    .flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 10px; align-items: center; margin: 34px 0; }
+    .flow-box { min-height: 110px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 12px; background: white; padding: 12px; text-align: center; }
+    .flow-arrow { color: var(--green); font-size: 24px; }
+    .c-evidence { display: flex; justify-content: space-between; gap: 15px; border-top: 1px solid #3d4b47; background: #111917; padding: 13px 20px 78px; color: #bbc7c3; font-size: 12px; }
+
+    @media (max-width: 850px) {
+      .prototype-flag { top: 6px; left: 6px; }
+      .topbar { align-items: flex-end; flex-direction: column; padding: 43px 10px 10px; }
+      .topbar .brand { align-self: flex-start; }
+      .task-tabs { width: 100%; }
+      .task-tabs button { flex: 1; padding: 8px 4px; font-size: 11px; }
+      .a-layout, .b-atlas, .c-layout { display: block; }
+      .a-canvas { min-height: 610px; }
+      .a-inspector, .b-index, .b-context, .c-scenes { border: 0; border-top: 1px solid var(--line); }
+      .node { width: 135px; font-size: 11px; }
+      .node.center { width: 155px; }
+      .a-heading { top: 22px; left: 18px; }
+      .a-heading h1 { font-size: 27px; }
+      .b-wrap { padding: 25px 12px 110px; }
+      .b-intro { grid-template-columns: 1fr; }
+      .b-index, .b-context { display: none; }
+      .branch-item { grid-template-columns: 1fr; }
+      .c-scenes { display: flex; overflow-x: auto; padding: 10px; }
+      .scene-button { min-width: 180px; }
+      .stage { padding: 22px 12px; }
+      .flow { grid-template-columns: 1fr; }
+      .flow-arrow { transform: rotate(90deg); text-align: center; }
+      .c-evidence { padding-bottom: 82px; }
+      .state-dump { display: none; }
+      .switcher { left: 8px; right: 8px; transform: none; justify-content: center; }
+      .switcher span { min-width: 150px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="prototype-flag">THROWAWAY PROTOTYPE</div>
+  <header class="topbar">
+    <div class="brand">Lirna / Visualize</div>
+    <nav class="task-tabs" aria-label="Visualization task">
+      <button data-task="explore">Explore relations</button>
+      <button data-task="navigate">Navigate knowledge</button>
+      <button data-task="explain">Explain material</button>
+    </nav>
+  </header>
+  <main id="app"></main>
+  <details class="state-dump">
+    <summary>Prototype state</summary>
+    <pre id="state"></pre>
+  </details>
+  <div class="switcher" aria-label="Prototype variant switcher">
+    <button id="previous" aria-label="Previous variant">&larr;</button>
+    <span id="variant-label"></span>
+    <button id="next" aria-label="Next variant">&rarr;</button>
+  </div>
+
+  <script>
+    const variants = {
+      A: { name: "Local canvas", render: renderA },
+      B: { name: "Relationship atlas", render: renderB },
+      C: { name: "Explanation studio", render: renderC }
+    };
+    const taskCopy = {
+      explore: { title: "How does this argument hang together?", focus: "A working hypothesis", relation: "qualifies", target: "A conflicting passage" },
+      navigate: { title: "What should I read around this idea?", focus: "An Owned note", relation: "conceptually related", target: "A neighboring Owned note" },
+      explain: { title: "Why do these accounts disagree?", focus: "A difficult distinction", relation: "contrasts with", target: "A competing interpretation" }
+    };
+    const state = {
+      variant: getParam("variant", "A"),
+      task: getParam("task", "explore"),
+      scene: 1,
+      selection: "focus",
+      pendingAction: null,
+      actionResult: null
+    };
+    if (!variants[state.variant]) state.variant = "A";
+    if (!taskCopy[state.task]) state.task = "explore";
+
+    function getParam(key, fallback) {
+      return new URLSearchParams(location.search).get(key) || fallback;
+    }
+    function setParam(key, value) {
+      const url = new URL(location.href);
+      url.searchParams.set(key, value);
+      history.replaceState({}, "", url);
+    }
+    function setTask(task) {
+      state.task = task;
+      state.pendingAction = null;
+      state.actionResult = null;
+      setParam("task", task);
+      render();
+    }
+    function setVariant(key) {
+      state.variant = key;
+      state.pendingAction = null;
+      state.actionResult = null;
+      setParam("variant", key);
+      render();
+    }
+    function cycle(offset) {
+      const keys = Object.keys(variants);
+      const index = keys.indexOf(state.variant);
+      setVariant(keys[(index + offset + keys.length) % keys.length]);
+    }
+    function tryAction(kind) {
+      const outcomes = {
+        vault: "Would edit a file-native wikilink in the Owned note, then rely on the normal Vault write boundary.",
+        operational: "Would create a typed operational relation as a proposal, visibly distinct from the canonical note text.",
+        generated: "Would correct or regenerate this Visualization only; it would not create a knowledge relationship."
+      };
+      state.pendingAction = kind;
+      state.actionResult = outcomes[kind];
+      render();
+    }
+    function chooseScene(scene) {
+      state.scene = scene;
+      render();
+    }
+    function actionPanel() {
+      return `<div class="card">
+        <div class="eyebrow">Try relationship action</div>
+        <p><strong>${taskCopy[state.task].focus}</strong> ${taskCopy[state.task].relation} <strong>${taskCopy[state.task].target}</strong></p>
+        <div class="row" style="flex-wrap:wrap">
+          <button class="button" onclick="tryAction('vault')">Edit note link</button>
+          <button class="button" onclick="tryAction('operational')">Propose typed relation</button>
+          <button class="button" onclick="tryAction('generated')">Correct this view</button>
+        </div>
+        ${state.actionResult ? `<p class="muted" style="margin:12px 0 0"><strong>Simulated boundary:</strong> ${state.actionResult}</p>` : ""}
+      </div>`;
+    }
+    function renderA() {
+      const copy = taskCopy[state.task];
+      return `<section class="shell a-layout">
+        <div class="a-canvas">
+          <div class="a-heading"><div class="eyebrow">Local neighborhood only</div><h1>${copy.title}</h1><p class="muted">Expand one relationship at a time. No global graph is implied.</p></div>
+          <div class="edge" style="left:38%;top:48%;width:24%;transform:rotate(-25deg)"></div>
+          <div class="edge blue" style="left:37%;top:51%;width:28%;transform:rotate(26deg)"></div>
+          <div class="edge dashed" style="left:22%;top:58%;width:22%;transform:rotate(-60deg)"></div>
+          <span class="edge-label" style="left:51%;top:38%">${copy.relation}</span>
+          <span class="edge-label" style="left:51%;top:63%">cites evidence</span>
+          <button class="node center" style="left:27%;top:43%"><small>Focus</small>${copy.focus}</button>
+          <button class="node" style="left:64%;top:24%"><small>Owned note</small>${copy.target}</button>
+          <button class="node source" style="left:65%;top:65%"><small>Source state</small>Exact cited passage</button>
+          <button class="node annotation" style="left:11%;top:72%"><small>Annotation</small>Question still unresolved</button>
+        </div>
+        <aside class="a-inspector"><div class="eyebrow">Selected relationship</div><h2>${copy.relation}</h2><p class="muted">The canvas separates authored links, typed operational relations, and generated layout.</p>${actionPanel()}</aside>
+      </section>`;
+    }
+    function renderB() {
+      const copy = taskCopy[state.task];
+      return `<section class="shell b-wrap">
+        <div class="b-intro"><div><div class="eyebrow">Structured atlas</div><h1>${copy.title}</h1><p class="muted">Relationships remain readable as grouped statements rather than spatial position.</p></div><button class="button primary">Open focused object</button></div>
+        <div class="b-atlas">
+          <aside class="b-index"><div class="eyebrow">Browse by role</div><button class="atlas-row active">Claims <span>12</span></button><button class="atlas-row">Evidence <span>8</span></button><button class="atlas-row">Questions <span>5</span></button><button class="atlas-row">Maps <span>3</span></button></aside>
+          <article class="b-detail"><span class="pill green">${copy.focus}</span><h2 style="margin-top:15px">Relationships that carry meaning</h2>
+            <section class="branch"><h3>Conceptual <span class="muted">2</span></h3><div class="branch-item"><span>${copy.target}</span><span>${copy.relation}</span><button class="button">Inspect</button></div><div class="branch-item"><span>A neighboring claim</span><span>part of topic</span><button class="button">Inspect</button></div></section>
+            <section class="branch"><h3>Evidence <span class="muted">2</span></h3><div class="branch-item"><span>Exact cited passage</span><span>qualifies claim</span><button class="button">Inspect</button></div><div class="branch-item"><span>Personal reasoning</span><span>Provenance</span><button class="button">Inspect</button></div></section>
+            ${actionPanel()}
+          </article>
+          <aside class="b-context"><div class="eyebrow">Why it appears</div><p>Every row names its relation. Grouping is generated, but the underlying relationship and authority are inspectable.</p><div class="relation-line"><span class="pill">wikilink</span><strong>Owned note</strong></div><div class="relation-line"><span class="pill blue">Citation</span><strong>Operational</strong></div><div class="relation-line"><span class="pill amber">suggested</span><strong>Generated</strong></div></aside>
+        </div>
+      </section>`;
+    }
+    function renderC() {
+      const copy = taskCopy[state.task];
+      const scenes = ["Frame the question", "Show the relationship", "Inspect the evidence", "Name what remains open"];
+      return `<section class="shell c-layout">
+        <aside class="c-scenes"><div class="eyebrow" style="margin:0 10px 14px;color:#839590">Generated sequence</div>${scenes.map((name, i) => `<button class="scene-button ${state.scene === i + 1 ? "active" : ""}" onclick="chooseScene(${i + 1})"><span class="scene-number">${i + 1}</span><span>${name}</span></button>`).join("")}</aside>
+        <div class="c-stage"><div class="stage"><article class="stage-card"><div class="eyebrow">Scene ${state.scene} of 4</div><h1>${copy.title}</h1><div class="flow"><div class="flow-box"><strong>${copy.focus}</strong></div><div class="flow-arrow">&rarr;</div><div class="flow-box"><span><span class="pill green">${copy.relation}</span><br><br>Relationship being explained</span></div><div class="flow-arrow">&rarr;</div><div class="flow-box"><strong>${copy.target}</strong></div></div>${actionPanel()}</article></div>
+        <footer class="c-evidence"><span>Grounded in 2 Owned notes, 1 Source state, and 1 Annotation</span><span>Generated arrangement, not canonical knowledge</span></footer></div>
+      </section>`;
+    }
+    function render() {
+      document.getElementById("app").innerHTML = variants[state.variant].render();
+      document.getElementById("variant-label").textContent = `${state.variant} — ${variants[state.variant].name}`;
+      document.querySelectorAll("[data-task]").forEach(button => button.classList.toggle("active", button.dataset.task === state.task));
+      document.getElementById("state").textContent = JSON.stringify(state, null, 2);
+    }
+    document.querySelectorAll("[data-task]").forEach(button => button.addEventListener("click", () => setTask(button.dataset.task)));
+    document.getElementById("previous").addEventListener("click", () => cycle(-1));
+    document.getElementById("next").addEventListener("click", () => cycle(1));
+    addEventListener("keydown", event => {
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName) || document.activeElement.isContentEditable) return;
+      if (event.key === "ArrowLeft") cycle(-1);
+      if (event.key === "ArrowRight") cycle(1);
+    });
+    render();
+  </script>
+</body>
+</html>
