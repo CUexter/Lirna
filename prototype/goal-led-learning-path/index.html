@@ -405,20 +405,31 @@
           case "COMPARE_COMPOSITORS":
             if (state.status !== "active" || state.session < 2) return reject(state, "Comparison blocked: resume the preserved second session first.");
             return accept(state, {
-              target: "Explain dendritic boundaries using the compositor example",
-              lastInteraction: "Compared shared Wayland infrastructure with compositor-specific NixOS and Home Manager behavior",
-              returnPoint: "Nathan explains the corrected pattern and provisional aspect boundary",
+              target: "Choose aspect boundaries by capability ownership, not repeated lines",
+              lastInteraction: "Nathan rejected a broad shared Wayland aspect: Thunar and each compositor should own their behavior separately",
+              returnPoint: "Explain when Xwayland earns an independent aspect instead of belonging to Hyprland",
               nextAction: "Record the final explanation and experience verdict",
-              route: addRoute(state, "Resume target completed", "The route used one bounded comparison rather than attempting migration")
-            }, "The resumed session began at the unresolved question, not at generic review.");
+              route: addRoute(state, "Prepared boundary replaced", "Repeated settings did not override Nathan's capability-centered reasoning")
+            }, "The resumed session returned to the right question, but Nathan found the recap longer than necessary.");
           case "FINAL_EXPLANATION":
             return accept(state, {
               status: "ready for verdict",
-              lastInteraction: "Nathan explained feature closure, composition mechanism, host selection, and inspectability tradeoff",
+              lastInteraction: "Nathan applied feature closure to separate Thunar, Hyprland, Niri, and Mango aspects, with Xwayland conditional on independent selection",
               returnPoint: "Collect the product verdict",
               nextAction: "Decide whether the experience felt agentic and simpler",
               evidence: addEvidence(state, "Goal-level explanation", "Fresh synthesis; demonstrates the scoped success condition")
             }, "Learning goal evidence is ready for Nathan's product verdict; the path is not auto-completed.");
+          case "PRODUCT_VERDICT":
+            if (state.status !== "ready for verdict") return reject(state, "Verdict blocked: complete the resumed goal-level explanation first.");
+            return accept(state, {
+              status: "validated with repair",
+              lastInteraction: "Nathan validated the model; resume was correct but too verbose",
+              returnPoint: "Nathan alone decides whether the Learning goal is complete",
+              nextAction: "Carry the validated interaction contract into planning",
+              unresolved: ["Keep resume reconstruction shorter than this prototype's recap"],
+              evidence: addEvidence(state, "Product verdict", "Agentic and simpler after repair; preserve challenges changing the route and capability-centered application"),
+              route: addRoute(state, "Prototype validated with repair", "Teach before assessing, let challenges correct the route, and shorten resume reconstruction")
+            }, "Verdict captured without implementing the destination or auto-completing the Learning path.");
           case "SILENT_SOURCE":
             return reject(state, "Rejected: a Learning path may propose a Source but cannot admit one without Nathan's explicit choice.");
           case "RETROACTIVE_ASSESSMENT":
@@ -455,6 +466,7 @@
       ["RESUME", "Resume session", "Reconstruct purpose and next action"],
       ["COMPARE_COMPOSITORS", "Compare compositors", "Address the unresolved question"],
       ["FINAL_EXPLANATION", "Record explanation", "Reach the stated success condition"],
+      ["PRODUCT_VERDICT", "Record product verdict", "Validate the model with required repairs"],
       ["SILENT_SOURCE", "Silently admit a Source", "Guardrail test"],
       ["RETROACTIVE_ASSESSMENT", "Relabel discussion as Quiz", "Guardrail test"],
       ["REWRITE_HISTORY", "Rewrite completed route", "Guardrail test"]
@@ -486,7 +498,8 @@
         steps: [
           ["RESUME", "Resume without absence commentary"],
           ["COMPARE_COMPOSITORS", "Address the exact parked question"],
-          ["FINAL_EXPLANATION", "Record goal-level evidence without auto-completing the path"]
+          ["FINAL_EXPLANATION", "Record goal-level evidence without auto-completing the path"],
+          ["PRODUCT_VERDICT", "Capture validation, repairs, and the shorter-resume requirement"]
         ]
       },
       {
