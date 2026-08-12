@@ -6,10 +6,16 @@ export const syntheticOperationKind = "synthetic-adapter-roundtrip" as const;
 
 export type OperationStatus = "queued" | "processing" | "completed" | "failed";
 
+/** The terminal artifacts a completed operation exposes. */
+export interface OperationResult {
+  artifactUrl: string;
+  vaultPath: string;
+}
+
 export interface PublicOperation {
   id: string;
   status: OperationStatus;
-  result?: { artifactUrl: string; vaultPath: string };
+  result?: OperationResult;
   error?: string;
 }
 
@@ -17,30 +23,31 @@ export function isTerminalStatus(status: OperationStatus): boolean {
   return status === "completed" || status === "failed";
 }
 
-/** Submit one synthetic operation through the public control plane. */
-export async function submitSyntheticOperation(
-  input: string,
-  baseUrl = "",
+/** Read a control-plane response as an operation, surfacing failures as errors. */
+async function readOperation(
+  response: Response,
+  failure: string,
 ): Promise<PublicOperation> {
-  const response = await fetch(`${baseUrl}/api/operations`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ kind: syntheticOperationKind, input }),
-  });
   if (!response.ok) {
-    throw new Error("The operation could not be submitted");
+    throw new Error(failure);
   }
   return (await response.json()) as PublicOperation;
 }
 
-/** Observe one previously submitted operation. */
-export async function getOperation(
-  id: string,
-  baseUrl = "",
+/** Submit one synthetic operation through the public control plane. */
+export async function submitSyntheticOperation(
+  input: string,
 ): Promise<PublicOperation> {
-  const response = await fetch(`${baseUrl}/api/operations/${id}`);
-  if (!response.ok) {
-    throw new Error("The operation status could not be read");
-  }
-  return (await response.json()) as PublicOperation;
+  const response = await fetch("/api/operations", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ kind: syntheticOperationKind, input }),
+  });
+  return readOperation(response, "The operation could not be submitted");
+}
+
+/** Observe one previously submitted operation. */
+export async function getOperation(id: string): Promise<PublicOperation> {
+  const response = await fetch(`/api/operations/${id}`);
+  return readOperation(response, "The operation status could not be read");
 }
