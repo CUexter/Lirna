@@ -50,6 +50,18 @@ export default defineConfig({
           testTimeout: 60_000,
         },
       },
+      {
+        // The Phase 0 gate: one consolidated body of evidence driven through the
+        // application scenario seam against disposable real infrastructure.
+        test: {
+          name: "gate",
+          globals: true,
+          environment: "node",
+          include: ["tests/gate/**/*.test.ts"],
+          hookTimeout: 120_000,
+          testTimeout: 120_000,
+        },
+      },
     ],
   },
 });

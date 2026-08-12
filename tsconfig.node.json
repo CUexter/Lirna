@@ -19,6 +19,8 @@
     "server/**/*.ts",
     "tests/integration/**/*.ts",
     "tests/e2e/**/*.ts",
+    "tests/gate/**/*.ts",
+    "tests/support/**/*.ts",
     "client/vite.config.ts",
     "vitest.config.ts"
   ]

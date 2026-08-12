@@ -102,12 +102,18 @@ Tests are placed by what they touch (a test's folder or colocation declares it):
 | Unit | colocated `*.test.ts(x)` beside source | nothing real (in-process only) | `npm run test:unit` |
 | Integration | `tests/integration/` | real PostgreSQL / API / filesystem, no browser | `npm run test:integration` |
 | e2e | `tests/e2e/` | the full system through a real browser | `npm run test:e2e` |
+| Gate | `tests/gate/` | one consolidated Phase 0 body of evidence through the application scenario seam | `npm run test:gate` |
 
 ```sh
 npm run typecheck
 npm run build
 npm test
 ```
+
+The Phase 0 gate (`tests/gate/`, see [docs/phase-0-gate.md](docs/phase-0-gate.md))
+is one reproducible body of evidence for the architecture skeleton's riskiest
+authority, durability, artifact, workflow, and policy promises, driven through a
+single application scenario seam (`tests/support/phase-0-scenario.ts`).
 
 `npm run build` compiles the production client into `dist/client`; the e2e check
 serves that build, so run `npm run build` before `npm test`. The integration and
