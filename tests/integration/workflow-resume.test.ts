@@ -11,11 +11,11 @@ import { WorkflowExecutor } from "../../server/workflows/workflow-executor.js";
 import type { WorkflowDefinition } from "../../server/workflows/workflow-definition.js";
 import {
   WorkflowRunRepository,
-  type StepLease,
 } from "../../server/workflows/workflow-run-repository.js";
+import { forceWorkflowLeaseExpiry } from "./workflow-test-support.js";
 
 /**
- * End-to-end scenario for the workflow kernel. It crosses the API, the
+ * Integration scenario for the workflow kernel. It crosses the API, the
  * workflow executor (worker), PostgreSQL, and the content-addressed artifact
  * registry; it survives a simulated worker loss and resumes from the last
  * committed checkpoint; and it verifies both successful and denied behavior at
@@ -88,26 +88,6 @@ describe("typed workflow resume after worker interruption", () => {
     };
   }
 
-  async function forceExpiry(
-    runs: WorkflowRunRepository,
-    runId: string,
-    lease: StepLease,
-  ): Promise<void> {
-    // Access the repository's pool to simulate a lease expiring before the
-    // worker could commit. This is a test-only seam into durable state.
-    const pool = (
-      runs as unknown as {
-        pool: { query: (q: string, p: unknown[]) => Promise<unknown> };
-      }
-    ).pool;
-    await pool.query(
-      `UPDATE workflow_step_attempts
-          SET lease_until = now() - interval '1 second'
-        WHERE run_id = $1 AND step_index = $2 AND attempt = $3`,
-      [runId, lease.stepIndex, lease.attempt],
-    );
-  }
-
   beforeAll(async () => {
     if (process.env.TEST_DATABASE_URL) {
       databaseUrl = process.env.TEST_DATABASE_URL;
@@ -118,7 +98,7 @@ describe("typed workflow resume after worker interruption", () => {
       stopDatabase = () => database.stop().then(() => undefined);
     }
     await migrate(databaseUrl);
-    temporaryRoot = await mkdtemp(join(tmpdir(), "lirna-workflow-e2e-"));
+    temporaryRoot = await mkdtemp(join(tmpdir(), "lirna-workflow-integration-"));
   });
 
   afterAll(async () => {
@@ -164,11 +144,20 @@ describe("typed workflow resume after worker interruption", () => {
       // before committing. The lease is expired directly to model the loss.
       const lostLease = (await scenario.runs.claimNextStep(runId))!;
       expect(lostLease.stepIndex).toBe(1);
-      await forceExpiry(scenario.runs, runId, lostLease);
+      await forceWorkflowLeaseExpiry(databaseUrl, runId, lostLease);
 
       // A restarted executor resumes from the last committed checkpoint: it
       // re-leases step 1 (a new attempt) and commits exactly one checkpoint.
-      expect(await scenario.executor.runOnce()).toBe(true);
+      const restartedStore = new FileArtifactStore(join(temporaryRoot, "artifacts"));
+      const restartedRegistry = new ArtifactRegistry(databaseUrl, restartedStore);
+      const restartedRuns = new WorkflowRunRepository(databaseUrl, restartedRegistry);
+      const restartedExecutor = new WorkflowExecutor(restartedRuns);
+      try {
+        expect(await restartedExecutor.runOnce()).toBe(true);
+      } finally {
+        await restartedRuns.close();
+        await restartedRegistry.close();
+      }
 
       view = (await (
         await fetch(`${scenario.address}/api/workflow-runs/${runId}`)

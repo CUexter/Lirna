@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ArtifactRegistry } from "../../server/artifacts/artifact-registry.js";
 import { FileArtifactStore } from "../../server/artifacts/file-artifact-store.js";
 import { migrate } from "../../server/database/migrate.js";
@@ -14,9 +14,13 @@ import {
   ArtifactValidationError,
   WorkflowCommitError,
   WorkflowRunRepository,
+  WorkflowDefinitionError,
   type RunView,
-  type StepLease,
 } from "../../server/workflows/workflow-run-repository.js";
+import {
+  forceWorkflowLeaseExpiry,
+  queryWorkflowDatabase,
+} from "./workflow-test-support.js";
 
 /**
  * Focused invariant tests at the WorkflowRunRepository seam. They prove the
@@ -72,19 +76,6 @@ describe("workflow run invariants", () => {
       },
     ],
   };
-
-  async function forceExpiry(runId: string, lease: StepLease): Promise<void> {
-    await (
-      runs as unknown as {
-        pool: { query: (q: string, p: unknown[]) => Promise<unknown> };
-      }
-    ).pool.query(
-      `UPDATE workflow_step_attempts
-          SET lease_until = now() - interval '1 second'
-        WHERE run_id = $1 AND step_index = $2 AND attempt = $3`,
-      [runId, lease.stepIndex, lease.attempt],
-    );
-  }
 
   function workSubmission(
     summary: string,
@@ -344,7 +335,7 @@ describe("workflow run invariants", () => {
     expect(lostLease?.attempt).toBe(1);
 
     // Simulate worker loss: expire the first lease directly.
-    await forceExpiry(run.id, lostLease);
+    await forceWorkflowLeaseExpiry(databaseUrl, run.id, lostLease);
 
     // A second worker can now lease the same step; it gets a new attempt.
     const secondLease = (await runs.claimNextStep(run.id))!;
@@ -461,11 +452,11 @@ describe("workflow run invariants", () => {
 
     const first = (await runs.claimNextStep(run.id))!;
     expect(first?.attempt).toBe(1);
-    await forceExpiry(run.id, first);
+    await forceWorkflowLeaseExpiry(databaseUrl, run.id, first);
 
     const second = (await runs.claimNextStep(run.id))!;
     expect(second?.attempt).toBe(2);
-    await forceExpiry(run.id, second);
+    await forceWorkflowLeaseExpiry(databaseUrl, run.id, second);
 
     // A third lease exceeds maxAttempts: the run fails and no lease is returned.
     const third = await runs.claimNextStep(run.id);
@@ -483,7 +474,8 @@ describe("workflow run invariants", () => {
     await runs.commitCheckpoint(run.id, lease, workSubmission("sealed"));
 
     await expect(
-      (runs as unknown as { pool: { query: (q: string, p: unknown[]) => Promise<unknown> } }).pool.query(
+      queryWorkflowDatabase(
+        databaseUrl,
         `UPDATE workflow_step_attempts SET artifact_hash = 'tampered'
           WHERE run_id = $1 AND step_index = 0`,
         [run.id],
@@ -491,10 +483,74 @@ describe("workflow run invariants", () => {
     ).rejects.toThrow(/immutable/);
 
     await expect(
-      (runs as unknown as { pool: { query: (q: string, p: unknown[]) => Promise<unknown> } }).pool.query(
+      queryWorkflowDatabase(
+        databaseUrl,
         `DELETE FROM workflow_step_attempts WHERE run_id = $1 AND step_index = 0`,
         [run.id],
       ),
     ).rejects.toThrow(/immutable/);
+  });
+
+  it("refuses malformed workflow declarations", async () => {
+    const malformed = [
+      { ...workflow, workflowId: "invalid-kind", steps: [{ ...workflow.steps[0], kind: "other" }] },
+      {
+        ...workflow,
+        workflowId: "invalid-shape",
+        steps: [{ ...workflow.steps[0], artifactShape: { type: "number" } }],
+      },
+      {
+        ...workflow,
+        workflowId: "invalid-reference",
+        steps: [
+          {
+            ...workflow.steps[0],
+            requiredReferences: [{ kind: "citation", min: -1 }],
+          },
+        ],
+      },
+    ];
+
+    for (const definition of malformed) {
+      await expect(
+        runs.declare(definition as unknown as WorkflowDefinition),
+      ).rejects.toBeInstanceOf(WorkflowDefinitionError);
+    }
+  });
+
+  it("uses database time to decide whether a lease is active", async () => {
+    const run = await freshRun();
+    const lease = (await runs.claimNextStep(run.id))!;
+    const clock = vi
+      .spyOn(Date, "now")
+      .mockReturnValue(Date.now() + 24 * 60 * 60 * 1000);
+    try {
+      expect((await runs.view(run.id))?.budgets[0]?.activeLease).toBe(true);
+      await expect(
+        runs.commitCheckpoint(run.id, lease, workSubmission("database clock")),
+      ).resolves.toMatchObject({ stepIndex: 0 });
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it("refuses to rewrite a workflow definition at the database boundary", async () => {
+    await expect(
+      queryWorkflowDatabase(
+        databaseUrl,
+        `UPDATE workflow_definitions SET definition = '{}'::jsonb
+          WHERE workflow_id = $1 AND version = $2`,
+        [workflow.workflowId, workflow.version],
+      ),
+    ).rejects.toThrow(/append-only/);
+
+    await expect(
+      queryWorkflowDatabase(
+        databaseUrl,
+        `DELETE FROM workflow_definitions
+          WHERE workflow_id = $1 AND version = $2`,
+        [workflow.workflowId, workflow.version],
+      ),
+    ).rejects.toThrow(/append-only/);
   });
 });

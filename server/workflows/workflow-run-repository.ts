@@ -281,6 +281,7 @@ export class WorkflowRunRepository {
           ORDER BY step_index`,
         [runId],
       );
+      const databaseTime = await client.query<{ now: Date }>("SELECT now()");
       await client.query("COMMIT");
 
       const attemptViews = attempts.rows.map(mapAttempt);
@@ -304,7 +305,11 @@ export class WorkflowRunRepository {
             committedAt: attempt.committedAt!,
           })),
         gates: gates.rows.map(mapGate),
-        budgets: budgetViews(definition, attemptViews),
+        budgets: budgetViews(
+          definition,
+          attemptViews,
+          databaseTime.rows[0]!.now.getTime(),
+        ),
       };
     } catch (error) {
       await client.query("ROLLBACK");
@@ -423,13 +428,14 @@ export class WorkflowRunRepository {
 
       const attempt = attemptsUsed + 1;
       const leaseId = randomUUID();
-      const leaseUntil = new Date(Date.now() + step.budget.leaseSeconds * 1000);
-      await client.query(
+      const inserted = await client.query<{ lease_until: Date }>(
         `INSERT INTO workflow_step_attempts
            (run_id, step_index, attempt, step_id, lease_id, lease_until, status)
-         VALUES ($1, $2, $3, $4, $5, $6, 'leased')`,
-        [runId, stepIndex, attempt, step.stepId, leaseId, leaseUntil],
+         VALUES ($1, $2, $3, $4, $5, now() + $6 * interval '1 second', 'leased')
+         RETURNING lease_until`,
+        [runId, stepIndex, attempt, step.stepId, leaseId, step.budget.leaseSeconds],
       );
+      const leaseUntil = inserted.rows[0]!.lease_until;
 
       if (step.kind === "human-gate") {
         await client.query(
@@ -542,9 +548,10 @@ export class WorkflowRunRepository {
     const attempt = await client.query<{
       status: AttemptStatus;
       lease_id: string;
-      lease_until: Date;
+      lease_active: boolean;
     }>(
-      `SELECT status, lease_id, lease_until FROM workflow_step_attempts
+      `SELECT status, lease_id, lease_until > now() AS lease_active
+         FROM workflow_step_attempts
         WHERE run_id = $1 AND step_index = $2 AND attempt = $3 FOR UPDATE`,
       [runId, lease.stepIndex, lease.attempt],
     );
@@ -569,7 +576,7 @@ export class WorkflowRunRepository {
         `Lease id does not match attempt ${lease.attempt} of step ${lease.stepIndex} of run ${runId}`,
       );
     }
-    if (attemptRow.lease_until.getTime() <= Date.now()) {
+    if (!attemptRow.lease_active) {
       throw new WorkflowCommitError(
         `Lease for attempt ${lease.attempt} of step ${lease.stepIndex} of run ${runId} has expired`,
       );
@@ -624,6 +631,9 @@ export class WorkflowRunRepository {
 }
 
 function assertDefinition(definition: WorkflowDefinition): void {
+  if (!isRecord(definition)) {
+    throw new WorkflowDefinitionError("workflow definition must be an object");
+  }
   if (
     typeof definition.workflowId !== "string" ||
     definition.workflowId.length === 0 ||
@@ -638,31 +648,112 @@ function assertDefinition(definition: WorkflowDefinition): void {
     throw new WorkflowDefinitionError("a workflow must declare at least one step");
   }
   const stepIds = new Set<string>();
-  for (const step of definition.steps) {
-    if (typeof step.stepId !== "string" || step.stepId.length === 0) {
+  for (const [index, candidate] of definition.steps.entries()) {
+    if (!isRecord(candidate)) {
+      throw new WorkflowDefinitionError(`step ${index} must be an object`);
+    }
+    const step = candidate as unknown as Record<string, unknown>;
+    if (
+      typeof step.stepId !== "string" ||
+      step.stepId.length === 0 ||
+      step.stepId.length > 80
+    ) {
       throw new WorkflowDefinitionError("each step requires a non-empty stepId");
     }
     if (stepIds.has(step.stepId)) {
       throw new WorkflowDefinitionError(`duplicate stepId "${step.stepId}"`);
     }
     stepIds.add(step.stepId);
-    if (
-      !Number.isInteger(step.budget.leaseSeconds) ||
-      step.budget.leaseSeconds < 1
-    ) {
+    if (!isRecord(step.budget)) {
+      throw new WorkflowDefinitionError(`step "${step.stepId}" requires a budget`);
+    }
+    if (!isPositiveInteger(step.budget.leaseSeconds)) {
       throw new WorkflowDefinitionError(
         `step "${step.stepId}" requires a positive integer leaseSeconds`,
       );
     }
-    if (
-      !Number.isInteger(step.budget.maxAttempts) ||
-      step.budget.maxAttempts < 1
-    ) {
+    if (!isPositiveInteger(step.budget.maxAttempts)) {
       throw new WorkflowDefinitionError(
         `step "${step.stepId}" requires a positive integer maxAttempts`,
       );
     }
+    if (step.kind === "work") {
+      assertArtifactShape(step.artifactShape, step.stepId, "artifactShape");
+      if (!Array.isArray(step.requiredReferences)) {
+        throw new WorkflowDefinitionError(
+          `work step "${step.stepId}" requires requiredReferences`,
+        );
+      }
+      for (const required of step.requiredReferences) {
+        if (
+          !isRecord(required) ||
+          !isReferenceKind(required.kind) ||
+          !Number.isInteger(required.min) ||
+          (required.min as number) < 0
+        ) {
+          throw new WorkflowDefinitionError(
+            `work step "${step.stepId}" has an invalid required reference`,
+          );
+        }
+      }
+    } else if (step.kind === "human-gate") {
+      if (typeof step.prompt !== "string" || step.prompt.length === 0) {
+        throw new WorkflowDefinitionError(
+          `human gate "${step.stepId}" requires a non-empty prompt`,
+        );
+      }
+      assertArtifactShape(step.decisionShape, step.stepId, "decisionShape");
+    } else {
+      throw new WorkflowDefinitionError(
+        `step "${step.stepId}" has unsupported kind "${String(step.kind)}"`,
+      );
+    }
   }
+}
+
+function assertArtifactShape(
+  candidate: unknown,
+  stepId: string,
+  field: "artifactShape" | "decisionShape",
+): void {
+  if (!isRecord(candidate) || (candidate.type !== "object" && candidate.type !== "string")) {
+    throw new WorkflowDefinitionError(
+      `step "${stepId}" ${field} must declare type "object" or "string"`,
+    );
+  }
+  if (
+    candidate.requiredKeys !== undefined &&
+    (!Array.isArray(candidate.requiredKeys) ||
+      candidate.requiredKeys.some(
+        (key) => typeof key !== "string" || key.length === 0,
+      ))
+  ) {
+    throw new WorkflowDefinitionError(
+      `step "${stepId}" ${field} requiredKeys must be non-empty strings`,
+    );
+  }
+  if (candidate.type === "string" && candidate.requiredKeys !== undefined) {
+    throw new WorkflowDefinitionError(
+      `step "${stepId}" ${field} cannot declare requiredKeys for a string`,
+    );
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 1;
+}
+
+function isReferenceKind(value: unknown): value is ArtifactReference["kind"] {
+  return (
+    value === "source" ||
+    value === "owned-note" ||
+    value === "rendition" ||
+    value === "derivative"
+  );
 }
 
 function sameDefinition(a: WorkflowDefinition, b: WorkflowDefinition): boolean {
@@ -781,13 +872,14 @@ function mapGate(row: GateRow): GateView {
 function budgetViews(
   definition: WorkflowDefinition,
   attempts: AttemptView[],
+  now: number,
 ): StepBudgetView[] {
   return definition.steps.map((step, index) => {
     const forStep = attempts.filter((attempt) => attempt.stepIndex === index);
     const activeLease = forStep.some(
       (attempt) =>
         attempt.status === "leased" &&
-        new Date(attempt.leaseUntil).getTime() > Date.now(),
+        new Date(attempt.leaseUntil).getTime() > now,
     );
     return {
       stepIndex: index,

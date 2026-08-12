@@ -150,6 +150,22 @@ export async function migrate(databaseUrl: string): Promise<void> {
         PRIMARY KEY (workflow_id, version)
       )
     `);
+    await client.query(`
+      CREATE OR REPLACE FUNCTION reject_workflow_definition_mutation()
+        RETURNS trigger AS $$
+      BEGIN
+        RAISE EXCEPTION 'workflow_definitions is append-only';
+      END;
+      $$ LANGUAGE plpgsql
+    `);
+    await client.query(`
+      DROP TRIGGER IF EXISTS workflow_definition_immutable ON workflow_definitions
+    `);
+    await client.query(`
+      CREATE TRIGGER workflow_definition_immutable
+        BEFORE UPDATE OR DELETE ON workflow_definitions
+        FOR EACH ROW EXECUTE FUNCTION reject_workflow_definition_mutation()
+    `);
 
     // One durable workflow run. current_step is the index of the next step to
     // lease; committing a checkpoint advances it. Identity (id) is stable
