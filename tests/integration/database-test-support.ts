@@ -14,6 +14,8 @@ export async function executeTestSql(db: LirnaDatabase, query: SQL): Promise<voi
 export async function resetTestDatabase(db: LirnaDatabase): Promise<void> {
   await db.execute(sql.raw(`
       TRUNCATE TABLE
+        sources,
+        source_states,
         application_operations,
         synthetic_records,
         synthetic_record_revisions,

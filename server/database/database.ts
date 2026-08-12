@@ -3,6 +3,7 @@ import pg from "pg";
 import * as artifactSchema from "../artifacts/schema.js";
 import * as domainSchema from "../domain/schema.js";
 import * as operationSchema from "../operations/schema.js";
+import * as sourceSchema from "../sources/schema.js";
 import * as workflowSchema from "../workflows/schema.js";
 
 const { Pool } = pg;
@@ -11,6 +12,7 @@ const schema = {
   ...artifactSchema,
   ...domainSchema,
   ...operationSchema,
+  ...sourceSchema,
   ...workflowSchema,
 };
 

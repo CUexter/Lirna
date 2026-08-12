@@ -2,6 +2,7 @@ import { serve, type ServerType } from "@hono/node-server";
 import { Hono } from "hono";
 import type { ApiDependencies, DomainContract } from "./api-contracts.js";
 import { registerOperationRoutes } from "./operation-routes.js";
+import { registerSourceRoutes } from "./source-routes.js";
 import { serveClient } from "./static-client.js";
 import { registerSyntheticRecordRoutes } from "./synthetic-record-routes.js";
 import { registerWorkflowRoutes } from "./workflow-routes.js";
@@ -16,6 +17,7 @@ export interface ApiServer {
 export function createApi(dependencies: ApiDependencies): ApiServer {
   const app = new Hono();
   registerOperationRoutes(app, dependencies);
+  registerSourceRoutes(app, dependencies);
   registerWorkflowRoutes(app, dependencies);
   registerSyntheticRecordRoutes(app, dependencies);
   app.get("*", (c) => {

@@ -12,6 +12,7 @@ try {
     "server/domain/schema.ts",
     "server/artifacts/schema.ts",
     "server/workflows/schema.ts",
+    "server/sources/schema.ts",
   ];
   for (const file of schemaFiles) {
     const path = join(temporaryRoot, file);

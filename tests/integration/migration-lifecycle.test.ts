@@ -54,13 +54,18 @@ describe("committed migration lifecycle", () => {
         )
       `);
 
-      // Recreate a database at the committed baseline, then apply the next
-      // migration exactly as an existing installation would.
+      // Recreate a database at the committed baseline, then apply the forward
+      // migrations exactly as an existing installation would.
+      await database.db.execute(sql`drop table source_states`);
+      await database.db.execute(sql`drop table sources`);
+      await database.db.execute(sql`drop function reject_source_state_mutation()`);
       await database.db.execute(sql`drop table artifact_registrations`);
       await database.db.execute(sql`drop function reject_artifact_registration_mutation()`);
       await database.db.execute(sql`
         delete from drizzle.__drizzle_migrations
-        where created_at = (select max(created_at) from drizzle.__drizzle_migrations)
+        where created_at in (
+          select created_at from drizzle.__drizzle_migrations order by created_at desc limit 2
+        )
       `);
 
       await applyMigrations(database.db);
@@ -92,11 +97,12 @@ describe("committed migration lifecycle", () => {
         from information_schema.triggers
         where trigger_schema = 'public' and trigger_name in (
           'artifact_identity_immutable', 'artifact_registration_immutable',
+          'source_states_immutable',
           'synthetic_history_immutable', 'workflow_definition_immutable',
           'workflow_routing_immutable', 'workflow_checkpoint_immutable'
         )
       `);
-      expect(invariantTriggers.rows[0]?.count).toBe("6");
+      expect(invariantTriggers.rows[0]?.count).toBe("7");
 
       const domain = new DomainDatabase(database.db);
       const recordId = randomUUID();

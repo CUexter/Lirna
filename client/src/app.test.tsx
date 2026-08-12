@@ -18,6 +18,14 @@ function renderApp() {
   render(<App queryClient={queryClient} router={router} />);
 }
 
+function renderAppAt(path: string) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const router = createAppRouter(createMemoryHistory({ initialEntries: [path] }));
+  render(<App queryClient={queryClient} router={router} />);
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -86,5 +94,59 @@ describe("tracer application shell", () => {
         name: "Open the stored synthetic artifact",
       }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("Source encounter", () => {
+  it("keeps the stable destinations available", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    renderApp();
+
+    for (const destination of ["Research", "Read", "Learn", "Sources", "Notes"]) {
+      expect(await screen.findByRole("link", { name: destination })).toBeInTheDocument();
+    }
+  });
+
+  it("explicitly admits a text Source and reads normalized text with authoritative evidence one action away", async () => {
+    const source = {
+      id: "source-1",
+      title: "A synthetic publication",
+      admittedAt: "2026-08-13T00:00:00.000Z",
+      state: {
+        id: "state-1",
+        normalizedText: "First line.\n\nSecond line.",
+        rightsBasis: "publicly-accessible",
+        sensitivityLevel: "ordinary-cloud",
+        admittedAt: "2026-08-13T00:00:00.000Z",
+      },
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, status: 201, json: async () => source })
+      .mockResolvedValueOnce({ ok: true, json: async () => source })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ authoritativeText: "First line.\r\n\r\n   Second   line.  " }) });
+    vi.stubGlobal("fetch", fetchMock);
+    renderAppAt("/sources");
+
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText("Title"), source.title);
+    await user.type(screen.getByLabelText("Publication text"), "First line.\r\n\r\n   Second   line.  ");
+    await user.selectOptions(screen.getByLabelText("Rights basis"), source.state.rightsBasis);
+    await user.selectOptions(screen.getByLabelText("Sensitivity level"), source.state.sensitivityLevel);
+    await user.click(screen.getByRole("button", { name: "Admit Source" }));
+
+    expect(await screen.findByRole("heading", { name: source.title })).toBeInTheDocument();
+    expect(document.querySelector("[data-normalized-text]")).toHaveTextContent(/First line\.\s+Second line\./);
+    expect(screen.queryByText(/Second   line/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "View authoritative evidence" }));
+    expect(document.querySelector("[data-authoritative-evidence]")?.textContent).toBe("First line.\r\n\r\n   Second   line.  ");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/sources",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.not.stringContaining("actor"),
+      }),
+    );
   });
 });

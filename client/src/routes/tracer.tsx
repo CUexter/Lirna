@@ -59,7 +59,7 @@ export function TracerRoute() {
             Run operation
           </Button>
           <span className="font-mono text-xs text-muted-foreground">
-            Status: <strong data-status>{operation.status}</strong>
+            Status: <strong data-operation-status>{operation.status}</strong>
           </span>
         </div>
         <div className="mt-5 min-h-6 text-sm" aria-live="polite">
