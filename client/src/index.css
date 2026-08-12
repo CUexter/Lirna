@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+/*
+ * The application shell owns a small, locally defined token set. shadcn/ui
+ * component source reads these tokens through Tailwind utility classes, so the
+ * component foundation stays accessible and locally owned without importing an
+ * external theme package.
+ */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+}
+
+:root {
+  --radius: 0.25rem;
+  --background: #17130f;
+  --foreground: #f3eadb;
+  --card: #211a13;
+  --card-foreground: #f3eadb;
+  --primary: #dc9d4b;
+  --primary-foreground: #17130f;
+  --secondary: #332617;
+  --secondary-foreground: #f3eadb;
+  --muted: #211a13;
+  --muted-foreground: #aa9c89;
+  --accent: #332617;
+  --accent-foreground: #f3eadb;
+  --destructive: #e0653f;
+  --border: #6d563b;
+  --input: #6d563b;
+  --ring: #d69a4a;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at 15% 10%, #332617 0, #17130f 48%);
+  color: var(--foreground);
+  font-family: system-ui, sans-serif;
+}

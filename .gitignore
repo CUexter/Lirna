@@ -1,3 +1,4 @@
 .lirna/
 dist/
 node_modules/
+*.tsbuildinfo

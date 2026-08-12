@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { extname, resolve, sep } from "node:path";
 import type { ArtifactStore } from "../artifacts/file-artifact-store.js";
 import {
   syntheticOperationKind,
@@ -12,7 +12,23 @@ import {
 interface ApiDependencies {
   operations: OperationRepository;
   artifacts: ArtifactStore;
+  /** Root of the built Vite client. Defaults to `dist/client`. */
+  clientRoot?: string;
 }
+
+const contentTypes: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".webmanifest": "application/manifest+json; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".ico": "image/x-icon",
+  ".woff2": "font/woff2",
+  ".map": "application/json; charset=utf-8",
+};
 
 export interface ApiServer {
   listen(port?: number, host?: string): Promise<string>;
@@ -54,24 +70,6 @@ async function route(
   dependencies: ApiDependencies,
 ): Promise<void> {
   const url = new URL(request.url ?? "/", "http://lirna.local");
-
-  const staticFiles: Record<string, [string, string]> = {
-    "/": ["index.html", "text/html; charset=utf-8"],
-    "/app.js": ["app.js", "text/javascript; charset=utf-8"],
-    "/icon.svg": ["icon.svg", "image/svg+xml"],
-    "/manifest.webmanifest": [
-      "manifest.webmanifest",
-      "application/manifest+json; charset=utf-8",
-    ],
-    "/service-worker.js": ["service-worker.js", "text/javascript; charset=utf-8"],
-  };
-  const staticFile = staticFiles[url.pathname];
-  if (request.method === "GET" && staticFile) {
-    const content = await readFile(resolve("public", staticFile[0]));
-    response.writeHead(200, { "content-type": staticFile[1] });
-    response.end(content);
-    return;
-  }
 
   if (request.method === "POST" && url.pathname === "/api/operations") {
     const body = await readJson(request);
@@ -123,7 +121,49 @@ async function route(
     return;
   }
 
+  if (request.method === "GET" && !url.pathname.startsWith("/api/")) {
+    await serveClient(url.pathname, response, dependencies.clientRoot);
+    return;
+  }
+
   sendJson(response, 404, { error: "Not found" });
+}
+
+/**
+ * Serve the built Vite client as static assets, falling back to the SPA shell
+ * so TanStack Router owns in-app navigation. The control plane never interprets
+ * client routes; unknown non-API paths return the shell.
+ */
+async function serveClient(
+  pathname: string,
+  response: ServerResponse,
+  clientRoot = resolve("dist/client"),
+): Promise<void> {
+  const root = resolve(clientRoot);
+  const requested = resolve(root, `.${pathname}`);
+  const isAsset =
+    pathname !== "/" &&
+    (requested === root || requested.startsWith(root + sep)) &&
+    Boolean(extname(requested));
+
+  // A request that names a concrete asset resolves to that file or 404s; only
+  // extensionless (route) paths fall back to the SPA shell.
+  if (isAsset) {
+    const asset = await readFile(requested).catch(() => undefined);
+    if (!asset) {
+      sendJson(response, 404, { error: "Not found" });
+      return;
+    }
+    response.writeHead(200, {
+      "content-type": contentTypes[extname(requested)] ?? "application/octet-stream",
+    });
+    response.end(asset);
+    return;
+  }
+
+  const shell = await readFile(resolve(root, "index.html"));
+  response.writeHead(200, { "content-type": contentTypes[".html"]! });
+  response.end(shell);
 }
 
 function publicOperation(operation: ApplicationOperation): object {

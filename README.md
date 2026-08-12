@@ -3,6 +3,10 @@
 Lirna is a first-party, self-hosted personal research and learning application
 for desktop and mobile. The current executable skeleton proves the PWA, API,
 worker, PostgreSQL, artifact storage, and synthetic Vault adapter as one system.
+The client is a Vite-built React application (TanStack Router, TanStack Query,
+Tailwind CSS, and locally owned shadcn/ui component source) served as static
+assets by the `node:http` control plane; routing and server-state observation
+stay entirely on the client.
 
 The canonical planning artifact lives in this repository's GitHub Issues as a
 Wayfinder map. Earlier [Ariadne](https://github.com/CUexter/ariadne) discussions
@@ -31,19 +35,32 @@ npm run db:up
 ```
 
 Wait for PostgreSQL to report healthy with `docker compose ps`, then start the
-API/PWA and worker together:
+API, worker, and Vite client dev server together:
 
 ```sh
 npm run dev
 ```
 
-Open <http://localhost:3000>. The page submits one synthetic operation through
-the public API and observes the worker's result. Phase 0 uses only replaceable
-filesystem adapters under `.lirna/artifacts` and `.lirna/synthetic-vault`; it
-does not read or write `~/vaults`.
+In development, open the Vite dev server it prints (default
+<http://localhost:5173>); it proxies `/api` to the backend on port 3000. The
+page submits one synthetic operation through the public API and observes the
+worker's result. Phase 0 uses only replaceable filesystem adapters under
+`.lirna/artifacts` and `.lirna/synthetic-vault`; it does not read or write
+`~/vaults`.
 
-The processes can also be run separately with `npm run dev:api` and
-`npm run dev:worker`. Stop PostgreSQL with `npm run db:down`.
+To exercise the production layout, build the client and serve it through the
+control plane:
+
+```sh
+npm run build
+npm run start:api
+```
+
+Then open <http://localhost:3000>, where the API serves the built client.
+
+The processes can also be run separately with `npm run dev:api`,
+`npm run dev:worker`, and `npm run dev:client`. Stop PostgreSQL with
+`npm run db:down`.
 
 Runtime paths and connectivity can be overridden with `DATABASE_URL`,
 `ARTIFACT_ROOT`, `SYNTHETIC_VAULT_ROOT`, and `PORT`. No private Vault adapter
@@ -57,7 +74,9 @@ npm run build
 npm test
 ```
 
-The scenario suite starts disposable PostgreSQL through Testcontainers in local
-development. CI supplies an equally disposable PostgreSQL service through
-`TEST_DATABASE_URL`. All fixtures and adapter roots are synthetic temporary
-data.
+`npm run build` compiles the production client into `dist/client`; the
+browser-level scenario check serves that build, so run `npm run build` before
+`npm test`. The scenario suite starts disposable PostgreSQL through
+Testcontainers in local development. CI supplies an equally disposable
+PostgreSQL service through `TEST_DATABASE_URL`. All fixtures and adapter roots
+are synthetic temporary data.
