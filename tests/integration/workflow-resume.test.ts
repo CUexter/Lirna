@@ -13,6 +13,7 @@ import {
   WorkflowRunRepository,
 } from "../../server/workflows/workflow-run-repository.js";
 import { forceWorkflowLeaseExpiry } from "./workflow-test-support.js";
+import { resetTestDatabase } from "./database-test-support.js";
 
 /**
  * Integration scenario for the workflow kernel. It crosses the API, the
@@ -98,6 +99,7 @@ describe("typed workflow resume after worker interruption", () => {
       stopDatabase = () => database.stop().then(() => undefined);
     }
     await migrate(databaseUrl);
+    await resetTestDatabase(databaseUrl);
     temporaryRoot = await mkdtemp(join(tmpdir(), "lirna-workflow-integration-"));
   });
 

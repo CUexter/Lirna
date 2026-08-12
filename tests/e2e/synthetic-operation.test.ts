@@ -15,6 +15,7 @@ import { OperationRepository } from "../../server/operations/operation-repositor
 import { SyntheticVaultAdapter } from "../../server/vault/synthetic-vault-adapter.js";
 import { OperationWorker } from "../../server/worker/operation-worker.js";
 import type { WorkflowRunRepository } from "../../server/workflows/workflow-run-repository.js";
+import { resetTestDatabase } from "../integration/database-test-support.js";
 
 describe("synthetic application operation", () => {
   let databaseUrl: string;
@@ -59,6 +60,8 @@ describe("synthetic application operation", () => {
       databaseUrl = database.getConnectionUri();
       stopDatabase = () => database.stop().then(() => undefined);
     }
+    await migrate(databaseUrl);
+    await resetTestDatabase(databaseUrl);
     temporaryRoot = await mkdtemp(join(tmpdir(), "lirna-scenario-"));
   });
 

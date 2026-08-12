@@ -10,6 +10,7 @@ import {
   ArtifactRegistry,
   type ArtifactMetadata,
 } from "../../server/artifacts/artifact-registry.js";
+import { resetTestDatabase } from "./database-test-support.js";
 
 /**
  * Integration tests at the ArtifactRegistry contract seam. They prove that an
@@ -36,6 +37,7 @@ describe("artifact registry", () => {
       stopDatabase = () => container.stop().then(() => undefined);
     }
     await migrate(databaseUrl);
+    await resetTestDatabase(databaseUrl);
     temporaryRoot = await mkdtemp(join(tmpdir(), "lirna-artifacts-"));
     store = new FileArtifactStore(join(temporaryRoot, "artifacts"));
     registry = new ArtifactRegistry(databaseUrl, store);

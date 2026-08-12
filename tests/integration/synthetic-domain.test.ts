@@ -7,6 +7,7 @@ import {
   ModuleWriteOwnershipError,
   RevisionInvariantError,
 } from "../../server/domain/synthetic-domain.js";
+import { resetTestDatabase } from "./database-test-support.js";
 
 /**
  * Focused invariant tests at the module contract seam. These prove the
@@ -29,6 +30,7 @@ describe("synthetic domain invariants", () => {
       stopDatabase = () => container.stop().then(() => undefined);
     }
     await migrate(databaseUrl);
+    await resetTestDatabase(databaseUrl);
     database = new DomainDatabase(databaseUrl);
   });
 

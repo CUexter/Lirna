@@ -21,6 +21,7 @@ import {
   forceWorkflowLeaseExpiry,
   queryWorkflowDatabase,
 } from "./workflow-test-support.js";
+import { resetTestDatabase } from "./database-test-support.js";
 
 /**
  * Focused invariant tests at the WorkflowRunRepository seam. They prove the
@@ -114,6 +115,7 @@ describe("workflow run invariants", () => {
       stopDatabase = () => container.stop().then(() => undefined);
     }
     await migrate(databaseUrl);
+    await resetTestDatabase(databaseUrl);
     temporaryRoot = await mkdtemp(join(tmpdir(), "lirna-workflows-"));
     store = new FileArtifactStore(join(temporaryRoot, "artifacts"));
     registry = new ArtifactRegistry(databaseUrl, store);
