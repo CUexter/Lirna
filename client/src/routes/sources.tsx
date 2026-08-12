@@ -3,7 +3,15 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { admitTextSource, readAuthoritativeEvidence, readSource } from "@/lib/sources";
+import {
+  admitTextSource,
+  readAuthoritativeEvidence,
+  readSource,
+  rightsBasisOptions,
+  sensitivityLevelOptions,
+  type RightsBasis,
+  type SensitivityLevel,
+} from "@/lib/sources";
 
 const fieldClass = "mt-2 w-full rounded-md border border-input bg-card px-3 py-2 text-foreground";
 
@@ -15,11 +23,13 @@ export function SourcesRoute() {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const source = await admission.mutateAsync({
+      accessToken: String(form.get("accessToken")),
       title: String(form.get("title")),
       text: String(form.get("text")),
-      rightsBasis: String(form.get("rightsBasis")),
-      sensitivityLevel: String(form.get("sensitivityLevel")),
+      rightsBasis: String(form.get("rightsBasis")) as RightsBasis,
+      sensitivityLevel: String(form.get("sensitivityLevel")) as SensitivityLevel,
     });
+    sessionStorage.setItem("lirna.humanAccessToken", String(form.get("accessToken")));
     await navigate({ to: "/sources/$sourceId", params: { sourceId: source.id } });
   }
 
@@ -31,29 +41,25 @@ export function SourcesRoute() {
         Admission is a deliberate library commitment. Choose the policy for this exact Source state.
       </p>
       <form onSubmit={submit} className="mt-10 grid gap-6 border-t border-border pt-8">
+        <label className="text-sm font-semibold">Access token
+          <input className={fieldClass} name="accessToken" type="password" required autoComplete="current-password" />
+        </label>
         <label className="text-sm font-semibold">Title
           <input className={fieldClass} name="title" required maxLength={300} />
         </label>
         <label className="text-sm font-semibold">Publication text
-          <Textarea className="mt-2" name="text" required maxLength={12_000} />
+          <Textarea className="mt-2" name="text" required />
         </label>
         <div className="grid gap-6 sm:grid-cols-2">
           <label className="text-sm font-semibold">Rights basis
             <select className={fieldClass} name="rightsBasis" defaultValue="" required>
               <option value="" disabled>Select a basis</option>
-              <option value="owned">Nathan-created or owned</option>
-              <option value="lawfully-acquired">Lawfully acquired for personal use</option>
-              <option value="publicly-accessible">Publicly accessible</option>
-              <option value="explicitly-licensed">Explicitly licensed</option>
-              <option value="reference-only">Reference-only</option>
-              <option value="inaccessible">Inaccessible</option>
+              {rightsBasisOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
           <label className="text-sm font-semibold">Sensitivity level
             <select className={fieldClass} name="sensitivityLevel" defaultValue="ordinary-cloud" required>
-              <option value="ordinary-cloud">Ordinary cloud</option>
-              <option value="restricted-cloud">Restricted cloud</option>
-              <option value="local-only">Local only</option>
+              {sensitivityLevelOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
         </div>
@@ -67,11 +73,12 @@ export function SourcesRoute() {
 }
 
 export function SourceReaderRoute({ sourceId }: { sourceId: string }) {
-  const source = useQuery({ queryKey: ["source", sourceId], queryFn: () => readSource(sourceId) });
+  const accessToken = sessionStorage.getItem("lirna.humanAccessToken") ?? "";
+  const source = useQuery({ queryKey: ["source", sourceId], queryFn: () => readSource(sourceId, accessToken) });
   const [evidenceRequested, setEvidenceRequested] = useState(false);
   const evidence = useQuery({
     queryKey: ["source", sourceId, "evidence"],
-    queryFn: () => readAuthoritativeEvidence(sourceId),
+    queryFn: () => readAuthoritativeEvidence(sourceId, accessToken),
     enabled: evidenceRequested,
   });
   if (source.isPending) return <main className="p-8">Opening Source...</main>;
@@ -81,7 +88,7 @@ export function SourceReaderRoute({ sourceId }: { sourceId: string }) {
     <main className="mx-auto w-[min(56rem,calc(100%-2rem))] py-12 sm:py-20">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Normalized reading</p>
       <h1 className="mt-2 text-4xl tracking-tight sm:text-5xl">{source.data.title}</h1>
-      <article data-normalized-text className="mt-10 max-w-[68ch] whitespace-pre-line text-lg leading-8">
+      <article data-normalized-text className="mt-10 max-w-[68ch] whitespace-pre-wrap font-mono text-base leading-7">
         {source.data.state.normalizedText}
       </article>
       <aside className="mt-12 border-t border-border pt-6">

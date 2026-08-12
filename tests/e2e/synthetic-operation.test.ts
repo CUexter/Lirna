@@ -15,11 +15,14 @@ import { DomainDatabase } from "../../server/domain/synthetic-domain.js";
 import { OperationRepository } from "../../server/operations/operation-repository.js";
 import { SyntheticResultWriter } from "../../server/synthetic/synthetic-result-writer.js";
 import { SourceLibrary } from "../../server/sources/source-library.js";
+import { identifyBearerActor } from "../../server/access/identify-bearer-actor.js";
 import { OperationWorker } from "../../server/worker/operation-worker.js";
 import type { WorkflowRunRepository } from "../../server/workflows/workflow-run-repository.js";
 import { resetTestDatabase } from "../integration/database-test-support.js";
 
 describe("synthetic application operation", () => {
+  const humanAccessToken = "synthetic-human-access-token-for-e2e";
+  const serviceAccessToken = "synthetic-service-access-token-for-e2e";
   let databaseUrl: string;
   let database: ApplicationDatabase;
   let stopDatabase: () => Promise<void>;
@@ -41,7 +44,7 @@ describe("synthetic application operation", () => {
       domain,
       workflows: {} as unknown as WorkflowRunRepository,
       sources: new SourceLibrary(database.db),
-      identifyActor: (c) => c.req.header("authorization") === "Service agent" ? "agent" : "human",
+      identifyActor: identifyBearerActor({ humanAccessToken, serviceAccessToken }),
     });
     const address = await api.listen();
 
@@ -212,7 +215,7 @@ describe("synthetic application operation", () => {
     try {
       const denied = await fetch(`${scenario.address}/api/sources`, {
         method: "POST",
-        headers: { "content-type": "application/json", authorization: "Service agent" },
+        headers: { "content-type": "application/json", authorization: `Bearer ${serviceAccessToken}` },
         body: JSON.stringify({
           title: "Agent-selected publication",
           text: "This cannot be admitted.",
@@ -227,13 +230,14 @@ describe("synthetic application operation", () => {
       for (const destination of ["Research", "Read", "Learn", "Sources", "Notes"]) {
         await expect(page.getByRole("link", { name: destination }).isVisible()).resolves.toBe(true);
       }
+      await page.getByLabel("Access token").fill(humanAccessToken);
       await page.getByLabel("Title").fill("A synthetic publication");
       await page.getByLabel("Publication text").fill("First line.\r\n\r\n   Second   line.  ");
       await page.getByLabel("Rights basis").selectOption("publicly-accessible");
       await page.getByRole("button", { name: "Admit Source" }).click();
 
       await page.getByRole("heading", { name: "A synthetic publication" }).waitFor();
-      expect(await page.locator("[data-normalized-text]").textContent()).toBe("First line.\n\nSecond line.");
+      expect(await page.locator("[data-normalized-text]").textContent()).toBe("First line.\n\n   Second   line.  ");
       await page.getByRole("button", { name: "View authoritative evidence" }).click();
       expect(await page.locator("[data-authoritative-evidence]").textContent()).toBe(
         "First line.\n\n   Second   line.  ",

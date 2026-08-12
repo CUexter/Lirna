@@ -1,0 +1,1836 @@
+{
+  "version": "8",
+  "dialect": "postgres",
+  "id": "2a6cf190-614e-4388-9f59-29a32b7fca1a",
+  "prevIds": [
+    "d6b60500-6c0a-4748-92d5-912f7ba4fbdf"
+  ],
+  "ddl": [
+    {
+      "isRlsEnabled": false,
+      "name": "application_operations",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "domain_outbox",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "synthetic_record_revisions",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "synthetic_records",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "artifact_references",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "artifact_registrations",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "artifacts",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "workflow_definitions",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "workflow_human_gates",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "workflow_routing_decisions",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "workflow_runs",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "workflow_step_attempts",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "source_states",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "sources",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "application_operations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "kind",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "application_operations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "input",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "application_operations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "status",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "application_operations"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "attempts",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "application_operations"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lease_until",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "application_operations"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "result",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "application_operations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "artifact_hash",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "application_operations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "error",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "application_operations"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "requested_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "application_operations"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "completed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "application_operations"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "domain_outbox"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "record_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "domain_outbox"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "owner_module",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "domain_outbox"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "event_type",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "domain_outbox"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "revision",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "domain_outbox"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "payload",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "domain_outbox"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "occurred_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "domain_outbox"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "published_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "domain_outbox"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "record_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "synthetic_record_revisions"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "revision",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "synthetic_record_revisions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "owner_module",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "synthetic_record_revisions"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "state",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "synthetic_record_revisions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "note",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "synthetic_record_revisions"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "recorded_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "synthetic_record_revisions"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "synthetic_records"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "owner_module",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "synthetic_records"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "revision",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "synthetic_records"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "state",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "synthetic_records"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "synthetic_records"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "synthetic_records"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "hash",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "artifact_references"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "kind",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "artifact_references"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "target_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "artifact_references"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "''",
+      "generated": null,
+      "identity": null,
+      "name": "locator",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "artifact_references"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "artifact_registrations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "hash",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "artifact_registrations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "sensitivity",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "artifact_registrations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "rights_basis",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "artifact_registrations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "provenance_origin",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "artifact_registrations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "provenance_detail",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "artifact_registrations"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "registered_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "artifact_registrations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "hash",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "artifacts"
+    },
+    {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "byte_size",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "artifacts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "sensitivity",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "artifacts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "rights_basis",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "artifacts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "provenance_origin",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "artifacts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "provenance_detail",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "artifacts"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "registered_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "artifacts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "workflow_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_definitions"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_definitions"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "definition",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_definitions"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "declared_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_definitions"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "run_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_human_gates"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "step_index",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_human_gates"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "step_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_human_gates"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "status",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_human_gates"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "decision_hash",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_human_gates"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "raised_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_human_gates"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "decided_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_human_gates"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "run_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_routing_decisions"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "step_index",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_routing_decisions"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "decision",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_routing_decisions"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "recorded_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_routing_decisions"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_runs"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "workflow_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_runs"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "workflow_version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_runs"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "status",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_runs"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "current_step",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_runs"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "input",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_runs"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_runs"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_runs"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "run_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_step_attempts"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "step_index",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_step_attempts"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "attempt",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_step_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "step_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_step_attempts"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lease_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_step_attempts"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lease_until",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_step_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "status",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_step_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "artifact_hash",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_step_attempts"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "leased_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_step_attempts"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "committed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workflow_step_attempts"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "source_states"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "source_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "source_states"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "authoritative_text",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "source_states"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "normalized_text",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "source_states"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "rights_basis",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "source_states"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "sensitivity_level",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "source_states"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "admitted_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "source_states"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "sources"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "title",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "sources"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "admitted_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "sources"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "occurred_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": "\"published_at\" is null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "domain_outbox_unpublished",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "domain_outbox"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "hash",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "sensitivity",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "rights_basis",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "provenance_origin",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "provenance_detail",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "artifact_registrations_observation",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "artifact_registrations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "run_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "step_index",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "status",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "lease_until",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "workflow_step_attempts_active",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "workflow_step_attempts"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "record_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "synthetic_records",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "synthetic_record_revisions_record_id_synthetic_records_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "synthetic_record_revisions"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "hash"
+      ],
+      "schemaTo": "public",
+      "tableTo": "artifacts",
+      "columnsTo": [
+        "hash"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "artifact_references_hash_artifacts_hash_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "artifact_references"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "hash"
+      ],
+      "schemaTo": "public",
+      "tableTo": "artifacts",
+      "columnsTo": [
+        "hash"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "artifact_registrations_hash_artifacts_hash_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "artifact_registrations"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "run_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "workflow_runs",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "workflow_human_gates_run_id_workflow_runs_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "workflow_human_gates"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "decision_hash"
+      ],
+      "schemaTo": "public",
+      "tableTo": "artifacts",
+      "columnsTo": [
+        "hash"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "workflow_human_gates_decision_hash_artifacts_hash_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "workflow_human_gates"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "run_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "workflow_runs",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "workflow_routing_decisions_run_id_workflow_runs_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "workflow_routing_decisions"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "workflow_id",
+        "workflow_version"
+      ],
+      "schemaTo": "public",
+      "tableTo": "workflow_definitions",
+      "columnsTo": [
+        "workflow_id",
+        "version"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "workflow_runs_vvOpAulWSPCt_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "workflow_runs"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "run_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "workflow_runs",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "workflow_step_attempts_run_id_workflow_runs_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "workflow_step_attempts"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "artifact_hash"
+      ],
+      "schemaTo": "public",
+      "tableTo": "artifacts",
+      "columnsTo": [
+        "hash"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "workflow_step_attempts_artifact_hash_artifacts_hash_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "workflow_step_attempts"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "source_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "sources",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "source_states_source_id_sources_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "source_states"
+    },
+    {
+      "columns": [
+        "record_id",
+        "revision"
+      ],
+      "nameExplicit": false,
+      "name": "synthetic_record_revisions_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "synthetic_record_revisions"
+    },
+    {
+      "columns": [
+        "hash",
+        "kind",
+        "target_id",
+        "locator"
+      ],
+      "nameExplicit": false,
+      "name": "artifact_references_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "artifact_references"
+    },
+    {
+      "columns": [
+        "workflow_id",
+        "version"
+      ],
+      "nameExplicit": false,
+      "name": "workflow_definitions_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "workflow_definitions"
+    },
+    {
+      "columns": [
+        "run_id",
+        "step_index"
+      ],
+      "nameExplicit": false,
+      "name": "workflow_human_gates_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "workflow_human_gates"
+    },
+    {
+      "columns": [
+        "run_id",
+        "step_index"
+      ],
+      "nameExplicit": false,
+      "name": "workflow_routing_decisions_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "workflow_routing_decisions"
+    },
+    {
+      "columns": [
+        "run_id",
+        "step_index",
+        "attempt"
+      ],
+      "nameExplicit": false,
+      "name": "workflow_step_attempts_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "workflow_step_attempts"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "application_operations_pkey",
+      "schema": "public",
+      "table": "application_operations",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "domain_outbox_pkey",
+      "schema": "public",
+      "table": "domain_outbox",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "synthetic_records_pkey",
+      "schema": "public",
+      "table": "synthetic_records",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "artifact_registrations_pkey",
+      "schema": "public",
+      "table": "artifact_registrations",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "hash"
+      ],
+      "nameExplicit": false,
+      "name": "artifacts_pkey",
+      "schema": "public",
+      "table": "artifacts",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "workflow_runs_pkey",
+      "schema": "public",
+      "table": "workflow_runs",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "source_states_pkey",
+      "schema": "public",
+      "table": "source_states",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "sources_pkey",
+      "schema": "public",
+      "table": "sources",
+      "entityType": "pks"
+    },
+    {
+      "value": "\"status\" in ('queued', 'processing', 'completed', 'failed')",
+      "name": "application_operations_status_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "application_operations"
+    },
+    {
+      "value": "\"revision\" >= 1",
+      "name": "domain_outbox_revision_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "domain_outbox"
+    },
+    {
+      "value": "\"revision\" >= 1",
+      "name": "synthetic_record_revisions_revision_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "synthetic_record_revisions"
+    },
+    {
+      "value": "\"revision\" >= 1",
+      "name": "synthetic_records_revision_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "synthetic_records"
+    },
+    {
+      "value": "\"byte_size\" >= 0",
+      "name": "artifacts_byte_size_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "artifacts"
+    },
+    {
+      "value": "\"version\" >= 1",
+      "name": "workflow_definitions_version_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "workflow_definitions"
+    },
+    {
+      "value": "\"step_index\" >= 0",
+      "name": "workflow_human_gates_step_index_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "workflow_human_gates"
+    },
+    {
+      "value": "\"status\" in ('pending', 'satisfied', 'rejected')",
+      "name": "workflow_human_gates_status_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "workflow_human_gates"
+    },
+    {
+      "value": "\"step_index\" >= 0",
+      "name": "workflow_routing_decisions_step_index_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "workflow_routing_decisions"
+    },
+    {
+      "value": "\"status\" in ('running', 'paused', 'completed', 'failed')",
+      "name": "workflow_runs_status_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "workflow_runs"
+    },
+    {
+      "value": "\"current_step\" >= 0",
+      "name": "workflow_runs_current_step_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "workflow_runs"
+    },
+    {
+      "value": "\"step_index\" >= 0",
+      "name": "workflow_step_attempts_step_index_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "workflow_step_attempts"
+    },
+    {
+      "value": "\"attempt\" >= 1",
+      "name": "workflow_step_attempts_attempt_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "workflow_step_attempts"
+    },
+    {
+      "value": "\"status\" in ('leased', 'committed', 'expired')",
+      "name": "workflow_step_attempts_status_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "workflow_step_attempts"
+    },
+    {
+      "value": "\"rights_basis\" IN ('owned', 'lawfully-acquired', 'publicly-accessible', 'explicitly-licensed', 'reference-only', 'inaccessible')",
+      "name": "source_states_rights_basis_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "source_states"
+    },
+    {
+      "value": "\"sensitivity_level\" IN ('ordinary-cloud', 'restricted-cloud', 'local-only')",
+      "name": "source_states_sensitivity_level_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "source_states"
+    }
+  ],
+  "renames": []
+}

@@ -28,6 +28,7 @@ function renderAppAt(path: string) {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  sessionStorage.clear();
 });
 
 describe("tracer application shell", () => {
@@ -114,7 +115,7 @@ describe("Source encounter", () => {
       admittedAt: "2026-08-13T00:00:00.000Z",
       state: {
         id: "state-1",
-        normalizedText: "First line.\n\nSecond line.",
+        normalizedText: "First line.\n\n   Second   line.  ",
         rightsBasis: "publicly-accessible",
         sensitivityLevel: "ordinary-cloud",
         admittedAt: "2026-08-13T00:00:00.000Z",
@@ -129,6 +130,7 @@ describe("Source encounter", () => {
     renderAppAt("/sources");
 
     const user = userEvent.setup();
+    await user.type(await screen.findByLabelText("Access token"), "human-test-token");
     await user.type(await screen.findByLabelText("Title"), source.title);
     await user.type(screen.getByLabelText("Publication text"), "First line.\r\n\r\n   Second   line.  ");
     await user.selectOptions(screen.getByLabelText("Rights basis"), source.state.rightsBasis);
@@ -136,8 +138,7 @@ describe("Source encounter", () => {
     await user.click(screen.getByRole("button", { name: "Admit Source" }));
 
     expect(await screen.findByRole("heading", { name: source.title })).toBeInTheDocument();
-    expect(document.querySelector("[data-normalized-text]")).toHaveTextContent(/First line\.\s+Second line\./);
-    expect(screen.queryByText(/Second   line/)).not.toBeInTheDocument();
+    expect(document.querySelector("[data-normalized-text]")?.textContent).toBe("First line.\n\n   Second   line.  ");
 
     await user.click(screen.getByRole("button", { name: "View authoritative evidence" }));
     expect(document.querySelector("[data-authoritative-evidence]")?.textContent).toBe("First line.\r\n\r\n   Second   line.  ");
@@ -145,6 +146,7 @@ describe("Source encounter", () => {
       "/api/sources",
       expect.objectContaining({
         method: "POST",
+        headers: expect.objectContaining({ authorization: "Bearer human-test-token" }),
         body: expect.not.stringContaining("actor"),
       }),
     );

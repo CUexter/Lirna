@@ -64,7 +64,7 @@ describe("committed migration lifecycle", () => {
       await database.db.execute(sql`
         delete from drizzle.__drizzle_migrations
         where created_at in (
-          select created_at from drizzle.__drizzle_migrations order by created_at desc limit 2
+          select created_at from drizzle.__drizzle_migrations order by created_at desc limit 3
         )
       `);
 

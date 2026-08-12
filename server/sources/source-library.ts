@@ -115,13 +115,7 @@ export class SourceLibrary {
 }
 
 function normalizeText(text: string): string {
-  return text
-    .replace(/\r\n?/g, "\n")
-    .split("\n")
-    .map((line) => line.trim().replace(/[ \t]+/g, " "))
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  return text.replace(/\r\n?/g, "\n");
 }
 
 export function isRightsBasis(value: unknown): value is RightsBasis {

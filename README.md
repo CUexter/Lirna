@@ -97,7 +97,12 @@ destructive changes and preserved custom triggers, then commit it. API and worke
 startup only check migration state; they never mutate the schema.
 
 Runtime paths and connectivity can be overridden with `DATABASE_URL`,
-`ARTIFACT_ROOT`, `SYNTHETIC_RESULT_ROOT`, and `PORT`. No private Vault adapter
+`ARTIFACT_ROOT`, `SYNTHETIC_RESULT_ROOT`, and `PORT`. The API process requires
+separate `HUMAN_ACCESS_TOKEN` and `SERVICE_ACCESS_TOKEN` secrets of at least 32
+characters. The initial Sources form uses the human credential to authenticate
+Nathan's explicit admission action. Text admission accepts request bodies up to
+100 MiB; larger publications need a later file-ingestion path. Workers need
+neither credential. No private Vault adapter
 exists in this phase.
 
 ## Tests

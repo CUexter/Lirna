@@ -1,31 +1,17 @@
-export type SensitivityLevel = "ordinary-cloud" | "restricted-cloud" | "local-only";
-export type RightsBasis =
-  | "owned"
-  | "lawfully-acquired"
-  | "publicly-accessible"
-  | "explicitly-licensed"
-  | "reference-only"
-  | "inaccessible";
-
-export interface SourceHandlingPolicy {
-  readonly sensitivity: SensitivityLevel;
-  readonly rightsBasis: RightsBasis;
-}
-
-export const sensitivityLevels: readonly SensitivityLevel[] = [
-  "ordinary-cloud",
-  "restricted-cloud",
-  "local-only",
-];
-
-export const rightsBases: readonly RightsBasis[] = [
-  "owned",
-  "lawfully-acquired",
-  "publicly-accessible",
-  "explicitly-licensed",
-  "reference-only",
-  "inaccessible",
-];
+export {
+  rightsBases,
+  sensitivityLevels,
+  type RightsBasis,
+  type SensitivityLevel,
+  type SourceHandlingPolicy,
+} from "../shared/source-handling-policy.js";
+import {
+  rightsBases,
+  sensitivityLevels,
+  type RightsBasis,
+  type SensitivityLevel,
+  type SourceHandlingPolicy,
+} from "../shared/source-handling-policy.js";
 
 export function isSourceHandlingPolicy(value: unknown): value is SourceHandlingPolicy {
   if (value === null || typeof value !== "object") return false;

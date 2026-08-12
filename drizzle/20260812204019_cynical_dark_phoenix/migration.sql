@@ -1,0 +1,2 @@
+ALTER TABLE "source_states" ADD CONSTRAINT "source_states_rights_basis_check" CHECK ("rights_basis" IN ('owned', 'lawfully-acquired', 'publicly-accessible', 'explicitly-licensed', 'reference-only', 'inaccessible'));--> statement-breakpoint
+ALTER TABLE "source_states" ADD CONSTRAINT "source_states_sensitivity_level_check" CHECK ("sensitivity_level" IN ('ordinary-cloud', 'restricted-cloud', 'local-only'));
