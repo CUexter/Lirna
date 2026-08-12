@@ -2,9 +2,13 @@
 
 The separately hosted backend serves its HTTP API with **Hono**, rather than the
 hand-rolled `node:http` control plane, a heavier framework, or a full-stack React
-meta-framework. Hono gives web-standard routing, validation, and a typed RPC
-client the web core can import for end-to-end type safety across the
-client/server boundary — the decisive edge for a TypeScript-everywhere codebase.
+meta-framework. What Hono actually delivers today — and what decided this
+choice — is web-standard `Request`/`Response` handling, routing and validation
+ergonomics over hand-rolled `node:http`, and a small surface that fits a
+personal app. Hono *can* expose a typed RPC client (`hc`) the web core
+imports for end-to-end type safety across the client/server boundary, but that
+contract is not wired up yet; it remains a future option rather than the
+decisive reason for choosing Hono.
 
 ## Status
 
@@ -29,6 +33,11 @@ accepted
 
 ## Consequences
 
-- The client↔server boundary is an explicit, offline-tolerant network boundary; a
-  typed Hono RPC contract is preferred over colocated server functions (which
-  could not run in either the PWA or the Tauri host anyway).
+- The client↔server boundary is an explicit, offline-tolerant network boundary;
+  it is *not* a colocated-server-function boundary (server functions could not
+  run in either the PWA or the Tauri host anyway).
+- A typed Hono RPC contract (`hc`) remains a future option. The current client
+  calls the API through raw `fetch` (`client/src/lib/operations.ts`), and the
+  server exports no route type yet. Wiring up the typed client is first-build
+  work, to be tracked separately if/when prioritised; re-audit this ADR
+  if/when it lands.
