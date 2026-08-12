@@ -14,6 +14,13 @@ import {
   type ReviseCommand,
   type SyntheticRecordView,
 } from "../domain/synthetic-domain.js";
+import {
+  ArtifactValidationError,
+  WorkflowCommitError,
+  WorkflowDefinitionError,
+  type WorkflowRunRepository,
+} from "../workflows/workflow-run-repository.js";
+import type { WorkflowDefinition } from "../workflows/workflow-definition.js";
 
 /**
  * The subset of the domain the control plane depends on: module write
@@ -30,6 +37,7 @@ interface ApiDependencies {
   operations: OperationRepository;
   artifacts: ArtifactStore;
   domain: DomainContract;
+  workflows: WorkflowRunRepository;
   /** Root of the built Vite client. Defaults to `dist/client`. */
   clientRoot?: string;
 }
@@ -98,6 +106,139 @@ export function createApi(dependencies: ApiDependencies): ApiServer {
       return c.json({ error: "Operation not found" }, 404);
     }
     return c.json(publicOperation(operation), 200);
+  });
+
+  app.post("/api/workflows", async (c) => {
+    const body = await readJson(c);
+    const version = body.version;
+    if (
+      typeof body.workflowId !== "string" ||
+      !moduleNamePattern.test(body.workflowId) ||
+      typeof version !== "number" ||
+      !Number.isInteger(version) ||
+      version < 1 ||
+      !Array.isArray(body.steps)
+    ) {
+      return c.json({ error: "Invalid workflow definition" }, 400);
+    }
+    try {
+      const definition = body as unknown as WorkflowDefinition;
+      const recorded = await dependencies.workflows.declare(definition);
+      return c.json(recorded, 201);
+    } catch (error) {
+      if (error instanceof WorkflowDefinitionError) {
+        return c.json({ error: error.message }, 422);
+      }
+      throw error;
+    }
+  });
+
+  app.get("/api/workflow-runs", async (c) => {
+    const ids = await dependencies.workflows.listRunningRunIds();
+    return c.json({ runningRunIds: ids }, 200);
+  });
+
+  app.post("/api/workflow-runs", async (c) => {
+    const body = await readJson(c);
+    const version = body.version;
+    if (
+      typeof body.workflowId !== "string" ||
+      typeof version !== "number" ||
+      !Number.isInteger(version) ||
+      version < 1 ||
+      typeof body.input !== "object" ||
+      body.input === null ||
+      Array.isArray(body.input)
+    ) {
+      return c.json({ error: "Invalid workflow run request" }, 400);
+    }
+    try {
+      const run = await dependencies.workflows.createRun(
+        body.workflowId,
+        version,
+        body.input as Record<string, unknown>,
+      );
+      return c.json(run, 201);
+    } catch (error) {
+      if (error instanceof WorkflowDefinitionError) {
+        return c.json({ error: error.message }, 422);
+      }
+      throw error;
+    }
+  });
+
+  app.get("/api/workflow-runs/:id", async (c) => {
+    const run = await dependencies.workflows.view(c.req.param("id"));
+    if (!run) {
+      return c.json({ error: "Run not found" }, 404);
+    }
+    return c.json(run, 200);
+  });
+
+  app.post("/api/workflow-runs/:id/gates/:step/decision", async (c) => {
+    const runId = c.req.param("id");
+    const stepIndex = Number(c.req.param("step"));
+    if (!Number.isInteger(stepIndex) || stepIndex < 0) {
+      return c.json({ error: "Invalid gate step index" }, 400);
+    }
+    const body = await readJson(c);
+    if (
+      (body.outcome !== "approve" && body.outcome !== "reject") ||
+      typeof body.note !== "string" ||
+      body.note.length === 0 ||
+      body.note.length > 500
+    ) {
+      return c.json({ error: "Invalid gate decision" }, 400);
+    }
+
+    const run = await dependencies.workflows.view(runId);
+    if (!run) {
+      return c.json({ error: "Run not found" }, 404);
+    }
+    if (run.status !== "running") {
+      return c.json({ error: "Run is not running" }, 409);
+    }
+    if (run.currentStep !== stepIndex) {
+      return c.json({ error: "Gate is not the current step" }, 409);
+    }
+    const step = run.steps[stepIndex];
+    if (!step || step.kind !== "human-gate") {
+      return c.json({ error: "Step is not a human gate" }, 409);
+    }
+
+    const lease = await dependencies.workflows.claimNextStep(runId);
+    if (!lease) {
+      return c.json({ error: "Gate is not leaseable" }, 409);
+    }
+
+    const content = Buffer.from(
+      JSON.stringify({ outcome: body.outcome, note: body.note }),
+      "utf8",
+    );
+    try {
+      await dependencies.workflows.commitCheckpoint(runId, lease, {
+        content,
+        policy: { sensitivity: "local-only", rightsBasis: "owned" },
+        provenance: {
+          origin: "personal-testimony",
+          detail: "human gate decision",
+        },
+      });
+    } catch (error) {
+      if (error instanceof ArtifactValidationError) {
+        return c.json({ error: error.message }, 422);
+      }
+      if (error instanceof WorkflowCommitError) {
+        return c.json({ error: error.message }, 409);
+      }
+      throw error;
+    }
+
+    const updated = await dependencies.workflows.view(runId);
+    if (!updated) {
+      return c.json({ error: "Run not found after decision" }, 404);
+    }
+    return c.json(updated, 200);
   });
 
   app.post("/api/synthetic-records/:id/revisions", (c) =>

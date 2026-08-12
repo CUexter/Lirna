@@ -5,12 +5,14 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApi, type ApiServer, type DomainContract } from "../../server/api/create-api.js";
 import type { ArtifactStore } from "../../server/artifacts/file-artifact-store.js";
 import type { OperationRepository } from "../../server/operations/operation-repository.js";
+import type { WorkflowRunRepository } from "../../server/workflows/workflow-run-repository.js";
 
 // The static client surface is served entirely from the built assets on disk and
-// never touches the operation, artifact, or domain stores, so all are inert fakes.
+// never touches the operation, artifact, domain, or workflow stores, so all are inert fakes.
 const inertOperations = {} as unknown as OperationRepository;
 const inertArtifacts = {} as unknown as ArtifactStore;
 const inertDomain = {} as unknown as DomainContract;
+const inertWorkflows = {} as unknown as WorkflowRunRepository;
 
 const SHELL_HTML = "<!doctype html><title>Lirna shell</title>";
 const ASSET_JS = "console.log('lirna');\n";
@@ -39,6 +41,7 @@ describe("static client serving", () => {
       operations: inertOperations,
       artifacts: inertArtifacts,
       domain: inertDomain,
+      workflows: inertWorkflows,
       clientRoot,
     });
     address = await api.listen();

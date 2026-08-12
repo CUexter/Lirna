@@ -123,6 +123,36 @@ _Avoid_: approval (unless acceptance is specifically meant)
 A first-party visual representation used to explore relationships, navigate knowledge, or explain material through generated diagrams or animations.
 _Avoid_: decorative graph, mirror
 
+### Workflow execution
+
+**Typed workflow**:
+A versioned, declarative process that coordinates leased steps to produce validated artifacts. A workflow has stable identity across its versioned definition; a materially different process is a new version rather than a silent replacement.
+_Avoid_: job, pipeline, run
+
+**Workflow run**:
+One durable enactment of a typed workflow. A run resumes from the last committed checkpoint after worker loss rather than restarting; identity (id) is stable across interruption.
+_Avoid_: execution, task instance
+
+**Checkpoint**:
+The durable record of one step's committed artifact. A checkpoint is immutable once committed; resume begins at the run's last checkpoint. Checkpoints are a workflow-execution concern, distinct from the Citations and evidence that an artifact may carry.
+_Avoid_: save point, log entry
+
+**Lease**:
+A bounded, exclusive grant to attempt one step of one run. A lease expires after its declared budget; an expired or lost lease cannot commit, so worker loss never duplicates committed work. Each new lease is a new attempt.
+_Avoid_: lock, ticket
+
+**Attempt**:
+One numbered lease of one step of one run. A step may have several attempts when leases expire or workers are lost; exactly one committed attempt is the checkpoint.
+_Avoid_: retry, try
+
+**Human gate**:
+A declared step in a typed workflow that requires Nathan's explicit decision before the run may advance. A gate is durable and inspectable; approve advances the run and reject fails it. A gate is a Review and does not create Acceptance.
+_Avoid_: approval step, sign-off
+
+**Step budget**:
+The per-step limits on leasing: how long one lease may run and how many attempts may be raised. Budgets are durable and inspectable through the recorded attempts.
+_Avoid_: deadline, quota
+
 ### Access
 
 **Offline working set**:

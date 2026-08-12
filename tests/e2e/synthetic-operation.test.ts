@@ -14,6 +14,7 @@ import { DomainDatabase } from "../../server/domain/synthetic-domain.js";
 import { OperationRepository } from "../../server/operations/operation-repository.js";
 import { SyntheticVaultAdapter } from "../../server/vault/synthetic-vault-adapter.js";
 import { OperationWorker } from "../../server/worker/operation-worker.js";
+import type { WorkflowRunRepository } from "../../server/workflows/workflow-run-repository.js";
 
 describe("synthetic application operation", () => {
   let databaseUrl: string;
@@ -30,7 +31,12 @@ describe("synthetic application operation", () => {
     );
     const domain = new DomainDatabase(databaseUrl);
     const worker = new OperationWorker({ operations, artifacts, vault });
-    const api = createApi({ operations, artifacts, domain });
+    const api = createApi({
+      operations,
+      artifacts,
+      domain,
+      workflows: {} as unknown as WorkflowRunRepository,
+    });
     const address = await api.listen();
 
     return {
