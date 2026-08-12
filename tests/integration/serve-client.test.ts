@@ -2,9 +2,9 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createApi, type ApiServer, type DomainContract } from "../../src/api/create-api.js";
-import type { ArtifactStore } from "../../src/artifacts/file-artifact-store.js";
-import type { OperationRepository } from "../../src/operations/operation-repository.js";
+import { createApi, type ApiServer, type DomainContract } from "../../server/api/create-api.js";
+import type { ArtifactStore } from "../../server/artifacts/file-artifact-store.js";
+import type { OperationRepository } from "../../server/operations/operation-repository.js";
 
 // The static client surface is served entirely from the built assets on disk and
 // never touches the operation, artifact, or domain stores, so all are inert fakes.

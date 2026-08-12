@@ -2,8 +2,8 @@
   "extends": "./tsconfig.node.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src",
+    "rootDir": "server",
     "sourceMap": true
   },
-  "include": ["src/**/*.ts"]
+  "include": ["server/**/*.ts"]
 }

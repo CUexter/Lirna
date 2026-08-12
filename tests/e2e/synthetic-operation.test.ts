@@ -7,13 +7,13 @@ import { setTimeout as delay } from "node:timers/promises";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { chromium } from "playwright-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createApi } from "../../src/api/create-api.js";
-import { FileArtifactStore } from "../../src/artifacts/file-artifact-store.js";
-import { migrate } from "../../src/database/migrate.js";
-import { DomainDatabase } from "../../src/domain/synthetic-domain.js";
-import { OperationRepository } from "../../src/operations/operation-repository.js";
-import { SyntheticVaultAdapter } from "../../src/vault/synthetic-vault-adapter.js";
-import { OperationWorker } from "../../src/worker/operation-worker.js";
+import { createApi } from "../../server/api/create-api.js";
+import { FileArtifactStore } from "../../server/artifacts/file-artifact-store.js";
+import { migrate } from "../../server/database/migrate.js";
+import { DomainDatabase } from "../../server/domain/synthetic-domain.js";
+import { OperationRepository } from "../../server/operations/operation-repository.js";
+import { SyntheticVaultAdapter } from "../../server/vault/synthetic-vault-adapter.js";
+import { OperationWorker } from "../../server/worker/operation-worker.js";
 
 describe("synthetic application operation", () => {
   let databaseUrl: string;

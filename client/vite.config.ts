@@ -4,8 +4,8 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 
 // The client is a standalone SPA. It is built to dist/client and served, as
-// static assets, by the existing node:http control plane; routing stays a
-// browser concern and never couples to the backend.
+// static assets, by the hosted Hono API; routing stays a browser concern and
+// never couples to the backend.
 export default defineConfig({
   root: fileURLToPath(new URL(".", import.meta.url)),
   plugins: [react(), tailwindcss()],
@@ -19,8 +19,8 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
-    // In development the Vite dev server owns the client and proxies the
-    // control-plane API to the node:http backend.
+    // In development the Vite dev server owns the client and proxies the API
+    // to the hosted Hono backend.
     proxy: {
       "/api": "http://localhost:3000",
     },

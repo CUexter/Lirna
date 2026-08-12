@@ -22,8 +22,6 @@
   "include": [
     "client/src/**/*.ts",
     "client/src/**/*.tsx",
-    "tests/client/**/*.ts",
-    "tests/client/**/*.tsx",
-    "tests/setup-client.ts"
+    "client/vitest.setup.ts"
   ]
 }

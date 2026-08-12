@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getOperation, submitSyntheticOperation } from "@/lib/operations";
+import { getOperation, submitSyntheticOperation } from "./operations";
 
 afterEach(() => {
   vi.restoreAllMocks();

@@ -1,19 +1,45 @@
 # Lirna
 
 Lirna is a first-party, self-hosted personal research and learning application
-for desktop and mobile. The current executable skeleton proves the PWA, API,
-worker, PostgreSQL, artifact storage, and synthetic Vault adapter as one system.
-It also proves the Phase 0 domain invariants: a synthetic domain operation keeps
-one stable object identity while recording current state, immutable history, and
-an outbound event in one atomic, module-owned transaction (a transactional
-outbox). The client is a Vite-built React application (TanStack Router, TanStack
-Query, Tailwind CSS, and locally owned shadcn/ui component source) served as
-static assets by the `node:http` control plane; routing and server-state
-observation stay entirely on the client.
+for desktop and mobile. See [`CONTEXT.md`](./CONTEXT.md) for the domain language
+and [`docs/adr/`](./docs/adr) for the architectural decisions.
 
-The canonical planning artifact lives in this repository's GitHub Issues as a
-Wayfinder map. Earlier [Ariadne](https://github.com/CUexter/ariadne) discussions
-are prior evidence, not inherited decisions.
+The current executable skeleton proves the client, API, worker, PostgreSQL,
+artifact storage, and synthetic Vault adapter as one system, plus the Phase 0
+domain invariant: a synthetic operation keeps one stable object identity while
+recording current state, immutable history, and an outbound event in one atomic,
+module-owned transaction (a transactional outbox).
+
+## Architecture
+
+Lirna is one hosted backend serving thin clients, split into three units
+([ADR 0001](./docs/adr/0001-pwa-first-web-core-narrow-desktop-tauri-host.md)):
+
+| Unit         | Path       | Role |
+|--------------|------------|------|
+| Hosted API   | `server/`  | The single backend on Nathan-controlled infrastructure: HTTP API, background worker, PostgreSQL, artifact and Vault adapters. Owns canonical state. |
+| Web core     | `client/`  | One responsive PWA for desktop and mobile browsers. Offline-precached; local storage is a recoverable replica/outbox, never canonical. |
+| Desktop host | `desktop/` | A narrow, least-privilege Tauri shell that loads the same web core and adds only the direct Vault-folder adapter. Placeholder; see `desktop/README.md`. |
+
+Cross-cutting choices are recorded as ADRs:
+
+- [ADR 0001](./docs/adr/0001-pwa-first-web-core-narrow-desktop-tauri-host.md) — PWA-first web core with a narrow desktop Tauri host.
+- [ADR 0002](./docs/adr/0002-hono-for-the-hosted-api.md) — Hono for the hosted API.
+
+## Technology
+
+| Concern | Choice |
+|---|---|
+| Language | TypeScript (ESM, Node.js ≥ 22) |
+| Hosted API | [Hono](https://hono.dev) on `@hono/node-server` |
+| Persistence | PostgreSQL 16 (via `pg`), transactional outbox |
+| Web core | React 19, [TanStack Router](https://tanstack.com/router) + [Query](https://tanstack.com/query), Tailwind CSS v4, locally owned shadcn/ui source |
+| Build | Vite 7 (client), `tsc` (server) |
+| Desktop host | Tauri (planned; not yet built) |
+| Tests | Vitest (unit · integration · e2e), Testcontainers, Playwright |
+
+Runtime dependencies and dev tooling are declared in
+[`package.json`](./package.json); it is the single source of truth for versions.
 
 ## Boundaries
 
@@ -26,9 +52,9 @@ are prior evidence, not inherited decisions.
 
 - Node.js 22 or newer
 - Docker with Compose
-- Google Chrome for the browser-level scenario check
+- Google Chrome for the browser-level e2e check
 
-## Run Locally
+## Run locally
 
 Install dependencies and start PostgreSQL:
 
@@ -44,15 +70,13 @@ API, worker, and Vite client dev server together:
 npm run dev
 ```
 
-In development, open the Vite dev server it prints (default
-<http://localhost:5173>); it proxies `/api` to the backend on port 3000. The
-page submits one synthetic operation through the public API and observes the
-worker's result. Phase 0 uses only replaceable filesystem adapters under
-`.lirna/artifacts` and `.lirna/synthetic-vault`; it does not read or write
-`~/vaults`.
+Open the Vite dev server it prints (default <http://localhost:5173>); it proxies
+`/api` to the backend on port 3000. The page submits one synthetic operation
+through the public API and observes the worker's result. Phase 0 uses only
+replaceable filesystem adapters under `.lirna/artifacts` and
+`.lirna/synthetic-vault`; it never reads or writes `~/vaults`.
 
-To exercise the production layout, build the client and serve it through the
-control plane:
+To exercise the production layout, build the client and serve it through the API:
 
 ```sh
 npm run build
@@ -69,7 +93,15 @@ Runtime paths and connectivity can be overridden with `DATABASE_URL`,
 `ARTIFACT_ROOT`, `SYNTHETIC_VAULT_ROOT`, and `PORT`. No private Vault adapter
 exists in this phase.
 
-## Automated Checks
+## Tests
+
+Tests are placed by what they touch (a test's folder or colocation declares it):
+
+| Kind | Location | Touches | Command |
+|---|---|---|---|
+| Unit | colocated `*.test.ts(x)` beside source | nothing real (in-process only) | `npm run test:unit` |
+| Integration | `tests/integration/` | real PostgreSQL / API / filesystem, no browser | `npm run test:integration` |
+| e2e | `tests/e2e/` | the full system through a real browser | `npm run test:e2e` |
 
 ```sh
 npm run typecheck
@@ -77,9 +109,14 @@ npm run build
 npm test
 ```
 
-`npm run build` compiles the production client into `dist/client`; the
-browser-level scenario check serves that build, so run `npm run build` before
-`npm test`. The scenario suite starts disposable PostgreSQL through
-Testcontainers in local development. CI supplies an equally disposable
-PostgreSQL service through `TEST_DATABASE_URL`. All fixtures and adapter roots
-are synthetic temporary data.
+`npm run build` compiles the production client into `dist/client`; the e2e check
+serves that build, so run `npm run build` before `npm test`. The integration and
+e2e suites start disposable PostgreSQL through Testcontainers in local
+development; CI supplies an equally disposable PostgreSQL through
+`TEST_DATABASE_URL`. All fixtures and adapter roots are synthetic temporary data.
+
+## Planning
+
+The canonical planning artifact lives in this repository's GitHub Issues as a
+Wayfinder map. Earlier [Ariadne](https://github.com/CUexter/ariadne) discussions
+are prior evidence, not inherited decisions.

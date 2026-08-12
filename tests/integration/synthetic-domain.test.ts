@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { migrate } from "../../src/database/migrate.js";
+import { migrate } from "../../server/database/migrate.js";
 import {
   DomainDatabase,
   ModuleWriteOwnershipError,
   RevisionInvariantError,
-} from "../../src/domain/synthetic-domain.js";
+} from "../../server/domain/synthetic-domain.js";
 
 /**
  * Focused invariant tests at the module contract seam. These prove the

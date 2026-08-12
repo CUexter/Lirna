@@ -16,10 +16,9 @@
     "types": ["node", "vitest/globals"]
   },
   "include": [
-    "src/**/*.ts",
-    "tests/api/**/*.ts",
-    "tests/invariants/**/*.ts",
-    "tests/scenario/**/*.ts",
+    "server/**/*.ts",
+    "tests/integration/**/*.ts",
+    "tests/e2e/**/*.ts",
     "client/vite.config.ts",
     "vitest.config.ts"
   ]
