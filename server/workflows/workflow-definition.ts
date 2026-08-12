@@ -3,7 +3,17 @@ import type {
   Provenance,
   SourceHandlingPolicy,
 } from "../artifacts/artifact-registry.js";
-import type { RoutingRequirements } from "./executor-router.js";
+import {
+  isRoutingRequirements,
+  type RoutingRequirements,
+} from "./executor-router.js";
+
+export class WorkflowDefinitionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "WorkflowDefinitionError";
+  }
+}
 
 /**
  * A declared shape a step's committed artifact content must conform to. The
@@ -69,6 +79,87 @@ export interface WorkflowDefinition {
   readonly workflowId: string;
   readonly version: number;
   readonly steps: ReadonlyArray<StepDefinition>;
+}
+
+export function assertWorkflowDefinition(definition: unknown): asserts definition is WorkflowDefinition {
+  if (!isRecord(definition)) throw new WorkflowDefinitionError("workflow definition must be an object");
+  if (typeof definition.workflowId !== "string" || definition.workflowId.length === 0 ||
+    definition.workflowId.length > 80) {
+    throw new WorkflowDefinitionError("workflowId must be a non-empty string");
+  }
+  if (!Number.isInteger(definition.version) || (definition.version as number) < 1) {
+    throw new WorkflowDefinitionError("version must be a positive integer");
+  }
+  if (!Array.isArray(definition.steps) || definition.steps.length === 0) {
+    throw new WorkflowDefinitionError("a workflow must declare at least one step");
+  }
+  const stepIds = new Set<string>();
+  for (const [index, step] of definition.steps.entries()) {
+    if (!isRecord(step)) throw new WorkflowDefinitionError(`step ${index} must be an object`);
+    if (typeof step.stepId !== "string" || step.stepId.length === 0 || step.stepId.length > 80) {
+      throw new WorkflowDefinitionError("each step requires a non-empty stepId");
+    }
+    if (stepIds.has(step.stepId)) throw new WorkflowDefinitionError(`duplicate stepId "${step.stepId}"`);
+    stepIds.add(step.stepId);
+    assertBudget(step.budget, step.stepId);
+    if (step.kind === "work") {
+      assertArtifactShape(step.artifactShape, step.stepId, "artifactShape");
+      if (!Array.isArray(step.requiredReferences)) {
+        throw new WorkflowDefinitionError(`work step "${step.stepId}" requires requiredReferences`);
+      }
+      for (const required of step.requiredReferences) {
+        if (!isRecord(required) || !isReferenceKind(required.kind) ||
+          !Number.isInteger(required.min) || (required.min as number) < 0) {
+          throw new WorkflowDefinitionError(`work step "${step.stepId}" has an invalid required reference`);
+        }
+      }
+      if (step.routing !== undefined && !isRoutingRequirements(step.routing)) {
+        throw new WorkflowDefinitionError(`work step "${step.stepId}" has invalid routing requirements`);
+      }
+    } else if (step.kind === "human-gate") {
+      if (typeof step.prompt !== "string" || step.prompt.length === 0) {
+        throw new WorkflowDefinitionError(`human gate "${step.stepId}" requires a non-empty prompt`);
+      }
+      assertArtifactShape(step.decisionShape, step.stepId, "decisionShape");
+    } else {
+      throw new WorkflowDefinitionError(`step "${step.stepId}" has unsupported kind "${String(step.kind)}"`);
+    }
+  }
+}
+
+function assertBudget(candidate: unknown, stepId: string): void {
+  if (!isRecord(candidate)) throw new WorkflowDefinitionError(`step "${stepId}" requires a budget`);
+  if (!isPositiveInteger(candidate.leaseSeconds)) {
+    throw new WorkflowDefinitionError(`step "${stepId}" requires a positive integer leaseSeconds`);
+  }
+  if (!isPositiveInteger(candidate.maxAttempts)) {
+    throw new WorkflowDefinitionError(`step "${stepId}" requires a positive integer maxAttempts`);
+  }
+}
+
+function assertArtifactShape(candidate: unknown, stepId: string, field: string): void {
+  if (!isRecord(candidate) || (candidate.type !== "object" && candidate.type !== "string")) {
+    throw new WorkflowDefinitionError(`step "${stepId}" ${field} must declare type "object" or "string"`);
+  }
+  if (candidate.requiredKeys !== undefined && (!Array.isArray(candidate.requiredKeys) ||
+    candidate.requiredKeys.some((key) => typeof key !== "string" || key.length === 0))) {
+    throw new WorkflowDefinitionError(`step "${stepId}" ${field} requiredKeys must be non-empty strings`);
+  }
+  if (candidate.type === "string" && candidate.requiredKeys !== undefined) {
+    throw new WorkflowDefinitionError(`step "${stepId}" ${field} cannot declare requiredKeys for a string`);
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 1;
+}
+
+function isReferenceKind(value: unknown): value is ArtifactReference["kind"] {
+  return value === "source" || value === "owned-note" || value === "rendition" || value === "derivative";
 }
 
 export interface ArtifactSubmission {

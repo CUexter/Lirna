@@ -1,7 +1,7 @@
 // Host-agnostic port for direct Vault-folder access (see ADR 0001). The shared
 // web core owns this port so offline, outbox, and conflict logic stay
 // host-independent; only the desktop Tauri host implements it against the real
-// filesystem. The `revision` token pins the observed Source state so a stale
+// filesystem. The `revision` token pins the observed file revision so a stale
 // write can be refused and re-checked after reload.
 export interface VaultHost {
   /** Open a user-selected Markdown file, pinning the revision it was read at. */

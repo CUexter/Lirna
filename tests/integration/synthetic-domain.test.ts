@@ -168,7 +168,7 @@ describe("synthetic domain invariants", () => {
     ).rejects.toThrow(/append-only/i);
   });
 
-  it("drains recorded outbox events exactly once", async () => {
+  it("does not redeliver events after their publication is recorded", async () => {
     const gamma = database.module("gamma");
     const id = randomUUID();
     await gamma.revise({ recordId: id, label: "one", payload: {}, note: "created" });
@@ -192,6 +192,33 @@ describe("synthetic domain invariants", () => {
 
     const view = await gamma.view(id);
     expect(view?.events.every((event) => event.publishedAt !== null)).toBe(true);
+  });
+
+  it("redelivers the same event id when publication succeeds before the transaction fails", async () => {
+    const module = database.module("at-least-once");
+    const recordId = randomUUID();
+    await module.revise({ recordId, label: "one", payload: {}, note: "created" });
+
+    const delivered: string[] = [];
+    await expect(
+      database.relay().drainOnce(
+        async (event) => {
+          delivered.push(event.id);
+        },
+        1,
+        {
+          afterPublish: () => {
+            throw new Error("injected failure after publication");
+          },
+        },
+      ),
+    ).rejects.toThrow(/after publication/);
+
+    expect(await database.relay().pendingCount()).toBeGreaterThanOrEqual(1);
+    await database.relay().drainOnce(async (event) => {
+      if (event.id === delivered[0]) delivered.push(event.id);
+    });
+    expect(delivered).toEqual([delivered[0], delivered[0]]);
   });
 
   it("partitions concurrent outbox drains without duplicate publication", async () => {

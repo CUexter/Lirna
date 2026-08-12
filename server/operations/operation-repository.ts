@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, lt, or, sql } from "drizzle-orm";
 import type { LirnaDatabase } from "../database/database.js";
 import { applicationOperations } from "./schema.js";
 
@@ -48,7 +48,13 @@ export class OperationRepository {
       const [row] = await tx
         .select({ id: applicationOperations.id })
         .from(applicationOperations)
-        .where(sql`${applicationOperations.status} = 'queued' or (${applicationOperations.status} = 'processing' and ${applicationOperations.leaseUntil} < now())`)
+        .where(or(
+          eq(applicationOperations.status, "queued"),
+          and(
+            eq(applicationOperations.status, "processing"),
+            lt(applicationOperations.leaseUntil, sql`now()`),
+          ),
+        ))
         .orderBy(applicationOperations.requestedAt)
         .limit(1)
         .for("update", { skipLocked: true });

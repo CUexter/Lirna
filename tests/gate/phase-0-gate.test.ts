@@ -143,7 +143,7 @@ describe("Phase 0 gate", () => {
       `),
     ).rejects.toThrow(/append-only/i);
 
-    // The transactional outbox drains recorded events exactly once.
+    // Successfully recorded publications are not redelivered.
     const relay = scenario.domain.relay();
     let drainedTotal = 0;
     let drained = 0;
@@ -152,7 +152,7 @@ describe("Phase 0 gate", () => {
       drainedTotal += drained;
     } while (drained > 0);
     expect(drainedTotal).toBeGreaterThanOrEqual(1);
-    // Draining again publishes nothing: recorded events publish exactly once.
+    // Draining again publishes nothing after the publication record commits.
     expect(await relay.drainOnce(async () => {})).toBe(0);
   });
 
@@ -174,12 +174,16 @@ describe("Phase 0 gate", () => {
       provenance: { origin: "personal-observation", detail: "competing registration" },
       references: [{ kind: "owned-note", targetId: "note-1" }],
     });
-    // Identical bytes never create a conflicting identity; the first
-    // registration's authoritative metadata is not overwritten.
+    // Identical bytes never create a conflicting identity. Effective policy is
+    // monotonic and each registration's Provenance remains inspectable.
     expect(first.hash).toBe(expectedHash);
     expect(second.hash).toBe(expectedHash);
     expect(second.policy.sensitivity).toBe("local-only");
     expect(second.provenance.detail).toBe("synthetic fixture");
+    expect(second.provenanceHistory.map((entry) => entry.detail)).toEqual([
+      "synthetic fixture",
+      "competing registration",
+    ]);
 
     // A correctly stored, registered artifact is not flagged as a discrepancy.
     let report = await scenario.registry.reconcile();

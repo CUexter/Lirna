@@ -74,6 +74,9 @@ export class WorkflowExecutor {
       const recordedRoute = beforeLease.routingDecisions.find(
         (recorded) => recorded.stepIndex === beforeLease.currentStep,
       );
+      if (recordedRoute?.decision.outcome === "paused") {
+        continue;
+      }
       let retrieved: RetrievedEvidence[] = [];
       let routableEvidence: SourceEvidence[] = [];
       if (current?.kind === "work" && current.routing) {
@@ -144,10 +147,12 @@ export class WorkflowExecutor {
         );
       }
       if (adapter && current?.kind === "work" && current.routing) {
+        const { preferredExecutorId: _preferredExecutorId, ...eligibilityRequirements } =
+          current.routing;
         const eligibility = this.router.route({
           evidence: routableEvidence,
           executors: [adapter],
-          requirements: current.routing,
+          requirements: eligibilityRequirements,
           omittedEvidence: [],
         });
         if (

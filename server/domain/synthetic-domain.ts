@@ -30,6 +30,10 @@ export interface ReviseHooks {
   beforeOutbox?: () => void | Promise<void>;
 }
 
+export interface OutboxRelayHooks {
+  afterPublish?: (event: OutboxEventView & { ownerModule: string }) => void | Promise<void>;
+}
+
 export interface RevisionEntry {
   revision: number;
   state: SyntheticState;
@@ -260,9 +264,9 @@ function requireJsonObject(value: unknown, name: string): Record<string, unknown
 }
 
 /**
- * Drains the transactional outbox. A relay publishes recorded events and marks
- * them published; draining is idempotent because already-published events are
- * skipped.
+ * Drains the transactional outbox with at-least-once delivery. A failure after
+ * publication but before the database commit can cause redelivery; the stable
+ * event id lets consumers deduplicate that delivery safely.
  */
 export class OutboxRelay {
   constructor(private readonly db: LirnaDatabase) {}
@@ -270,6 +274,7 @@ export class OutboxRelay {
   async drainOnce(
     publish: (event: OutboxEventView & { ownerModule: string }) => Promise<void>,
     limit = 32,
+    hooks: OutboxRelayHooks = {},
   ): Promise<number> {
     return this.db.transaction(async (tx) => {
       const pending = await tx
@@ -287,14 +292,16 @@ export class OutboxRelay {
         .for("update", { skipLocked: true });
 
       for (const event of pending) {
-        await publish({
+        const publishedEvent = {
           id: event.id,
           ownerModule: event.ownerModule,
           eventType: event.eventType,
           revision: event.revision,
           payload: event.payload,
           publishedAt: null,
-        });
+        };
+        await publish(publishedEvent);
+        await hooks.afterPublish?.(publishedEvent);
         await tx
           .update(domainOutbox)
           .set({ publishedAt: new Date() })

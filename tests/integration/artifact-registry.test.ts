@@ -71,11 +71,36 @@ describe("artifact registry", () => {
 
     expect(first.hash).toBe(expectedHash);
     expect(second.hash).toBe(expectedHash);
-    expect(first).toEqual(second);
+    expect(second.policy).toEqual(first.policy);
+    expect(second.references).toEqual(first.references);
+    expect(second.provenanceHistory).toEqual([first.provenance]);
     expect(first.byteSize).toBe(content.byteLength);
   });
 
-  it("keeps the first registration's metadata when identical bytes recur with different metadata", async () => {
+  it("preserves distinct locators for the same referenced object", async () => {
+    const content = Buffer.from("synthetic fixture: multiple locators\n", "utf8");
+    const command = {
+      content,
+      policy: { sensitivity: "local-only", rightsBasis: "owned" } as const,
+      provenance: { origin: "original-reasoning", detail: "locator fixture" } as const,
+    };
+    await registry.register({
+      ...command,
+      references: [{ kind: "source", targetId: "source-1", locator: "p.1" }],
+    });
+    const registered = await registry.register({
+      ...command,
+      references: [{ kind: "source", targetId: "source-1", locator: "p.9" }],
+    });
+
+    expect(registered.references).toEqual([
+      { kind: "source", targetId: "source-1", locator: "p.1" },
+      { kind: "source", targetId: "source-1", locator: "p.9" },
+    ]);
+    expect(registered.provenanceHistory).toHaveLength(1);
+  });
+
+  it("keeps the most restrictive policy and every Provenance when identical bytes recur", async () => {
     const content = Buffer.from("synthetic fixture: divergent metadata\n", "utf8");
     const first = await registry.register({
       content,
@@ -91,13 +116,15 @@ describe("artifact registry", () => {
       references: [{ kind: "owned-note", targetId: "note-competing" }],
     });
 
-    // Identity is stable; the second registration creates no conflicting identity
-    // and does not overwrite the first registration's authoritative policy or
-    // Provenance. Distinct references accumulate idempotently (a repeated
-    // reference would add nothing); the identity never forks.
+    // Identity remains stable while policy can only become more restrictive and
+    // each observation's Provenance remains inspectable.
     expect(second.hash).toBe(first.hash);
     expect(second.policy.sensitivity).toBe("local-only");
     expect(second.provenance.detail).toBe("first registration");
+    expect(second.provenanceHistory).toEqual([
+      { origin: "original-reasoning", detail: "first registration" },
+      { origin: "personal-observation", detail: "competing registration" },
+    ]);
     expect(second.references).toEqual([
       { kind: "owned-note", targetId: "note-competing" },
       { kind: "source", targetId: "src-original" },
@@ -113,6 +140,31 @@ describe("artifact registry", () => {
     expect(third.references).toEqual([
       { kind: "owned-note", targetId: "note-competing" },
       { kind: "source", targetId: "src-original" },
+    ]);
+    expect(third.provenanceHistory).toHaveLength(3);
+  });
+
+  it("tightens effective policy when identical bytes recur under stricter handling", async () => {
+    const content = Buffer.from("synthetic fixture: stricter recurrence\n", "utf8");
+    await registry.register({
+      content,
+      policy: { sensitivity: "ordinary-cloud", rightsBasis: "publicly-accessible" },
+      provenance: { origin: "published-source", detail: "public observation" },
+    });
+
+    const restricted = await registry.register({
+      content,
+      policy: { sensitivity: "local-only", rightsBasis: "reference-only" },
+      provenance: { origin: "personal-observation", detail: "restricted observation" },
+    });
+
+    expect(restricted.policy).toEqual({
+      sensitivity: "local-only",
+      rightsBasis: "reference-only",
+    });
+    expect(restricted.provenanceHistory).toEqual([
+      { origin: "published-source", detail: "public observation" },
+      { origin: "personal-observation", detail: "restricted observation" },
     ]);
   });
 
@@ -138,6 +190,9 @@ describe("artifact registry", () => {
       byteSize: content.byteLength,
       policy: { sensitivity: "restricted-cloud", rightsBasis: "lawfully-acquired" },
       provenance: { origin: "published-source", detail: "a synthetic publication" },
+      provenanceHistory: [
+        { origin: "published-source", detail: "a synthetic publication" },
+      ],
       references: [
         { kind: "owned-note", targetId: "note-7", locator: "p.12" },
         { kind: "rendition", targetId: "rend-2" },

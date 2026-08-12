@@ -10,6 +10,7 @@ import type { LirnaDatabase } from "../database/database.js";
 import { isContentHash } from "../artifacts/file-artifact-store.js";
 import { isRoutingDecision, type RoutingDecision } from "./executor-router.js";
 import {
+  assertWorkflowDefinition,
   parseGateDecision,
   validateArtifactShape,
   type ArtifactSubmission,
@@ -17,7 +18,11 @@ import {
   type StepBudget,
   type StepDefinition,
   type WorkflowDefinition,
+  WorkflowDefinitionError,
 } from "./workflow-definition.js";
+import { isWorkflowInput, type WorkflowInput } from "./workflow-input.js";
+
+export { WorkflowDefinitionError } from "./workflow-definition.js";
 import {
   workflowDefinitions,
   workflowHumanGates,
@@ -118,13 +123,6 @@ export class WorkflowCommitError extends Error {
 }
 
 /** Raised when a workflow definition is not declarable. */
-export class WorkflowDefinitionError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "WorkflowDefinitionError";
-  }
-}
-
 /**
  * Owns durable workflow run state: versions, attempts, leases, checkpoints,
  * budgets, and declared human gates. Workers lease idempotent steps and may
@@ -147,7 +145,7 @@ export class WorkflowRunRepository {
    * (workflowId, version) pair is a no-op; the recorded definition is immutable.
    */
   async declare(definition: WorkflowDefinition): Promise<WorkflowDefinition> {
-    assertDefinition(definition);
+    assertWorkflowDefinition(definition);
     return this.db.transaction(async (tx) => {
       const existing = await tx
         .select({ definition: workflowDefinitions.definition })
@@ -160,7 +158,7 @@ export class WorkflowRunRepository {
         );
       if (existing[0]) {
         const recorded = existing[0].definition;
-        assertDefinition(recorded);
+        assertWorkflowDefinition(recorded);
         if (!sameDefinition(recorded, definition)) {
           throw new WorkflowDefinitionError(
             `Workflow ${definition.workflowId} v${definition.version} is already declared with a different definition`,
@@ -180,8 +178,11 @@ export class WorkflowRunRepository {
   async createRun(
     workflowId: string,
     version: number,
-    input: Record<string, unknown>,
+    input: WorkflowInput,
   ): Promise<RunView> {
+    if (!isWorkflowInput(input)) {
+      throw new WorkflowDefinitionError("workflow input must contain only JSON values");
+    }
     const id = randomUUID();
     await this.db.transaction(async (tx) => {
       const declared = await tx
@@ -240,7 +241,7 @@ export class WorkflowRunRepository {
           `Definition ${row.workflowId} v${row.workflowVersion} missing for run ${runId}`,
         );
       }
-      assertDefinition(definition);
+      assertWorkflowDefinition(definition);
       const attempts = await tx
         .select()
         .from(workflowStepAttempts)
@@ -390,7 +391,7 @@ export class WorkflowRunRepository {
           `Definition missing for run ${runId} (${row.workflowId} v${row.workflowVersion})`,
         );
       }
-      assertDefinition(definition);
+      assertWorkflowDefinition(definition);
 
       const stepIndex = row.currentStep;
       if (stepIndex >= definition.steps.length) {
@@ -684,132 +685,6 @@ function requireRoutingDecision(value: unknown): RoutingDecision {
     throw new WorkflowCommitError("Persisted routing decision is invalid");
   }
   return value;
-}
-
-function assertDefinition(definition: WorkflowDefinition): void {
-  if (!isRecord(definition)) {
-    throw new WorkflowDefinitionError("workflow definition must be an object");
-  }
-  if (
-    typeof definition.workflowId !== "string" ||
-    definition.workflowId.length === 0 ||
-    definition.workflowId.length > 80
-  ) {
-    throw new WorkflowDefinitionError("workflowId must be a non-empty string");
-  }
-  if (!Number.isInteger(definition.version) || definition.version < 1) {
-    throw new WorkflowDefinitionError("version must be a positive integer");
-  }
-  if (!Array.isArray(definition.steps) || definition.steps.length === 0) {
-    throw new WorkflowDefinitionError("a workflow must declare at least one step");
-  }
-  const stepIds = new Set<string>();
-  for (const [index, candidate] of definition.steps.entries()) {
-    if (!isRecord(candidate)) {
-      throw new WorkflowDefinitionError(`step ${index} must be an object`);
-    }
-    const step = candidate as unknown as Record<string, unknown>;
-    if (
-      typeof step.stepId !== "string" ||
-      step.stepId.length === 0 ||
-      step.stepId.length > 80
-    ) {
-      throw new WorkflowDefinitionError("each step requires a non-empty stepId");
-    }
-    if (stepIds.has(step.stepId)) {
-      throw new WorkflowDefinitionError(`duplicate stepId "${step.stepId}"`);
-    }
-    stepIds.add(step.stepId);
-    if (!isRecord(step.budget)) {
-      throw new WorkflowDefinitionError(`step "${step.stepId}" requires a budget`);
-    }
-    if (!isPositiveInteger(step.budget.leaseSeconds)) {
-      throw new WorkflowDefinitionError(
-        `step "${step.stepId}" requires a positive integer leaseSeconds`,
-      );
-    }
-    if (!isPositiveInteger(step.budget.maxAttempts)) {
-      throw new WorkflowDefinitionError(
-        `step "${step.stepId}" requires a positive integer maxAttempts`,
-      );
-    }
-    if (step.kind === "work") {
-      assertArtifactShape(step.artifactShape, step.stepId, "artifactShape");
-      if (!Array.isArray(step.requiredReferences)) {
-        throw new WorkflowDefinitionError(
-          `work step "${step.stepId}" requires requiredReferences`,
-        );
-      }
-      for (const required of step.requiredReferences) {
-        if (
-          !isRecord(required) ||
-          !isReferenceKind(required.kind) ||
-          !Number.isInteger(required.min) ||
-          (required.min as number) < 0
-        ) {
-          throw new WorkflowDefinitionError(
-            `work step "${step.stepId}" has an invalid required reference`,
-          );
-        }
-      }
-    } else if (step.kind === "human-gate") {
-      if (typeof step.prompt !== "string" || step.prompt.length === 0) {
-        throw new WorkflowDefinitionError(
-          `human gate "${step.stepId}" requires a non-empty prompt`,
-        );
-      }
-      assertArtifactShape(step.decisionShape, step.stepId, "decisionShape");
-    } else {
-      throw new WorkflowDefinitionError(
-        `step "${step.stepId}" has unsupported kind "${String(step.kind)}"`,
-      );
-    }
-  }
-}
-
-function assertArtifactShape(
-  candidate: unknown,
-  stepId: string,
-  field: "artifactShape" | "decisionShape",
-): void {
-  if (!isRecord(candidate) || (candidate.type !== "object" && candidate.type !== "string")) {
-    throw new WorkflowDefinitionError(
-      `step "${stepId}" ${field} must declare type "object" or "string"`,
-    );
-  }
-  if (
-    candidate.requiredKeys !== undefined &&
-    (!Array.isArray(candidate.requiredKeys) ||
-      candidate.requiredKeys.some(
-        (key) => typeof key !== "string" || key.length === 0,
-      ))
-  ) {
-    throw new WorkflowDefinitionError(
-      `step "${stepId}" ${field} requiredKeys must be non-empty strings`,
-    );
-  }
-  if (candidate.type === "string" && candidate.requiredKeys !== undefined) {
-    throw new WorkflowDefinitionError(
-      `step "${stepId}" ${field} cannot declare requiredKeys for a string`,
-    );
-  }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function isPositiveInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value >= 1;
-}
-
-function isReferenceKind(value: unknown): value is ArtifactReference["kind"] {
-  return (
-    value === "source" ||
-    value === "owned-note" ||
-    value === "rendition" ||
-    value === "derivative"
-  );
 }
 
 function sameDefinition(a: WorkflowDefinition, b: WorkflowDefinition): boolean {

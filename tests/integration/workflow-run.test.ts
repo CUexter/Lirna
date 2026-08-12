@@ -23,6 +23,7 @@ import {
   forceWorkflowLeaseExpiry,
 } from "./workflow-test-support.js";
 import { executeTestSql, resetTestDatabase } from "./database-test-support.js";
+import { syntheticResumeWorkflow } from "./workflow-fixtures.js";
 
 /**
  * Focused invariant tests at the WorkflowRunRepository seam. They prove the
@@ -42,43 +43,7 @@ describe("workflow run invariants", () => {
   let store: FileArtifactStore;
   let runs: WorkflowRunRepository;
 
-  const workflow: WorkflowDefinition = {
-    workflowId: "synthetic-resume",
-    version: 1,
-    steps: [
-      {
-        kind: "work",
-        stepId: "gather",
-        artifactShape: { type: "object", requiredKeys: ["summary"] },
-        requiredReferences: [],
-        budget: { leaseSeconds: 2, maxAttempts: 3 },
-      },
-      {
-        kind: "work",
-        stepId: "refine",
-        artifactShape: { type: "object", requiredKeys: ["summary"] },
-        requiredReferences: [{ kind: "derivative", min: 1 }],
-        budget: { leaseSeconds: 2, maxAttempts: 3 },
-      },
-      {
-        kind: "human-gate",
-        stepId: "approve",
-        prompt: "Approve the refined result?",
-        decisionShape: {
-          type: "object",
-          requiredKeys: ["outcome", "note"],
-        },
-        budget: { leaseSeconds: 60, maxAttempts: 1 },
-      },
-      {
-        kind: "work",
-        stepId: "publish",
-        artifactShape: { type: "object", requiredKeys: ["summary"] },
-        requiredReferences: [{ kind: "derivative", min: 1 }],
-        budget: { leaseSeconds: 2, maxAttempts: 3 },
-      },
-    ],
-  };
+  const workflow = syntheticResumeWorkflow;
 
   function workSubmission(
     summary: string,
@@ -509,6 +474,22 @@ describe("workflow run invariants", () => {
           },
         ],
       },
+      {
+        ...workflow,
+        workflowId: "invalid-routing",
+        steps: [
+          {
+            ...workflow.steps[0],
+            routing: {
+              capability: "synthesis",
+              qualityFloor: Number.NaN,
+              localQualityTolerance: 5,
+              maxLatencyMs: 1_000,
+              budget: 1,
+            },
+          },
+        ],
+      },
     ];
 
     for (const definition of malformed) {
@@ -516,6 +497,14 @@ describe("workflow run invariants", () => {
         runs.declare(definition as unknown as WorkflowDefinition),
       ).rejects.toBeInstanceOf(WorkflowDefinitionError);
     }
+  });
+
+  it("refuses workflow input containing non-JSON values", async () => {
+    await expect(runs.createRun(
+      workflow.workflowId,
+      workflow.version,
+      { invalid: Number.NaN } as never,
+    )).rejects.toBeInstanceOf(WorkflowDefinitionError);
   });
 
   it("uses database time to decide whether a lease is active", async () => {

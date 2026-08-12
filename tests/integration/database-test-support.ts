@@ -18,6 +18,7 @@ export async function resetTestDatabase(db: LirnaDatabase): Promise<void> {
         synthetic_records,
         synthetic_record_revisions,
         artifacts,
+        artifact_registrations,
         artifact_references,
         domain_outbox,
         workflow_definitions,

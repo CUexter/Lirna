@@ -16,6 +16,7 @@ import {
 } from "../../server/workflows/workflow-run-repository.js";
 import { forceWorkflowLeaseExpiry } from "./workflow-test-support.js";
 import { resetTestDatabase } from "./database-test-support.js";
+import { syntheticResumeWorkflow } from "./workflow-fixtures.js";
 
 /**
  * Integration scenario for the workflow kernel. It crosses the API, the
@@ -30,43 +31,7 @@ describe("typed workflow resume after worker interruption", () => {
   let stopDatabase: () => Promise<void>;
   let temporaryRoot: string;
 
-  const workflow: WorkflowDefinition = {
-    workflowId: "synthetic-resume",
-    version: 1,
-    steps: [
-      {
-        kind: "work",
-        stepId: "gather",
-        artifactShape: { type: "object", requiredKeys: ["summary"] },
-        requiredReferences: [],
-        budget: { leaseSeconds: 2, maxAttempts: 3 },
-      },
-      {
-        kind: "work",
-        stepId: "refine",
-        artifactShape: { type: "object", requiredKeys: ["summary"] },
-        requiredReferences: [{ kind: "derivative", min: 1 }],
-        budget: { leaseSeconds: 2, maxAttempts: 3 },
-      },
-      {
-        kind: "human-gate",
-        stepId: "approve",
-        prompt: "Approve the refined result?",
-        decisionShape: {
-          type: "object",
-          requiredKeys: ["outcome", "note"],
-        },
-        budget: { leaseSeconds: 60, maxAttempts: 1 },
-      },
-      {
-        kind: "work",
-        stepId: "publish",
-        artifactShape: { type: "object", requiredKeys: ["summary"] },
-        requiredReferences: [{ kind: "derivative", min: 1 }],
-        budget: { leaseSeconds: 2, maxAttempts: 3 },
-      },
-    ],
-  };
+  const workflow = syntheticResumeWorkflow;
 
   const routedWorkflow: WorkflowDefinition = {
     workflowId: "synthetic-policy-routing",
@@ -447,5 +412,111 @@ describe("typed workflow resume after worker interruption", () => {
       executorId: "selected-adapter",
       endpoint: "local://selected-adapter",
     });
+  });
+
+  it("executes a durably recorded equivalent fallback", async () => {
+    const store = new FileArtifactStore(join(temporaryRoot, "fallback-artifacts"));
+    const runs = new WorkflowRunRepository(database.db, new ArtifactRegistry(database.db, store));
+    const executed: string[] = [];
+    const adapter = (
+      executorId: string,
+      available: boolean,
+      quality: number,
+    ): ExecutorAdapter => ({
+      executorId,
+      endpoint: `local://${executorId}`,
+      location: "local",
+      capabilities: ["synthetic"],
+      quality,
+      available,
+      latencyMs: 0,
+      cost: 0,
+      restrictedCloudEligible: false,
+      execute: async () => {
+        executed.push(executorId);
+        return {
+          content: Buffer.from('{"summary":"fallback output"}'),
+          policy: { sensitivity: "local-only", rightsBasis: "owned" },
+          provenance: { origin: "original-reasoning", detail: "fallback fixture" },
+        };
+      },
+    });
+    const primary = adapter("preferred", false, 90);
+    const equivalent = adapter("equivalent", true, 90);
+    const routedStep = routedWorkflow.steps[0];
+    if (!routedStep || routedStep.kind !== "work" || !routedStep.routing) {
+      throw new Error("routed workflow fixture requires one routed work step");
+    }
+    const definition: WorkflowDefinition = {
+      ...routedWorkflow,
+      workflowId: "equivalent-fallback",
+      steps: [{
+        ...routedStep,
+        routing: {
+          ...routedStep.routing,
+          preferredExecutorId: primary.executorId,
+        },
+      }],
+    };
+    await runs.declare(definition);
+    const run = await runs.createRun(definition.workflowId, definition.version, { evidence: [] });
+
+    expect(await new WorkflowExecutor(runs, [primary, equivalent]).runOnce()).toBe(true);
+    expect(executed).toEqual(["equivalent"]);
+    expect((await runs.view(run.id))?.routingDecisions[0]?.decision).toMatchObject({
+      outcome: "selected",
+      executorId: "equivalent",
+      fallback: "automatic-equivalent",
+      fallbackFrom: "preferred",
+    });
+    expect((await runs.view(run.id))?.status).toBe("completed");
+  });
+
+  it("keeps a non-equivalent fallback paused across worker polls", async () => {
+    const store = new FileArtifactStore(join(temporaryRoot, "paused-fallback-artifacts"));
+    const runs = new WorkflowRunRepository(database.db, new ArtifactRegistry(database.db, store));
+    const execute = async () => ({
+      content: Buffer.from('{"summary":"must not execute"}'),
+      policy: { sensitivity: "local-only" as const, rightsBasis: "owned" as const },
+      provenance: { origin: "original-reasoning" as const, detail: "paused fixture" },
+    });
+    const primary: ExecutorAdapter = {
+      executorId: "preferred-paused", endpoint: "local://preferred-paused", location: "local",
+      capabilities: ["synthetic"], quality: 90, available: false, latencyMs: 0, cost: 0,
+      restrictedCloudEligible: false, execute,
+    };
+    const lowerQuality: ExecutorAdapter = {
+      ...primary,
+      executorId: "lower-quality",
+      endpoint: "local://lower-quality",
+      quality: 82,
+      available: true,
+    };
+    const routedStep = routedWorkflow.steps[0];
+    if (!routedStep || routedStep.kind !== "work" || !routedStep.routing) {
+      throw new Error("routed workflow fixture requires one routed work step");
+    }
+    const definition: WorkflowDefinition = {
+      ...routedWorkflow,
+      workflowId: "non-equivalent-fallback",
+      steps: [{
+        ...routedStep,
+        routing: {
+          ...routedStep.routing,
+          preferredExecutorId: primary.executorId,
+        },
+      }],
+    };
+    await runs.declare(definition);
+    const run = await runs.createRun(definition.workflowId, definition.version, { evidence: [] });
+    const executor = new WorkflowExecutor(runs, [primary, lowerQuality]);
+
+    expect(await executor.runOnce()).toBe(true);
+    expect(await executor.runOnce()).toBe(false);
+    const view = await runs.view(run.id);
+    expect(view?.status).toBe("paused");
+    expect(view?.attempts).toHaveLength(0);
+    expect(view?.checkpoints).toHaveLength(0);
+    expect(view?.routingDecisions[0]?.decision).toMatchObject({ outcome: "paused" });
   });
 });

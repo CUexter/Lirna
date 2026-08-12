@@ -1,27 +1,23 @@
+import { randomUUID } from "node:crypto";
 import { asc, eq } from "drizzle-orm";
 import type { LirnaDatabase } from "../database/database.js";
 import { isContentHash, type ArtifactStore } from "./file-artifact-store.js";
-import { artifactReferences, artifacts } from "./schema.js";
+import { artifactReferences, artifactRegistrations, artifacts } from "./schema.js";
+import {
+  isSourceHandlingPolicy,
+  mostRestrictivePolicy,
+  type RightsBasis,
+  type SensitivityLevel,
+  type SourceHandlingPolicy,
+} from "./source-handling-policy.js";
+
+export type { RightsBasis, SensitivityLevel, SourceHandlingPolicy } from "./source-handling-policy.js";
 
 /**
  * Source handling policy governs one artifact's local retention and external
  * processing. Sensitivity and rights basis are independent; the most
  * restrictive applicable rule wins (see CONTEXT.md).
  */
-export type SensitivityLevel = "ordinary-cloud" | "restricted-cloud" | "local-only";
-export type RightsBasis =
-  | "owned"
-  | "lawfully-acquired"
-  | "publicly-accessible"
-  | "explicitly-licensed"
-  | "reference-only"
-  | "inaccessible";
-
-export interface SourceHandlingPolicy {
-  readonly sensitivity: SensitivityLevel;
-  readonly rightsBasis: RightsBasis;
-}
-
 /**
  * The attributable origin and transformation history of one artifact's claim
  * (see CONTEXT.md Provenance). Only source-dependent claims necessarily carry
@@ -55,6 +51,7 @@ export interface ArtifactMetadata {
   readonly byteSize: number;
   readonly policy: SourceHandlingPolicy;
   readonly provenance: Provenance;
+  readonly provenanceHistory: Provenance[];
   readonly references: ArtifactReference[];
   readonly registeredAt: string;
 }
@@ -109,6 +106,15 @@ export class ArtifactRegistry {
         })
         .onConflictDoNothing();
 
+      await tx.insert(artifactRegistrations).values({
+        id: randomUUID(),
+        hash,
+        sensitivity: command.policy.sensitivity,
+        rightsBasis: command.policy.rightsBasis,
+        provenanceOrigin: command.provenance.origin,
+        provenanceDetail: command.provenance.detail,
+      }).onConflictDoNothing();
+
       const references = command.references ?? [];
       if (references.length > 0) {
         await tx
@@ -118,7 +124,7 @@ export class ArtifactRegistry {
               hash,
               kind: reference.kind,
               targetId: reference.targetId,
-              locator: reference.locator ?? null,
+              locator: reference.locator ?? "",
             })),
           )
           .onConflictDoNothing();
@@ -151,7 +157,12 @@ export class ArtifactRegistry {
           .from(artifactReferences)
           .where(eq(artifactReferences.hash, hash))
           .orderBy(asc(artifactReferences.kind), asc(artifactReferences.targetId));
-        return mapArtifact(row, references);
+        const registrations = await tx
+          .select()
+          .from(artifactRegistrations)
+          .where(eq(artifactRegistrations.hash, hash))
+          .orderBy(asc(artifactRegistrations.registeredAt), asc(artifactRegistrations.id));
+        return mapArtifact(row, references, registrations);
       },
       { isolationLevel: "repeatable read", accessMode: "read only" },
     );
@@ -199,40 +210,35 @@ function mapArtifact(
   references: Array<
     Pick<typeof artifactReferences.$inferSelect, "kind" | "targetId" | "locator">
   >,
+  registrations: Array<typeof artifactRegistrations.$inferSelect>,
 ): ArtifactMetadata {
+  const provenanceHistory = registrations.length > 0
+    ? registrations.map((registration) => ({
+        origin: registration.provenanceOrigin,
+        detail: registration.provenanceDetail,
+      }))
+    : [{ origin: row.provenanceOrigin, detail: row.provenanceDetail }];
+  const policies = registrations.length > 0
+    ? registrations.map((registration) => ({
+        sensitivity: registration.sensitivity,
+        rightsBasis: registration.rightsBasis,
+      }))
+    : [{ sensitivity: row.sensitivity, rightsBasis: row.rightsBasis }];
   return {
     hash: row.hash,
     byteSize: row.byteSize,
-    policy: {
-      sensitivity: row.sensitivity,
-      rightsBasis: row.rightsBasis,
-    },
-    provenance: {
-      origin: row.provenanceOrigin,
-      detail: row.provenanceDetail,
-    },
+    policy: mostRestrictivePolicy(policies),
+    provenance: provenanceHistory[0]!,
+    provenanceHistory,
     references: references.map((reference) => ({
       kind: reference.kind,
       targetId: reference.targetId,
-      ...(reference.locator !== null ? { locator: reference.locator } : {}),
+      ...(reference.locator !== "" ? { locator: reference.locator } : {}),
     })),
     registeredAt: row.registeredAt.toISOString(),
   };
 }
 
-const sensitivityLevels: readonly SensitivityLevel[] = [
-  "ordinary-cloud",
-  "restricted-cloud",
-  "local-only",
-];
-const rightsBases: readonly RightsBasis[] = [
-  "owned",
-  "lawfully-acquired",
-  "publicly-accessible",
-  "explicitly-licensed",
-  "reference-only",
-  "inaccessible",
-];
 const provenanceOrigins: readonly ProvenanceOrigin[] = [
   "published-source",
   "personal-observation",
@@ -252,11 +258,8 @@ function validateRegistrationMetadata(
   provenance: unknown,
   references: unknown,
 ): void {
-  if (!isRecord(policy) || !sensitivityLevels.includes(policy.sensitivity as SensitivityLevel)) {
+  if (!isSourceHandlingPolicy(policy)) {
     throw new TypeError("Artifact policy has an invalid sensitivity");
-  }
-  if (!rightsBases.includes(policy.rightsBasis as RightsBasis)) {
-    throw new TypeError("Artifact policy has an invalid rights basis");
   }
   if (
     !isRecord(provenance) ||

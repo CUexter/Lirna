@@ -36,9 +36,9 @@ Accepted
   It replaces the startup migration function with a clean baseline migration;
   existing development databases are treated as disposable unless they contain
   non-reconstructible data.
-- Drizzle ORM and Drizzle Kit initially use the exact advertised
-  `v1.0.0-beta.2` release and remain pinned, with the lockfile committed, until
-  stable `1.0.0`. That upgrade and later upgrades are deliberate and gated by
+- Drizzle ORM and Drizzle Kit initially use the published
+  `1.0.0-beta.2-6565b14` build and remain pinned to that exact build, with the
+  lockfile committed, until stable `1.0.0`. That upgrade and later upgrades are deliberate and gated by
   clean-install, forward-migration, concurrency, invariant, integration, and
   end-to-end tests.
 

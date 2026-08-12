@@ -68,7 +68,8 @@ export async function applyMigrations(db: LirnaDatabase): Promise<void> {
     ) {
       throw new Error(`Cannot adopt incomplete pre-Drizzle schema (${JSON.stringify(catalog)}); restore the complete schema before running migrations`);
     }
-    // Beta.2 supports history adoption at runtime but omitted it from the public type.
+    // Beta.2 adopts the baseline and applies later committed migrations but omitted
+    // this option from its public type.
     await applyDrizzleMigrations(db, { migrationsFolder, init: true } as Parameters<typeof applyDrizzleMigrations>[1]);
     return;
   }

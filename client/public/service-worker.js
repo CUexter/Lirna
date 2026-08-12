@@ -1,15 +1,19 @@
-const CACHE = "lirna-shell-v2";
-const SHELL = ["/", "/manifest.webmanifest", "/icon.svg"];
+const CACHE = "lirna-shell-v3";
+const GENERATED_ASSETS = self.__LIRNA_PRECACHE__ ?? [];
+const SHELL = ["/", "/manifest.webmanifest", "/icon.svg", ...GENERATED_ASSETS];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
+  event.waitUntil(
+    caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()),
+  );
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))),
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim()),
   );
 });
 
@@ -18,9 +22,8 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET" || new URL(request.url).pathname.startsWith("/api/")) {
     return;
   }
-  // Cache-first, then fill the cache from the network. The client's hashed
-  // asset bundles are unknown at install time, so this keeps the offline shell
-  // whole once each asset has been fetched at least once.
+  // Build-generated hashed assets are available at install time. Cache-first
+  // also fills any later route assets encountered at runtime.
   event.respondWith(
     caches.match(request).then((cached) => {
       const network = fetch(request).then((response) => {

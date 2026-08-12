@@ -161,6 +161,19 @@ describe("synthetic application operation", () => {
           ),
         ),
       ).toBe(true);
+      await page.evaluate(async () => {
+        if (navigator.serviceWorker.controller) return;
+        await new Promise<void>((resolve) => {
+          navigator.serviceWorker.addEventListener("controllerchange", () => resolve(), {
+            once: true,
+          });
+        });
+      });
+
+      await page.context().setOffline(true);
+      await page.reload();
+      expect(await page.getByRole("heading", { name: "Trace the whole system." }).isVisible()).toBe(true);
+      await page.context().setOffline(false);
 
       await page
         .getByLabel("Synthetic fixture")

@@ -1,4 +1,9 @@
-import type { SourceHandlingPolicy } from "../artifacts/artifact-registry.js";
+import {
+  isSourceHandlingPolicy,
+  type SourceHandlingPolicy,
+} from "../artifacts/source-handling-policy.js";
+
+export { isSourceHandlingPolicy } from "../artifacts/source-handling-policy.js";
 
 export interface SourceEvidence {
   readonly evidenceId: string;
@@ -26,26 +31,6 @@ export interface ExecutorProfile {
   readonly restrictedCloudEligible: boolean;
 }
 
-export function isSourceHandlingPolicy(
-  value: unknown,
-): value is SourceHandlingPolicy {
-  if (value === null || typeof value !== "object") {
-    return false;
-  }
-  const policy = value as Partial<SourceHandlingPolicy>;
-  return (
-    (policy.sensitivity === "ordinary-cloud" ||
-      policy.sensitivity === "restricted-cloud" ||
-      policy.sensitivity === "local-only") &&
-    (policy.rightsBasis === "owned" ||
-      policy.rightsBasis === "lawfully-acquired" ||
-      policy.rightsBasis === "publicly-accessible" ||
-      policy.rightsBasis === "explicitly-licensed" ||
-      policy.rightsBasis === "reference-only" ||
-      policy.rightsBasis === "inaccessible")
-  );
-}
-
 export interface RoutingRequirements {
   readonly capability: string;
   readonly qualityFloor: number;
@@ -53,6 +38,26 @@ export interface RoutingRequirements {
   readonly maxLatencyMs: number;
   readonly budget: number;
   readonly preferredExecutorId?: string;
+}
+
+export function isRoutingRequirements(value: unknown): value is RoutingRequirements {
+  if (value === null || typeof value !== "object") return false;
+  const requirements = value as Partial<RoutingRequirements>;
+  return (
+    typeof requirements.capability === "string" &&
+    requirements.capability.length > 0 &&
+    isNonNegativeFinite(requirements.qualityFloor) &&
+    isNonNegativeFinite(requirements.localQualityTolerance) &&
+    isNonNegativeFinite(requirements.maxLatencyMs) &&
+    isNonNegativeFinite(requirements.budget) &&
+    (requirements.preferredExecutorId === undefined ||
+      (typeof requirements.preferredExecutorId === "string" &&
+        requirements.preferredExecutorId.length > 0))
+  );
+}
+
+function isNonNegativeFinite(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
 export interface RoutingChoice {
