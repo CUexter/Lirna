@@ -8,6 +8,7 @@ import { ArtifactRegistry } from "../../server/artifacts/artifact-registry.js";
 import { FileArtifactStore } from "../../server/artifacts/file-artifact-store.js";
 import { migrate } from "../../server/database/migrate.js";
 import { WorkflowExecutor } from "../../server/workflows/workflow-executor.js";
+import type { ExecutorAdapter } from "../../server/workflows/workflow-executor.js";
 import type { WorkflowDefinition } from "../../server/workflows/workflow-definition.js";
 import {
   WorkflowRunRepository,
@@ -60,6 +61,27 @@ describe("typed workflow resume after worker interruption", () => {
         stepId: "publish",
         artifactShape: { type: "object", requiredKeys: ["summary"] },
         requiredReferences: [{ kind: "derivative", min: 1 }],
+        budget: { leaseSeconds: 2, maxAttempts: 3 },
+      },
+    ],
+  };
+
+  const routedWorkflow: WorkflowDefinition = {
+    workflowId: "synthetic-policy-routing",
+    version: 1,
+    steps: [
+      {
+        kind: "work",
+        stepId: "synthesize",
+        artifactShape: { type: "object", requiredKeys: ["summary"] },
+        requiredReferences: [],
+        routing: {
+          capability: "synthetic",
+          qualityFloor: 80,
+          localQualityTolerance: 5,
+          maxLatencyMs: 1_000,
+          budget: 0,
+        },
         budget: { leaseSeconds: 2, maxAttempts: 3 },
       },
     ],
@@ -290,6 +312,148 @@ describe("typed workflow resume after worker interruption", () => {
       expect(later.checkpoints.map((c) => c.stepIndex)).toEqual([0, 1, 2]);
     } finally {
       await scenario.close();
+    }
+  });
+
+  it("records the actual eligible endpoint and constrained evidence before routed work commits", async () => {
+    const scenario = await startScenario();
+    try {
+      await scenario.runs.declare(routedWorkflow);
+      const run = await scenario.runs.createRun(
+        routedWorkflow.workflowId,
+        routedWorkflow.version,
+        {
+          prompt: "synthetic routed fixture",
+          evidence: [
+            {
+              evidenceId: "source-state-eligible",
+              policy: {
+                sensitivity: "local-only",
+                rightsBasis: "owned",
+              },
+            },
+            {
+              evidenceId: "source-state-inaccessible",
+              policy: {
+                sensitivity: "local-only",
+                rightsBasis: "inaccessible",
+              },
+            },
+          ],
+        },
+      );
+
+      expect(await scenario.executor.runOnce()).toBe(true);
+      const view = await scenario.runs.view(run.id);
+
+      expect(view?.status).toBe("completed");
+      expect(view?.routingDecisions).toHaveLength(1);
+      expect(view?.routingDecisions[0]?.decision).toMatchObject({
+        outcome: "selected",
+        executorId: "local-synthetic",
+        endpoint: "local://synthetic",
+        disclosedEvidence: ["source-state-eligible"],
+        omittedEvidence: [
+          {
+            evidenceId: "source-state-inaccessible",
+            reason: "rights basis inaccessible prohibits content retrieval",
+          },
+        ],
+      });
+      expect(view?.routingDecisions[0]?.recordedAt).toEqual(expect.any(String));
+      expect(view?.checkpoints).toHaveLength(1);
+    } finally {
+      await scenario.close();
+    }
+  });
+
+  it("resumes from a selected route recorded before worker loss", async () => {
+    const scenario = await startScenario();
+    try {
+      await scenario.runs.declare(routedWorkflow);
+      const run = await scenario.runs.createRun(
+        routedWorkflow.workflowId,
+        routedWorkflow.version,
+        { prompt: "synthetic routing interruption", evidence: [] },
+      );
+      await scenario.runs.recordRoutingDecision(run.id, 0, {
+        outcome: "selected",
+        executorId: "local-synthetic",
+        endpoint: "local://synthetic",
+        reason: "Local executor is materially comparable",
+        fallback: "none",
+        disclosedEvidence: [],
+        omittedEvidence: [],
+      });
+
+      expect(await scenario.executor.runOnce()).toBe(true);
+      const view = await scenario.runs.view(run.id);
+      expect(view?.status).toBe("completed");
+      expect(view?.routingDecisions).toHaveLength(1);
+      expect(view?.checkpoints).toHaveLength(1);
+    } finally {
+      await scenario.close();
+    }
+  });
+
+  it("uses the selected executor adapter to produce the checkpoint", async () => {
+    const store = new FileArtifactStore(join(temporaryRoot, "adapter-artifacts"));
+    const registry = new ArtifactRegistry(databaseUrl, store);
+    const runs = new WorkflowRunRepository(databaseUrl, registry);
+    const executedEvidence: string[][] = [];
+    const adapter: ExecutorAdapter = {
+      executorId: "selected-adapter",
+      endpoint: "local://selected-adapter",
+      location: "local",
+      capabilities: ["synthetic"],
+      quality: 100,
+      available: true,
+      latencyMs: 0,
+      cost: 0,
+      restrictedCloudEligible: false,
+      execute: async ({ evidence }) => {
+        executedEvidence.push(evidence.map((item) => item.evidenceId));
+        return {
+          content: Buffer.from(JSON.stringify({ summary: "adapter output" })),
+          policy: { sensitivity: "local-only", rightsBasis: "owned" },
+          provenance: {
+            origin: "original-reasoning",
+            detail: "selected synthetic adapter",
+          },
+          references: [],
+        };
+      },
+    };
+    const executor = new WorkflowExecutor(
+      runs,
+      [adapter],
+      async (item) => ({ ...item, content: Buffer.from("synthetic evidence") }),
+    );
+    try {
+      await runs.declare(routedWorkflow);
+      const run = await runs.createRun(
+        routedWorkflow.workflowId,
+        routedWorkflow.version,
+        {
+          prompt: "synthetic adapter fixture",
+          evidence: [
+            {
+              evidenceId: "source-state-adapter",
+              policy: { sensitivity: "local-only", rightsBasis: "owned" },
+            },
+          ],
+        },
+      );
+
+      expect(await executor.runOnce()).toBe(true);
+      expect(executedEvidence).toEqual([["source-state-adapter"]]);
+      expect((await runs.view(run.id))?.routingDecisions[0]?.decision).toMatchObject({
+        executorId: "selected-adapter",
+        endpoint: "local://selected-adapter",
+      });
+    } finally {
+      await runs.close();
+      await registry.close();
     }
   });
 });

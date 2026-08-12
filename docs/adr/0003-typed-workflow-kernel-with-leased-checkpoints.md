@@ -36,6 +36,13 @@ PostgreSQL tables:
   the synthetic-domain history invariant.
 - `workflow_human_gates` — declared gates, durable and inspectable.
 
+Issue #35 subsequently added `workflow_routing_decisions` as append-only
+supporting history for the same run. It records a selected endpoint and
+rationale before source-bearing work is retrieved, or the concrete choices
+that paused a non-equivalent fallback. This extends the kernel's inspectable
+history without changing checkpoint identity: a committed attempt remains the
+checkpoint and `current_step` remains the resume position.
+
 Artifact bytes and their authoritative metadata remain in the existing
 `ArtifactRegistry` (content-addressed, from #33). A checkpoint records which
 committed artifact is each step's result; the registry is the authority for
@@ -85,6 +92,6 @@ human gates are left for a human decision through the control plane.
   the boundary, like `synthetic_record_revisions`.
 - Human gates are first-class, durable, and inspectable; a rejected gate fails
   the run (a future phase may add rewind rather than failure).
-- The kernel does not yet record routing rationale or expose executor
-  adapters; a later phase will add the seam without changing the durability
-  model.
+- Routing rationale is append-only run history and executor adapters are
+  selected before a work lease. They do not change checkpoint identity or the
+  lease/commit validity model.

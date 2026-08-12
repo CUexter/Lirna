@@ -6,6 +6,7 @@ import {
   type ArtifactReference,
 } from "../artifacts/artifact-registry.js";
 import { isContentHash } from "../artifacts/file-artifact-store.js";
+import type { RoutingDecision } from "./executor-router.js";
 import {
   parseGateDecision,
   validateArtifactShape,
@@ -18,7 +19,7 @@ import {
 
 const { Pool } = pg;
 
-export type RunStatus = "running" | "completed" | "failed";
+export type RunStatus = "running" | "paused" | "completed" | "failed";
 export type AttemptStatus = "leased" | "committed" | "expired";
 export type GateStatus = "pending" | "satisfied" | "rejected";
 
@@ -84,6 +85,13 @@ export interface RunView {
   readonly checkpoints: CheckpointView[];
   readonly gates: GateView[];
   readonly budgets: StepBudgetView[];
+  readonly routingDecisions: RoutingDecisionView[];
+}
+
+export interface RoutingDecisionView {
+  readonly stepIndex: number;
+  readonly decision: RoutingDecision;
+  readonly recordedAt: string;
 }
 
 /** Raised when a commit violates artifact schema or reference requirements. */
@@ -138,6 +146,12 @@ interface GateRow {
   decision_hash: string | null;
   raised_at: Date;
   decided_at: Date | null;
+}
+
+interface RoutingRow {
+  step_index: number;
+  decision: RoutingDecision;
+  recorded_at: Date;
 }
 
 /**
@@ -281,6 +295,13 @@ export class WorkflowRunRepository {
           ORDER BY step_index`,
         [runId],
       );
+      const routing = await client.query<RoutingRow>(
+        `SELECT step_index, decision, recorded_at
+           FROM workflow_routing_decisions
+          WHERE run_id = $1
+          ORDER BY step_index`,
+        [runId],
+      );
       const databaseTime = await client.query<{ now: Date }>("SELECT now()");
       await client.query("COMMIT");
 
@@ -310,6 +331,11 @@ export class WorkflowRunRepository {
           attemptViews,
           databaseTime.rows[0]!.now.getTime(),
         ),
+        routingDecisions: routing.rows.map((decision) => ({
+          stepIndex: decision.step_index,
+          decision: decision.decision,
+          recordedAt: decision.recorded_at.toISOString(),
+        })),
       };
     } catch (error) {
       await client.query("ROLLBACK");
@@ -328,6 +354,53 @@ export class WorkflowRunRepository {
       `SELECT id FROM workflow_runs WHERE status = 'running' ORDER BY created_at`,
     );
     return result.rows.map((row) => row.id);
+  }
+
+  /** Record an immutable routing result before a source-bearing step is leased. */
+  async recordRoutingDecision(
+    runId: string,
+    stepIndex: number,
+    decision: RoutingDecision,
+  ): Promise<RoutingDecision> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const run = await client.query<{ status: RunStatus; current_step: number }>(
+        `SELECT status, current_step FROM workflow_runs WHERE id = $1 FOR UPDATE`,
+        [runId],
+      );
+      const row = run.rows[0];
+      if (!row || row.status !== "running" || row.current_step !== stepIndex) {
+        throw new WorkflowCommitError(
+          `Step ${stepIndex} is not runnable for routing on run ${runId}`,
+        );
+      }
+      await client.query(
+        `INSERT INTO workflow_routing_decisions (run_id, step_index, decision)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (run_id, step_index) DO NOTHING`,
+        [runId, stepIndex, decision],
+      );
+      const existing = await client.query<{ decision: RoutingDecision }>(
+        `SELECT decision FROM workflow_routing_decisions
+          WHERE run_id = $1 AND step_index = $2`,
+        [runId, stepIndex],
+      );
+      const recorded = existing.rows[0]!.decision;
+      if (recorded.outcome === "paused") {
+        await client.query(
+          `UPDATE workflow_runs SET status = 'paused', updated_at = now() WHERE id = $1`,
+          [runId],
+        );
+      }
+      await client.query("COMMIT");
+      return recorded;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   /**

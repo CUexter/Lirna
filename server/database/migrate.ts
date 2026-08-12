@@ -175,13 +175,49 @@ export async function migrate(databaseUrl: string): Promise<void> {
         id uuid PRIMARY KEY,
         workflow_id text NOT NULL,
         workflow_version integer NOT NULL,
-        status text NOT NULL CHECK (status IN ('running','completed','failed')),
+        status text NOT NULL CHECK (status IN ('running','paused','completed','failed')),
         current_step integer NOT NULL CHECK (current_step >= 0),
         input jsonb NOT NULL,
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now(),
         FOREIGN KEY (workflow_id, workflow_version) REFERENCES workflow_definitions (workflow_id, version)
       )
+    `);
+    await client.query(`
+      ALTER TABLE workflow_runs DROP CONSTRAINT IF EXISTS workflow_runs_status_check
+    `);
+    await client.query(`
+      ALTER TABLE workflow_runs ADD CONSTRAINT workflow_runs_status_check
+        CHECK (status IN ('running','paused','completed','failed'))
+    `);
+
+    // The routing result is recorded before source-bearing work is leased. It
+    // discloses the selected endpoint and rationale, or the concrete choices
+    // that paused a non-equivalent fallback.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS workflow_routing_decisions (
+        run_id uuid NOT NULL REFERENCES workflow_runs (id),
+        step_index integer NOT NULL CHECK (step_index >= 0),
+        decision jsonb NOT NULL,
+        recorded_at timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY (run_id, step_index)
+      )
+    `);
+    await client.query(`
+      CREATE OR REPLACE FUNCTION reject_workflow_routing_mutation()
+        RETURNS trigger AS $$
+      BEGIN
+        RAISE EXCEPTION 'workflow_routing_decisions is append-only';
+      END;
+      $$ LANGUAGE plpgsql
+    `);
+    await client.query(`
+      DROP TRIGGER IF EXISTS workflow_routing_immutable ON workflow_routing_decisions
+    `);
+    await client.query(`
+      CREATE TRIGGER workflow_routing_immutable
+        BEFORE UPDATE OR DELETE ON workflow_routing_decisions
+        FOR EACH ROW EXECUTE FUNCTION reject_workflow_routing_mutation()
     `);
 
     // One row per lease attempt of one step of one run. The attempt is the unit

@@ -3,6 +3,7 @@ import type {
   Provenance,
   SourceHandlingPolicy,
 } from "../artifacts/artifact-registry.js";
+import type { RoutingRequirements } from "./executor-router.js";
 
 /**
  * A declared shape a step's committed artifact content must conform to. The
@@ -29,6 +30,7 @@ export interface WorkStepDefinition {
     readonly kind: ArtifactReference["kind"];
     readonly min: number;
   }>;
+  readonly routing?: RoutingRequirements;
   readonly budget: StepBudget;
 }
 
