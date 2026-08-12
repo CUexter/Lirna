@@ -50,6 +50,54 @@ export async function migrate(databaseUrl: string): Promise<void> {
       )
     `);
 
+    // Content-addressed artifact registry. Identity is the artifact's sha256 hash;
+    // the bytes live in a replaceable storage adapter, while PostgreSQL owns the
+    // hash, source-handling policy, Provenance, and references. One row per
+    // identity; identical bytes never create conflicting identities.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS artifacts (
+        hash text PRIMARY KEY,
+        byte_size bigint NOT NULL CHECK (byte_size >= 0),
+        sensitivity text NOT NULL,
+        rights_basis text NOT NULL,
+        provenance_origin text NOT NULL,
+        provenance_detail text NOT NULL,
+        registered_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+
+    // References from one artifact to related objects (Sources, Owned notes,
+    // Renditions, Derivatives). A reference carries an optional locator.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS artifact_references (
+        hash text NOT NULL REFERENCES artifacts (hash),
+        kind text NOT NULL,
+        target_id text NOT NULL,
+        locator text,
+        PRIMARY KEY (hash, kind, target_id)
+      )
+    `);
+
+    // Enforce immutable artifact identity at the database boundary: metadata is
+    // authoritative and must not be silently rewritten. A new revision is a new
+    // registered artifact; the recorded identity never changes.
+    await client.query(`
+      CREATE OR REPLACE FUNCTION reject_artifact_mutation()
+        RETURNS trigger AS $$
+      BEGIN
+        RAISE EXCEPTION 'artifacts is append-only';
+      END;
+      $$ LANGUAGE plpgsql
+    `);
+    await client.query(`
+      DROP TRIGGER IF EXISTS artifact_identity_immutable ON artifacts
+    `);
+    await client.query(`
+      CREATE TRIGGER artifact_identity_immutable
+        BEFORE UPDATE OR DELETE ON artifacts
+        FOR EACH ROW EXECUTE FUNCTION reject_artifact_mutation()
+    `);
+
     // Transactional outbox. Events are written in the same transaction as the
     // state and history they describe; a relay later marks them published.
     await client.query(`
