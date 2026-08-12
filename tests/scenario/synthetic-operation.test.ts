@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApi } from "../../src/api/create-api.js";
 import { FileArtifactStore } from "../../src/artifacts/file-artifact-store.js";
 import { migrate } from "../../src/database/migrate.js";
+import { DomainDatabase } from "../../src/domain/synthetic-domain.js";
 import { OperationRepository } from "../../src/operations/operation-repository.js";
 import { SyntheticVaultAdapter } from "../../src/vault/synthetic-vault-adapter.js";
 import { OperationWorker } from "../../src/worker/operation-worker.js";
@@ -26,8 +28,9 @@ describe("synthetic application operation", () => {
     const vault = new SyntheticVaultAdapter(
       join(temporaryRoot, adapterRoot, "vault"),
     );
+    const domain = new DomainDatabase(databaseUrl);
     const worker = new OperationWorker({ operations, artifacts, vault });
-    const api = createApi({ operations, artifacts });
+    const api = createApi({ operations, artifacts, domain });
     const address = await api.listen();
 
     return {
@@ -36,6 +39,7 @@ describe("synthetic application operation", () => {
       close: async () => {
         await api.close();
         await operations.close();
+        await domain.close();
       },
     };
   }
@@ -166,6 +170,86 @@ describe("synthetic application operation", () => {
       await browser.close();
       workerRunning = false;
       await workerLoop;
+      await scenario.close();
+    }
+  });
+
+  it("keeps identity, history, and the outbox consistent, and refuses invalid writes", async () => {
+    await migrate(databaseUrl);
+    const scenario = await startScenario("domain");
+    const recordId = randomUUID();
+
+    async function revise(body: Record<string, unknown>): Promise<Response> {
+      return fetch(`${scenario.address}/api/synthetic-records/${recordId}/revisions`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    }
+
+    try {
+      // Two successful, module-owned revisions of one stable identity.
+      const created = await revise({
+        module: "alpha",
+        label: "first observation",
+        note: "created",
+        payload: { step: 1 },
+      });
+      expect(created.status).toBe(200);
+      expect((await created.json()).revision).toBe(1);
+
+      const revised = await revise({
+        module: "alpha",
+        label: "second observation",
+        note: "revised",
+        payload: { step: 2 },
+      });
+      expect(revised.status).toBe(200);
+
+      const view = (await (
+        await fetch(`${scenario.address}/api/synthetic-records/${recordId}`)
+      ).json()) as {
+        id: string;
+        ownerModule: string;
+        revision: number;
+        state: { label: string; payload: Record<string, unknown> };
+        history: Array<{ revision: number }>;
+        events: Array<{ revision: number; eventType: string }>;
+      };
+      expect(view.id).toBe(recordId);
+      expect(view.ownerModule).toBe("alpha");
+      expect(view.revision).toBe(2);
+      expect(view.state).toEqual({ label: "second observation", payload: { step: 2 } });
+      // Immutable history and one outbox event per revision committed together.
+      expect(view.history.map((entry) => entry.revision)).toEqual([1, 2]);
+      expect(view.events.map((event) => event.revision)).toEqual([1, 2]);
+
+      // A deliberately failed transaction: another module cannot write this
+      // record, and nothing changes.
+      const intrusion = await revise({
+        module: "beta",
+        label: "beta intrusion",
+        note: "should be refused",
+        payload: {},
+      });
+      expect(intrusion.status).toBe(409);
+
+      // A deliberately failed transaction: the record invariant is violated.
+      const invalid = await revise({
+        module: "alpha",
+        label: "",
+        note: "invalid",
+        payload: {},
+      });
+      expect(invalid.status).toBe(422);
+
+      const afterFailures = (await (
+        await fetch(`${scenario.address}/api/synthetic-records/${recordId}`)
+      ).json()) as { revision: number; history: unknown[]; events: unknown[] };
+      expect(afterFailures.revision).toBe(2);
+      expect(afterFailures.history).toHaveLength(2);
+      expect(afterFailures.events).toHaveLength(2);
+    } finally {
       await scenario.close();
     }
   });

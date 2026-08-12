@@ -3,10 +3,13 @@
 Lirna is a first-party, self-hosted personal research and learning application
 for desktop and mobile. The current executable skeleton proves the PWA, API,
 worker, PostgreSQL, artifact storage, and synthetic Vault adapter as one system.
-The client is a Vite-built React application (TanStack Router, TanStack Query,
-Tailwind CSS, and locally owned shadcn/ui component source) served as static
-assets by the `node:http` control plane; routing and server-state observation
-stay entirely on the client.
+It also proves the Phase 0 domain invariants: a synthetic domain operation keeps
+one stable object identity while recording current state, immutable history, and
+an outbound event in one atomic, module-owned transaction (a transactional
+outbox). The client is a Vite-built React application (TanStack Router, TanStack
+Query, Tailwind CSS, and locally owned shadcn/ui component source) served as
+static assets by the `node:http` control plane; routing and server-state
+observation stay entirely on the client.
 
 The canonical planning artifact lives in this repository's GitHub Issues as a
 Wayfinder map. Earlier [Ariadne](https://github.com/CUexter/ariadne) discussions

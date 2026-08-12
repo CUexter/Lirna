@@ -8,13 +8,34 @@ import {
   type ApplicationOperation,
   type OperationRepository,
 } from "../operations/operation-repository.js";
+import {
+  ModuleWriteOwnershipError,
+  RevisionInvariantError,
+  type ReviseCommand,
+  type SyntheticRecordView,
+} from "../domain/synthetic-domain.js";
+
+/**
+ * The subset of the domain the control plane depends on: module write
+ * contracts and module-neutral reads. Modules own their own writes.
+ */
+export interface DomainContract {
+  module(name: string): {
+    revise(command: ReviseCommand): Promise<SyntheticRecordView>;
+  };
+  view(recordId: string): Promise<SyntheticRecordView | undefined>;
+}
 
 interface ApiDependencies {
   operations: OperationRepository;
   artifacts: ArtifactStore;
+  domain: DomainContract;
   /** Root of the built Vite client. Defaults to `dist/client`. */
   clientRoot?: string;
 }
+
+const moduleNamePattern = /^[a-z][a-z0-9-]{0,31}$/;
+const recordIdPattern = /^[0-9a-f-]{1,64}$/;
 
 const contentTypes: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -121,12 +142,89 @@ async function route(
     return;
   }
 
+  const revisionMatch = url.pathname.match(
+    /^\/api\/synthetic-records\/([0-9a-f-]+)\/revisions$/,
+  );
+  if (request.method === "POST" && revisionMatch) {
+    await reviseRecord(request, response, dependencies, revisionMatch[1]!);
+    return;
+  }
+
+  const recordMatch = url.pathname.match(/^\/api\/synthetic-records\/([0-9a-f-]+)$/);
+  if (request.method === "GET" && recordMatch) {
+    const view = await dependencies.domain.view(recordMatch[1]!);
+    if (!view) {
+      sendJson(response, 404, { error: "Record not found" });
+      return;
+    }
+    sendJson(response, 200, view);
+    return;
+  }
+
   if (request.method === "GET" && !url.pathname.startsWith("/api/")) {
     await serveClient(url.pathname, response, dependencies.clientRoot);
     return;
   }
 
   sendJson(response, 404, { error: "Not found" });
+}
+
+/**
+ * Apply one module-owned revision through the supported write contract. The
+ * module named in the request performs the write; the domain refuses when that
+ * module does not own the record or the revision violates the invariant.
+ */
+async function reviseRecord(
+  request: IncomingMessage,
+  response: ServerResponse,
+  dependencies: ApiDependencies,
+  recordId: string,
+): Promise<void> {
+  if (!recordIdPattern.test(recordId)) {
+    sendJson(response, 400, { error: "Invalid record id" });
+    return;
+  }
+
+  const body = await readJson(request);
+  const moduleName = body.module;
+  const label = body.label;
+  const note = body.note;
+  const payload = body.payload ?? {};
+  if (
+    typeof moduleName !== "string" ||
+    !moduleNamePattern.test(moduleName) ||
+    typeof label !== "string" ||
+    label.length > 200 ||
+    typeof note !== "string" ||
+    note.length === 0 ||
+    note.length > 200 ||
+    typeof payload !== "object" ||
+    payload === null ||
+    Array.isArray(payload)
+  ) {
+    sendJson(response, 400, { error: "Invalid revision request" });
+    return;
+  }
+
+  try {
+    const view = await dependencies.domain.module(moduleName).revise({
+      recordId,
+      label,
+      note,
+      payload: payload as Record<string, unknown>,
+    });
+    sendJson(response, 200, view);
+  } catch (error) {
+    if (error instanceof ModuleWriteOwnershipError) {
+      sendJson(response, 409, { error: error.message });
+      return;
+    }
+    if (error instanceof RevisionInvariantError) {
+      sendJson(response, 422, { error: error.message });
+      return;
+    }
+    throw error;
+  }
 }
 
 /**

@@ -18,6 +18,7 @@
   "include": [
     "src/**/*.ts",
     "tests/api/**/*.ts",
+    "tests/invariants/**/*.ts",
     "tests/scenario/**/*.ts",
     "client/vite.config.ts",
     "vitest.config.ts"
