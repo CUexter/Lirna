@@ -2,7 +2,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { FileArtifactStore } from "../artifacts/file-artifact-store.js";
 import { ArtifactRegistry } from "../artifacts/artifact-registry.js";
 import { loadConfig } from "../config.js";
-import { migrate } from "../database/migrate.js";
+import { openCurrentDatabase } from "../database/open-current-database.js";
 import { DomainDatabase } from "../domain/synthetic-domain.js";
 import { OperationRepository } from "../operations/operation-repository.js";
 import { SyntheticVaultAdapter } from "../vault/synthetic-vault-adapter.js";
@@ -11,14 +11,14 @@ import { WorkflowExecutor } from "../workflows/workflow-executor.js";
 import { WorkflowRunRepository } from "../workflows/workflow-run-repository.js";
 
 const config = loadConfig();
-await migrate(config.databaseUrl);
+const database = await openCurrentDatabase(config.databaseUrl);
 
-const operations = new OperationRepository(config.databaseUrl);
-const domain = new DomainDatabase(config.databaseUrl);
+const operations = new OperationRepository(database.db);
+const domain = new DomainDatabase(database.db);
 const relay = domain.relay();
 const artifacts = new FileArtifactStore(config.artifactRoot);
-const registry = new ArtifactRegistry(config.databaseUrl, artifacts);
-const workflowRuns = new WorkflowRunRepository(config.databaseUrl, registry);
+const registry = new ArtifactRegistry(database.db, artifacts);
+const workflowRuns = new WorkflowRunRepository(database.db, registry);
 const worker = new OperationWorker({
   operations,
   artifacts,
@@ -50,7 +50,4 @@ while (!stopping) {
     await delay(250);
   }
 }
-await operations.close();
-await workflowRuns.close();
-await registry.close();
-await domain.close();
+await database.close();

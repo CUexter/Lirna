@@ -4,8 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { sql } from "drizzle-orm";
 import { ArtifactRegistry } from "../../server/artifacts/artifact-registry.js";
 import { FileArtifactStore } from "../../server/artifacts/file-artifact-store.js";
+import { ApplicationDatabase } from "../../server/database/database.js";
 import { migrate } from "../../server/database/migrate.js";
 import {
   type WorkflowDefinition,
@@ -19,9 +21,8 @@ import {
 } from "../../server/workflows/workflow-run-repository.js";
 import {
   forceWorkflowLeaseExpiry,
-  queryWorkflowDatabase,
 } from "./workflow-test-support.js";
-import { resetTestDatabase } from "./database-test-support.js";
+import { executeTestSql, resetTestDatabase } from "./database-test-support.js";
 
 /**
  * Focused invariant tests at the WorkflowRunRepository seam. They prove the
@@ -34,6 +35,7 @@ import { resetTestDatabase } from "./database-test-support.js";
  */
 describe("workflow run invariants", () => {
   let databaseUrl: string;
+  let database: ApplicationDatabase;
   let stopDatabase: () => Promise<void>;
   let temporaryRoot: string;
   let registry: ArtifactRegistry;
@@ -115,17 +117,17 @@ describe("workflow run invariants", () => {
       stopDatabase = () => container.stop().then(() => undefined);
     }
     await migrate(databaseUrl);
-    await resetTestDatabase(databaseUrl);
+    database = new ApplicationDatabase(databaseUrl);
+    await resetTestDatabase(database.db);
     temporaryRoot = await mkdtemp(join(tmpdir(), "lirna-workflows-"));
     store = new FileArtifactStore(join(temporaryRoot, "artifacts"));
-    registry = new ArtifactRegistry(databaseUrl, store);
-    runs = new WorkflowRunRepository(databaseUrl, registry);
+    registry = new ArtifactRegistry(database.db, store);
+    runs = new WorkflowRunRepository(database.db, registry);
     await runs.declare(workflow);
   });
 
   afterAll(async () => {
-    await runs?.close();
-    await registry?.close();
+    await database?.close();
     await stopDatabase?.();
     await rm(temporaryRoot, { recursive: true, force: true });
   });
@@ -337,7 +339,7 @@ describe("workflow run invariants", () => {
     expect(lostLease?.attempt).toBe(1);
 
     // Simulate worker loss: expire the first lease directly.
-    await forceWorkflowLeaseExpiry(databaseUrl, run.id, lostLease);
+    await forceWorkflowLeaseExpiry(database.db, run.id, lostLease);
 
     // A second worker can now lease the same step; it gets a new attempt.
     const secondLease = (await runs.claimNextStep(run.id))!;
@@ -454,11 +456,11 @@ describe("workflow run invariants", () => {
 
     const first = (await runs.claimNextStep(run.id))!;
     expect(first?.attempt).toBe(1);
-    await forceWorkflowLeaseExpiry(databaseUrl, run.id, first);
+    await forceWorkflowLeaseExpiry(database.db, run.id, first);
 
     const second = (await runs.claimNextStep(run.id))!;
     expect(second?.attempt).toBe(2);
-    await forceWorkflowLeaseExpiry(databaseUrl, run.id, second);
+    await forceWorkflowLeaseExpiry(database.db, run.id, second);
 
     // A third lease exceeds maxAttempts: the run fails and no lease is returned.
     const third = await runs.claimNextStep(run.id);
@@ -476,20 +478,16 @@ describe("workflow run invariants", () => {
     await runs.commitCheckpoint(run.id, lease, workSubmission("sealed"));
 
     await expect(
-      queryWorkflowDatabase(
-        databaseUrl,
-        `UPDATE workflow_step_attempts SET artifact_hash = 'tampered'
-          WHERE run_id = $1 AND step_index = 0`,
-        [run.id],
-      ),
+      executeTestSql(database.db, sql`
+        UPDATE workflow_step_attempts SET artifact_hash = 'tampered'
+         WHERE run_id = ${run.id} AND step_index = 0
+      `),
     ).rejects.toThrow(/immutable/);
 
     await expect(
-      queryWorkflowDatabase(
-        databaseUrl,
-        `DELETE FROM workflow_step_attempts WHERE run_id = $1 AND step_index = 0`,
-        [run.id],
-      ),
+      executeTestSql(database.db, sql`
+        DELETE FROM workflow_step_attempts WHERE run_id = ${run.id} AND step_index = 0
+      `),
     ).rejects.toThrow(/immutable/);
   });
 
@@ -538,21 +536,17 @@ describe("workflow run invariants", () => {
 
   it("refuses to rewrite a workflow definition at the database boundary", async () => {
     await expect(
-      queryWorkflowDatabase(
-        databaseUrl,
-        `UPDATE workflow_definitions SET definition = '{}'::jsonb
-          WHERE workflow_id = $1 AND version = $2`,
-        [workflow.workflowId, workflow.version],
-      ),
+      executeTestSql(database.db, sql`
+        UPDATE workflow_definitions SET definition = '{}'::jsonb
+         WHERE workflow_id = ${workflow.workflowId} AND version = ${workflow.version}
+      `),
     ).rejects.toThrow(/append-only/);
 
     await expect(
-      queryWorkflowDatabase(
-        databaseUrl,
-        `DELETE FROM workflow_definitions
-          WHERE workflow_id = $1 AND version = $2`,
-        [workflow.workflowId, workflow.version],
-      ),
+      executeTestSql(database.db, sql`
+        DELETE FROM workflow_definitions
+         WHERE workflow_id = ${workflow.workflowId} AND version = ${workflow.version}
+      `),
     ).rejects.toThrow(/append-only/);
   });
 });

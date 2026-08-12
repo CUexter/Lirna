@@ -81,6 +81,42 @@ export type RoutingDecision =
       readonly omittedEvidence: OmittedEvidence[];
     };
 
+export function isRoutingDecision(value: unknown): value is RoutingDecision {
+  if (value === null || typeof value !== "object") return false;
+  const decision = value as Partial<RoutingDecision>;
+  if (
+    (decision.outcome !== "selected" && decision.outcome !== "paused") ||
+    typeof decision.reason !== "string" ||
+    !Array.isArray(decision.disclosedEvidence) ||
+    !decision.disclosedEvidence.every((id) => typeof id === "string") ||
+    !Array.isArray(decision.omittedEvidence) ||
+    !decision.omittedEvidence.every(
+      (item) =>
+        item !== null &&
+        typeof item === "object" &&
+        typeof item.evidenceId === "string" &&
+        typeof item.reason === "string",
+    )
+  ) return false;
+  if (decision.outcome === "selected") {
+    return (
+      typeof decision.executorId === "string" &&
+      typeof decision.endpoint === "string" &&
+      (decision.fallback === "none" || decision.fallback === "automatic-equivalent")
+    );
+  }
+  const paused = decision as Partial<Extract<RoutingDecision, { outcome: "paused" }>>;
+  return Array.isArray(paused.choices) && paused.choices.every(
+    (choice: Partial<RoutingChoice>) =>
+      choice !== null &&
+      typeof choice === "object" &&
+      typeof choice.executorId === "string" &&
+      typeof choice.endpoint === "string" &&
+      Array.isArray(choice.consequences) &&
+      choice.consequences.every((item: unknown) => typeof item === "string"),
+  );
+}
+
 export interface RetrievalPlan {
   readonly eligible: SourceEvidence[];
   readonly omitted: OmittedEvidence[];

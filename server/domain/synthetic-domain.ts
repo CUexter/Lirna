@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
-import pg from "pg";
-
-const { Pool } = pg;
+import { asc, count, eq, isNull } from "drizzle-orm";
+import type { LirnaDatabase } from "../database/database.js";
+import {
+  domainOutbox,
+  syntheticRecordRevisions,
+  syntheticRecords,
+} from "./schema.js";
 
 /** The immutable state carried by one synthetic record revision. */
 export interface SyntheticState {
@@ -72,11 +76,6 @@ export class RevisionInvariantError extends Error {
   }
 }
 
-interface CurrentRow {
-  owner_module: string;
-  revision: number;
-}
-
 /**
  * A synthetic domain module bound to one owning module name. It exclusively
  * owns writes to its records and records current state, immutable history, and
@@ -84,7 +83,7 @@ interface CurrentRow {
  */
 export class SyntheticDomainModule {
   constructor(
-    private readonly pool: pg.Pool,
+    private readonly db: LirnaDatabase,
     readonly moduleName: string,
   ) {}
 
@@ -92,28 +91,28 @@ export class SyntheticDomainModule {
     if (command.label.trim().length === 0) {
       throw new RevisionInvariantError("A synthetic record requires a non-empty label");
     }
+    if (!isJsonObject(command.payload)) {
+      throw new RevisionInvariantError("A synthetic record payload must be a JSON object");
+    }
 
     const state: SyntheticState = {
       label: command.label,
       payload: command.payload,
     };
 
-    const client = await this.pool.connect();
-    try {
-      await client.query("BEGIN");
-
-      const existing = await client.query<CurrentRow>(
-        `SELECT owner_module, revision
-           FROM synthetic_records
-          WHERE id = $1
-          FOR UPDATE`,
-        [command.recordId],
-      );
-      const current = existing.rows[0];
-      if (current && current.owner_module !== this.moduleName) {
+    await this.db.transaction(async (tx) => {
+      const [current] = await tx
+        .select({
+          ownerModule: syntheticRecords.ownerModule,
+          revision: syntheticRecords.revision,
+        })
+        .from(syntheticRecords)
+        .where(eq(syntheticRecords.id, command.recordId))
+        .for("update");
+      if (current && current.ownerModule !== this.moduleName) {
         throw new ModuleWriteOwnershipError(
           command.recordId,
-          current.owner_module,
+          current.ownerModule,
           this.moduleName,
         );
       }
@@ -121,51 +120,39 @@ export class SyntheticDomainModule {
       const nextRevision = current ? current.revision + 1 : 1;
 
       if (current) {
-        await client.query(
-          `UPDATE synthetic_records
-              SET revision = $2, state = $3, updated_at = now()
-            WHERE id = $1`,
-          [command.recordId, nextRevision, state],
-        );
+        await tx
+          .update(syntheticRecords)
+          .set({ revision: nextRevision, state, updatedAt: new Date() })
+          .where(eq(syntheticRecords.id, command.recordId));
       } else {
-        await client.query(
-          `INSERT INTO synthetic_records (id, owner_module, revision, state)
-           VALUES ($1, $2, $3, $4)`,
-          [command.recordId, this.moduleName, nextRevision, state],
-        );
+        await tx.insert(syntheticRecords).values({
+          id: command.recordId,
+          ownerModule: this.moduleName,
+          revision: nextRevision,
+          state,
+        });
       }
 
-      await client.query(
-        `INSERT INTO synthetic_record_revisions
-           (record_id, revision, owner_module, state, note)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [command.recordId, nextRevision, this.moduleName, state, command.note],
-      );
+      await tx.insert(syntheticRecordRevisions).values({
+        recordId: command.recordId,
+        revision: nextRevision,
+        ownerModule: this.moduleName,
+        state,
+        note: command.note,
+      });
 
       // Runs after state and history are written but before the outbox event.
       await hooks.beforeOutbox?.();
 
-      await client.query(
-        `INSERT INTO domain_outbox
-           (id, record_id, owner_module, event_type, revision, payload)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [
-          randomUUID(),
-          command.recordId,
-          this.moduleName,
-          "synthetic-record-revised",
-          nextRevision,
-          { label: state.label, revision: nextRevision },
-        ],
-      );
-
-      await client.query("COMMIT");
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
+      await tx.insert(domainOutbox).values({
+        id: randomUUID(),
+        recordId: command.recordId,
+        ownerModule: this.moduleName,
+        eventType: "synthetic-record-revised",
+        revision: nextRevision,
+        payload: { label: state.label, revision: nextRevision },
+      });
+    });
 
     const view = await this.view(command.recordId);
     if (!view) {
@@ -175,8 +162,20 @@ export class SyntheticDomainModule {
   }
 
   view(recordId: string): Promise<SyntheticRecordView | undefined> {
-    return readRecordView(this.pool, recordId);
+    return readRecordView(this.db, recordId);
   }
+}
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+  return Object.values(value).every(isJsonValue);
+}
+
+function isJsonValue(value: unknown): boolean {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return true;
+  if (typeof value === "number") return Number.isFinite(value);
+  if (Array.isArray(value)) return value.every(isJsonValue);
+  return isJsonObject(value);
 }
 
 /**
@@ -186,81 +185,78 @@ export class SyntheticDomainModule {
  * consistent snapshot even while a concurrent revision commits.
  */
 export async function readRecordView(
-  pool: pg.Pool,
+  db: LirnaDatabase,
   recordId: string,
 ): Promise<SyntheticRecordView | undefined> {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
-    const record = await client.query<{
-      owner_module: string;
-      revision: number;
-      state: SyntheticState;
-    }>(
-      `SELECT owner_module, revision, state
-         FROM synthetic_records
-        WHERE id = $1`,
-      [recordId],
-    );
-    const row = record.rows[0];
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({
+        ownerModule: syntheticRecords.ownerModule,
+        revision: syntheticRecords.revision,
+        state: syntheticRecords.state,
+      })
+      .from(syntheticRecords)
+      .where(eq(syntheticRecords.id, recordId));
     if (!row) {
-      await client.query("COMMIT");
       return undefined;
     }
 
-    const history = await client.query<{
-      revision: number;
-      state: SyntheticState;
-      note: string;
-      recorded_at: Date;
-    }>(
-      `SELECT revision, state, note, recorded_at
-         FROM synthetic_record_revisions
-        WHERE record_id = $1
-        ORDER BY revision`,
-      [recordId],
-    );
+    const history = await tx
+      .select({
+        revision: syntheticRecordRevisions.revision,
+        state: syntheticRecordRevisions.state,
+        note: syntheticRecordRevisions.note,
+        recordedAt: syntheticRecordRevisions.recordedAt,
+      })
+      .from(syntheticRecordRevisions)
+      .where(eq(syntheticRecordRevisions.recordId, recordId))
+      .orderBy(asc(syntheticRecordRevisions.revision));
 
-    const events = await client.query<{
-      id: string;
-      event_type: string;
-      revision: number;
-      payload: Record<string, unknown>;
-      published_at: Date | null;
-    }>(
-      `SELECT id, event_type, revision, payload, published_at
-         FROM domain_outbox
-        WHERE record_id = $1
-        ORDER BY occurred_at, revision`,
-      [recordId],
-    );
-    await client.query("COMMIT");
+    const events = await tx
+      .select({
+        id: domainOutbox.id,
+        eventType: domainOutbox.eventType,
+        revision: domainOutbox.revision,
+        payload: domainOutbox.payload,
+        publishedAt: domainOutbox.publishedAt,
+      })
+      .from(domainOutbox)
+      .where(eq(domainOutbox.recordId, recordId))
+      .orderBy(asc(domainOutbox.occurredAt), asc(domainOutbox.revision));
 
     return {
       id: recordId,
-      ownerModule: row.owner_module,
+      ownerModule: row.ownerModule,
       revision: row.revision,
-      state: row.state,
-      history: history.rows.map((entry) => ({
+      state: requireSyntheticState(row.state),
+      history: history.map((entry) => ({
         revision: entry.revision,
-        state: entry.state,
+        state: requireSyntheticState(entry.state),
         note: entry.note,
-        recordedAt: entry.recorded_at.toISOString(),
+        recordedAt: entry.recordedAt.toISOString(),
       })),
-      events: events.rows.map((event) => ({
+      events: events.map((event) => ({
         id: event.id,
-        eventType: event.event_type,
+        eventType: event.eventType,
         revision: event.revision,
-        payload: event.payload,
-        publishedAt: event.published_at ? event.published_at.toISOString() : null,
+        payload: requireJsonObject(event.payload, "outbox payload"),
+        publishedAt: event.publishedAt ? event.publishedAt.toISOString() : null,
       })),
     };
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
+  }, { isolationLevel: "repeatable read", accessMode: "read only" });
+}
+
+function requireSyntheticState(value: unknown): SyntheticState {
+  const state = requireJsonObject(value, "synthetic state");
+  if (typeof state.label !== "string" || !isJsonObject(state.payload)) {
+    throw new RevisionInvariantError("Persisted synthetic state is invalid");
   }
+  return { label: state.label, payload: state.payload };
+}
+
+function requireJsonObject(value: unknown, name: string): Record<string, unknown> {
+  if (!isJsonObject(value)) throw new RevisionInvariantError(`Persisted ${name} is invalid`);
+  return value;
 }
 
 /**
@@ -269,95 +265,78 @@ export async function readRecordView(
  * skipped.
  */
 export class OutboxRelay {
-  constructor(private readonly pool: pg.Pool) {}
+  constructor(private readonly db: LirnaDatabase) {}
 
   async drainOnce(
     publish: (event: OutboxEventView & { ownerModule: string }) => Promise<void>,
     limit = 32,
   ): Promise<number> {
-    const client = await this.pool.connect();
-    try {
-      await client.query("BEGIN");
-      const pending = await client.query<{
-        id: string;
-        owner_module: string;
-        event_type: string;
-        revision: number;
-        payload: Record<string, unknown>;
-      }>(
-        `SELECT id, owner_module, event_type, revision, payload
-           FROM domain_outbox
-          WHERE published_at IS NULL
-          ORDER BY occurred_at
-          FOR UPDATE SKIP LOCKED
-          LIMIT $1`,
-        [limit],
-      );
+    return this.db.transaction(async (tx) => {
+      const pending = await tx
+        .select({
+          id: domainOutbox.id,
+          ownerModule: domainOutbox.ownerModule,
+          eventType: domainOutbox.eventType,
+          revision: domainOutbox.revision,
+          payload: domainOutbox.payload,
+        })
+        .from(domainOutbox)
+        .where(isNull(domainOutbox.publishedAt))
+        .orderBy(asc(domainOutbox.occurredAt))
+        .limit(limit)
+        .for("update", { skipLocked: true });
 
-      for (const event of pending.rows) {
+      for (const event of pending) {
         await publish({
           id: event.id,
-          ownerModule: event.owner_module,
-          eventType: event.event_type,
+          ownerModule: event.ownerModule,
+          eventType: event.eventType,
           revision: event.revision,
           payload: event.payload,
           publishedAt: null,
         });
-        await client.query(
-          `UPDATE domain_outbox SET published_at = now() WHERE id = $1`,
-          [event.id],
-        );
+        await tx
+          .update(domainOutbox)
+          .set({ publishedAt: new Date() })
+          .where(eq(domainOutbox.id, event.id));
       }
 
-      await client.query("COMMIT");
-      return pending.rows.length;
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
+      return pending.length;
+    });
   }
 
   async pendingCount(): Promise<number> {
-    const result = await this.pool.query<{ count: string }>(
-      `SELECT count(*)::text AS count FROM domain_outbox WHERE published_at IS NULL`,
-    );
-    return Number(result.rows[0]?.count ?? "0");
+    const [result] = await this.db
+      .select({ count: count() })
+      .from(domainOutbox)
+      .where(isNull(domainOutbox.publishedAt));
+    return result?.count ?? 0;
   }
 }
 
 /**
- * Owns the domain connection pool and hands out module contracts and the
- * outbox relay. Modules coordinate through the outbox rather than by writing
- * one another's tables.
+ * Hands out module contracts and the outbox relay. Modules coordinate through
+ * the outbox rather than by writing one another's tables.
  */
 export class DomainDatabase {
-  readonly pool: pg.Pool;
   private readonly modules = new Map<string, SyntheticDomainModule>();
 
-  constructor(databaseUrl: string) {
-    this.pool = new Pool({ connectionString: databaseUrl });
-  }
+  constructor(private readonly db: LirnaDatabase) {}
 
   module(name: string): SyntheticDomainModule {
     let module = this.modules.get(name);
     if (!module) {
-      module = new SyntheticDomainModule(this.pool, name);
+      module = new SyntheticDomainModule(this.db, name);
       this.modules.set(name, module);
     }
     return module;
   }
 
   relay(): OutboxRelay {
-    return new OutboxRelay(this.pool);
+    return new OutboxRelay(this.db);
   }
 
   view(recordId: string): Promise<SyntheticRecordView | undefined> {
-    return readRecordView(this.pool, recordId);
-  }
-
-  async close(): Promise<void> {
-    await this.pool.end();
+    return readRecordView(this.db, recordId);
   }
 }

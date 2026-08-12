@@ -1,7 +1,7 @@
-import pg from "pg";
+import { asc, eq } from "drizzle-orm";
+import type { LirnaDatabase } from "../database/database.js";
 import { isContentHash, type ArtifactStore } from "./file-artifact-store.js";
-
-const { Pool } = pg;
+import { artifactReferences, artifacts } from "./schema.js";
 
 /**
  * Source handling policy governs one artifact's local retention and external
@@ -77,22 +77,6 @@ export interface ReconciliationReport {
   readonly hashMismatch: Array<{ hash: string; actualHash: string }>;
 }
 
-interface ArtifactRow {
-  hash: string;
-  byte_size: string;
-  sensitivity: SensitivityLevel;
-  rights_basis: RightsBasis;
-  provenance_origin: ProvenanceOrigin;
-  provenance_detail: string;
-  registered_at: Date;
-}
-
-interface ReferenceRow {
-  kind: ArtifactReference["kind"];
-  target_id: string;
-  locator: string | null;
-}
-
 /**
  * Owns artifact metadata in PostgreSQL while delegating the bytes to a
  * content-addressed storage adapter. Identity is the artifact's content hash;
@@ -100,49 +84,46 @@ interface ReferenceRow {
  * registry is the authority; the store is a replaceable adapter.
  */
 export class ArtifactRegistry {
-  private readonly pool: pg.Pool;
-
-  constructor(databaseUrl: string, private readonly store: ArtifactStore) {
-    this.pool = new Pool({ connectionString: databaseUrl });
-  }
+  constructor(
+    private readonly db: LirnaDatabase,
+    private readonly store: ArtifactStore,
+  ) {}
 
   async register(command: RegisterCommand): Promise<ArtifactMetadata> {
+    validateRegistrationMetadata(command.policy, command.provenance, command.references);
+
     const stored = await this.store.put(command.content);
     const hash = stored.hash;
     const byteSize = command.content.byteLength;
 
-    const client = await this.pool.connect();
-    try {
-      await client.query("BEGIN");
-      await client.query(
-        `INSERT INTO artifacts
-           (hash, byte_size, sensitivity, rights_basis, provenance_origin, provenance_detail)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         ON CONFLICT (hash) DO NOTHING`,
-        [
+    await this.db.transaction(async (tx) => {
+      await tx
+        .insert(artifacts)
+        .values({
           hash,
           byteSize,
-          command.policy.sensitivity,
-          command.policy.rightsBasis,
-          command.provenance.origin,
-          command.provenance.detail,
-        ],
-      );
-      for (const reference of command.references ?? []) {
-        await client.query(
-          `INSERT INTO artifact_references (hash, kind, target_id, locator)
-           VALUES ($1, $2, $3, $4)
-           ON CONFLICT (hash, kind, target_id) DO NOTHING`,
-          [hash, reference.kind, reference.targetId, reference.locator ?? null],
-        );
+          sensitivity: command.policy.sensitivity,
+          rightsBasis: command.policy.rightsBasis,
+          provenanceOrigin: command.provenance.origin,
+          provenanceDetail: command.provenance.detail,
+        })
+        .onConflictDoNothing();
+
+      const references = command.references ?? [];
+      if (references.length > 0) {
+        await tx
+          .insert(artifactReferences)
+          .values(
+            references.map((reference) => ({
+              hash,
+              kind: reference.kind,
+              targetId: reference.targetId,
+              locator: reference.locator ?? null,
+            })),
+          )
+          .onConflictDoNothing();
       }
-      await client.query("COMMIT");
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
+    });
 
     const view = await this.view(hash);
     if (!view) {
@@ -155,36 +136,25 @@ export class ArtifactRegistry {
     if (!isContentHash(hash)) {
       return undefined;
     }
-    const client = await this.pool.connect();
-    try {
-      await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
-      const artifact = await client.query<ArtifactRow>(
-        `SELECT hash, byte_size, sensitivity, rights_basis,
-                provenance_origin, provenance_detail, registered_at
-           FROM artifacts
-          WHERE hash = $1`,
-        [hash],
-      );
-      const row = artifact.rows[0];
-      if (!row) {
-        await client.query("COMMIT");
-        return undefined;
-      }
-      const references = await client.query<ReferenceRow>(
-        `SELECT kind, target_id, locator
-           FROM artifact_references
-          WHERE hash = $1
-          ORDER BY kind, target_id`,
-        [hash],
-      );
-      await client.query("COMMIT");
-      return mapArtifact(row, references.rows);
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
+    return this.db.transaction(
+      async (tx) => {
+        const [row] = await tx.select().from(artifacts).where(eq(artifacts.hash, hash));
+        if (!row) {
+          return undefined;
+        }
+        const references = await tx
+          .select({
+            kind: artifactReferences.kind,
+            targetId: artifactReferences.targetId,
+            locator: artifactReferences.locator,
+          })
+          .from(artifactReferences)
+          .where(eq(artifactReferences.hash, hash))
+          .orderBy(asc(artifactReferences.kind), asc(artifactReferences.targetId));
+        return mapArtifact(row, references);
+      },
+      { isolationLevel: "repeatable read", accessMode: "read only" },
+    );
   }
 
   /**
@@ -196,10 +166,11 @@ export class ArtifactRegistry {
    * silently repairs authoritative metadata or stored bytes.
    */
   async reconcile(): Promise<ReconciliationReport> {
-    const result = await this.pool.query<{ hash: string }>(
-      `SELECT hash FROM artifacts ORDER BY hash`,
-    );
-    const registered = result.rows.map((row) => row.hash);
+    const rows = await this.db
+      .select({ hash: artifacts.hash })
+      .from(artifacts)
+      .orderBy(asc(artifacts.hash));
+    const registered = rows.map((row) => row.hash);
 
     const stored = await this.store.list();
     const registeredSet = new Set(registered);
@@ -221,29 +192,103 @@ export class ArtifactRegistry {
 
     return { missing, unexpected, hashMismatch };
   }
-
-  async close(): Promise<void> {
-    await this.pool.end();
-  }
 }
 
-function mapArtifact(row: ArtifactRow, references: ReferenceRow[]): ArtifactMetadata {
+function mapArtifact(
+  row: typeof artifacts.$inferSelect,
+  references: Array<
+    Pick<typeof artifactReferences.$inferSelect, "kind" | "targetId" | "locator">
+  >,
+): ArtifactMetadata {
   return {
     hash: row.hash,
-    byteSize: Number(row.byte_size),
+    byteSize: row.byteSize,
     policy: {
       sensitivity: row.sensitivity,
-      rightsBasis: row.rights_basis,
+      rightsBasis: row.rightsBasis,
     },
     provenance: {
-      origin: row.provenance_origin,
-      detail: row.provenance_detail,
+      origin: row.provenanceOrigin,
+      detail: row.provenanceDetail,
     },
     references: references.map((reference) => ({
       kind: reference.kind,
-      targetId: reference.target_id,
+      targetId: reference.targetId,
       ...(reference.locator !== null ? { locator: reference.locator } : {}),
     })),
-    registeredAt: row.registered_at.toISOString(),
+    registeredAt: row.registeredAt.toISOString(),
   };
+}
+
+const sensitivityLevels: readonly SensitivityLevel[] = [
+  "ordinary-cloud",
+  "restricted-cloud",
+  "local-only",
+];
+const rightsBases: readonly RightsBasis[] = [
+  "owned",
+  "lawfully-acquired",
+  "publicly-accessible",
+  "explicitly-licensed",
+  "reference-only",
+  "inaccessible",
+];
+const provenanceOrigins: readonly ProvenanceOrigin[] = [
+  "published-source",
+  "personal-observation",
+  "personal-testimony",
+  "original-reasoning",
+  "other-person",
+];
+const referenceKinds: ReadonlyArray<ArtifactReference["kind"]> = [
+  "source",
+  "owned-note",
+  "rendition",
+  "derivative",
+];
+
+function validateRegistrationMetadata(
+  policy: unknown,
+  provenance: unknown,
+  references: unknown,
+): void {
+  if (!isRecord(policy) || !sensitivityLevels.includes(policy.sensitivity as SensitivityLevel)) {
+    throw new TypeError("Artifact policy has an invalid sensitivity");
+  }
+  if (!rightsBases.includes(policy.rightsBasis as RightsBasis)) {
+    throw new TypeError("Artifact policy has an invalid rights basis");
+  }
+  if (
+    !isRecord(provenance) ||
+    !provenanceOrigins.includes(provenance.origin as ProvenanceOrigin)
+  ) {
+    throw new TypeError("Artifact provenance has an invalid origin");
+  }
+  if (typeof provenance.detail !== "string") {
+    throw new TypeError("Artifact provenance detail must be a string");
+  }
+  if (references === undefined) {
+    return;
+  }
+  if (!Array.isArray(references)) {
+    throw new TypeError("Artifact references must be an array");
+  }
+  for (const reference of references) {
+    if (
+      !isRecord(reference) ||
+      !referenceKinds.includes(reference.kind as ArtifactReference["kind"])
+    ) {
+      throw new TypeError("Artifact reference has an invalid kind");
+    }
+    if (typeof reference.targetId !== "string") {
+      throw new TypeError("Artifact reference targetId must be a string");
+    }
+    if (reference.locator !== undefined && typeof reference.locator !== "string") {
+      throw new TypeError("Artifact reference locator must be a string when provided");
+    }
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }

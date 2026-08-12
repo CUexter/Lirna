@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { FileArtifactStore } from "../../server/artifacts/file-artifact-store.js";
+import { ApplicationDatabase } from "../../server/database/database.js";
 import { migrate } from "../../server/database/migrate.js";
 import {
   ArtifactRegistry,
@@ -22,6 +23,7 @@ import { resetTestDatabase } from "./database-test-support.js";
  */
 describe("artifact registry", () => {
   let databaseUrl: string;
+  let database: ApplicationDatabase;
   let stopDatabase: () => Promise<void>;
   let temporaryRoot: string;
   let registry: ArtifactRegistry;
@@ -37,14 +39,15 @@ describe("artifact registry", () => {
       stopDatabase = () => container.stop().then(() => undefined);
     }
     await migrate(databaseUrl);
-    await resetTestDatabase(databaseUrl);
+    database = new ApplicationDatabase(databaseUrl);
+    await resetTestDatabase(database.db);
     temporaryRoot = await mkdtemp(join(tmpdir(), "lirna-artifacts-"));
     store = new FileArtifactStore(join(temporaryRoot, "artifacts"));
-    registry = new ArtifactRegistry(databaseUrl, store);
+    registry = new ArtifactRegistry(database.db, store);
   });
 
   afterAll(async () => {
-    await registry?.close();
+    await database?.close();
     await stopDatabase?.();
     await rm(temporaryRoot, { recursive: true, force: true });
   });

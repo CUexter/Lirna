@@ -5,6 +5,7 @@ import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { createApi, type ApiServer } from "../../server/api/create-api.js";
 import { ArtifactRegistry } from "../../server/artifacts/artifact-registry.js";
 import { FileArtifactStore } from "../../server/artifacts/file-artifact-store.js";
+import { ApplicationDatabase, type LirnaDatabase } from "../../server/database/database.js";
 import { migrate } from "../../server/database/migrate.js";
 import { DomainDatabase } from "../../server/domain/synthetic-domain.js";
 import { OperationRepository } from "../../server/operations/operation-repository.js";
@@ -38,6 +39,7 @@ export interface IndependentExecutor {
 export interface Phase0Scenario {
   readonly address: string;
   readonly databaseUrl: string;
+  readonly database: LirnaDatabase;
   readonly root: string;
   readonly operations: OperationRepository;
   readonly artifacts: FileArtifactStore;
@@ -74,13 +76,17 @@ async function provisionDatabase(): Promise<{
   if (process.env.TEST_DATABASE_URL) {
     const databaseUrl = process.env.TEST_DATABASE_URL;
     await migrate(databaseUrl);
-    await resetTestDatabase(databaseUrl);
+    const database = new ApplicationDatabase(databaseUrl);
+    await resetTestDatabase(database.db);
+    await database.close();
     return { databaseUrl, stop: async () => {} };
   }
   const container = await new PostgreSqlContainer("postgres:16-alpine").start();
   const databaseUrl = container.getConnectionUri();
   await migrate(databaseUrl);
-  await resetTestDatabase(databaseUrl);
+  const database = new ApplicationDatabase(databaseUrl);
+  await resetTestDatabase(database.db);
+  await database.close();
   return {
     databaseUrl,
     stop: () => container.stop().then(() => undefined),
@@ -98,13 +104,14 @@ export async function startPhase0Scenario(): Promise<Phase0Scenario> {
   const { databaseUrl, stop } = await provisionDatabase();
   const root = await mkdtemp(join(tmpdir(), "lirna-phase0-gate-"));
 
-  const operations = new OperationRepository(databaseUrl);
+  const database = new ApplicationDatabase(databaseUrl);
+  const operations = new OperationRepository(database.db);
   const artifacts = new FileArtifactStore(join(root, "artifacts"));
-  const registry = new ArtifactRegistry(databaseUrl, artifacts);
+  const registry = new ArtifactRegistry(database.db, artifacts);
   const vault = new SyntheticVaultAdapter(join(root, "vault"));
-  const domain = new DomainDatabase(databaseUrl);
+  const domain = new DomainDatabase(database.db);
   const worker = new OperationWorker({ operations, artifacts, vault });
-  const runs = new WorkflowRunRepository(databaseUrl, registry);
+  const runs = new WorkflowRunRepository(database.db, registry);
   const executor = new WorkflowExecutor(runs);
 
   const api: ApiServer = createApi({ operations, artifacts, domain, workflows: runs });
@@ -113,6 +120,7 @@ export async function startPhase0Scenario(): Promise<Phase0Scenario> {
   return {
     address,
     databaseUrl,
+    database: database.db,
     root,
     operations,
     artifacts,
@@ -124,25 +132,22 @@ export async function startPhase0Scenario(): Promise<Phase0Scenario> {
     executor,
     spawnExecutor() {
       const spawnStore = new FileArtifactStore(join(root, "artifacts"));
-      const spawnRegistry = new ArtifactRegistry(databaseUrl, spawnStore);
-      const spawnRuns = new WorkflowRunRepository(databaseUrl, spawnRegistry);
+      const spawnDatabase = new ApplicationDatabase(databaseUrl);
+      const spawnRegistry = new ArtifactRegistry(spawnDatabase.db, spawnStore);
+      const spawnRuns = new WorkflowRunRepository(spawnDatabase.db, spawnRegistry);
       return {
         executor: new WorkflowExecutor(spawnRuns),
         close: async () => {
-          await spawnRuns.close();
-          await spawnRegistry.close();
+          await spawnDatabase.close();
         },
       };
     },
     async forceLeaseExpiry(lease) {
-      await forceWorkflowLeaseExpiry(databaseUrl, lease.runId, lease);
+      await forceWorkflowLeaseExpiry(database.db, lease.runId, lease);
     },
     async close() {
       await api.close();
-      await operations.close();
-      await domain.close();
-      await runs.close();
-      await registry.close();
+      await database.close();
       await rm(root, { recursive: true, force: true });
       await stop();
     },

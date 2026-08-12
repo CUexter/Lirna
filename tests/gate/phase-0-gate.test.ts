@@ -1,12 +1,14 @@
 import { createHash, randomUUID } from "node:crypto";
 import { unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { WorkflowDefinition } from "../../server/workflows/workflow-definition.js";
 import {
   ArtifactValidationError,
   WorkflowCommitError,
 } from "../../server/workflows/workflow-run-repository.js";
+import { executeTestSql } from "../integration/database-test-support.js";
 import { startPhase0Scenario, type Phase0Scenario } from "../support/phase-0-scenario.js";
 
 /**
@@ -135,10 +137,10 @@ describe("Phase 0 gate", () => {
 
     // Recorded history cannot be rewritten, even at the database boundary.
     await expect(
-      scenario.domain.pool.query(
-        "UPDATE synthetic_record_revisions SET note = 'tampered' WHERE record_id = $1",
-        [recordId],
-      ),
+      executeTestSql(scenario.database, sql`
+        UPDATE synthetic_record_revisions SET note = 'tampered'
+         WHERE record_id = ${recordId}
+      `),
     ).rejects.toThrow(/append-only/i);
 
     // The transactional outbox drains recorded events exactly once.

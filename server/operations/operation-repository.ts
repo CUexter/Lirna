@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import pg from "pg";
-
-const { Pool } = pg;
+import { eq, sql } from "drizzle-orm";
+import type { LirnaDatabase } from "../database/database.js";
+import { applicationOperations } from "./schema.js";
 
 export type OperationStatus = "queued" | "processing" | "completed" | "failed";
 export const syntheticOperationKind = "synthetic-adapter-roundtrip" as const;
@@ -20,79 +20,54 @@ export interface ApplicationOperation {
   error?: string;
 }
 
-interface OperationRow {
-  id: string;
-  kind: OperationKind;
-  input: string;
-  status: OperationStatus;
-  result: ApplicationOperation["result"] | null;
-  artifact_hash: string | null;
-  error: string | null;
-}
+type OperationRow = typeof applicationOperations.$inferSelect;
 
 export class OperationRepository {
-  private readonly pool: pg.Pool;
-
-  constructor(databaseUrl: string) {
-    this.pool = new Pool({ connectionString: databaseUrl });
-  }
+  constructor(private readonly db: LirnaDatabase) {}
 
   async submit(kind: OperationKind, input: string): Promise<ApplicationOperation> {
     const id = randomUUID();
-    const result = await this.pool.query<OperationRow>(
-      `INSERT INTO application_operations (id, kind, input, status)
-       VALUES ($1, $2, $3, 'queued')
-       RETURNING id, kind, input, status, result, artifact_hash, error`,
-      [id, kind, input],
-    );
-    return mapRow(result.rows[0]!);
+    const [row] = await this.db
+      .insert(applicationOperations)
+      .values({ id, kind, input, status: "queued" })
+      .returning();
+    return mapRow(row!);
   }
 
   async get(id: string): Promise<ApplicationOperation | undefined> {
-    const result = await this.pool.query<OperationRow>(
-      `SELECT id, kind, input, status, result, artifact_hash, error
-       FROM application_operations
-       WHERE id = $1`,
-      [id],
-    );
-    return result.rows[0] ? mapRow(result.rows[0]) : undefined;
+    const [row] = await this.db
+      .select()
+      .from(applicationOperations)
+      .where(eq(applicationOperations.id, id))
+      .limit(1);
+    return row ? mapRow(row) : undefined;
   }
 
   async claim(): Promise<ApplicationOperation | undefined> {
-    const client = await this.pool.connect();
-    try {
-      await client.query("BEGIN");
-      const claimed = await client.query<OperationRow>(
-        `SELECT id, kind, input, status, result, artifact_hash, error
-         FROM application_operations
-         WHERE status = 'queued'
-            OR (status = 'processing' AND lease_until < now())
-         ORDER BY requested_at
-         FOR UPDATE SKIP LOCKED
-         LIMIT 1`,
-      );
-      const row = claimed.rows[0];
+    return this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ id: applicationOperations.id })
+        .from(applicationOperations)
+        .where(sql`${applicationOperations.status} = 'queued' or (${applicationOperations.status} = 'processing' and ${applicationOperations.leaseUntil} < now())`)
+        .orderBy(applicationOperations.requestedAt)
+        .limit(1)
+        .for("update", { skipLocked: true });
       if (!row) {
-        await client.query("COMMIT");
         return undefined;
       }
 
-      const updated = await client.query<OperationRow>(
-        `UPDATE application_operations
-         SET status = 'processing', attempts = attempts + 1,
-             lease_until = now() + interval '30 seconds', error = NULL
-         WHERE id = $1
-         RETURNING id, kind, input, status, result, artifact_hash, error`,
-        [row.id],
-      );
-      await client.query("COMMIT");
-      return mapRow(updated.rows[0]!);
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
+      const [updated] = await tx
+        .update(applicationOperations)
+        .set({
+          status: "processing",
+          attempts: sql`${applicationOperations.attempts} + 1`,
+          leaseUntil: sql`now() + interval '30 seconds'`,
+          error: null,
+        })
+        .where(eq(applicationOperations.id, row.id))
+        .returning();
+      return mapRow(updated!);
+    });
   }
 
   async complete(
@@ -100,37 +75,55 @@ export class OperationRepository {
     artifactHash: string,
     result: NonNullable<ApplicationOperation["result"]>,
   ): Promise<void> {
-    await this.pool.query(
-      `UPDATE application_operations
-       SET status = 'completed', result = $2, artifact_hash = $3,
-           lease_until = NULL, completed_at = now()
-       WHERE id = $1`,
-      [id, JSON.stringify(result), artifactHash],
-    );
+    if (
+      !result ||
+      typeof result.artifactUrl !== "string" ||
+      result.artifactUrl.length === 0 ||
+      typeof result.vaultPath !== "string" ||
+      result.vaultPath.length === 0
+    ) {
+      throw new Error("Operation result requires artifactUrl and vaultPath");
+    }
+    await this.db
+      .update(applicationOperations)
+      .set({
+        status: "completed",
+        result,
+        artifactHash,
+        leaseUntil: null,
+        completedAt: new Date(),
+      })
+      .where(eq(applicationOperations.id, id));
   }
 
   async fail(id: string, error: string): Promise<void> {
-    await this.pool.query(
-      `UPDATE application_operations
-       SET status = 'failed', error = $2, lease_until = NULL
-       WHERE id = $1`,
-      [id, error],
-    );
-  }
-
-  async close(): Promise<void> {
-    await this.pool.end();
+    await this.db
+      .update(applicationOperations)
+      .set({ status: "failed", error, leaseUntil: null })
+      .where(eq(applicationOperations.id, id));
   }
 }
 
 function mapRow(row: OperationRow): ApplicationOperation {
+  if (row.result && !isOperationResult(row.result)) {
+    throw new Error(`Operation ${row.id} has an invalid persisted result`);
+  }
   return {
     id: row.id,
     kind: row.kind,
     input: row.input,
     status: row.status,
     ...(row.result ? { result: row.result } : {}),
-    ...(row.artifact_hash ? { artifactHash: row.artifact_hash } : {}),
+    ...(row.artifactHash ? { artifactHash: row.artifactHash } : {}),
     ...(row.error ? { error: row.error } : {}),
   };
+}
+
+function isOperationResult(value: unknown): value is NonNullable<ApplicationOperation["result"]> {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    typeof (value as Record<string, unknown>).artifactUrl === "string" &&
+    typeof (value as Record<string, unknown>).vaultPath === "string"
+  );
 }

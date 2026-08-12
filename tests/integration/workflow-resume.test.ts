@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApi } from "../../server/api/create-api.js";
 import { ArtifactRegistry } from "../../server/artifacts/artifact-registry.js";
 import { FileArtifactStore } from "../../server/artifacts/file-artifact-store.js";
+import { ApplicationDatabase } from "../../server/database/database.js";
 import { migrate } from "../../server/database/migrate.js";
 import { WorkflowExecutor } from "../../server/workflows/workflow-executor.js";
 import type { ExecutorAdapter } from "../../server/workflows/workflow-executor.js";
@@ -25,6 +26,7 @@ import { resetTestDatabase } from "./database-test-support.js";
  */
 describe("typed workflow resume after worker interruption", () => {
   let databaseUrl: string;
+  let database: ApplicationDatabase;
   let stopDatabase: () => Promise<void>;
   let temporaryRoot: string;
 
@@ -89,8 +91,8 @@ describe("typed workflow resume after worker interruption", () => {
 
   async function startScenario() {
     const store = new FileArtifactStore(join(temporaryRoot, "artifacts"));
-    const registry = new ArtifactRegistry(databaseUrl, store);
-    const runs = new WorkflowRunRepository(databaseUrl, registry);
+    const registry = new ArtifactRegistry(database.db, store);
+    const runs = new WorkflowRunRepository(database.db, registry);
     const executor = new WorkflowExecutor(runs);
     const api = createApi({
       operations: {} as never,
@@ -105,8 +107,6 @@ describe("typed workflow resume after worker interruption", () => {
       executor,
       close: async () => {
         await api.close();
-        await runs.close();
-        await registry.close();
       },
     };
   }
@@ -121,11 +121,13 @@ describe("typed workflow resume after worker interruption", () => {
       stopDatabase = () => database.stop().then(() => undefined);
     }
     await migrate(databaseUrl);
-    await resetTestDatabase(databaseUrl);
+    database = new ApplicationDatabase(databaseUrl);
+    await resetTestDatabase(database.db);
     temporaryRoot = await mkdtemp(join(tmpdir(), "lirna-workflow-integration-"));
   });
 
   afterAll(async () => {
+    await database?.close();
     await stopDatabase?.();
     await rm(temporaryRoot, { recursive: true, force: true });
   });
@@ -168,20 +170,15 @@ describe("typed workflow resume after worker interruption", () => {
       // before committing. The lease is expired directly to model the loss.
       const lostLease = (await scenario.runs.claimNextStep(runId))!;
       expect(lostLease.stepIndex).toBe(1);
-      await forceWorkflowLeaseExpiry(databaseUrl, runId, lostLease);
+      await forceWorkflowLeaseExpiry(database.db, runId, lostLease);
 
       // A restarted executor resumes from the last committed checkpoint: it
       // re-leases step 1 (a new attempt) and commits exactly one checkpoint.
       const restartedStore = new FileArtifactStore(join(temporaryRoot, "artifacts"));
-      const restartedRegistry = new ArtifactRegistry(databaseUrl, restartedStore);
-      const restartedRuns = new WorkflowRunRepository(databaseUrl, restartedRegistry);
+      const restartedRegistry = new ArtifactRegistry(database.db, restartedStore);
+      const restartedRuns = new WorkflowRunRepository(database.db, restartedRegistry);
       const restartedExecutor = new WorkflowExecutor(restartedRuns);
-      try {
-        expect(await restartedExecutor.runOnce()).toBe(true);
-      } finally {
-        await restartedRuns.close();
-        await restartedRegistry.close();
-      }
+      expect(await restartedExecutor.runOnce()).toBe(true);
 
       view = (await (
         await fetch(`${scenario.address}/api/workflow-runs/${runId}`)
@@ -398,8 +395,8 @@ describe("typed workflow resume after worker interruption", () => {
 
   it("uses the selected executor adapter to produce the checkpoint", async () => {
     const store = new FileArtifactStore(join(temporaryRoot, "adapter-artifacts"));
-    const registry = new ArtifactRegistry(databaseUrl, store);
-    const runs = new WorkflowRunRepository(databaseUrl, registry);
+    const registry = new ArtifactRegistry(database.db, store);
+    const runs = new WorkflowRunRepository(database.db, registry);
     const executedEvidence: string[][] = [];
     const adapter: ExecutorAdapter = {
       executorId: "selected-adapter",
@@ -429,31 +426,26 @@ describe("typed workflow resume after worker interruption", () => {
       [adapter],
       async (item) => ({ ...item, content: Buffer.from("synthetic evidence") }),
     );
-    try {
-      await runs.declare(routedWorkflow);
-      const run = await runs.createRun(
-        routedWorkflow.workflowId,
-        routedWorkflow.version,
-        {
-          prompt: "synthetic adapter fixture",
-          evidence: [
-            {
-              evidenceId: "source-state-adapter",
-              policy: { sensitivity: "local-only", rightsBasis: "owned" },
-            },
-          ],
-        },
-      );
+    await runs.declare(routedWorkflow);
+    const run = await runs.createRun(
+      routedWorkflow.workflowId,
+      routedWorkflow.version,
+      {
+        prompt: "synthetic adapter fixture",
+        evidence: [
+          {
+            evidenceId: "source-state-adapter",
+            policy: { sensitivity: "local-only", rightsBasis: "owned" },
+          },
+        ],
+      },
+    );
 
-      expect(await executor.runOnce()).toBe(true);
-      expect(executedEvidence).toEqual([["source-state-adapter"]]);
-      expect((await runs.view(run.id))?.routingDecisions[0]?.decision).toMatchObject({
-        executorId: "selected-adapter",
-        endpoint: "local://selected-adapter",
-      });
-    } finally {
-      await runs.close();
-      await registry.close();
-    }
+    expect(await executor.runOnce()).toBe(true);
+    expect(executedEvidence).toEqual([["source-state-adapter"]]);
+    expect((await runs.view(run.id))?.routingDecisions[0]?.decision).toMatchObject({
+      executorId: "selected-adapter",
+      endpoint: "local://selected-adapter",
+    });
   });
 });

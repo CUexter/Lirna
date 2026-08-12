@@ -32,7 +32,7 @@ Cross-cutting choices are recorded as ADRs:
 |---|---|
 | Language | TypeScript (ESM, Node.js ≥ 22) |
 | Hosted API | [Hono](https://hono.dev) on `@hono/node-server` |
-| Persistence | PostgreSQL 16 (via `pg`), transactional outbox |
+| Persistence | PostgreSQL 16 via Drizzle ORM, committed Drizzle Kit migrations, transactional outbox |
 | Web core | React 19, [TanStack Router](https://tanstack.com/router) + [Query](https://tanstack.com/query), Tailwind CSS v4, locally owned shadcn/ui source |
 | Build | Vite 7 (client), `tsc` (server) |
 | Desktop host | Tauri (planned; not yet built) |
@@ -61,9 +61,11 @@ Install dependencies and start PostgreSQL:
 ```sh
 npm install
 npm run db:up
+npm run db:migrate
 ```
 
-Wait for PostgreSQL to report healthy with `docker compose ps`, then start the
+Wait for PostgreSQL to report healthy with `docker compose ps`, apply committed
+migrations, then start the
 API, worker, and Vite client dev server together:
 
 ```sh
@@ -88,6 +90,11 @@ Then open <http://localhost:3000>, where the API serves the built client.
 The processes can also be run separately with `npm run dev:api`,
 `npm run dev:worker`, and `npm run dev:client`. Stop PostgreSQL with
 `npm run db:down`.
+
+Schema declarations are colocated with their owning server modules. Run
+`npm run db:generate` after changing them, inspect the generated migration for
+destructive changes and preserved custom triggers, then commit it. API and worker
+startup only check migration state; they never mutate the schema.
 
 Runtime paths and connectivity can be overridden with `DATABASE_URL`,
 `ARTIFACT_ROOT`, `SYNTHETIC_VAULT_ROOT`, and `PORT`. No private Vault adapter

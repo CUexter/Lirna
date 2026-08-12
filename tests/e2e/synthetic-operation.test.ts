@@ -9,6 +9,7 @@ import { chromium } from "playwright-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApi } from "../../server/api/create-api.js";
 import { FileArtifactStore } from "../../server/artifacts/file-artifact-store.js";
+import { ApplicationDatabase } from "../../server/database/database.js";
 import { migrate } from "../../server/database/migrate.js";
 import { DomainDatabase } from "../../server/domain/synthetic-domain.js";
 import { OperationRepository } from "../../server/operations/operation-repository.js";
@@ -19,18 +20,19 @@ import { resetTestDatabase } from "../integration/database-test-support.js";
 
 describe("synthetic application operation", () => {
   let databaseUrl: string;
+  let database: ApplicationDatabase;
   let stopDatabase: () => Promise<void>;
   let temporaryRoot: string;
 
   async function startScenario(adapterRoot: string) {
-    const operations = new OperationRepository(databaseUrl);
+    const operations = new OperationRepository(database.db);
     const artifacts = new FileArtifactStore(
       join(temporaryRoot, adapterRoot, "artifacts"),
     );
     const vault = new SyntheticVaultAdapter(
       join(temporaryRoot, adapterRoot, "vault"),
     );
-    const domain = new DomainDatabase(databaseUrl);
+    const domain = new DomainDatabase(database.db);
     const worker = new OperationWorker({ operations, artifacts, vault });
     const api = createApi({
       operations,
@@ -45,8 +47,6 @@ describe("synthetic application operation", () => {
       worker,
       close: async () => {
         await api.close();
-        await operations.close();
-        await domain.close();
       },
     };
   }
@@ -61,17 +61,19 @@ describe("synthetic application operation", () => {
       stopDatabase = () => database.stop().then(() => undefined);
     }
     await migrate(databaseUrl);
-    await resetTestDatabase(databaseUrl);
+    database = new ApplicationDatabase(databaseUrl);
+    await resetTestDatabase(database.db);
     temporaryRoot = await mkdtemp(join(tmpdir(), "lirna-scenario-"));
   });
 
   afterAll(async () => {
+    await database?.close();
     await stopDatabase?.();
     await rm(temporaryRoot, { recursive: true, force: true });
   });
 
   it("crosses the API, worker, PostgreSQL, and synthetic adapters", async () => {
-    // The documented dev command starts both migration-capable processes together.
+    // Reapplying the same committed migration history is safe.
     await Promise.all([migrate(databaseUrl), migrate(databaseUrl)]);
     const scenario = await startScenario("http");
 

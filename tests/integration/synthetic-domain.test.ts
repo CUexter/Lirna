@@ -1,13 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { sql } from "drizzle-orm";
+import { ApplicationDatabase } from "../../server/database/database.js";
 import { migrate } from "../../server/database/migrate.js";
 import {
   DomainDatabase,
   ModuleWriteOwnershipError,
   RevisionInvariantError,
 } from "../../server/domain/synthetic-domain.js";
-import { resetTestDatabase } from "./database-test-support.js";
+import { executeTestSql, resetTestDatabase } from "./database-test-support.js";
 
 /**
  * Focused invariant tests at the module contract seam. These prove the
@@ -18,6 +20,7 @@ import { resetTestDatabase } from "./database-test-support.js";
 describe("synthetic domain invariants", () => {
   let databaseUrl: string;
   let stopDatabase: () => Promise<void>;
+  let applicationDatabase: ApplicationDatabase;
   let database: DomainDatabase;
 
   beforeAll(async () => {
@@ -30,12 +33,13 @@ describe("synthetic domain invariants", () => {
       stopDatabase = () => container.stop().then(() => undefined);
     }
     await migrate(databaseUrl);
-    await resetTestDatabase(databaseUrl);
-    database = new DomainDatabase(databaseUrl);
+    applicationDatabase = new ApplicationDatabase(databaseUrl);
+    await resetTestDatabase(applicationDatabase.db);
+    database = new DomainDatabase(applicationDatabase.db);
   });
 
   afterAll(async () => {
-    await database?.close();
+    await applicationDatabase?.close();
     await stopDatabase?.();
   });
 
@@ -153,16 +157,14 @@ describe("synthetic domain invariants", () => {
     });
 
     await expect(
-      database.pool.query(
-        "UPDATE synthetic_record_revisions SET note = 'tampered' WHERE record_id = $1",
-        [id],
-      ),
+      executeTestSql(applicationDatabase.db, sql`
+        UPDATE synthetic_record_revisions SET note = 'tampered' WHERE record_id = ${id}
+      `),
     ).rejects.toThrow(/append-only/i);
     await expect(
-      database.pool.query(
-        "DELETE FROM synthetic_record_revisions WHERE record_id = $1",
-        [id],
-      ),
+      executeTestSql(applicationDatabase.db, sql`
+        DELETE FROM synthetic_record_revisions WHERE record_id = ${id}
+      `),
     ).rejects.toThrow(/append-only/i);
   });
 
@@ -190,5 +192,30 @@ describe("synthetic domain invariants", () => {
 
     const view = await gamma.view(id);
     expect(view?.events.every((event) => event.publishedAt !== null)).toBe(true);
+  });
+
+  it("partitions concurrent outbox drains without duplicate publication", async () => {
+    const delta = database.module("delta");
+    for (let index = 0; index < 4; index += 1) {
+      await delta.revise({
+        recordId: randomUUID(),
+        label: `record ${index}`,
+        payload: {},
+        note: "created",
+      });
+    }
+    const published: string[] = [];
+    const publish = async (event: { id: string }) => {
+      published.push(event.id);
+    };
+
+    const drained = await Promise.all([
+      database.relay().drainOnce(publish, 2),
+      database.relay().drainOnce(publish, 2),
+    ]);
+
+    expect(drained).toEqual([2, 2]);
+    expect(new Set(published).size).toBe(4);
+    expect(await database.relay().pendingCount()).toBe(0);
   });
 });

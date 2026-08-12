@@ -1,12 +1,14 @@
 import { randomUUID } from "node:crypto";
-import pg from "pg";
+import { and, asc, count, eq, gt, lte, sql } from "drizzle-orm";
 import {
   ArtifactRegistry,
   type ArtifactMetadata,
   type ArtifactReference,
 } from "../artifacts/artifact-registry.js";
+import { artifacts } from "../artifacts/schema.js";
+import type { LirnaDatabase } from "../database/database.js";
 import { isContentHash } from "../artifacts/file-artifact-store.js";
-import type { RoutingDecision } from "./executor-router.js";
+import { isRoutingDecision, type RoutingDecision } from "./executor-router.js";
 import {
   parseGateDecision,
   validateArtifactShape,
@@ -16,8 +18,13 @@ import {
   type StepDefinition,
   type WorkflowDefinition,
 } from "./workflow-definition.js";
-
-const { Pool } = pg;
+import {
+  workflowDefinitions,
+  workflowHumanGates,
+  workflowRoutingDecisions,
+  workflowRuns,
+  workflowStepAttempts,
+} from "./schema.js";
 
 export type RunStatus = "running" | "paused" | "completed" | "failed";
 export type AttemptStatus = "leased" | "committed" | "expired";
@@ -118,42 +125,6 @@ export class WorkflowDefinitionError extends Error {
   }
 }
 
-interface RunRow {
-  id: string;
-  workflow_id: string;
-  workflow_version: number;
-  status: RunStatus;
-  current_step: number;
-  input: Record<string, unknown>;
-}
-
-interface AttemptRow {
-  step_index: number;
-  step_id: string;
-  attempt: number;
-  status: AttemptStatus;
-  lease_id: string;
-  lease_until: Date;
-  leased_at: Date;
-  artifact_hash: string | null;
-  committed_at: Date | null;
-}
-
-interface GateRow {
-  step_index: number;
-  step_id: string;
-  status: GateStatus;
-  decision_hash: string | null;
-  raised_at: Date;
-  decided_at: Date | null;
-}
-
-interface RoutingRow {
-  step_index: number;
-  decision: RoutingDecision;
-  recorded_at: Date;
-}
-
 /**
  * Owns durable workflow run state: versions, attempts, leases, checkpoints,
  * budgets, and declared human gates. Workers lease idempotent steps and may
@@ -166,14 +137,10 @@ interface RoutingRow {
  * fails the workflow-valid checks leaves no duplicate identity behind.
  */
 export class WorkflowRunRepository {
-  private readonly pool: pg.Pool;
-
   constructor(
-    databaseUrl: string,
+    private readonly db: LirnaDatabase,
     private readonly registry: ArtifactRegistry,
-  ) {
-    this.pool = new Pool({ connectionString: databaseUrl });
-  }
+  ) {}
 
   /**
    * Declare a versioned typed workflow. Idempotent: re-declaring an identical
@@ -181,37 +148,33 @@ export class WorkflowRunRepository {
    */
   async declare(definition: WorkflowDefinition): Promise<WorkflowDefinition> {
     assertDefinition(definition);
-    const client = await this.pool.connect();
-    try {
-      await client.query("BEGIN");
-      const existing = await client.query<{ definition: WorkflowDefinition }>(
-        `SELECT definition FROM workflow_definitions
-          WHERE workflow_id = $1 AND version = $2`,
-        [definition.workflowId, definition.version],
-      );
-      if (existing.rows[0]) {
-        const recorded = existing.rows[0].definition;
+    return this.db.transaction(async (tx) => {
+      const existing = await tx
+        .select({ definition: workflowDefinitions.definition })
+        .from(workflowDefinitions)
+        .where(
+          and(
+            eq(workflowDefinitions.workflowId, definition.workflowId),
+            eq(workflowDefinitions.version, definition.version),
+          ),
+        );
+      if (existing[0]) {
+        const recorded = existing[0].definition;
+        assertDefinition(recorded);
         if (!sameDefinition(recorded, definition)) {
           throw new WorkflowDefinitionError(
             `Workflow ${definition.workflowId} v${definition.version} is already declared with a different definition`,
           );
         }
-        await client.query("COMMIT");
         return recorded;
       }
-      await client.query(
-        `INSERT INTO workflow_definitions (workflow_id, version, definition)
-         VALUES ($1, $2, $3)`,
-        [definition.workflowId, definition.version, definition],
-      );
-      await client.query("COMMIT");
+      await tx.insert(workflowDefinitions).values({
+        workflowId: definition.workflowId,
+        version: definition.version,
+        definition,
+      });
       return definition;
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
+    });
   }
 
   async createRun(
@@ -220,32 +183,31 @@ export class WorkflowRunRepository {
     input: Record<string, unknown>,
   ): Promise<RunView> {
     const id = randomUUID();
-    const client = await this.pool.connect();
-    try {
-      await client.query("BEGIN");
-      const declared = await client.query(
-        `SELECT 1 FROM workflow_definitions
-          WHERE workflow_id = $1 AND version = $2
-          FOR SHARE`,
-        [workflowId, version],
-      );
-      if (!declared.rows[0]) {
+    await this.db.transaction(async (tx) => {
+      const declared = await tx
+        .select({ workflowId: workflowDefinitions.workflowId })
+        .from(workflowDefinitions)
+        .where(
+          and(
+            eq(workflowDefinitions.workflowId, workflowId),
+            eq(workflowDefinitions.version, version),
+          ),
+        )
+        .for("share");
+      if (!declared[0]) {
         throw new WorkflowDefinitionError(
           `Workflow ${workflowId} v${version} is not declared`,
         );
       }
-      await client.query(
-        `INSERT INTO workflow_runs (id, workflow_id, workflow_version, status, current_step, input)
-         VALUES ($1, $2, $3, 'running', 0, $4)`,
-        [id, workflowId, version, input],
-      );
-      await client.query("COMMIT");
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
+      await tx.insert(workflowRuns).values({
+        id,
+        workflowId,
+        workflowVersion: version,
+        status: "running",
+        currentStep: 0,
+        input,
+      });
+    });
     const view = await this.view(id);
     if (!view) {
       throw new Error(`Run ${id} vanished after creation`);
@@ -254,64 +216,55 @@ export class WorkflowRunRepository {
   }
 
   async view(runId: string): Promise<RunView | undefined> {
-    const client = await this.pool.connect();
-    try {
-      await client.query(
-        "BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY",
-      );
-      const run = await client.query<RunRow>(
-        `SELECT id, workflow_id, workflow_version, status, current_step, input
-           FROM workflow_runs WHERE id = $1`,
-        [runId],
-      );
-      const row = run.rows[0];
+    return this.db.transaction(async (tx) => {
+      const run = await tx
+        .select()
+        .from(workflowRuns)
+        .where(eq(workflowRuns.id, runId));
+      const row = run[0];
       if (!row) {
-        await client.query("COMMIT");
         return undefined;
       }
-      const defined = await client.query<{ definition: WorkflowDefinition }>(
-        `SELECT definition FROM workflow_definitions
-          WHERE workflow_id = $1 AND version = $2`,
-        [row.workflow_id, row.workflow_version],
-      );
-      const definition = defined.rows[0]?.definition;
+      const defined = await tx
+        .select({ definition: workflowDefinitions.definition })
+        .from(workflowDefinitions)
+        .where(
+          and(
+            eq(workflowDefinitions.workflowId, row.workflowId),
+            eq(workflowDefinitions.version, row.workflowVersion),
+          ),
+        );
+      const definition = defined[0]?.definition;
       if (!definition) {
         throw new Error(
-          `Definition ${row.workflow_id} v${row.workflow_version} missing for run ${runId}`,
+          `Definition ${row.workflowId} v${row.workflowVersion} missing for run ${runId}`,
         );
       }
-      const attempts = await client.query<AttemptRow>(
-        `SELECT step_index, step_id, attempt, status, lease_id, lease_until,
-                leased_at, artifact_hash, committed_at
-           FROM workflow_step_attempts
-          WHERE run_id = $1
-          ORDER BY step_index, attempt`,
-        [runId],
-      );
-      const gates = await client.query<GateRow>(
-        `SELECT step_index, step_id, status, decision_hash, raised_at, decided_at
-           FROM workflow_human_gates
-          WHERE run_id = $1
-          ORDER BY step_index`,
-        [runId],
-      );
-      const routing = await client.query<RoutingRow>(
-        `SELECT step_index, decision, recorded_at
-           FROM workflow_routing_decisions
-          WHERE run_id = $1
-          ORDER BY step_index`,
-        [runId],
-      );
-      const databaseTime = await client.query<{ now: Date }>("SELECT now()");
-      await client.query("COMMIT");
+      assertDefinition(definition);
+      const attempts = await tx
+        .select()
+        .from(workflowStepAttempts)
+        .where(eq(workflowStepAttempts.runId, runId))
+        .orderBy(asc(workflowStepAttempts.stepIndex), asc(workflowStepAttempts.attempt));
+      const gates = await tx
+        .select()
+        .from(workflowHumanGates)
+        .where(eq(workflowHumanGates.runId, runId))
+        .orderBy(asc(workflowHumanGates.stepIndex));
+      const routing = await tx
+        .select()
+        .from(workflowRoutingDecisions)
+        .where(eq(workflowRoutingDecisions.runId, runId))
+        .orderBy(asc(workflowRoutingDecisions.stepIndex));
+      const databaseTime = await tx.execute<{ now: string | Date }>(sql`select now() as now`);
 
-      const attemptViews = attempts.rows.map(mapAttempt);
+      const attemptViews = attempts.map(mapAttempt);
       return {
         id: row.id,
-        workflowId: row.workflow_id,
-        workflowVersion: row.workflow_version,
+        workflowId: row.workflowId,
+        workflowVersion: row.workflowVersion,
         status: row.status,
-        currentStep: row.current_step,
+        currentStep: row.currentStep,
         input: row.input,
         steps: definition.steps,
         attempts: attemptViews,
@@ -325,24 +278,19 @@ export class WorkflowRunRepository {
             artifactHash: attempt.artifactHash!,
             committedAt: attempt.committedAt!,
           })),
-        gates: gates.rows.map(mapGate),
+        gates: gates.map(mapGate),
         budgets: budgetViews(
           definition,
           attemptViews,
-          databaseTime.rows[0]!.now.getTime(),
+          new Date(databaseTime.rows[0]!.now).getTime(),
         ),
-        routingDecisions: routing.rows.map((decision) => ({
-          stepIndex: decision.step_index,
-          decision: decision.decision,
-          recordedAt: decision.recorded_at.toISOString(),
+        routingDecisions: routing.map((decision) => ({
+          stepIndex: decision.stepIndex,
+          decision: requireRoutingDecision(decision.decision),
+          recordedAt: decision.recordedAt.toISOString(),
         })),
       };
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
+    }, { isolationLevel: "repeatable read", accessMode: "read only" });
   }
 
   /**
@@ -350,10 +298,12 @@ export class WorkflowRunRepository {
    * background worker uses this to find runs whose current step it can lease.
    */
   async listRunningRunIds(): Promise<string[]> {
-    const result = await this.pool.query<{ id: string }>(
-      `SELECT id FROM workflow_runs WHERE status = 'running' ORDER BY created_at`,
-    );
-    return result.rows.map((row) => row.id);
+    const result = await this.db
+      .select({ id: workflowRuns.id })
+      .from(workflowRuns)
+      .where(eq(workflowRuns.status, "running"))
+      .orderBy(asc(workflowRuns.createdAt));
+    return result.map((row) => row.id);
   }
 
   /** Record an immutable routing result before a source-bearing step is leased. */
@@ -362,45 +312,43 @@ export class WorkflowRunRepository {
     stepIndex: number,
     decision: RoutingDecision,
   ): Promise<RoutingDecision> {
-    const client = await this.pool.connect();
-    try {
-      await client.query("BEGIN");
-      const run = await client.query<{ status: RunStatus; current_step: number }>(
-        `SELECT status, current_step FROM workflow_runs WHERE id = $1 FOR UPDATE`,
-        [runId],
-      );
-      const row = run.rows[0];
-      if (!row || row.status !== "running" || row.current_step !== stepIndex) {
+    if (!isRoutingDecision(decision)) {
+      throw new WorkflowCommitError("Routing decision is invalid");
+    }
+    return this.db.transaction(async (tx) => {
+      const run = await tx
+        .select({ status: workflowRuns.status, currentStep: workflowRuns.currentStep })
+        .from(workflowRuns)
+        .where(eq(workflowRuns.id, runId))
+        .for("update");
+      const row = run[0];
+      if (!row || row.status !== "running" || row.currentStep !== stepIndex) {
         throw new WorkflowCommitError(
           `Step ${stepIndex} is not runnable for routing on run ${runId}`,
         );
       }
-      await client.query(
-        `INSERT INTO workflow_routing_decisions (run_id, step_index, decision)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (run_id, step_index) DO NOTHING`,
-        [runId, stepIndex, decision],
-      );
-      const existing = await client.query<{ decision: RoutingDecision }>(
-        `SELECT decision FROM workflow_routing_decisions
-          WHERE run_id = $1 AND step_index = $2`,
-        [runId, stepIndex],
-      );
-      const recorded = existing.rows[0]!.decision;
-      if (recorded.outcome === "paused") {
-        await client.query(
-          `UPDATE workflow_runs SET status = 'paused', updated_at = now() WHERE id = $1`,
-          [runId],
+      await tx
+        .insert(workflowRoutingDecisions)
+        .values({ runId, stepIndex, decision })
+        .onConflictDoNothing();
+      const existing = await tx
+        .select({ decision: workflowRoutingDecisions.decision })
+        .from(workflowRoutingDecisions)
+        .where(
+          and(
+            eq(workflowRoutingDecisions.runId, runId),
+            eq(workflowRoutingDecisions.stepIndex, stepIndex),
+          ),
         );
+      const recorded = requireRoutingDecision(existing[0]!.decision);
+      if (recorded.outcome === "paused") {
+        await tx
+          .update(workflowRuns)
+          .set({ status: "paused", updatedAt: sql`now()` })
+          .where(eq(workflowRuns.id, runId));
       }
-      await client.query("COMMIT");
       return recorded;
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
+    });
   }
 
   /**
@@ -417,110 +365,121 @@ export class WorkflowRunRepository {
     runId: string,
     options: { onlyWork?: boolean } = {},
   ): Promise<StepLease | undefined> {
-    const client = await this.pool.connect();
-    try {
-      await client.query("BEGIN");
-      const run = await client.query<RunRow>(
-        `SELECT id, workflow_id, workflow_version, status, current_step, input
-           FROM workflow_runs WHERE id = $1 FOR UPDATE`,
-        [runId],
-      );
-      const row = run.rows[0];
+    return this.db.transaction(async (tx) => {
+      const run = await tx
+        .select()
+        .from(workflowRuns)
+        .where(eq(workflowRuns.id, runId))
+        .for("update");
+      const row = run[0];
       if (!row || row.status !== "running") {
-        await client.query("COMMIT");
         return undefined;
       }
-      const defined = await client.query<{ definition: WorkflowDefinition }>(
-        `SELECT definition FROM workflow_definitions
-          WHERE workflow_id = $1 AND version = $2`,
-        [row.workflow_id, row.workflow_version],
-      );
-      const definition = defined.rows[0]?.definition;
+      const defined = await tx
+        .select({ definition: workflowDefinitions.definition })
+        .from(workflowDefinitions)
+        .where(
+          and(
+            eq(workflowDefinitions.workflowId, row.workflowId),
+            eq(workflowDefinitions.version, row.workflowVersion),
+          ),
+        );
+      const definition = defined[0]?.definition;
       if (!definition) {
         throw new Error(
-          `Definition missing for run ${runId} (${row.workflow_id} v${row.workflow_version})`,
+          `Definition missing for run ${runId} (${row.workflowId} v${row.workflowVersion})`,
         );
       }
+      assertDefinition(definition);
 
-      const stepIndex = row.current_step;
+      const stepIndex = row.currentStep;
       if (stepIndex >= definition.steps.length) {
-        await client.query(
-          `UPDATE workflow_runs SET status = 'completed', updated_at = now() WHERE id = $1`,
-          [runId],
-        );
-        await client.query("COMMIT");
+        await tx
+          .update(workflowRuns)
+          .set({ status: "completed", updatedAt: sql`now()` })
+          .where(eq(workflowRuns.id, runId));
         return undefined;
       }
 
       const step = definition.steps[stepIndex];
       if (!step) {
-        await client.query("COMMIT");
         return undefined;
       }
       if (options.onlyWork && step.kind === "human-gate") {
-        await client.query("COMMIT");
         return undefined;
       }
 
-      const active = await client.query<{ lease_until: Date }>(
-        `SELECT lease_until FROM workflow_step_attempts
-          WHERE run_id = $1 AND step_index = $2 AND status = 'leased'
-            AND lease_until > now()
-          LIMIT 1`,
-        [runId, stepIndex],
-      );
-      if (active.rows[0]) {
-        await client.query("COMMIT");
+      const active = await tx
+        .select({ leaseUntil: workflowStepAttempts.leaseUntil })
+        .from(workflowStepAttempts)
+        .where(
+          and(
+            eq(workflowStepAttempts.runId, runId),
+            eq(workflowStepAttempts.stepIndex, stepIndex),
+            eq(workflowStepAttempts.status, "leased"),
+            gt(workflowStepAttempts.leaseUntil, sql`now()`),
+          ),
+        )
+        .limit(1);
+      if (active[0]) {
         return undefined;
       }
 
-      const spent = await client.query<{ count: string }>(
-        `SELECT count(*)::text AS count FROM workflow_step_attempts
-          WHERE run_id = $1 AND step_index = $2`,
-        [runId, stepIndex],
-      );
-      const attemptsUsed = Number(spent.rows[0]?.count ?? "0");
-      if (attemptsUsed >= step.budget.maxAttempts) {
-        await client.query(
-          `UPDATE workflow_runs SET status = 'failed', updated_at = now() WHERE id = $1`,
-          [runId],
+      const spent = await tx
+        .select({ count: count() })
+        .from(workflowStepAttempts)
+        .where(
+          and(
+            eq(workflowStepAttempts.runId, runId),
+            eq(workflowStepAttempts.stepIndex, stepIndex),
+          ),
         );
-        await client.query("COMMIT");
+      const attemptsUsed = spent[0]?.count ?? 0;
+      if (attemptsUsed >= step.budget.maxAttempts) {
+        await tx
+          .update(workflowRuns)
+          .set({ status: "failed", updatedAt: sql`now()` })
+          .where(eq(workflowRuns.id, runId));
         return undefined;
       }
 
       // Mark any stale leases for this step as expired so the attempt history is
       // explicit and inspectable; only then raise the new attempt.
-      await client.query(
-        `UPDATE workflow_step_attempts
-            SET status = 'expired'
-          WHERE run_id = $1 AND step_index = $2 AND status = 'leased'
-            AND lease_until <= now()`,
-        [runId, stepIndex],
-      );
+      await tx
+        .update(workflowStepAttempts)
+        .set({ status: "expired" })
+        .where(
+          and(
+            eq(workflowStepAttempts.runId, runId),
+            eq(workflowStepAttempts.stepIndex, stepIndex),
+            eq(workflowStepAttempts.status, "leased"),
+            lte(workflowStepAttempts.leaseUntil, sql`now()`),
+          ),
+        );
 
       const attempt = attemptsUsed + 1;
       const leaseId = randomUUID();
-      const inserted = await client.query<{ lease_until: Date }>(
-        `INSERT INTO workflow_step_attempts
-           (run_id, step_index, attempt, step_id, lease_id, lease_until, status)
-         VALUES ($1, $2, $3, $4, $5, now() + $6 * interval '1 second', 'leased')
-         RETURNING lease_until`,
-        [runId, stepIndex, attempt, step.stepId, leaseId, step.budget.leaseSeconds],
-      );
-      const leaseUntil = inserted.rows[0]!.lease_until;
+      const inserted = await tx
+        .insert(workflowStepAttempts)
+        .values({
+          runId,
+          stepIndex,
+          attempt,
+          stepId: step.stepId,
+          leaseId,
+          leaseUntil: sql`now() + ${step.budget.leaseSeconds} * interval '1 second'`,
+          status: "leased",
+        })
+        .returning({ leaseUntil: workflowStepAttempts.leaseUntil });
+      const leaseUntil = inserted[0]!.leaseUntil;
 
       if (step.kind === "human-gate") {
-        await client.query(
-          `INSERT INTO workflow_human_gates
-             (run_id, step_index, step_id, status)
-           VALUES ($1, $2, $3, 'pending')
-           ON CONFLICT (run_id, step_index) DO NOTHING`,
-          [runId, stepIndex, step.stepId],
-        );
+        await tx
+          .insert(workflowHumanGates)
+          .values({ runId, stepIndex, stepId: step.stepId, status: "pending" })
+          .onConflictDoNothing();
       }
 
-      await client.query("COMMIT");
       return {
         runId,
         stepIndex,
@@ -530,12 +489,7 @@ export class WorkflowRunRepository {
         leaseId,
         leaseUntil: leaseUntil.toISOString(),
       };
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
+    });
   }
 
   /**
@@ -582,17 +536,17 @@ export class WorkflowRunRepository {
       references: submission.references as ArtifactReference[] | undefined,
     });
 
-    const client = await this.pool.connect();
-    try {
-      await client.query("BEGIN");
-      await this.commitAttempt(client, runId, lease, step, registered.hash, decision, run.steps.length);
-      await client.query("COMMIT");
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
+    await this.db.transaction((tx) =>
+      this.commitAttempt(
+        tx,
+        runId,
+        lease,
+        step,
+        registered.hash,
+        decision,
+        run.steps.length,
+      ),
+    );
 
     const view = await this.view(runId);
     const checkpoint = view?.checkpoints.find((c) => c.stepIndex === lease.stepIndex);
@@ -605,7 +559,7 @@ export class WorkflowRunRepository {
   }
 
   private async commitAttempt(
-    client: pg.PoolClient,
+    tx: Parameters<Parameters<LirnaDatabase["transaction"]>[0]>[0],
     runId: string,
     lease: StepLease,
     step: StepDefinition,
@@ -613,22 +567,28 @@ export class WorkflowRunRepository {
     decision: GateDecision | null,
     totalSteps: number,
   ): Promise<void> {
-    const run = await client.query<{ status: RunStatus; current_step: number }>(
-      `SELECT status, current_step FROM workflow_runs WHERE id = $1 FOR UPDATE`,
-      [runId],
-    );
-    const runRow = run.rows[0];
-    const attempt = await client.query<{
-      status: AttemptStatus;
-      lease_id: string;
-      lease_active: boolean;
-    }>(
-      `SELECT status, lease_id, lease_until > now() AS lease_active
-         FROM workflow_step_attempts
-        WHERE run_id = $1 AND step_index = $2 AND attempt = $3 FOR UPDATE`,
-      [runId, lease.stepIndex, lease.attempt],
-    );
-    const attemptRow = attempt.rows[0];
+    const run = await tx
+      .select({ status: workflowRuns.status, currentStep: workflowRuns.currentStep })
+      .from(workflowRuns)
+      .where(eq(workflowRuns.id, runId))
+      .for("update");
+    const runRow = run[0];
+    const attempt = await tx
+      .select({
+        status: workflowStepAttempts.status,
+        leaseId: workflowStepAttempts.leaseId,
+        leaseActive: sql<boolean>`${workflowStepAttempts.leaseUntil} > now()`,
+      })
+      .from(workflowStepAttempts)
+      .where(
+        and(
+          eq(workflowStepAttempts.runId, runId),
+          eq(workflowStepAttempts.stepIndex, lease.stepIndex),
+          eq(workflowStepAttempts.attempt, lease.attempt),
+        ),
+      )
+      .for("update");
+    const attemptRow = attempt[0];
     if (!attemptRow) {
       throw new WorkflowCommitError(
         `Attempt ${lease.attempt} for step ${lease.stepIndex} of run ${runId} not found`,
@@ -644,12 +604,12 @@ export class WorkflowRunRepository {
         `Attempt ${lease.attempt} for step ${lease.stepIndex} of run ${runId} is ${attemptRow.status}`,
       );
     }
-    if (attemptRow.lease_id !== lease.leaseId) {
+    if (attemptRow.leaseId !== lease.leaseId) {
       throw new WorkflowCommitError(
         `Lease id does not match attempt ${lease.attempt} of step ${lease.stepIndex} of run ${runId}`,
       );
     }
-    if (!attemptRow.lease_active) {
+    if (!attemptRow.leaseActive) {
       throw new WorkflowCommitError(
         `Lease for attempt ${lease.attempt} of step ${lease.stepIndex} of run ${runId} has expired`,
       );
@@ -657,50 +617,73 @@ export class WorkflowRunRepository {
     if (!runRow || runRow.status !== "running") {
       throw new WorkflowCommitError(`Run ${runId} is not running`);
     }
-    if (runRow.current_step !== lease.stepIndex) {
+    if (runRow.currentStep !== lease.stepIndex) {
       throw new WorkflowCommitError(
-        `Step ${lease.stepIndex} is not the current step of run ${runId} (current ${runRow.current_step})`,
+        `Step ${lease.stepIndex} is not the current step of run ${runId} (current ${runRow.currentStep})`,
       );
     }
 
-    await client.query(
-      `UPDATE workflow_step_attempts
-         SET status = 'committed', artifact_hash = $3, committed_at = now()
-       WHERE run_id = $1 AND step_index = $2 AND attempt = $4`,
-      [runId, lease.stepIndex, artifactHash, lease.attempt],
-    );
+    const registered = await tx
+      .select({ hash: artifacts.hash })
+      .from(artifacts)
+      .where(eq(artifacts.hash, artifactHash));
+    if (!registered[0]) {
+      throw new WorkflowCommitError(`Artifact ${artifactHash} is not registered`);
+    }
+    await tx
+      .update(workflowStepAttempts)
+      .set({
+        status: "committed",
+        artifactHash: registered[0].hash,
+        committedAt: sql`now()`,
+      })
+      .where(
+        and(
+          eq(workflowStepAttempts.runId, runId),
+          eq(workflowStepAttempts.stepIndex, lease.stepIndex),
+          eq(workflowStepAttempts.attempt, lease.attempt),
+        ),
+      );
 
     if (step.kind === "human-gate" && decision) {
       const gateStatus: GateStatus =
         decision.outcome === "approve" ? "satisfied" : "rejected";
-      await client.query(
-        `UPDATE workflow_human_gates
-           SET status = $3, decision_hash = $4, decided_at = now()
-         WHERE run_id = $1 AND step_index = $2`,
-        [runId, lease.stepIndex, gateStatus, artifactHash],
-      );
-      if (decision.outcome === "reject") {
-        await client.query(
-          `UPDATE workflow_runs SET status = 'failed', updated_at = now() WHERE id = $1`,
-          [runId],
+      await tx
+        .update(workflowHumanGates)
+        .set({ status: gateStatus, decisionHash: artifactHash, decidedAt: sql`now()` })
+        .where(
+          and(
+            eq(workflowHumanGates.runId, runId),
+            eq(workflowHumanGates.stepIndex, lease.stepIndex),
+          ),
         );
+      if (decision.outcome === "reject") {
+        await tx
+          .update(workflowRuns)
+          .set({ status: "failed", updatedAt: sql`now()` })
+          .where(eq(workflowRuns.id, runId));
         return;
       }
     }
 
     const nextStep = lease.stepIndex + 1;
     const completed = nextStep >= totalSteps;
-    await client.query(
-      `UPDATE workflow_runs
-         SET current_step = $2, status = $3, updated_at = now()
-       WHERE id = $1`,
-      [runId, nextStep, completed ? "completed" : "running"],
-    );
+    await tx
+      .update(workflowRuns)
+      .set({
+        currentStep: nextStep,
+        status: completed ? "completed" : "running",
+        updatedAt: sql`now()`,
+      })
+      .where(eq(workflowRuns.id, runId));
   }
+}
 
-  async close(): Promise<void> {
-    await this.pool.end();
+function requireRoutingDecision(value: unknown): RoutingDecision {
+  if (!isRoutingDecision(value)) {
+    throw new WorkflowCommitError("Persisted routing decision is invalid");
   }
+  return value;
 }
 
 function assertDefinition(definition: WorkflowDefinition): void {
@@ -917,28 +900,28 @@ async function resolveCrossReferences(
   }
 }
 
-function mapAttempt(row: AttemptRow): AttemptView {
+function mapAttempt(row: typeof workflowStepAttempts.$inferSelect): AttemptView {
   return {
-    stepIndex: row.step_index,
-    stepId: row.step_id,
+    stepIndex: row.stepIndex,
+    stepId: row.stepId,
     attempt: row.attempt,
     status: row.status,
-    leaseId: row.lease_id,
-    leaseUntil: row.lease_until.toISOString(),
-    leasedAt: row.leased_at.toISOString(),
-    artifactHash: row.artifact_hash,
-    committedAt: row.committed_at ? row.committed_at.toISOString() : null,
+    leaseId: row.leaseId,
+    leaseUntil: row.leaseUntil.toISOString(),
+    leasedAt: row.leasedAt.toISOString(),
+    artifactHash: row.artifactHash,
+    committedAt: row.committedAt ? row.committedAt.toISOString() : null,
   };
 }
 
-function mapGate(row: GateRow): GateView {
+function mapGate(row: typeof workflowHumanGates.$inferSelect): GateView {
   return {
-    stepIndex: row.step_index,
-    stepId: row.step_id,
+    stepIndex: row.stepIndex,
+    stepId: row.stepId,
     status: row.status,
-    decisionHash: row.decision_hash,
-    raisedAt: row.raised_at.toISOString(),
-    decidedAt: row.decided_at ? row.decided_at.toISOString() : null,
+    decisionHash: row.decisionHash,
+    raisedAt: row.raisedAt.toISOString(),
+    decidedAt: row.decidedAt ? row.decidedAt.toISOString() : null,
   };
 }
 
