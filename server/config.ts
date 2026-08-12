@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 export interface RuntimeConfig {
   databaseUrl: string;
   artifactRoot: string;
-  syntheticVaultRoot: string;
+  syntheticResultRoot: string;
   port: number;
 }
 
@@ -16,8 +16,8 @@ export function loadConfig(environment = process.env): RuntimeConfig {
     databaseUrl:
       environment.DATABASE_URL ?? "postgres://lirna:lirna@127.0.0.1:5432/lirna",
     artifactRoot: resolve(environment.ARTIFACT_ROOT ?? ".lirna/artifacts"),
-    syntheticVaultRoot: resolve(
-      environment.SYNTHETIC_VAULT_ROOT ?? ".lirna/synthetic-vault",
+    syntheticResultRoot: resolve(
+      environment.SYNTHETIC_RESULT_ROOT ?? ".lirna/synthetic-results",
     ),
     port,
   };

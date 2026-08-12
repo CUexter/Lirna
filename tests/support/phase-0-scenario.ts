@@ -9,7 +9,7 @@ import { ApplicationDatabase, type LirnaDatabase } from "../../server/database/d
 import { migrate } from "../../server/database/migrate.js";
 import { DomainDatabase } from "../../server/domain/synthetic-domain.js";
 import { OperationRepository } from "../../server/operations/operation-repository.js";
-import { SyntheticVaultAdapter } from "../../server/vault/synthetic-vault-adapter.js";
+import { SyntheticResultWriter } from "../../server/synthetic/synthetic-result-writer.js";
 import { OperationWorker } from "../../server/worker/operation-worker.js";
 import { WorkflowExecutor } from "../../server/workflows/workflow-executor.js";
 import type { StepLease } from "../../server/workflows/workflow-run-repository.js";
@@ -31,7 +31,7 @@ export interface IndependentExecutor {
 /**
  * One fully-wired Lirna application booted over disposable real infrastructure:
  * PostgreSQL authority, a content-addressed filesystem artifact store shared by
- * every module, a synthetic Vault adapter, the domain, the operation worker,
+ * every module, a synthetic result writer, the domain, the operation worker,
  * the typed-workflow kernel and its background executor, and the web/API
  * control plane. This is the application scenario seam the Phase 0 gate drives:
  * evidence is produced through this one boot, never against private material.
@@ -44,7 +44,7 @@ export interface Phase0Scenario {
   readonly operations: OperationRepository;
   readonly artifacts: FileArtifactStore;
   readonly registry: ArtifactRegistry;
-  readonly vault: SyntheticVaultAdapter;
+  readonly resultWriter: SyntheticResultWriter;
   readonly domain: DomainDatabase;
   readonly worker: OperationWorker;
   readonly runs: WorkflowRunRepository;
@@ -108,9 +108,9 @@ export async function startPhase0Scenario(): Promise<Phase0Scenario> {
   const operations = new OperationRepository(database.db);
   const artifacts = new FileArtifactStore(join(root, "artifacts"));
   const registry = new ArtifactRegistry(database.db, artifacts);
-  const vault = new SyntheticVaultAdapter(join(root, "vault"));
+  const resultWriter = new SyntheticResultWriter(join(root, "synthetic-results"));
   const domain = new DomainDatabase(database.db);
-  const worker = new OperationWorker({ operations, artifacts, vault });
+  const worker = new OperationWorker({ operations, artifacts, resultWriter });
   const runs = new WorkflowRunRepository(database.db, registry);
   const executor = new WorkflowExecutor(runs);
 
@@ -125,7 +125,7 @@ export async function startPhase0Scenario(): Promise<Phase0Scenario> {
     operations,
     artifacts,
     registry,
-    vault,
+    resultWriter,
     domain,
     worker,
     runs,

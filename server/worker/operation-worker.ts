@@ -3,12 +3,12 @@ import {
   syntheticOperationKind,
   type OperationRepository,
 } from "../operations/operation-repository.js";
-import type { VaultAdapter } from "../vault/synthetic-vault-adapter.js";
+import type { ResultWriter } from "../synthetic/synthetic-result-writer.js";
 
 interface WorkerDependencies {
   operations: OperationRepository;
   artifacts: ArtifactStore;
-  vault: VaultAdapter;
+  resultWriter: ResultWriter;
 }
 
 export class OperationWorker {
@@ -30,13 +30,13 @@ export class OperationWorker {
         "utf8",
       );
       const artifact = await this.dependencies.artifacts.put(content);
-      const vault = await this.dependencies.vault.writeSyntheticResult(
+      const result = await this.dependencies.resultWriter.writeSyntheticResult(
         operation.id,
         content.toString("utf8"),
       );
       await this.dependencies.operations.complete(operation.id, artifact.hash, {
         artifactUrl: `/api/operations/${operation.id}/artifact`,
-        vaultPath: vault.path,
+        resultPath: result.path,
       });
       return true;
     } catch (error) {

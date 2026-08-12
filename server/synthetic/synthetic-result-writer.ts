@@ -1,14 +1,14 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-export interface VaultAdapter {
+export interface ResultWriter {
   writeSyntheticResult(
     operationId: string,
     markdown: string,
   ): Promise<{ path: string }>;
 }
 
-export class SyntheticVaultAdapter implements VaultAdapter {
+export class SyntheticResultWriter implements ResultWriter {
   constructor(private readonly root: string) {}
 
   async writeSyntheticResult(

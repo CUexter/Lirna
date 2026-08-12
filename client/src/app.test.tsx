@@ -42,7 +42,7 @@ describe("tracer application shell", () => {
       status: "completed",
       result: {
         artifactUrl: "/api/operations/op-9/artifact",
-        vaultPath: "synthetic/op-9.md",
+        resultPath: "synthetic/op-9.md",
       },
     };
     const fetchMock = vi

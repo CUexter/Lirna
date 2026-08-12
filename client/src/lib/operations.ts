@@ -9,7 +9,7 @@ export type OperationStatus = "queued" | "processing" | "completed" | "failed";
 /** The terminal artifacts a completed operation exposes. */
 export interface OperationResult {
   artifactUrl: string;
-  vaultPath: string;
+  resultPath: string;
 }
 
 export interface PublicOperation {

@@ -268,12 +268,7 @@ function eligibleChoices(
 ): RoutingChoice[] {
   return executors
     .filter(
-      (executor) =>
-        executor.available &&
-        executor.capabilities.includes(requirements.capability) &&
-        executor.quality >= requirements.qualityFloor &&
-        executor.latencyMs <= requirements.maxLatencyMs &&
-        executor.cost <= requirements.budget,
+      (executor) => executor.available && meetsRequirements(executor, requirements),
     )
     .map((executor) => ({
       executorId: executor.executorId,
@@ -282,10 +277,7 @@ function eligibleChoices(
         ? consequences(preferred, executor, evidence)
         : evidence
             .filter((item) => !policyAllows(item.policy, executor))
-            .map(
-              (item) =>
-                `${item.evidenceId} would be omitted by Source handling policy`,
-            ),
+            .map((item) => omittedByPolicy(item.evidenceId)),
     }));
 }
 
@@ -295,12 +287,29 @@ function isEligible(
   requirements: RoutingRequirements,
 ): boolean {
   return (
+    meetsRequirements(executor, requirements) &&
+    evidence.every((item) => policyAllows(item.policy, executor))
+  );
+}
+
+/**
+ * The capability, quality, latency, and budget floor an executor must clear,
+ * independent of availability and of Source handling policy.
+ */
+function meetsRequirements(
+  executor: ExecutorProfile,
+  requirements: RoutingRequirements,
+): boolean {
+  return (
     executor.capabilities.includes(requirements.capability) &&
     executor.quality >= requirements.qualityFloor &&
     executor.latencyMs <= requirements.maxLatencyMs &&
-    executor.cost <= requirements.budget &&
-    evidence.every((item) => policyAllows(item.policy, executor))
+    executor.cost <= requirements.budget
   );
+}
+
+function omittedByPolicy(evidenceId: string): string {
+  return `${evidenceId} would be omitted by Source handling policy`;
 }
 
 function policyAllows(
@@ -351,9 +360,7 @@ function consequences(
   }
   for (const item of evidence) {
     if (!policyAllows(item.policy, fallback)) {
-      result.push(
-        `${item.evidenceId} would be omitted by Source handling policy`,
-      );
+      result.push(omittedByPolicy(item.evidenceId));
     }
   }
   if (result.length === 0) {

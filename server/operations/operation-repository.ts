@@ -14,7 +14,7 @@ export interface ApplicationOperation {
   status: OperationStatus;
   result?: {
     artifactUrl: string;
-    vaultPath: string;
+    resultPath: string;
   };
   artifactHash?: string;
   error?: string;
@@ -85,10 +85,10 @@ export class OperationRepository {
       !result ||
       typeof result.artifactUrl !== "string" ||
       result.artifactUrl.length === 0 ||
-      typeof result.vaultPath !== "string" ||
-      result.vaultPath.length === 0
+      typeof result.resultPath !== "string" ||
+      result.resultPath.length === 0
     ) {
-      throw new Error("Operation result requires artifactUrl and vaultPath");
+      throw new Error("Operation result requires artifactUrl and resultPath");
     }
     await this.db
       .update(applicationOperations)
@@ -130,6 +130,6 @@ function isOperationResult(value: unknown): value is NonNullable<ApplicationOper
     value !== null &&
     typeof value === "object" &&
     typeof (value as Record<string, unknown>).artifactUrl === "string" &&
-    typeof (value as Record<string, unknown>).vaultPath === "string"
+    typeof (value as Record<string, unknown>).resultPath === "string"
   );
 }

@@ -76,7 +76,7 @@ Open the Vite dev server it prints (default <http://localhost:5173>); it proxies
 `/api` to the backend on port 3000. The page submits one synthetic operation
 through the public API and observes the worker's result. Phase 0 uses only
 replaceable filesystem adapters under `.lirna/artifacts` and
-`.lirna/synthetic-vault`; it never reads or writes `~/vaults`.
+`.lirna/synthetic-results`; it never reads or writes `~/vaults`.
 
 To exercise the production layout, build the client and serve it through the API:
 
@@ -97,7 +97,7 @@ destructive changes and preserved custom triggers, then commit it. API and worke
 startup only check migration state; they never mutate the schema.
 
 Runtime paths and connectivity can be overridden with `DATABASE_URL`,
-`ARTIFACT_ROOT`, `SYNTHETIC_VAULT_ROOT`, and `PORT`. No private Vault adapter
+`ARTIFACT_ROOT`, `SYNTHETIC_RESULT_ROOT`, and `PORT`. No private Vault adapter
 exists in this phase.
 
 ## Tests

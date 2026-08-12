@@ -19,7 +19,7 @@ import { startPhase0Scenario, type Phase0Scenario } from "../support/phase-0-sce
  * All evidence is produced through a single application scenario seam
  * (`startPhase0Scenario`) against disposable real infrastructure — a throwaway
  * PostgreSQL, a temporary content-addressed artifact store, and a synthetic
- * Vault adapter. No private Vault material is ever read or written. Each test
+ * result writer. No private Vault material is ever read or written. Each test
  * drives an invariant through the seam that can isolate it: the HTTP control
  * plane where the promise is observable there, and the owning module contract
  * for the transactional-outbox properties HTTP cannot isolate.
@@ -233,14 +233,14 @@ describe("Phase 0 gate", () => {
     expect(queued.status).toBe("queued");
 
     // The background worker claims the operation, writes the artifact to the
-    // content-addressed store and the synthetic Vault adapter, and completes it.
+    // content-addressed store and the synthetic result writer, and completes it.
     expect(await scenario.worker.runOnce()).toBe(true);
 
     const view = await getJson(scenario, `/api/operations/${queued.id}`);
     expect(view.status).toBe("completed");
     expect(view.result).toMatchObject({
       artifactUrl: `/api/operations/${queued.id}/artifact`,
-      vaultPath: `synthetic/${queued.id}.md`,
+      resultPath: `synthetic/${queued.id}.md`,
     });
 
     // The stored artifact is observable through the control plane.

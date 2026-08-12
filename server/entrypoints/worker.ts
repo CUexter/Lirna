@@ -5,7 +5,7 @@ import { loadConfig } from "../config.js";
 import { openCurrentDatabase } from "../database/open-current-database.js";
 import { DomainDatabase } from "../domain/synthetic-domain.js";
 import { OperationRepository } from "../operations/operation-repository.js";
-import { SyntheticVaultAdapter } from "../vault/synthetic-vault-adapter.js";
+import { SyntheticResultWriter } from "../synthetic/synthetic-result-writer.js";
 import { OperationWorker } from "../worker/operation-worker.js";
 import { WorkflowExecutor } from "../workflows/workflow-executor.js";
 import { WorkflowRunRepository } from "../workflows/workflow-run-repository.js";
@@ -22,7 +22,7 @@ const workflowRuns = new WorkflowRunRepository(database.db, registry);
 const worker = new OperationWorker({
   operations,
   artifacts,
-  vault: new SyntheticVaultAdapter(config.syntheticVaultRoot),
+  resultWriter: new SyntheticResultWriter(config.syntheticResultRoot),
 });
 const workflowExecutor = new WorkflowExecutor(workflowRuns);
 

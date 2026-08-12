@@ -13,7 +13,7 @@ import { ApplicationDatabase } from "../../server/database/database.js";
 import { migrate } from "../../server/database/migrate.js";
 import { DomainDatabase } from "../../server/domain/synthetic-domain.js";
 import { OperationRepository } from "../../server/operations/operation-repository.js";
-import { SyntheticVaultAdapter } from "../../server/vault/synthetic-vault-adapter.js";
+import { SyntheticResultWriter } from "../../server/synthetic/synthetic-result-writer.js";
 import { OperationWorker } from "../../server/worker/operation-worker.js";
 import type { WorkflowRunRepository } from "../../server/workflows/workflow-run-repository.js";
 import { resetTestDatabase } from "../integration/database-test-support.js";
@@ -29,11 +29,11 @@ describe("synthetic application operation", () => {
     const artifacts = new FileArtifactStore(
       join(temporaryRoot, adapterRoot, "artifacts"),
     );
-    const vault = new SyntheticVaultAdapter(
-      join(temporaryRoot, adapterRoot, "vault"),
+    const resultWriter = new SyntheticResultWriter(
+      join(temporaryRoot, adapterRoot, "synthetic-results"),
     );
     const domain = new DomainDatabase(database.db);
-    const worker = new OperationWorker({ operations, artifacts, vault });
+    const worker = new OperationWorker({ operations, artifacts, resultWriter });
     const api = createApi({
       operations,
       artifacts,
@@ -102,14 +102,14 @@ describe("synthetic application operation", () => {
       const completed = (await completedResponse.json()) as {
         id: string;
         status: string;
-        result: { artifactUrl: string; vaultPath: string };
+        result: { artifactUrl: string; resultPath: string };
       };
       expect(completed).toMatchObject({
         id: submitted.id,
         status: "completed",
         result: {
           artifactUrl: `/api/operations/${submitted.id}/artifact`,
-          vaultPath: `synthetic/${submitted.id}.md`,
+          resultPath: `synthetic/${submitted.id}.md`,
         },
       });
 

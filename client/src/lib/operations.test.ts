@@ -43,7 +43,7 @@ describe("client operations boundary", () => {
       status: "completed",
       result: {
         artifactUrl: "/api/operations/op-2/artifact",
-        vaultPath: "synthetic/op-2.md",
+        resultPath: "synthetic/op-2.md",
       },
     };
     const fetchMock = vi
