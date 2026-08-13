@@ -63,6 +63,23 @@ patched Firefox through `PLAYWRIGHT_BROWSERS_PATH`. Do not run
 `npx playwright install`. For future desktop-host work, use
 `nix develop .#desktop` to add Rust, Cargo, pkg-config, and WebKitGTK.
 
+Entering `nix develop` activates this repository's `.githooks` locally without
+changing global Git configuration. Pre-commit checks assess direct dependency
+changes and scans staged content for secrets; pre-push scans outgoing commits.
+If a finding may be a live credential, stop and alert Nathan; rotate or revoke
+it before attempting history cleanup.
+
+### Dependency changes
+
+Use `npm run dependency:add -- <one-package-request>` for every npm dependency
+change. It assesses one exact artifact, installs it with scripts disabled, and
+writes exact assessment evidence under `config/dependency-decisions/`; commit
+that evidence with the manifest and lockfile change. Direct `npm install`,
+`uninstall`, `update`, `link`, `npx`, and `npm exec` are not supported Coding-agent
+paths. `npm search`, `npm view`, repository scripts, and `npm ci --ignore-scripts`
+remain available. The pre-commit hook and CI detect direct dependency additions,
+but are detection controls rather than a claim to block every external process.
+
 Tool configuration (Biome, Vitest, Playwright, Drizzle Kit, and the
 `tsconfig.*` build/typecheck projects) lives under [`config/`](./config) to keep
 the repository root uncluttered. Because those tools only auto-discover config at

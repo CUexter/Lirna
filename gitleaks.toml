@@ -1,0 +1,11 @@
+title = "Lirna secret scanning policy"
+
+[extend]
+useDefault = true
+
+# Keep exceptions narrow: every exception must name the exact path and rule,
+# and explain why the value is safe to retain in repository history.
+[[allowlists]]
+description = "The prototype embeds a public Firebase configuration key required by its hosted demo; it is not a credential."
+paths = ['^prototype/visualization-relationship-editing/embed/assets/excalidraw-Dz5yGWIW\.js$']
+rules = ["gcp-api-key"]

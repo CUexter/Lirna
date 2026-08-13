@@ -16,9 +16,13 @@
         postgresql_16
         docker
         docker-compose
+        gitleaks
       ];
       commonShell = {
         packages = commonPackages;
+        shellHook = ''
+          git config --local core.hooksPath .githooks
+        '';
         PLAYWRIGHT_BROWSERS_PATH = "${playwrightBrowsers}";
         PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
       };

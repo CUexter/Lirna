@@ -1,0 +1,18 @@
+{
+  "maximumPackageAgeDaysWithoutReview": 90,
+  "maximumReleaseStalenessDays": 730,
+  "minimumLastMonthDownloads": 1000,
+  "maximumRepositoryStalenessDays": 730,
+  "minimumSimilarPackageAgeDays": 365,
+  "maximumDecisionAgeDays": 90,
+  "criticalExceptionAuthorEmails": ["nathan.chan@net-makers.com.hk"],
+  "warnOnArchivedRepository": true,
+  "warnOnDeprecation": true,
+  "warnOnLifecycleScripts": true,
+  "warnOnMissingProvenance": true,
+  "warnOnMissingRepository": true,
+  "warnOnNativeBuildFiles": true,
+  "warnOnRepositoryMismatch": true,
+  "warnOnSimilarEstablishedNames": true,
+  "warnOnVulnerabilities": true
+}
