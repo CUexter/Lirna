@@ -1,5 +1,6 @@
 .lirna/
 .direnv/
+.codegraph/
 dist/
 node_modules/
 *.tsbuildinfo
