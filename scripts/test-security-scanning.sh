@@ -4,8 +4,11 @@ set -euo pipefail
 root=$(git rev-parse --show-toplevel)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
+grep -Fq 'run: nix develop --command npm run check:semgrep' "$root/.github/workflows/checks.yml"
+node -e 'const p=require(process.argv[1]); if(p.scripts["check:semgrep"]!=="scripts/semgrep-scan.sh blocking") process.exit(1)' "$root/package.json"
 mkdir -p "$tmp/bin"
 ln -s "$(command -v git)" "$tmp/bin/git"
+ln -s "$(command -v bash)" "$tmp/bin/bash"
 if PATH="$tmp/bin" /usr/bin/env bash "$root/scripts/semgrep-scan.sh" blocking >"$tmp/missing-semgrep.log" 2>&1; then
   printf '%s\n' "Semgrep scan did not fail closed when the scanner was missing" >&2
   exit 1

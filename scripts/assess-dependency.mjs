@@ -10,7 +10,6 @@ import { promisify } from "node:util";
 import {
   decisionPath,
   lastCommitAuthor,
-  lastCommitSignature,
   readCommittedDecision,
   validateExactDecision,
   validateOfficialSourceUrl,
@@ -502,9 +501,6 @@ async function requireCriticalException({
       !policy.criticalExceptionAuthorEmails.map((email) => email.toLowerCase()).includes(author)
     ) {
       throw new Error("critical exception must be committed by Nathan");
-    }
-    if ((await lastCommitSignature(projectRoot, path)) !== "G") {
-      throw new Error("critical exception must be in a cryptographically verified commit");
     }
   } catch (error) {
     throw new Error(

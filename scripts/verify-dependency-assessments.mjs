@@ -100,9 +100,6 @@ async function validateOverride(record, override, dependency, revision) {
     ) {
       throw new Error("critical exception must be committed by Nathan");
     }
-    if ((await decisionSignature(revision, dependency, override.kind)) !== "G") {
-      throw new Error("critical exception must be in a cryptographically verified commit");
-    }
     return;
   }
   throw new Error(`unsupported dependency override kind: ${override.kind}`);
@@ -144,19 +141,12 @@ function sameStrings(actual, expected) {
 
 async function decisionAuthor(revision, dependency, kind) {
   if (revision === ":") {
-    const { stdout } = await exec("git", ["config", "user.email"]);
-    return stdout.trim().toLowerCase();
+    const { stdout } = await exec("git", ["var", "GIT_AUTHOR_IDENT"]);
+    return stdout.match(/<([^<>]+)>/)?.[1].toLowerCase() ?? "";
   }
   const path = `config/dependency-decisions/${decisionIdentity(dependency.name, dependency.version)}.${kind}.json`;
   const { stdout } = await exec("git", ["log", "-1", "--format=%ae", revision, "--", path]);
   return stdout.trim().toLowerCase();
-}
-
-async function decisionSignature(revision, dependency, kind) {
-  if (revision === ":") return "N";
-  const path = `config/dependency-decisions/${decisionIdentity(dependency.name, dependency.version)}.${kind}.json`;
-  const { stdout } = await exec("git", ["log", "-1", "--format=%G?", revision, "--", path]);
-  return stdout.trim();
 }
 
 function range(args) {

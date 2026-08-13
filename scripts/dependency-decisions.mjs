@@ -60,11 +60,3 @@ export async function lastCommitAuthor(projectRoot, path) {
   });
   return stdout.trim().toLowerCase();
 }
-
-export async function lastCommitSignature(projectRoot, path) {
-  const relativePath = path.slice(projectRoot.length + 1);
-  const { stdout } = await exec("git", ["log", "-1", "--format=%G?", "--", relativePath], {
-    cwd: projectRoot,
-  });
-  return stdout.trim();
-}

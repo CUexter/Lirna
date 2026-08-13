@@ -96,9 +96,8 @@ CI installs the lockfile with `npm ci --ignore-scripts` and invokes the same too
 from the pinned Nix development shell. Reports are terminal output or ephemeral
 workflow artifacts, never committed files. The declarative ruleset in
 `.github/rulesets/main.json` names all four checks and blocks direct updates to
-`main`. Applying it requires GitHub ruleset support, which is unavailable for this
-private repository on its current plan; until that changes, the checks cannot be
-required server-side. Branch publication remains allowed when a check fails.
+`main`. GitHub ruleset 20801666 actively requires the checks in strict mode and
+has no bypass actors.
 
 Tool configuration (Biome, Vitest, Playwright, Drizzle Kit, and the
 `tsconfig.*` build/typecheck projects) lives under [`config/`](./config) to keep
