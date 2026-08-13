@@ -166,3 +166,7 @@ _Avoid_: device, machine account
 **Service identity**:
 A separately provisioned, narrowly authorized Lirna access identity for a non-human process such as a background or inference worker. A Service identity is limited to named duties and does not represent Nathan or inherit a Client installation's access.
 _Avoid_: device, shared service account
+
+**Coding agent**:
+A development tool acting on Nathan's behalf to inspect, modify, test, commit, or publish changes to Lirna's repository. A Coding agent is not a Lirna Service identity and receives no application or production-data authority merely from its repository access.
+_Avoid_: agent, worker, Service identity
