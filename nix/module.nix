@@ -17,6 +17,19 @@ let
   databaseEnvironment = lib.optionalAttrs cfg.database.createLocally {
     DATABASE_URL = localDatabaseUrl;
   };
+  validateSecretFiles =
+    if cfg.environmentFile != null && cfg.database.environmentFile != null then
+      pkgs.writeShellScript "lirna-validate-secret-files" ''
+        set -eu
+        access_file=$(${pkgs.coreutils}/bin/readlink -e -- ${lib.escapeShellArg cfg.environmentFile})
+        database_file=$(${pkgs.coreutils}/bin/readlink -e -- ${lib.escapeShellArg cfg.database.environmentFile})
+        if [ "$access_file" = "$database_file" ]; then
+          echo "Lirna access-token and database environment files must resolve to separate files" >&2
+          exit 1
+        fi
+      ''
+    else
+      null;
 in
 {
   options.services.lirna = {
@@ -85,6 +98,13 @@ in
         assertion = cfg.database.createLocally || cfg.database.environmentFile != null;
         message = "services.lirna.database.environmentFile is required when createLocally is false";
       }
+      {
+        assertion =
+          cfg.environmentFile == null
+          || cfg.database.environmentFile == null
+          || cfg.environmentFile != cfg.database.environmentFile;
+        message = "services.lirna.environmentFile and services.lirna.database.environmentFile must be separate files";
+      }
     ];
 
     users.users.lirna = {
@@ -109,11 +129,30 @@ in
       }];
     };
 
+    systemd.services.lirna-secret-files = lib.mkIf
+      (cfg.environmentFile != null && cfg.database.environmentFile != null)
+      {
+        description = "Validate separation of Lirna secret files";
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = validateSecretFiles;
+        };
+      };
+
     systemd.services.lirna-migrate = {
       description = "Apply committed Lirna database migrations";
       wantedBy = [ "multi-user.target" ];
-      after = if cfg.database.createLocally then [ "postgresql.service" ] else [ "network-online.target" ];
-      requires = lib.optional cfg.database.createLocally "postgresql.service";
+      after =
+        lib.optional cfg.database.createLocally "postgresql.service"
+        ++ lib.optional (!cfg.database.createLocally) "network-online.target"
+        ++ lib.optional
+          (cfg.environmentFile != null && cfg.database.environmentFile != null)
+          "lirna-secret-files.service";
+      requires =
+        lib.optional cfg.database.createLocally "postgresql.service"
+        ++ lib.optional
+          (cfg.environmentFile != null && cfg.database.environmentFile != null)
+          "lirna-secret-files.service";
       wants = lib.optional (!cfg.database.createLocally) "network-online.target";
       serviceConfig = {
         Type = "oneshot";

@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
+    "baseUrl": "..",
     "composite": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
@@ -20,9 +20,9 @@
     "verbatimModuleSyntax": true
   },
   "include": [
-    "client/src/**/*.ts",
-    "client/src/**/*.tsx",
-    "server/shared/**/*.ts",
-    "client/vitest.setup.ts"
+    "../client/src/**/*.ts",
+    "../client/src/**/*.tsx",
+    "../server/shared/**/*.ts",
+    "../client/vitest.setup.ts"
   ]
 }

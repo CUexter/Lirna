@@ -9,10 +9,12 @@ pkgs.testers.runNixOSTest {
       enable = true;
       inherit package;
       environmentFile = "/run/secrets/lirna.env";
+      database.environmentFile = "/run/secrets/lirna-database.env";
     };
     systemd.tmpfiles.rules = [
       "d /run/secrets 0700 root root -"
       "f /run/secrets/lirna.env 0600 root root - HUMAN_ACCESS_TOKEN=synthetic-human-access-token-for-nixos-test\\nSERVICE_ACCESS_TOKEN=synthetic-service-access-token-for-nixos-test"
+      "f /run/secrets/lirna-database.env 0600 root root - DATABASE_URL=postgresql:///lirna?host=/run/postgresql"
     ];
   };
 
@@ -24,5 +26,8 @@ pkgs.testers.runNixOSTest {
     machine.wait_for_open_port(3000)
     machine.succeed("curl --fail http://127.0.0.1:3000/ | grep -q '<div id=\"root\"></div>'")
     machine.succeed("test -d /var/lib/lirna/artifacts")
+    machine.succeed("rm /run/secrets/lirna-database.env && ln -s lirna.env /run/secrets/lirna-database.env")
+    machine.fail("systemctl restart lirna-secret-files.service")
+    machine.succeed("journalctl -u lirna-secret-files.service | grep -q 'must resolve to separate files'")
   '';
 }

@@ -9,22 +9,22 @@
     "moduleResolution": "NodeNext",
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
-    "rootDir": ".",
+    "rootDir": "..",
     "skipLibCheck": true,
     "strict": true,
     "target": "ES2023",
     "types": ["node", "vitest/globals"]
   },
   "include": [
-    "server/**/*.ts",
-    "tests/integration/**/*.ts",
-    "tests/e2e/**/*.ts",
-    "tests/browser/**/*.ts",
-    "tests/gate/**/*.ts",
-    "tests/support/**/*.ts",
-    "client/vite.config.ts",
-    "drizzle.config.ts",
-    "vitest.config.ts",
-    "playwright.config.ts"
+    "../server/**/*.ts",
+    "../tests/integration/**/*.ts",
+    "../tests/e2e/**/*.ts",
+    "../tests/browser/**/*.ts",
+    "../tests/gate/**/*.ts",
+    "../tests/support/**/*.ts",
+    "../client/vite.config.ts",
+    "./drizzle.config.ts",
+    "./vitest.config.ts",
+    "./playwright.config.ts"
   ]
 }

@@ -7,7 +7,7 @@ import { defineConfig } from "vitest/config";
 // with generous timeouts. The bright line is location: a test's folder declares
 // what it is allowed to touch (see docs — unit = zero real I/O).
 const clientAlias = {
-  "@": fileURLToPath(new URL("./client/src", import.meta.url)),
+  "@": fileURLToPath(new URL("../client/src", import.meta.url)),
 };
 
 export default defineConfig({

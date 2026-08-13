@@ -40,7 +40,7 @@ Accepted
 - Development and CI do not run `npx playwright install`; Firefox comes from the
   locked Nix store.
 - Updating Nixpkgs may require synchronizing `@playwright/test` and regenerating
-  the npm dependency hash in `nix/package.nix` and `flake.nix`.
+  the npm dependency hash in `nix/source.nix`.
 - Deployments fail before API and worker startup when migrations fail, preserving
   the rule that runtime services only operate against committed schema state.
 - The package is not yet a Tauri desktop package. That output will be added only

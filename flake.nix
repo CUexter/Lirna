@@ -9,6 +9,7 @@
       pkgs = import nixpkgs { inherit system; };
       lirna = pkgs.callPackage ./nix/package.nix { };
       lirnaModule = import ./nix/module.nix { defaultPackage = lirna; };
+      source = import ./nix/source.nix { lib = pkgs.lib; };
       playwrightBrowsers = pkgs.playwright-driver.browsers;
       commonPackages = with pkgs; [
         nodejs_22
@@ -46,16 +47,7 @@
         quality = (pkgs.buildNpmPackage.override { nodejs = pkgs.nodejs_22; }) {
           pname = "lirna-quality";
           version = "0.1.0";
-          src = pkgs.lib.cleanSourceWith {
-            src = ./.;
-            filter = path: type:
-              let name = baseNameOf path; in
-              !(type == "directory" && builtins.elem name [
-                ".direnv" ".git" "coverage" "dist" "metrics" "node_modules"
-                "playwright-report" "prototype" "test-results"
-              ]);
-          };
-          npmDepsHash = "sha256-7L5QaiDCmMQG65AlvyOT0QQOtlf87FCEIqulhrl/JoQ=";
+          inherit (source) src npmDepsHash;
           npmFlags = [ "--include=optional" ];
           nativeBuildInputs = [ pkgs.autoPatchelfHook ];
           buildInputs = [ pkgs.stdenv.cc.cc.lib ];
