@@ -20,6 +20,17 @@ rules:
     metadata:
       category: security
       confidence: HIGH
+  - id: lirna-typescript-sql-injection
+    languages: [typescript, javascript]
+    message: Do not interpolate dynamic values into SQL text; use parameterized queries.
+    severity: ERROR
+    pattern-either:
+      - pattern: $DB.query(`...${$VALUE}...`, ...)
+      - pattern: $DB.execute(`...${$VALUE}...`, ...)
+      - pattern: sql.raw(`...${$VALUE}...`)
+    metadata:
+      category: security
+      confidence: HIGH
   - id: lirna-typescript-unsafe-process-spawn
     languages: [typescript, javascript]
     message: Do not enable shell execution for process APIs.

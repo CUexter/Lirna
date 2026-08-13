@@ -71,8 +71,9 @@ it before attempting history cleanup.
 
 ### Dependency changes
 
-Use `npm run dependency:add -- <one-package-request>` for every npm dependency
-change. It assesses one exact artifact, installs it with scripts disabled, and
+Use `npm run dependency:add -- <one-package-request>` for runtime dependencies,
+or include `--dev`, `--optional`, or `--peer` for the corresponding section. The
+command assesses one exact artifact, installs it with scripts disabled, and
 writes exact assessment evidence under `config/dependency-decisions/`; commit
 that evidence with the manifest and lockfile change. Direct `npm install`,
 `uninstall`, `update`, `link`, `npx`, and `npm exec` are not supported Coding-agent
@@ -84,7 +85,8 @@ but are detection controls rather than a claim to block every external process.
 
 The required CI security checks are named `Gitleaks`, `Dependency verification`,
 `Semgrep`, and `Trivy npm vulnerability policy`. Gitleaks scans the relevant Git
-range with the repository-owned policy. Semgrep blocks only the reviewed rules in
+range with the repository-owned policy, with a scheduled weekly full-history scan.
+Semgrep blocks only the reviewed rules in
 `config/semgrep/blocking.yml`; broader reporting rules remain visible without
 failing the initial rollout. Trivy scans only the committed npm dependency graph:
 critical findings fail, while high findings are reported. Trivy secret scanning is
@@ -93,9 +95,10 @@ not enabled because Gitleaks is the sole secret-scanning authority.
 CI installs the lockfile with `npm ci --ignore-scripts` and invokes the same tools
 from the pinned Nix development shell. Reports are terminal output or ephemeral
 workflow artifacts, never committed files. The declarative ruleset in
-`.github/rulesets/main.json` requires all four named checks and blocks direct
-updates to `main`; apply it only after a pull request has caused each check to
-appear and stabilize. Branch publication remains allowed when a check fails.
+`.github/rulesets/main.json` names all four checks and blocks direct updates to
+`main`. Applying it requires GitHub ruleset support, which is unavailable for this
+private repository on its current plan; until that changes, the checks cannot be
+required server-side. Branch publication remains allowed when a check fails.
 
 Tool configuration (Biome, Vitest, Playwright, Drizzle Kit, and the
 `tsconfig.*` build/typecheck projects) lives under [`config/`](./config) to keep

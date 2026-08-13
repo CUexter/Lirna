@@ -14,11 +14,18 @@ new_repo() {
   git -C "$repo" config user.name "Secret scanner test"
   mkdir -p "$repo/.githooks" "$repo/scripts"
   cp "$hooks/pre-commit" "$hooks/pre-push" "$repo/.githooks/"
-  cp "$root/gitleaks.toml" "$repo/"
+  mkdir -p "$repo/config"
+  cp "$root/config/gitleaks.toml" "$repo/config/"
   cp "$scanner" "$repo/scripts/"
   # The dependency verifier is required by the shared pre-commit hook.
+  cp "$root/scripts/dependency-decisions.mjs" "$repo/scripts/"
   cp "$root/scripts/verify-dependency-assessments.mjs" "$repo/scripts/"
-  chmod +x "$repo/.githooks"/* "$repo/scripts/secret-scan.sh"
+  cp "$root/config/dependency-assessment-policy.json" "$repo/config/"
+  cat > "$repo/scripts/semgrep-scan.sh" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$SEMGREP_TEST_LOG"
+EOF
+  chmod +x "$repo/.githooks"/* "$repo/scripts/secret-scan.sh" "$repo/scripts/semgrep-scan.sh"
   git -C "$repo" config core.hooksPath .githooks
 }
 
@@ -44,10 +51,13 @@ git -C "$repo" add clean.txt
 git -C "$repo" commit -q -m clean
 git init -q --bare "$tmp/remote.git"
 git -C "$repo" remote add origin "$tmp/remote.git"
-if git -C "$repo" push origin HEAD:main >"$tmp/push.log" 2>&1; then
+if SEMGREP_TEST_LOG="$tmp/semgrep.log" git -C "$repo" push origin HEAD:main >"$tmp/push.log" 2>&1; then
   printf '%s\n' "pre-push did not scan an earlier outgoing commit" >&2
   exit 1
 fi
 grep -Eq 'Finding|leaks found' "$tmp/push.log"
+grep -q '^blocking$' "$tmp/semgrep.log"
+grep -q '^  schedule:' "$root/.github/workflows/checks.yml"
+grep -q 'scripts/secret-scan.sh history' "$root/.github/workflows/checks.yml"
 
 printf '%s\n' "secret-scanning disposable repository tests passed"

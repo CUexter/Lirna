@@ -10,6 +10,7 @@ import { promisify } from "node:util";
 import {
   decisionPath,
   lastCommitAuthor,
+  lastCommitSignature,
   readCommittedDecision,
   validateExactDecision,
   validateOfficialSourceUrl,
@@ -27,12 +28,12 @@ const lifecycleNames = new Set([
 ]);
 
 async function main() {
-  const requests = process.argv.slice(2);
-  if (requests.length !== 1 || requests[0]?.startsWith("-")) {
-    throw new Error("usage: npm run dependency:add -- <one-package-request>");
+  const { request, section } = dependencyRequest(process.argv.slice(2));
+  if (!request) {
+    throw new Error(
+      "usage: npm run dependency:add -- [--dev|--optional|--peer] <one-package-request>",
+    );
   }
-
-  const request = requests[0];
   const projectRoot = process.env.LIRNA_DEPENDENCY_PROJECT_ROOT ?? process.cwd();
   const registry = normalizeBaseUrl(
     process.env.LIRNA_NPM_REGISTRY ??
@@ -205,6 +206,7 @@ async function main() {
         "install",
         `${name}@${version}`,
         "--save-exact",
+        ...installSectionFlag(section),
         "--ignore-scripts",
         "--registry",
         registry,
@@ -216,6 +218,7 @@ async function main() {
     );
     await assertInstalledArtifact(projectRoot, name, version, release.dist?.integrity);
     await writeAssessmentEvidence({
+      archiveSha512: createHash("sha512").update(archive).digest("base64"),
       integrity: release.dist?.integrity,
       name,
       projectRoot,
@@ -227,7 +230,8 @@ async function main() {
           ? [{ kind: "critical-vulnerabilities", vulnerabilityIds: criticalVulnerabilityIds }]
           : []),
       ],
-      section: dependencySection(projectRoot, name),
+      section,
+      tarballUrl,
       version,
     });
     console.log(`\nInstalled ${name}@${version} with lifecycle scripts disabled.`);
@@ -499,6 +503,9 @@ async function requireCriticalException({
     ) {
       throw new Error("critical exception must be committed by Nathan");
     }
+    if ((await lastCommitSignature(projectRoot, path)) !== "G") {
+      throw new Error("critical exception must be in a cryptographically verified commit");
+    }
   } catch (error) {
     throw new Error(
       `hard block: ${name}@${version} has critical vulnerabilities ${criticalVulnerabilityIds.join(", ")}; ${error.message}. Expected Nathan-authored exception ${path}`,
@@ -574,19 +581,46 @@ async function assertInstalledArtifact(projectRoot, name, version, integrity) {
   }
 }
 
-async function writeAssessmentEvidence({ integrity, name, projectRoot, requiredOverrides, section, version }) {
+async function writeAssessmentEvidence({
+  archiveSha512,
+  integrity,
+  name,
+  projectRoot,
+  requiredOverrides,
+  section,
+  tarballUrl,
+  version,
+}) {
   const path = decisionPath(projectRoot, name, version, "assessment");
   await mkdir(join(projectRoot, "config", "dependency-decisions"), { recursive: true });
   await writeFile(
     path,
-    `${JSON.stringify({ assessmentDate: assessmentNow(), integrity, package: name, requiredOverrides, section, version }, null, 2)}\n`,
+    `${JSON.stringify({ archiveSha512, assessmentDate: assessmentNow(), assessmentVersion: 1, integrity, package: name, requiredOverrides, section, tarballUrl, version }, null, 2)}\n`,
   );
   console.log(`Recorded exact assessment evidence at ${path}.`);
 }
 
-function dependencySection(projectRoot, name) {
-  // The supported command uses npm's default production dependency section.
-  return "dependencies";
+function dependencyRequest(args) {
+  const sections = {
+    "--dev": "devDependencies",
+    "--optional": "optionalDependencies",
+    "--peer": "peerDependencies",
+  };
+  const flags = args.filter((value) => value.startsWith("-"));
+  const requests = args.filter((value) => !value.startsWith("-"));
+  if (flags.length > 1 || requests.length !== 1 || (flags[0] && !sections[flags[0]])) {
+    return {};
+  }
+  return { request: requests[0], section: flags[0] ? sections[flags[0]] : "dependencies" };
+}
+
+function installSectionFlag(section) {
+  return {
+    dependencies: [],
+    devDependencies: ["--save-dev"],
+    optionalDependencies: ["--save-optional"],
+    peerDependencies: ["--save-peer"],
+  }[section];
 }
 
 function downloadUrl(name) {

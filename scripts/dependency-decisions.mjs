@@ -6,8 +6,16 @@ import { promisify } from "node:util";
 const exec = promisify(execFile);
 
 export function decisionPath(projectRoot, name, version, kind) {
-  const identity = encodeURIComponent(`${name}@${version}`).replaceAll("%40", "@");
-  return join(projectRoot, "config", "dependency-decisions", `${identity}.${kind}.json`);
+  return join(
+    projectRoot,
+    "config",
+    "dependency-decisions",
+    `${decisionIdentity(name, version)}.${kind}.json`,
+  );
+}
+
+export function decisionIdentity(name, version) {
+  return encodeURIComponent(`${name}@${version}`).replaceAll("%40", "@");
 }
 
 export async function readCommittedDecision(projectRoot, path) {
@@ -51,4 +59,12 @@ export async function lastCommitAuthor(projectRoot, path) {
     cwd: projectRoot,
   });
   return stdout.trim().toLowerCase();
+}
+
+export async function lastCommitSignature(projectRoot, path) {
+  const relativePath = path.slice(projectRoot.length + 1);
+  const { stdout } = await exec("git", ["log", "-1", "--format=%G?", "--", relativePath], {
+    cwd: projectRoot,
+  });
+  return stdout.trim();
 }

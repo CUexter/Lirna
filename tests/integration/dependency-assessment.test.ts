@@ -65,6 +65,31 @@ describe("exact dependency artifact assessment", () => {
     });
   });
 
+  it("installs an assessed development dependency into the requested section", async () => {
+    const archive = await syntheticPackageArchive(
+      join(tmpdir(), `lirna-dev-package-${process.pid}`),
+    );
+    const fixture = await startRegistry(archive);
+    const project = await syntheticProject();
+
+    await exec("npm", ["run", "dependency:add", "--", "--dev", "safe-fixture@1.2.3"], {
+      cwd: repositoryRoot,
+      env: { ...fixture.environment, LIRNA_DEPENDENCY_PROJECT_ROOT: project },
+      maxBuffer: 10 * 1024 * 1024,
+    });
+
+    const manifest = JSON.parse(await readFile(join(project, "package.json"), "utf8"));
+    expect(manifest.devDependencies["safe-fixture"]).toBe("1.2.3");
+    const assessment = JSON.parse(
+      await readFile(
+        join(project, "config/dependency-decisions/safe-fixture@1.2.3.assessment.json"),
+        "utf8",
+      ),
+    );
+    expect(assessment).toMatchObject({ assessmentVersion: 1, section: "devDependencies" });
+    expect(assessment.archiveSha512).toMatch(/^[A-Za-z0-9+/]{86}==$/);
+  });
+
   it("rejects a tampered archive before inspection or manifest changes", async () => {
     const archive = await syntheticPackageArchive(join(tmpdir(), "must-not-execute"));
     const fixture = await startRegistry(Buffer.concat([archive, Buffer.from("tampered")]), archive);
@@ -229,7 +254,7 @@ describe("exact dependency artifact assessment", () => {
     ).rejects.toMatchObject({ stderr: expect.stringContaining("hard block: exact release") });
   });
 
-  it("accepts a critical exception only when its exact record was committed by Nathan", async () => {
+  it("rejects a critical exception that only impersonates Nathan's author identity", async () => {
     const archive = await syntheticPackageArchive(join(tmpdir(), "must-not-execute"));
     const fixture = await startRegistry(archive, archive, {
       vulnerability: "OSV-CRITICAL-1",
@@ -253,25 +278,6 @@ describe("exact dependency artifact assessment", () => {
       }),
     ).rejects.toMatchObject({ stderr: expect.stringContaining("must be committed by Nathan") });
 
-    await exec(
-      "git",
-      [
-        "commit",
-        "--allow-empty",
-        "--author",
-        "Nathan <nathan.chan@net-makers.com.hk>",
-        "-m",
-        "Re-author exception",
-      ],
-      {
-        cwd: project,
-        env: {
-          ...process.env,
-          GIT_COMMITTER_NAME: "Nathan",
-          GIT_COMMITTER_EMAIL: "nathan.chan@net-makers.com.hk",
-        },
-      },
-    );
     await writeFile(
       join(
         project,
@@ -288,12 +294,15 @@ describe("exact dependency artifact assessment", () => {
       "Review critical exception",
     );
 
-    const result = await exec("npm", ["run", "dependency:add", "--", "safe-fixture@1.2.3"], {
-      cwd: repositoryRoot,
-      env: { ...fixture.environment, LIRNA_DEPENDENCY_PROJECT_ROOT: project },
-      maxBuffer: 10 * 1024 * 1024,
+    await expect(
+      exec("npm", ["run", "dependency:add", "--", "safe-fixture@1.2.3"], {
+        cwd: repositoryRoot,
+        env: { ...fixture.environment, LIRNA_DEPENDENCY_PROJECT_ROOT: project },
+        maxBuffer: 10 * 1024 * 1024,
+      }),
+    ).rejects.toMatchObject({
+      stderr: expect.stringContaining("cryptographically verified commit"),
     });
-    expect(result.stdout).toContain("Accepted Nathan-authored critical exception");
   });
 
   it("hard-blocks a critical vulnerability expressed as a CVSS vector", async () => {

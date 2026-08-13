@@ -10,3 +10,7 @@ export function unsafe(input: string) {
 export function traversal(req: { query: { path: string } }) {
   return path.resolve("/srv/lirna", req.query.path);
 }
+
+export function sqlInjection(database: { query(statement: string): unknown }, input: string) {
+  return database.query(`select * from sources where id = '${input}'`);
+}

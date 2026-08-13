@@ -2,6 +2,7 @@
 set -euo pipefail
 
 root=$(git rev-parse --show-toplevel)
+"$root/scripts/semgrep-scan.sh" blocking
 while read -r local_ref local_sha remote_ref remote_sha; do
   [[ -z "$local_ref" ]] && continue
   "$root/scripts/secret-scan.sh" range "$remote_sha" "$local_sha"

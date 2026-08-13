@@ -6,6 +6,12 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 log="$tmp/trivy.log"
 mkdir -p "$tmp/bin"
+ln -s "$(command -v git)" "$tmp/bin/git"
+if PATH="$tmp/bin" /usr/bin/env bash "$root/scripts/trivy-npm-scan.sh" >"$tmp/missing-trivy.log" 2>&1; then
+  printf '%s\n' "Trivy scan did not fail closed when the scanner was missing" >&2
+  exit 1
+fi
+grep -q 'nix develop' "$tmp/missing-trivy.log"
 cat > "$tmp/bin/trivy" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$TRIVY_TEST_LOG"

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 root=$(git rev-parse --show-toplevel)
-config="$root/gitleaks.toml"
+config="$root/config/gitleaks.toml"
 
 if ! command -v gitleaks >/dev/null 2>&1 || [[ ! -x "$(command -v gitleaks)" ]]; then
   printf '%s\n' "Lirna secret scanning requires the pinned gitleaks from the Nix development shell." >&2
@@ -11,7 +11,7 @@ if ! command -v gitleaks >/dev/null 2>&1 || [[ ! -x "$(command -v gitleaks)" ]];
 fi
 
 if [[ ! -f "$config" ]]; then
-  printf '%s\n' "Missing repository-owned gitleaks.toml; refusing to continue." >&2
+  printf '%s\n' "Missing repository-owned config/gitleaks.toml; refusing to continue." >&2
   exit 1
 fi
 
