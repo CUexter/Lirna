@@ -4,7 +4,7 @@ set -euo pipefail
 root=$(git rev-parse --show-toplevel)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
-grep -Fq 'run: nix develop --command npm run check:trivy' "$root/.github/workflows/checks.yml"
+grep -v '^[[:space:]]*#' "$root/.github/workflows/checks.yml" | grep -Fq 'run: nix develop --command npm run check:trivy'
 node -e 'const p=require(process.argv[1]); if(p.scripts["check:trivy"]!=="scripts/trivy-npm-scan.sh") process.exit(1)' "$root/package.json"
 log="$tmp/trivy.log"
 mkdir -p "$tmp/bin"

@@ -4,8 +4,9 @@ set -euo pipefail
 root=$(git rev-parse --show-toplevel)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
-grep -Fq 'run: nix develop --command npm run check:semgrep' "$root/.github/workflows/checks.yml"
+grep -v '^[[:space:]]*#' "$root/.github/workflows/checks.yml" | grep -Fq 'run: nix develop --command npm run check:semgrep'
 node -e 'const p=require(process.argv[1]); if(p.scripts["check:semgrep"]!=="scripts/semgrep-scan.sh blocking") process.exit(1)' "$root/package.json"
+grep -Fq 'config/semgrep/blocking.yml' "$root/scripts/semgrep-scan.sh"
 mkdir -p "$tmp/bin"
 ln -s "$(command -v git)" "$tmp/bin/git"
 ln -s "$(command -v bash)" "$tmp/bin/bash"
