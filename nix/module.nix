@@ -17,17 +17,24 @@ let
   databaseEnvironment = lib.optionalAttrs cfg.database.createLocally {
     DATABASE_URL = localDatabaseUrl;
   };
-  # Both secret files being configured is the only case where they could
-  # collide, so it gates the runtime separation check and every service that
-  # depends on it.
-  haveBothSecretFiles = cfg.environmentFile != null && cfg.database.environmentFile != null;
+  # The pair of root-managed secret files. Naming the pair lets the separation
+  # rules (both-present, must-differ, runtime-alias check) be expressed once
+  # against it instead of re-deriving the relationship at each site.
+  secretFiles = {
+    access = cfg.environmentFile;
+    database = cfg.database.environmentFile;
+  };
+  # Both files being configured is the only case where they could collide, so it
+  # gates the runtime separation check and every service that depends on it.
+  haveBothSecretFiles = secretFiles.access != null && secretFiles.database != null;
+  secretFilesAreDistinct = !haveBothSecretFiles || secretFiles.access != secretFiles.database;
   secretFilesDependency = lib.optional haveBothSecretFiles "lirna-secret-files.service";
   validateSecretFiles =
     if haveBothSecretFiles then
       pkgs.writeShellScript "lirna-validate-secret-files" ''
         set -eu
-        access_file=$(${pkgs.coreutils}/bin/readlink -e -- ${lib.escapeShellArg cfg.environmentFile})
-        database_file=$(${pkgs.coreutils}/bin/readlink -e -- ${lib.escapeShellArg cfg.database.environmentFile})
+        access_file=$(${pkgs.coreutils}/bin/readlink -e -- ${lib.escapeShellArg secretFiles.access})
+        database_file=$(${pkgs.coreutils}/bin/readlink -e -- ${lib.escapeShellArg secretFiles.database})
         if [ "$access_file" = "$database_file" ]; then
           echo "Lirna access-token and database environment files must resolve to separate files" >&2
           exit 1
@@ -104,10 +111,7 @@ in
         message = "services.lirna.database.environmentFile is required when createLocally is false";
       }
       {
-        assertion =
-          cfg.environmentFile == null
-          || cfg.database.environmentFile == null
-          || cfg.environmentFile != cfg.database.environmentFile;
+        assertion = secretFilesAreDistinct;
         message = "services.lirna.environmentFile and services.lirna.database.environmentFile must be separate files";
       }
     ];
