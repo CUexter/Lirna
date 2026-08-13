@@ -17,8 +17,13 @@ let
   databaseEnvironment = lib.optionalAttrs cfg.database.createLocally {
     DATABASE_URL = localDatabaseUrl;
   };
+  # Both secret files being configured is the only case where they could
+  # collide, so it gates the runtime separation check and every service that
+  # depends on it.
+  haveBothSecretFiles = cfg.environmentFile != null && cfg.database.environmentFile != null;
+  secretFilesDependency = lib.optional haveBothSecretFiles "lirna-secret-files.service";
   validateSecretFiles =
-    if cfg.environmentFile != null && cfg.database.environmentFile != null then
+    if haveBothSecretFiles then
       pkgs.writeShellScript "lirna-validate-secret-files" ''
         set -eu
         access_file=$(${pkgs.coreutils}/bin/readlink -e -- ${lib.escapeShellArg cfg.environmentFile})
@@ -129,15 +134,16 @@ in
       }];
     };
 
-    systemd.services.lirna-secret-files = lib.mkIf
-      (cfg.environmentFile != null && cfg.database.environmentFile != null)
-      {
-        description = "Validate separation of Lirna secret files";
-        serviceConfig = {
-          Type = "oneshot";
-          ExecStart = validateSecretFiles;
-        };
+    # A oneshot that does not remain active, so every dependent (re)start
+    # re-runs it: rotating a secret file into a symlink alias fails validation
+    # and blocks the service that would otherwise load the aliased tokens.
+    systemd.services.lirna-secret-files = lib.mkIf haveBothSecretFiles {
+      description = "Validate separation of Lirna secret files";
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = validateSecretFiles;
       };
+    };
 
     systemd.services.lirna-migrate = {
       description = "Apply committed Lirna database migrations";
@@ -145,14 +151,10 @@ in
       after =
         lib.optional cfg.database.createLocally "postgresql.service"
         ++ lib.optional (!cfg.database.createLocally) "network-online.target"
-        ++ lib.optional
-          (cfg.environmentFile != null && cfg.database.environmentFile != null)
-          "lirna-secret-files.service";
+        ++ secretFilesDependency;
       requires =
         lib.optional cfg.database.createLocally "postgresql.service"
-        ++ lib.optional
-          (cfg.environmentFile != null && cfg.database.environmentFile != null)
-          "lirna-secret-files.service";
+        ++ secretFilesDependency;
       wants = lib.optional (!cfg.database.createLocally) "network-online.target";
       serviceConfig = {
         Type = "oneshot";
@@ -172,8 +174,8 @@ in
     systemd.services.lirna-api = lib.mkIf cfg.enableApi {
       description = "Lirna API and PWA";
       wantedBy = [ "multi-user.target" ];
-      after = [ "lirna-migrate.service" ];
-      requires = [ "lirna-migrate.service" ];
+      after = [ "lirna-migrate.service" ] ++ secretFilesDependency;
+      requires = [ "lirna-migrate.service" ] ++ secretFilesDependency;
       serviceConfig = {
         User = "lirna";
         Group = "lirna";
@@ -192,8 +194,8 @@ in
     systemd.services.lirna-worker = lib.mkIf cfg.enableWorker {
       description = "Lirna background worker";
       wantedBy = [ "multi-user.target" ];
-      after = [ "lirna-migrate.service" ];
-      requires = [ "lirna-migrate.service" ];
+      after = [ "lirna-migrate.service" ] ++ secretFilesDependency;
+      requires = [ "lirna-migrate.service" ] ++ secretFilesDependency;
       serviceConfig = {
         User = "lirna";
         Group = "lirna";

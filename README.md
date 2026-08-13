@@ -63,6 +63,15 @@ patched Firefox through `PLAYWRIGHT_BROWSERS_PATH`. Do not run
 `npx playwright install`. For future desktop-host work, use
 `nix develop .#desktop` to add Rust, Cargo, pkg-config, and WebKitGTK.
 
+Tool configuration (Biome, Vitest, Playwright, Drizzle Kit, and the
+`tsconfig.*` build/typecheck projects) lives under [`config/`](./config) to keep
+the repository root uncluttered. Because those tools only auto-discover config at
+the root, invoke them through the `npm run` scripts in
+[`package.json`](./package.json) rather than bare `npx biome`/`vitest`/`tsc`; the
+scripts pass the correct `--config`/`-p` path. Point editor and IDE integrations
+at the files under `config/` (the solution-level root `tsconfig.json` already
+references the `config/tsconfig.*` projects for TypeScript tooling).
+
 ## Run locally
 
 Start PostgreSQL and apply migrations:

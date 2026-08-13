@@ -26,8 +26,14 @@ pkgs.testers.runNixOSTest {
     machine.wait_for_open_port(3000)
     machine.succeed("curl --fail http://127.0.0.1:3000/ | grep -q '<div id=\"root\"></div>'")
     machine.succeed("test -d /var/lib/lirna/artifacts")
+    # Rotating a secret file into an alias of the other must block the services
+    # that would otherwise load the aliased tokens, even after first boot.
     machine.succeed("rm /run/secrets/lirna-database.env && ln -s lirna.env /run/secrets/lirna-database.env")
     machine.fail("systemctl restart lirna-secret-files.service")
     machine.succeed("journalctl -u lirna-secret-files.service | grep -q 'must resolve to separate files'")
+    machine.fail("systemctl restart lirna-api.service")
+    machine.fail("systemctl is-active lirna-api.service")
+    machine.fail("systemctl restart lirna-worker.service")
+    machine.fail("systemctl is-active lirna-worker.service")
   '';
 }
