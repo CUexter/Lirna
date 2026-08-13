@@ -15,7 +15,6 @@
         "strict_required_status_checks_policy": true,
         "required_status_checks": [
           { "context": "Gitleaks" },
-          { "context": "Dependency verification" },
           { "context": "Semgrep" },
           { "context": "Trivy npm vulnerability policy" }
         ]

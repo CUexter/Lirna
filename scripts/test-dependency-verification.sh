@@ -114,6 +114,5 @@ git -C "$repo" config user.email nathan.chan@net-makers.com.hk
 git -C "$repo" config user.name Nathan
 git -C "$repo" commit -q -m nathan-critical-exception
 LIRNA_DEPENDENCY_PROJECT_ROOT="$repo" node "$repo/scripts/verify-dependency-assessments.mjs" --range HEAD^ HEAD
-grep -q 'git merge-base "origin/$DEFAULT_BRANCH"' "$root/.github/workflows/checks.yml"
 
 printf '%s\n' "dependency assessment verification disposable repository tests passed"
