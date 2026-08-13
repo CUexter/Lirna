@@ -102,7 +102,8 @@ export function isRoutingDecision(value: unknown): value is RoutingDecision {
         typeof item.evidenceId === "string" &&
         typeof item.reason === "string",
     )
-  ) return false;
+  )
+    return false;
   if (decision.outcome === "selected") {
     return (
       typeof decision.executorId === "string" &&
@@ -111,14 +112,17 @@ export function isRoutingDecision(value: unknown): value is RoutingDecision {
     );
   }
   const paused = decision as Partial<Extract<RoutingDecision, { outcome: "paused" }>>;
-  return Array.isArray(paused.choices) && paused.choices.every(
-    (choice: Partial<RoutingChoice>) =>
-      choice !== null &&
-      typeof choice === "object" &&
-      typeof choice.executorId === "string" &&
-      typeof choice.endpoint === "string" &&
-      Array.isArray(choice.consequences) &&
-      choice.consequences.every((item: unknown) => typeof item === "string"),
+  return (
+    Array.isArray(paused.choices) &&
+    paused.choices.every(
+      (choice: Partial<RoutingChoice>) =>
+        choice !== null &&
+        typeof choice === "object" &&
+        typeof choice.executorId === "string" &&
+        typeof choice.endpoint === "string" &&
+        Array.isArray(choice.consequences) &&
+        choice.consequences.every((item: unknown) => typeof item === "string"),
+    )
   );
 }
 
@@ -168,8 +172,7 @@ export class PolicyAwareExecutorRouter {
     const disclosedEvidence = command.evidence.map((item) => item.evidenceId);
     const preferred = command.requirements.preferredExecutorId
       ? command.executors.find(
-          (executor) =>
-            executor.executorId === command.requirements.preferredExecutorId,
+          (executor) => executor.executorId === command.requirements.preferredExecutorId,
         )
       : undefined;
     if (command.requirements.preferredExecutorId && !preferred) {
@@ -194,8 +197,7 @@ export class PolicyAwareExecutorRouter {
 
     if (
       preferred &&
-      (!preferred.available ||
-        !isEligible(preferred, command.evidence, command.requirements))
+      (!preferred.available || !isEligible(preferred, command.evidence, command.requirements))
     ) {
       const equivalent = available.find((executor) =>
         equivalentTo(preferred, executor, command.evidence),
@@ -250,13 +252,7 @@ export class PolicyAwareExecutorRouter {
     const reason = comparableLocal
       ? `Local executor ${chosen.executorId} is materially comparable to eligible alternatives`
       : `Executor ${chosen.executorId} best satisfies capability, quality, availability, latency, and budget`;
-    return selected(
-      chosen,
-      reason,
-      "none",
-      disclosedEvidence,
-      command.omittedEvidence,
-    );
+    return selected(chosen, reason, "none", disclosedEvidence, command.omittedEvidence);
   }
 }
 
@@ -267,9 +263,7 @@ function eligibleChoices(
   preferred: ExecutorProfile | undefined,
 ): RoutingChoice[] {
   return executors
-    .filter(
-      (executor) => executor.available && meetsRequirements(executor, requirements),
-    )
+    .filter((executor) => executor.available && meetsRequirements(executor, requirements))
     .map((executor) => ({
       executorId: executor.executorId,
       endpoint: executor.endpoint,
@@ -296,10 +290,7 @@ function isEligible(
  * The capability, quality, latency, and budget floor an executor must clear,
  * independent of availability and of Source handling policy.
  */
-function meetsRequirements(
-  executor: ExecutorProfile,
-  requirements: RoutingRequirements,
-): boolean {
+function meetsRequirements(executor: ExecutorProfile, requirements: RoutingRequirements): boolean {
   return (
     executor.capabilities.includes(requirements.capability) &&
     executor.quality >= requirements.qualityFloor &&
@@ -312,10 +303,7 @@ function omittedByPolicy(evidenceId: string): string {
   return `${evidenceId} would be omitted by Source handling policy`;
 }
 
-function policyAllows(
-  policy: SourceHandlingPolicy,
-  executor: ExecutorProfile,
-): boolean {
+function policyAllows(policy: SourceHandlingPolicy, executor: ExecutorProfile): boolean {
   if (policy.rightsBasis === "inaccessible") {
     return false;
   }
@@ -337,9 +325,7 @@ function equivalentTo(
   evidence: ReadonlyArray<SourceEvidence>,
 ): boolean {
   return (
-    preferred.capabilities.every((capability) =>
-      fallback.capabilities.includes(capability),
-    ) &&
+    preferred.capabilities.every((capability) => fallback.capabilities.includes(capability)) &&
     fallback.quality >= preferred.quality &&
     fallback.cost <= preferred.cost &&
     evidence.every((item) => policyAllows(item.policy, fallback))

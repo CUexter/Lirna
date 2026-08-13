@@ -8,12 +8,12 @@ import { describe, expect, it } from "vitest";
 import { ArtifactRegistry } from "../../server/artifacts/artifact-registry.js";
 import { FileArtifactStore } from "../../server/artifacts/file-artifact-store.js";
 import { ApplicationDatabase } from "../../server/database/database.js";
-import { assertCurrentMigrationState } from "../../server/database/migration-state.js";
 import { applyMigrations } from "../../server/database/migrate.js";
+import { assertCurrentMigrationState } from "../../server/database/migration-state.js";
 import { openCurrentDatabase } from "../../server/database/open-current-database.js";
 import { DomainDatabase } from "../../server/domain/synthetic-domain.js";
-import { WorkflowRunRepository } from "../../server/workflows/workflow-run-repository.js";
 import type { WorkflowDefinition } from "../../server/workflows/workflow-definition.js";
+import { WorkflowRunRepository } from "../../server/workflows/workflow-run-repository.js";
 import { executeTestSql } from "./database-test-support.js";
 import { forceWorkflowLeaseExpiry } from "./workflow-test-support.js";
 
@@ -44,7 +44,9 @@ describe("committed migration lifecycle", () => {
     const temporaryRoot = await mkdtemp(join(tmpdir(), "lirna-forward-migration-"));
     try {
       await applyMigrations(database.db);
-      await database.db.execute(sql`insert into application_operations (id, kind, input, status) values ('00000000-0000-4000-8000-000000000073', 'synthetic-adapter-roundtrip', 'preserve me', 'queued')`);
+      await database.db.execute(
+        sql`insert into application_operations (id, kind, input, status) values ('00000000-0000-4000-8000-000000000073', 'synthetic-adapter-roundtrip', 'preserve me', 'queued')`,
+      );
       await database.db.execute(sql`
         insert into artifacts (
           hash, byte_size, sensitivity, rights_basis, provenance_origin, provenance_detail
@@ -70,7 +72,9 @@ describe("committed migration lifecycle", () => {
 
       await applyMigrations(database.db);
       await expect(assertCurrentMigrationState(database.db)).resolves.toBeUndefined();
-      const preserved = await database.db.execute<{ input: string }>(sql`select input from application_operations where id = '00000000-0000-4000-8000-000000000073'`);
+      const preserved = await database.db.execute<{ input: string }>(
+        sql`select input from application_operations where id = '00000000-0000-4000-8000-000000000073'`,
+      );
       expect(preserved.rows[0]?.input).toBe("preserve me");
       const registration = await database.db.execute<{
         provenance_detail: string;
@@ -111,10 +115,15 @@ describe("committed migration lifecycle", () => {
       const record = await module.view(recordId);
       expect(record?.history).toHaveLength(1);
       expect(record?.events).toHaveLength(1);
-      await expect(executeTestSql(database.db, sql`
+      await expect(
+        executeTestSql(
+          database.db,
+          sql`
         update synthetic_record_revisions set note = 'tampered'
         where record_id = ${recordId}
-      `)).rejects.toThrow(/append-only/i);
+      `,
+        ),
+      ).rejects.toThrow(/append-only/i);
 
       const registry = new ArtifactRegistry(
         database.db,
@@ -124,38 +133,44 @@ describe("committed migration lifecycle", () => {
       const workflow: WorkflowDefinition = {
         workflowId: "migration-proof",
         version: 1,
-        steps: [{
-          kind: "work",
-          stepId: "prove",
-          artifactShape: { type: "object", requiredKeys: ["ok"] },
-          requiredReferences: [],
-          budget: { leaseSeconds: 30, maxAttempts: 2 },
-        }],
+        steps: [
+          {
+            kind: "work",
+            stepId: "prove",
+            artifactShape: { type: "object", requiredKeys: ["ok"] },
+            requiredReferences: [],
+            budget: { leaseSeconds: 30, maxAttempts: 2 },
+          },
+        ],
       };
       await runs.declare(workflow);
       const run = await runs.createRun(workflow.workflowId, workflow.version, {});
-      const claims = await Promise.all([
-        runs.claimNextStep(run.id),
-        runs.claimNextStep(run.id),
-      ]);
+      const claims = await Promise.all([runs.claimNextStep(run.id), runs.claimNextStep(run.id)]);
       expect(claims.filter(Boolean)).toHaveLength(1);
       const staleLease = claims.find(Boolean)!;
       await forceWorkflowLeaseExpiry(database.db, run.id, staleLease);
       const activeLease = (await runs.claimNextStep(run.id))!;
-      await expect(runs.commitCheckpoint(run.id, staleLease, {
-        content: Buffer.from('{"ok":true}'),
-        policy: { sensitivity: "local-only", rightsBasis: "owned" },
-        provenance: { origin: "original-reasoning", detail: "stale" },
-      })).rejects.toThrow(/expired/);
+      await expect(
+        runs.commitCheckpoint(run.id, staleLease, {
+          content: Buffer.from('{"ok":true}'),
+          policy: { sensitivity: "local-only", rightsBasis: "owned" },
+          provenance: { origin: "original-reasoning", detail: "stale" },
+        }),
+      ).rejects.toThrow(/expired/);
       await runs.commitCheckpoint(run.id, activeLease, {
         content: Buffer.from('{"ok":true}'),
         policy: { sensitivity: "local-only", rightsBasis: "owned" },
         provenance: { origin: "original-reasoning", detail: "committed" },
       });
-      await expect(executeTestSql(database.db, sql`
+      await expect(
+        executeTestSql(
+          database.db,
+          sql`
         update workflow_step_attempts set artifact_hash = null
         where run_id = ${run.id} and status = 'committed'
-      `)).rejects.toThrow(/immutable/i);
+      `,
+        ),
+      ).rejects.toThrow(/immutable/i);
     } finally {
       await database.close();
       await container.stop();
@@ -169,7 +184,9 @@ describe("committed migration lifecycle", () => {
     try {
       await database.db.execute(sql`create table application_operations (id uuid primary key)`);
       await expect(applyMigrations(database.db)).rejects.toThrow("incomplete pre-Drizzle schema");
-      await expect(openCurrentDatabase(container.getConnectionUri())).rejects.toThrow("npm run db:migrate");
+      await expect(openCurrentDatabase(container.getConnectionUri())).rejects.toThrow(
+        "npm run db:migrate",
+      );
     } finally {
       await database.close();
       await container.stop();
@@ -180,9 +197,13 @@ describe("committed migration lifecycle", () => {
     const container = await new PostgreSqlContainer("postgres:16-alpine").start();
     const database = new ApplicationDatabase(container.getConnectionUri());
     try {
-      const before = await database.db.execute<{ count: string }>(sql`select count(*)::text as count from information_schema.tables where table_schema not in ('pg_catalog', 'information_schema')`);
+      const before = await database.db.execute<{ count: string }>(
+        sql`select count(*)::text as count from information_schema.tables where table_schema not in ('pg_catalog', 'information_schema')`,
+      );
       await expect(assertCurrentMigrationState(database.db)).rejects.toThrow("npm run db:migrate");
-      const after = await database.db.execute<{ count: string }>(sql`select count(*)::text as count from information_schema.tables where table_schema not in ('pg_catalog', 'information_schema')`);
+      const after = await database.db.execute<{ count: string }>(
+        sql`select count(*)::text as count from information_schema.tables where table_schema not in ('pg_catalog', 'information_schema')`,
+      );
       expect(after.rows[0]?.count).toBe(before.rows[0]?.count);
     } finally {
       await database.close();

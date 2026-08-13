@@ -1,6 +1,10 @@
 import { sql } from "drizzle-orm";
 import { check, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
-import type { ApplicationOperation, OperationKind, OperationStatus } from "./operation-repository.js";
+import type {
+  ApplicationOperation,
+  OperationKind,
+  OperationStatus,
+} from "./operation-repository.js";
 
 export const applicationOperations = pgTable(
   "application_operations",

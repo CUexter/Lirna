@@ -8,15 +8,13 @@ import { ArtifactRegistry } from "../../server/artifacts/artifact-registry.js";
 import { FileArtifactStore } from "../../server/artifacts/file-artifact-store.js";
 import { ApplicationDatabase } from "../../server/database/database.js";
 import { migrate } from "../../server/database/migrate.js";
-import { WorkflowExecutor } from "../../server/workflows/workflow-executor.js";
-import type { ExecutorAdapter } from "../../server/workflows/workflow-executor.js";
 import type { WorkflowDefinition } from "../../server/workflows/workflow-definition.js";
-import {
-  WorkflowRunRepository,
-} from "../../server/workflows/workflow-run-repository.js";
-import { forceWorkflowLeaseExpiry } from "./workflow-test-support.js";
+import type { ExecutorAdapter } from "../../server/workflows/workflow-executor.js";
+import { WorkflowExecutor } from "../../server/workflows/workflow-executor.js";
+import { WorkflowRunRepository } from "../../server/workflows/workflow-run-repository.js";
 import { resetTestDatabase } from "./database-test-support.js";
 import { syntheticResumeWorkflow } from "./workflow-fixtures.js";
+import { forceWorkflowLeaseExpiry } from "./workflow-test-support.js";
 
 /**
  * Integration scenario for the workflow kernel. It crosses the API, the
@@ -121,9 +119,7 @@ describe("typed workflow resume after worker interruption", () => {
 
       // Step 0: the executor leases and commits the gather checkpoint.
       expect(await scenario.executor.runOnce()).toBe(true);
-      let view = (await (
-        await fetch(`${scenario.address}/api/workflow-runs/${runId}`)
-      ).json()) as {
+      let view = (await (await fetch(`${scenario.address}/api/workflow-runs/${runId}`)).json()) as {
         currentStep: number;
         checkpoints: Array<{ stepIndex: number; attempt: number }>;
         attempts: Array<{ stepIndex: number; attempt: number; status: string }>;
@@ -145,9 +141,7 @@ describe("typed workflow resume after worker interruption", () => {
       const restartedExecutor = new WorkflowExecutor(restartedRuns);
       expect(await restartedExecutor.runOnce()).toBe(true);
 
-      view = (await (
-        await fetch(`${scenario.address}/api/workflow-runs/${runId}`)
-      ).json()) as {
+      view = (await (await fetch(`${scenario.address}/api/workflow-runs/${runId}`)).json()) as {
         currentStep: number;
         checkpoints: Array<{ stepIndex: number; attempt: number }>;
         attempts: Array<{ stepIndex: number; attempt: number; status: string }>;
@@ -228,11 +222,9 @@ describe("typed workflow resume after worker interruption", () => {
     const scenario = await startScenario();
     try {
       await scenario.runs.declare(workflow);
-      const run = await scenario.runs.createRun(
-        workflow.workflowId,
-        workflow.version,
-        { prompt: "synthetic rejectable fixture" },
-      );
+      const run = await scenario.runs.createRun(workflow.workflowId, workflow.version, {
+        prompt: "synthetic rejectable fixture",
+      });
 
       // Advance through gather, refine, and reach the gate.
       await scenario.executor.runOnce();
@@ -281,29 +273,25 @@ describe("typed workflow resume after worker interruption", () => {
     const scenario = await startScenario();
     try {
       await scenario.runs.declare(routedWorkflow);
-      const run = await scenario.runs.createRun(
-        routedWorkflow.workflowId,
-        routedWorkflow.version,
-        {
-          prompt: "synthetic routed fixture",
-          evidence: [
-            {
-              evidenceId: "source-state-eligible",
-              policy: {
-                sensitivity: "local-only",
-                rightsBasis: "owned",
-              },
+      const run = await scenario.runs.createRun(routedWorkflow.workflowId, routedWorkflow.version, {
+        prompt: "synthetic routed fixture",
+        evidence: [
+          {
+            evidenceId: "source-state-eligible",
+            policy: {
+              sensitivity: "local-only",
+              rightsBasis: "owned",
             },
-            {
-              evidenceId: "source-state-inaccessible",
-              policy: {
-                sensitivity: "local-only",
-                rightsBasis: "inaccessible",
-              },
+          },
+          {
+            evidenceId: "source-state-inaccessible",
+            policy: {
+              sensitivity: "local-only",
+              rightsBasis: "inaccessible",
             },
-          ],
-        },
-      );
+          },
+        ],
+      });
 
       expect(await scenario.executor.runOnce()).toBe(true);
       const view = await scenario.runs.view(run.id);
@@ -333,11 +321,10 @@ describe("typed workflow resume after worker interruption", () => {
     const scenario = await startScenario();
     try {
       await scenario.runs.declare(routedWorkflow);
-      const run = await scenario.runs.createRun(
-        routedWorkflow.workflowId,
-        routedWorkflow.version,
-        { prompt: "synthetic routing interruption", evidence: [] },
-      );
+      const run = await scenario.runs.createRun(routedWorkflow.workflowId, routedWorkflow.version, {
+        prompt: "synthetic routing interruption",
+        evidence: [],
+      });
       await scenario.runs.recordRoutingDecision(run.id, 0, {
         outcome: "selected",
         executorId: "local-synthetic",
@@ -386,25 +373,20 @@ describe("typed workflow resume after worker interruption", () => {
         };
       },
     };
-    const executor = new WorkflowExecutor(
-      runs,
-      [adapter],
-      async (item) => ({ ...item, content: Buffer.from("synthetic evidence") }),
-    );
+    const executor = new WorkflowExecutor(runs, [adapter], async (item) => ({
+      ...item,
+      content: Buffer.from("synthetic evidence"),
+    }));
     await runs.declare(routedWorkflow);
-    const run = await runs.createRun(
-      routedWorkflow.workflowId,
-      routedWorkflow.version,
-      {
-        prompt: "synthetic adapter fixture",
-        evidence: [
-          {
-            evidenceId: "source-state-adapter",
-            policy: { sensitivity: "local-only", rightsBasis: "owned" },
-          },
-        ],
-      },
-    );
+    const run = await runs.createRun(routedWorkflow.workflowId, routedWorkflow.version, {
+      prompt: "synthetic adapter fixture",
+      evidence: [
+        {
+          evidenceId: "source-state-adapter",
+          policy: { sensitivity: "local-only", rightsBasis: "owned" },
+        },
+      ],
+    });
 
     expect(await executor.runOnce()).toBe(true);
     expect(executedEvidence).toEqual([["source-state-adapter"]]);
@@ -418,11 +400,7 @@ describe("typed workflow resume after worker interruption", () => {
     const store = new FileArtifactStore(join(temporaryRoot, "fallback-artifacts"));
     const runs = new WorkflowRunRepository(database.db, new ArtifactRegistry(database.db, store));
     const executed: string[] = [];
-    const adapter = (
-      executorId: string,
-      available: boolean,
-      quality: number,
-    ): ExecutorAdapter => ({
+    const adapter = (executorId: string, available: boolean, quality: number): ExecutorAdapter => ({
       executorId,
       endpoint: `local://${executorId}`,
       location: "local",
@@ -450,13 +428,15 @@ describe("typed workflow resume after worker interruption", () => {
     const definition: WorkflowDefinition = {
       ...routedWorkflow,
       workflowId: "equivalent-fallback",
-      steps: [{
-        ...routedStep,
-        routing: {
-          ...routedStep.routing,
-          preferredExecutorId: primary.executorId,
+      steps: [
+        {
+          ...routedStep,
+          routing: {
+            ...routedStep.routing,
+            preferredExecutorId: primary.executorId,
+          },
         },
-      }],
+      ],
     };
     await runs.declare(definition);
     const run = await runs.createRun(definition.workflowId, definition.version, { evidence: [] });
@@ -481,9 +461,16 @@ describe("typed workflow resume after worker interruption", () => {
       provenance: { origin: "original-reasoning" as const, detail: "paused fixture" },
     });
     const primary: ExecutorAdapter = {
-      executorId: "preferred-paused", endpoint: "local://preferred-paused", location: "local",
-      capabilities: ["synthetic"], quality: 90, available: false, latencyMs: 0, cost: 0,
-      restrictedCloudEligible: false, execute,
+      executorId: "preferred-paused",
+      endpoint: "local://preferred-paused",
+      location: "local",
+      capabilities: ["synthetic"],
+      quality: 90,
+      available: false,
+      latencyMs: 0,
+      cost: 0,
+      restrictedCloudEligible: false,
+      execute,
     };
     const lowerQuality: ExecutorAdapter = {
       ...primary,
@@ -499,13 +486,15 @@ describe("typed workflow resume after worker interruption", () => {
     const definition: WorkflowDefinition = {
       ...routedWorkflow,
       workflowId: "non-equivalent-fallback",
-      steps: [{
-        ...routedStep,
-        routing: {
-          ...routedStep.routing,
-          preferredExecutorId: primary.executorId,
+      steps: [
+        {
+          ...routedStep,
+          routing: {
+            ...routedStep.routing,
+            preferredExecutorId: primary.executorId,
+          },
         },
-      }],
+      ],
     };
     await runs.declare(definition);
     const run = await runs.createRun(definition.workflowId, definition.version, { evidence: [] });

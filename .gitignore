@@ -1,4 +1,10 @@
 .lirna/
+.direnv/
 dist/
 node_modules/
 *.tsbuildinfo
+coverage/
+metrics/
+playwright-report/
+test-results/
+result

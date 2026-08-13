@@ -1,6 +1,6 @@
 import { setTimeout as delay } from "node:timers/promises";
-import { FileArtifactStore } from "../artifacts/file-artifact-store.js";
 import { ArtifactRegistry } from "../artifacts/artifact-registry.js";
+import { FileArtifactStore } from "../artifacts/file-artifact-store.js";
 import { loadConfig } from "../config.js";
 import { openCurrentDatabase } from "../database/open-current-database.js";
 import { DomainDatabase } from "../domain/synthetic-domain.js";

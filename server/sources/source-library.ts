@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { asc, eq } from "drizzle-orm";
-import type { LirnaDatabase } from "../database/database.js";
 import {
-  rightsBases,
-  sensitivityLevels,
   type RightsBasis,
+  rightsBases,
   type SensitivityLevel,
+  sensitivityLevels,
 } from "../artifacts/source-handling-policy.js";
+import type { LirnaDatabase } from "../database/database.js";
 import { sourceStates, sources } from "./schema.js";
 
 export interface AdmitTextSourceCommand {

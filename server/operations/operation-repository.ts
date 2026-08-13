@@ -48,13 +48,15 @@ export class OperationRepository {
       const [row] = await tx
         .select({ id: applicationOperations.id })
         .from(applicationOperations)
-        .where(or(
-          eq(applicationOperations.status, "queued"),
-          and(
-            eq(applicationOperations.status, "processing"),
-            lt(applicationOperations.leaseUntil, sql`now()`),
+        .where(
+          or(
+            eq(applicationOperations.status, "queued"),
+            and(
+              eq(applicationOperations.status, "processing"),
+              lt(applicationOperations.leaseUntil, sql`now()`),
+            ),
           ),
-        ))
+        )
         .orderBy(applicationOperations.requestedAt)
         .limit(1)
         .for("update", { skipLocked: true });

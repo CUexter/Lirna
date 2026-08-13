@@ -9,7 +9,7 @@ import {
   WorkflowCommitError,
 } from "../../server/workflows/workflow-run-repository.js";
 import { executeTestSql } from "../integration/database-test-support.js";
-import { startPhase0Scenario, type Phase0Scenario } from "../support/phase-0-scenario.js";
+import { type Phase0Scenario, startPhase0Scenario } from "../support/phase-0-scenario.js";
 
 /**
  * The Phase 0 gate: one reproducible body of evidence that the architecture
@@ -137,10 +137,13 @@ describe("Phase 0 gate", () => {
 
     // Recorded history cannot be rewritten, even at the database boundary.
     await expect(
-      executeTestSql(scenario.database, sql`
+      executeTestSql(
+        scenario.database,
+        sql`
         UPDATE synthetic_record_revisions SET note = 'tampered'
          WHERE record_id = ${recordId}
-      `),
+      `,
+      ),
     ).rejects.toThrow(/append-only/i);
 
     // Successfully recorded publications are not redelivered.
@@ -289,17 +292,15 @@ describe("Phase 0 gate", () => {
     view = await getJson(scenario, `/api/workflow-runs/${runId}`);
     expect(view.currentStep).toBe(2);
     expect(view.checkpoints.map((c: { stepIndex: number }) => c.stepIndex)).toEqual([0, 1]);
-    const stepOneAttempts = view.attempts.filter(
-      (a: { stepIndex: number }) => a.stepIndex === 1,
-    );
+    const stepOneAttempts = view.attempts.filter((a: { stepIndex: number }) => a.stepIndex === 1);
     // Exactly one committed attempt for step 1: resume did not duplicate work.
     expect(stepOneAttempts).toHaveLength(2);
-    expect(
-      stepOneAttempts.find((a: { attempt: number }) => a.attempt === 1)?.status,
-    ).toBe("expired");
-    expect(
-      stepOneAttempts.find((a: { attempt: number }) => a.attempt === 2)?.status,
-    ).toBe("committed");
+    expect(stepOneAttempts.find((a: { attempt: number }) => a.attempt === 1)?.status).toBe(
+      "expired",
+    );
+    expect(stepOneAttempts.find((a: { attempt: number }) => a.attempt === 2)?.status).toBe(
+      "committed",
+    );
 
     // The run now waits at the human gate; a worker cannot advance it.
     expect(await scenario.executor.runOnce()).toBe(false);
@@ -316,9 +317,7 @@ describe("Phase 0 gate", () => {
     expect(await scenario.executor.runOnce()).toBe(true);
     view = await getJson(scenario, `/api/workflow-runs/${runId}`);
     expect(view.status).toBe("completed");
-    expect(view.checkpoints.map((c: { stepIndex: number }) => c.stepIndex)).toEqual([
-      0, 1, 2, 3,
-    ]);
+    expect(view.checkpoints.map((c: { stepIndex: number }) => c.stepIndex)).toEqual([0, 1, 2, 3]);
   });
 
   it("denies invalid and out-of-turn gate decisions and refuses invalid artifact commits", async () => {

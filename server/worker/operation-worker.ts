@@ -1,7 +1,7 @@
 import type { ArtifactStore } from "../artifacts/file-artifact-store.js";
 import {
-  syntheticOperationKind,
   type OperationRepository,
+  syntheticOperationKind,
 } from "../operations/operation-repository.js";
 import type { ResultWriter } from "../synthetic/synthetic-result-writer.js";
 
@@ -25,10 +25,7 @@ export class OperationWorker {
         throw new Error(`Unsupported operation kind: ${operation.kind}`);
       }
 
-      const content = Buffer.from(
-        `Synthetic operation result\n\n${operation.input}\n`,
-        "utf8",
-      );
+      const content = Buffer.from(`Synthetic operation result\n\n${operation.input}\n`, "utf8");
       const artifact = await this.dependencies.artifacts.put(content);
       const result = await this.dependencies.resultWriter.writeSyntheticResult(
         operation.id,

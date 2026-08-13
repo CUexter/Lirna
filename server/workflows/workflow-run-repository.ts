@@ -1,28 +1,29 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, count, eq, gt, lte, sql } from "drizzle-orm";
-import {
+import type {
+  ArtifactMetadata,
+  ArtifactReference,
   ArtifactRegistry,
-  type ArtifactMetadata,
-  type ArtifactReference,
 } from "../artifacts/artifact-registry.js";
+import { isContentHash } from "../artifacts/file-artifact-store.js";
 import { artifacts } from "../artifacts/schema.js";
 import type { LirnaDatabase } from "../database/database.js";
-import { isContentHash } from "../artifacts/file-artifact-store.js";
 import { isRoutingDecision, type RoutingDecision } from "./executor-router.js";
 import {
-  assertWorkflowDefinition,
-  parseGateDecision,
-  validateArtifactShape,
   type ArtifactSubmission,
+  assertWorkflowDefinition,
   type GateDecision,
+  parseGateDecision,
   type StepBudget,
   type StepDefinition,
+  validateArtifactShape,
   type WorkflowDefinition,
   WorkflowDefinitionError,
 } from "./workflow-definition.js";
 import { isWorkflowInput, type WorkflowInput } from "./workflow-input.js";
 
 export { WorkflowDefinitionError } from "./workflow-definition.js";
+
 import {
   workflowDefinitions,
   workflowHumanGates,
@@ -175,11 +176,7 @@ export class WorkflowRunRepository {
     });
   }
 
-  async createRun(
-    workflowId: string,
-    version: number,
-    input: WorkflowInput,
-  ): Promise<RunView> {
+  async createRun(workflowId: string, version: number, input: WorkflowInput): Promise<RunView> {
     if (!isWorkflowInput(input)) {
       throw new WorkflowDefinitionError("workflow input must contain only JSON values");
     }
@@ -196,9 +193,7 @@ export class WorkflowRunRepository {
         )
         .for("share");
       if (!declared[0]) {
-        throw new WorkflowDefinitionError(
-          `Workflow ${workflowId} v${version} is not declared`,
-        );
+        throw new WorkflowDefinitionError(`Workflow ${workflowId} v${version} is not declared`);
       }
       await tx.insert(workflowRuns).values({
         id,
@@ -217,81 +212,81 @@ export class WorkflowRunRepository {
   }
 
   async view(runId: string): Promise<RunView | undefined> {
-    return this.db.transaction(async (tx) => {
-      const run = await tx
-        .select()
-        .from(workflowRuns)
-        .where(eq(workflowRuns.id, runId));
-      const row = run[0];
-      if (!row) {
-        return undefined;
-      }
-      const defined = await tx
-        .select({ definition: workflowDefinitions.definition })
-        .from(workflowDefinitions)
-        .where(
-          and(
-            eq(workflowDefinitions.workflowId, row.workflowId),
-            eq(workflowDefinitions.version, row.workflowVersion),
-          ),
-        );
-      const definition = defined[0]?.definition;
-      if (!definition) {
-        throw new Error(
-          `Definition ${row.workflowId} v${row.workflowVersion} missing for run ${runId}`,
-        );
-      }
-      assertWorkflowDefinition(definition);
-      const attempts = await tx
-        .select()
-        .from(workflowStepAttempts)
-        .where(eq(workflowStepAttempts.runId, runId))
-        .orderBy(asc(workflowStepAttempts.stepIndex), asc(workflowStepAttempts.attempt));
-      const gates = await tx
-        .select()
-        .from(workflowHumanGates)
-        .where(eq(workflowHumanGates.runId, runId))
-        .orderBy(asc(workflowHumanGates.stepIndex));
-      const routing = await tx
-        .select()
-        .from(workflowRoutingDecisions)
-        .where(eq(workflowRoutingDecisions.runId, runId))
-        .orderBy(asc(workflowRoutingDecisions.stepIndex));
-      const databaseTime = await tx.execute<{ now: string | Date }>(sql`select now() as now`);
+    return this.db.transaction(
+      async (tx) => {
+        const run = await tx.select().from(workflowRuns).where(eq(workflowRuns.id, runId));
+        const row = run[0];
+        if (!row) {
+          return undefined;
+        }
+        const defined = await tx
+          .select({ definition: workflowDefinitions.definition })
+          .from(workflowDefinitions)
+          .where(
+            and(
+              eq(workflowDefinitions.workflowId, row.workflowId),
+              eq(workflowDefinitions.version, row.workflowVersion),
+            ),
+          );
+        const definition = defined[0]?.definition;
+        if (!definition) {
+          throw new Error(
+            `Definition ${row.workflowId} v${row.workflowVersion} missing for run ${runId}`,
+          );
+        }
+        assertWorkflowDefinition(definition);
+        const attempts = await tx
+          .select()
+          .from(workflowStepAttempts)
+          .where(eq(workflowStepAttempts.runId, runId))
+          .orderBy(asc(workflowStepAttempts.stepIndex), asc(workflowStepAttempts.attempt));
+        const gates = await tx
+          .select()
+          .from(workflowHumanGates)
+          .where(eq(workflowHumanGates.runId, runId))
+          .orderBy(asc(workflowHumanGates.stepIndex));
+        const routing = await tx
+          .select()
+          .from(workflowRoutingDecisions)
+          .where(eq(workflowRoutingDecisions.runId, runId))
+          .orderBy(asc(workflowRoutingDecisions.stepIndex));
+        const databaseTime = await tx.execute<{ now: string | Date }>(sql`select now() as now`);
 
-      const attemptViews = attempts.map(mapAttempt);
-      return {
-        id: row.id,
-        workflowId: row.workflowId,
-        workflowVersion: row.workflowVersion,
-        status: row.status,
-        currentStep: row.currentStep,
-        input: row.input,
-        steps: definition.steps,
-        attempts: attemptViews,
-        checkpoints: attemptViews
-          .filter((attempt) => attempt.status === "committed")
-          .map((attempt) => ({
-            runId,
-            stepIndex: attempt.stepIndex,
-            stepId: attempt.stepId,
-            attempt: attempt.attempt,
-            artifactHash: attempt.artifactHash!,
-            committedAt: attempt.committedAt!,
+        const attemptViews = attempts.map(mapAttempt);
+        return {
+          id: row.id,
+          workflowId: row.workflowId,
+          workflowVersion: row.workflowVersion,
+          status: row.status,
+          currentStep: row.currentStep,
+          input: row.input,
+          steps: definition.steps,
+          attempts: attemptViews,
+          checkpoints: attemptViews
+            .filter((attempt) => attempt.status === "committed")
+            .map((attempt) => ({
+              runId,
+              stepIndex: attempt.stepIndex,
+              stepId: attempt.stepId,
+              attempt: attempt.attempt,
+              artifactHash: attempt.artifactHash!,
+              committedAt: attempt.committedAt!,
+            })),
+          gates: gates.map(mapGate),
+          budgets: budgetViews(
+            definition,
+            attemptViews,
+            new Date(databaseTime.rows[0]!.now).getTime(),
+          ),
+          routingDecisions: routing.map((decision) => ({
+            stepIndex: decision.stepIndex,
+            decision: requireRoutingDecision(decision.decision),
+            recordedAt: decision.recordedAt.toISOString(),
           })),
-        gates: gates.map(mapGate),
-        budgets: budgetViews(
-          definition,
-          attemptViews,
-          new Date(databaseTime.rows[0]!.now).getTime(),
-        ),
-        routingDecisions: routing.map((decision) => ({
-          stepIndex: decision.stepIndex,
-          decision: requireRoutingDecision(decision.decision),
-          recordedAt: decision.recordedAt.toISOString(),
-        })),
-      };
-    }, { isolationLevel: "repeatable read", accessMode: "read only" });
+        };
+      },
+      { isolationLevel: "repeatable read", accessMode: "read only" },
+    );
   }
 
   /**
@@ -430,10 +425,7 @@ export class WorkflowRunRepository {
         .select({ count: count() })
         .from(workflowStepAttempts)
         .where(
-          and(
-            eq(workflowStepAttempts.runId, runId),
-            eq(workflowStepAttempts.stepIndex, stepIndex),
-          ),
+          and(eq(workflowStepAttempts.runId, runId), eq(workflowStepAttempts.stepIndex, stepIndex)),
         );
       const attemptsUsed = spent[0]?.count ?? 0;
       if (attemptsUsed >= step.budget.maxAttempts) {
@@ -516,8 +508,7 @@ export class WorkflowRunRepository {
       );
     }
 
-    const shape =
-      step.kind === "human-gate" ? step.decisionShape : step.artifactShape;
+    const shape = step.kind === "human-gate" ? step.decisionShape : step.artifactShape;
     const shapeResult = validateArtifactShape(submission.content, shape);
     if (!shapeResult.ok) {
       throw new ArtifactValidationError(shapeResult.reason);
@@ -526,9 +517,7 @@ export class WorkflowRunRepository {
     await resolveCrossReferences(submission.references ?? [], this.registry);
 
     const decision: GateDecision | null =
-      step.kind === "human-gate"
-        ? parseGateDecision(shapeResult.value)
-        : null;
+      step.kind === "human-gate" ? parseGateDecision(shapeResult.value) : null;
 
     const registered: ArtifactMetadata = await this.registry.register({
       content: submission.content,
@@ -538,15 +527,7 @@ export class WorkflowRunRepository {
     });
 
     await this.db.transaction((tx) =>
-      this.commitAttempt(
-        tx,
-        runId,
-        lease,
-        step,
-        registered.hash,
-        decision,
-        run.steps.length,
-      ),
+      this.commitAttempt(tx, runId, lease, step, registered.hash, decision, run.steps.length),
     );
 
     const view = await this.view(runId);
@@ -647,8 +628,7 @@ export class WorkflowRunRepository {
       );
 
     if (step.kind === "human-gate" && decision) {
-      const gateStatus: GateStatus =
-        decision.outcome === "approve" ? "satisfied" : "rejected";
+      const gateStatus: GateStatus = decision.outcome === "approve" ? "satisfied" : "rejected";
       await tx
         .update(workflowHumanGates)
         .set({ status: gateStatus, decisionHash: artifactHash, decidedAt: sql`now()` })
@@ -740,9 +720,7 @@ function validateReferences(
       ref.targetId.length === 0 ||
       ref.targetId.length > 200
     ) {
-      throw new ArtifactValidationError(
-        `reference targetId must be a non-empty string`,
-      );
+      throw new ArtifactValidationError(`reference targetId must be a non-empty string`);
     }
   }
 }
@@ -808,9 +786,7 @@ function budgetViews(
   return definition.steps.map((step, index) => {
     const forStep = attempts.filter((attempt) => attempt.stepIndex === index);
     const activeLease = forStep.some(
-      (attempt) =>
-        attempt.status === "leased" &&
-        new Date(attempt.leaseUntil).getTime() > now,
+      (attempt) => attempt.status === "leased" && new Date(attempt.leaseUntil).getTime() > now,
     );
     return {
       stepIndex: index,

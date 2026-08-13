@@ -28,7 +28,9 @@ export const syntheticRecords = pgTable(
 export const syntheticRecordRevisions = pgTable(
   "synthetic_record_revisions",
   {
-    recordId: uuid("record_id").notNull().references(() => syntheticRecords.id),
+    recordId: uuid("record_id")
+      .notNull()
+      .references(() => syntheticRecords.id),
     revision: integer().notNull(),
     ownerModule: text("owner_module").notNull(),
     state: jsonb().$type<SyntheticState>().notNull(),

@@ -1,8 +1,4 @@
-export const sensitivityLevels = [
-  "ordinary-cloud",
-  "restricted-cloud",
-  "local-only",
-] as const;
+export const sensitivityLevels = ["ordinary-cloud", "restricted-cloud", "local-only"] as const;
 
 export const rightsBases = [
   "owned",

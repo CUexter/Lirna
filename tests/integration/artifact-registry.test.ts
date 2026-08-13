@@ -1,16 +1,16 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, rm, writeFile, unlink } from "node:fs/promises";
+import { mkdtemp, rm, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+  type ArtifactMetadata,
+  ArtifactRegistry,
+} from "../../server/artifacts/artifact-registry.js";
 import { FileArtifactStore } from "../../server/artifacts/file-artifact-store.js";
 import { ApplicationDatabase } from "../../server/database/database.js";
 import { migrate } from "../../server/database/migrate.js";
-import {
-  ArtifactRegistry,
-  type ArtifactMetadata,
-} from "../../server/artifacts/artifact-registry.js";
 import { resetTestDatabase } from "./database-test-support.js";
 
 /**
@@ -190,9 +190,7 @@ describe("artifact registry", () => {
       byteSize: content.byteLength,
       policy: { sensitivity: "restricted-cloud", rightsBasis: "lawfully-acquired" },
       provenance: { origin: "published-source", detail: "a synthetic publication" },
-      provenanceHistory: [
-        { origin: "published-source", detail: "a synthetic publication" },
-      ],
+      provenanceHistory: [{ origin: "published-source", detail: "a synthetic publication" }],
       references: [
         { kind: "owned-note", targetId: "note-7", locator: "p.12" },
         { kind: "rendition", targetId: "rend-2" },

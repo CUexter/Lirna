@@ -1,8 +1,8 @@
 import {
-  rightsBases,
-  sensitivityLevels,
   type RightsBasis,
+  rightsBases,
   type SensitivityLevel,
+  sensitivityLevels,
 } from "../../../server/shared/source-handling-policy";
 
 export type { RightsBasis, SensitivityLevel };
@@ -20,7 +20,9 @@ const policyLabels: Record<RightsBasis | SensitivityLevel, string> = {
 };
 
 export const rightsBasisOptions = rightsBases.map((value) => [value, policyLabels[value]] as const);
-export const sensitivityLevelOptions = sensitivityLevels.map((value) => [value, policyLabels[value]] as const);
+export const sensitivityLevelOptions = sensitivityLevels.map(
+  (value) => [value, policyLabels[value]] as const,
+);
 
 export interface Source {
   id: string;
@@ -60,7 +62,7 @@ export async function readAuthoritativeEvidence(id: string, accessToken: string)
     headers: { authorization: `Bearer ${accessToken}` },
   });
   if (!response.ok) throw new Error("The authoritative evidence could not be read");
-  const evidence = await response.json() as { authoritativeText: string };
+  const evidence = (await response.json()) as { authoritativeText: string };
   return evidence.authoritativeText;
 }
 

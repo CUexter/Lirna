@@ -36,7 +36,8 @@ Cross-cutting choices are recorded as ADRs:
 | Web core | React 19, [TanStack Router](https://tanstack.com/router) + [Query](https://tanstack.com/query), Tailwind CSS v4, locally owned shadcn/ui source |
 | Build | Vite 7 (client), `tsc` (server) |
 | Desktop host | Tauri (planned; not yet built) |
-| Tests | Vitest (unit · integration · e2e), Testcontainers, Playwright |
+| Tests | Vitest (unit, integration, e2e), Testcontainers, Firefox-first Playwright Test |
+| Reproducibility and deployment | Locked Nix flake, immutable server package, NixOS module |
 
 Runtime dependencies and dev tooling are declared in
 [`package.json`](./package.json); it is the single source of truth for versions.
@@ -48,18 +49,25 @@ Runtime dependencies and dev tooling are declared in
 - Vault content and personal source material never belong in this repository.
 - The product is single-user and hosted on Nathan-controlled infrastructure.
 
-## Requirements
+## Development environment
 
-- Node.js 22 or newer
-- Docker with Compose
-- Google Chrome for the browser-level e2e check
+Enter the reproducible `x86_64-linux` shell before installing dependencies:
+
+```sh
+nix develop
+npm ci
+```
+
+The shell supplies Node 22, PostgreSQL 16, Docker, Compose, and Playwright's
+patched Firefox through `PLAYWRIGHT_BROWSERS_PATH`. Do not run
+`npx playwright install`. For future desktop-host work, use
+`nix develop .#desktop` to add Rust, Cargo, pkg-config, and WebKitGTK.
 
 ## Run locally
 
-Install dependencies and start PostgreSQL:
+Start PostgreSQL and apply migrations:
 
 ```sh
-npm install
 npm run db:up
 npm run db:migrate
 ```
@@ -97,7 +105,7 @@ destructive changes and preserved custom triggers, then commit it. API and worke
 startup only check migration state; they never mutate the schema.
 
 Runtime paths and connectivity can be overridden with `DATABASE_URL`,
-`ARTIFACT_ROOT`, `SYNTHETIC_RESULT_ROOT`, and `PORT`. The API process requires
+`ARTIFACT_ROOT`, `SYNTHETIC_RESULT_ROOT`, `HOST`, and `PORT`. The API process requires
 separate `HUMAN_ACCESS_TOKEN` and `SERVICE_ACCESS_TOKEN` secrets of at least 32
 characters. The initial Sources form uses the human credential to authenticate
 Nathan's explicit admission action. Text admission accepts request bodies up to
@@ -113,14 +121,21 @@ Tests are placed by what they touch (a test's folder or colocation declares it):
 |---|---|---|---|
 | Unit | colocated `*.test.ts(x)` beside source | nothing real (in-process only) | `npm run test:unit` |
 | Integration | `tests/integration/` | real PostgreSQL / API / filesystem, no browser | `npm run test:integration` |
-| e2e | `tests/e2e/` | the full system through a real browser | `npm run test:e2e` |
+| e2e | `tests/e2e/` | the full system without browser-specific interaction | `npm run test:e2e` |
+| Browser | `tests/browser/` | built PWA, API, worker, disposable PostgreSQL, Firefox | `npm run test:browser` |
 | Gate | `tests/gate/` | one consolidated Phase 0 body of evidence through the application scenario seam | `npm run test:gate` |
 
 ```sh
 npm run typecheck
 npm run build
 npm test
+npm run test:browser
+npm run metrics
 ```
+
+`npm run metrics` writes coverage plus complexity and maintainability reports to
+ignored `coverage/` and `metrics/` directories. Metrics are reported without
+initial pass/fail thresholds.
 
 The Phase 0 gate (`tests/gate/`, see [docs/phase-0-gate.md](docs/phase-0-gate.md))
 is one reproducible body of evidence for the architecture skeleton's riskiest
@@ -131,7 +146,47 @@ single application scenario seam (`tests/support/phase-0-scenario.ts`).
 serves that build, so run `npm run build` before `npm test`. The integration and
 e2e suites start disposable PostgreSQL through Testcontainers in local
 development; CI supplies an equally disposable PostgreSQL through
-`TEST_DATABASE_URL`. All fixtures and adapter roots are synthetic temporary data.
+`TEST_DATABASE_URL`; browser CI starts its own Testcontainers database. All fixtures and adapter
+roots are synthetic temporary data.
+
+## Nix package and NixOS
+
+Build the immutable hosted-server package or run one of its launchers:
+
+```sh
+nix build .#server
+nix run .#migrate
+nix run .#api
+nix run .#worker
+```
+
+The package includes the built PWA and server, production dependencies, and
+committed migrations. It excludes `prototype/`. Run ordinary package, quality,
+and NixOS evaluation checks with `nix flake check`. Run the heavier deployment VM
+test explicitly with `nix build .#nixos-test`.
+
+Import `nixosModules.default` and configure the service:
+
+```nix
+{
+  imports = [ inputs.lirna.nixosModules.default ];
+
+  services.lirna = {
+    enable = true;
+    package = inputs.lirna.packages.x86_64-linux.server;
+    environmentFile = "/run/secrets/lirna.env";
+  };
+}
+```
+
+The root-managed environment file must define `HUMAN_ACCESS_TOKEN` and
+`SERVICE_ACCESS_TOKEN`. With the default `database.createLocally = true`, the
+module provisions PostgreSQL 16 and database ownership through peer
+authentication. For an external database, set `database.createLocally = false`
+and set `database.environmentFile` to a separate root-managed file defining
+`DATABASE_URL`. The migration unit must succeed before the independently
+supervised API and worker units start. See
+[ADR 0005](./docs/adr/0005-nix-package-and-nixos-service.md).
 
 ## Planning
 

@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  type ExecutorProfile,
   isRoutingRequirements,
   isSourceHandlingPolicy,
   PolicyAwareExecutorRouter,
-  type ExecutorProfile,
   type SourceEvidence,
 } from "./executor-router.js";
 
@@ -40,20 +40,24 @@ const evidence: SourceEvidence[] = [
 
 describe("policy-aware executor routing", () => {
   it("validates persisted routing requirements", () => {
-    expect(isRoutingRequirements({
-      capability: "synthesis",
-      qualityFloor: 70,
-      localQualityTolerance: 5,
-      maxLatencyMs: 1_000,
-      budget: 2,
-    })).toBe(true);
-    expect(isRoutingRequirements({
-      capability: "synthesis",
-      qualityFloor: Number.NaN,
-      localQualityTolerance: 5,
-      maxLatencyMs: 1_000,
-      budget: 2,
-    })).toBe(false);
+    expect(
+      isRoutingRequirements({
+        capability: "synthesis",
+        qualityFloor: 70,
+        localQualityTolerance: 5,
+        maxLatencyMs: 1_000,
+        budget: 2,
+      }),
+    ).toBe(true);
+    expect(
+      isRoutingRequirements({
+        capability: "synthesis",
+        qualityFloor: Number.NaN,
+        localQualityTolerance: 5,
+        maxLatencyMs: 1_000,
+        budget: 2,
+      }),
+    ).toBe(false);
   });
 
   it("rejects unknown policy values instead of treating them as cloud eligible", () => {
@@ -79,9 +83,7 @@ describe("policy-aware executor routing", () => {
     const router = new PolicyAwareExecutorRouter();
 
     const prepared = router.prepareRetrieval(evidence, [local, cloud]);
-    expect(prepared.eligible.map((item) => item.evidenceId)).toEqual([
-      "source-state-1",
-    ]);
+    expect(prepared.eligible.map((item) => item.evidenceId)).toEqual(["source-state-1"]);
     const decision = router.route({
       evidence: prepared.eligible,
       executors: [local, cloud],
@@ -121,9 +123,7 @@ describe("policy-aware executor routing", () => {
       [local, cloud],
     );
 
-    expect(prepared.eligible.map((item) => item.evidenceId)).toEqual([
-      "source-state-1",
-    ]);
+    expect(prepared.eligible.map((item) => item.evidenceId)).toEqual(["source-state-1"]);
     expect(prepared.omitted).toEqual([
       {
         evidenceId: "unavailable-state",

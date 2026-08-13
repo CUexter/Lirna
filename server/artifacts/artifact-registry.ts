@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { asc, eq } from "drizzle-orm";
 import type { LirnaDatabase } from "../database/database.js";
-import { isContentHash, type ArtifactStore } from "./file-artifact-store.js";
+import { type ArtifactStore, isContentHash } from "./file-artifact-store.js";
 import { artifactReferences, artifactRegistrations, artifacts } from "./schema.js";
 import {
   isSourceHandlingPolicy,
@@ -11,7 +11,11 @@ import {
   type SourceHandlingPolicy,
 } from "./source-handling-policy.js";
 
-export type { RightsBasis, SensitivityLevel, SourceHandlingPolicy } from "./source-handling-policy.js";
+export type {
+  RightsBasis,
+  SensitivityLevel,
+  SourceHandlingPolicy,
+} from "./source-handling-policy.js";
 
 /**
  * Source handling policy governs one artifact's local retention and external
@@ -106,14 +110,17 @@ export class ArtifactRegistry {
         })
         .onConflictDoNothing();
 
-      await tx.insert(artifactRegistrations).values({
-        id: randomUUID(),
-        hash,
-        sensitivity: command.policy.sensitivity,
-        rightsBasis: command.policy.rightsBasis,
-        provenanceOrigin: command.provenance.origin,
-        provenanceDetail: command.provenance.detail,
-      }).onConflictDoNothing();
+      await tx
+        .insert(artifactRegistrations)
+        .values({
+          id: randomUUID(),
+          hash,
+          sensitivity: command.policy.sensitivity,
+          rightsBasis: command.policy.rightsBasis,
+          provenanceOrigin: command.provenance.origin,
+          provenanceDetail: command.provenance.detail,
+        })
+        .onConflictDoNothing();
 
       const references = command.references ?? [];
       if (references.length > 0) {
@@ -207,23 +214,23 @@ export class ArtifactRegistry {
 
 function mapArtifact(
   row: typeof artifacts.$inferSelect,
-  references: Array<
-    Pick<typeof artifactReferences.$inferSelect, "kind" | "targetId" | "locator">
-  >,
+  references: Array<Pick<typeof artifactReferences.$inferSelect, "kind" | "targetId" | "locator">>,
   registrations: Array<typeof artifactRegistrations.$inferSelect>,
 ): ArtifactMetadata {
-  const provenanceHistory = registrations.length > 0
-    ? registrations.map((registration) => ({
-        origin: registration.provenanceOrigin,
-        detail: registration.provenanceDetail,
-      }))
-    : [{ origin: row.provenanceOrigin, detail: row.provenanceDetail }];
-  const policies = registrations.length > 0
-    ? registrations.map((registration) => ({
-        sensitivity: registration.sensitivity,
-        rightsBasis: registration.rightsBasis,
-      }))
-    : [{ sensitivity: row.sensitivity, rightsBasis: row.rightsBasis }];
+  const provenanceHistory =
+    registrations.length > 0
+      ? registrations.map((registration) => ({
+          origin: registration.provenanceOrigin,
+          detail: registration.provenanceDetail,
+        }))
+      : [{ origin: row.provenanceOrigin, detail: row.provenanceDetail }];
+  const policies =
+    registrations.length > 0
+      ? registrations.map((registration) => ({
+          sensitivity: registration.sensitivity,
+          rightsBasis: registration.rightsBasis,
+        }))
+      : [{ sensitivity: row.sensitivity, rightsBasis: row.rightsBasis }];
   return {
     hash: row.hash,
     byteSize: row.byteSize,
@@ -261,10 +268,7 @@ function validateRegistrationMetadata(
   if (!isSourceHandlingPolicy(policy)) {
     throw new TypeError("Artifact policy has an invalid sensitivity");
   }
-  if (
-    !isRecord(provenance) ||
-    !provenanceOrigins.includes(provenance.origin as ProvenanceOrigin)
-  ) {
+  if (!isRecord(provenance) || !provenanceOrigins.includes(provenance.origin as ProvenanceOrigin)) {
     throw new TypeError("Artifact provenance has an invalid origin");
   }
   if (typeof provenance.detail !== "string") {

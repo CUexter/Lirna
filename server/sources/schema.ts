@@ -11,7 +11,9 @@ export const sourceStates = pgTable(
   "source_states",
   {
     id: uuid().primaryKey(),
-    sourceId: uuid("source_id").notNull().references(() => sources.id),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id),
     authoritativeText: text("authoritative_text").notNull(),
     normalizedText: text("normalized_text").notNull(),
     rightsBasis: text("rights_basis").notNull(),

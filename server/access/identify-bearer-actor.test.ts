@@ -4,7 +4,7 @@ import { identifyBearerActor } from "./identify-bearer-actor.js";
 
 function context(token?: string): Context {
   return {
-    req: { header: () => token ? `Bearer ${token}` : undefined },
+    req: { header: () => (token ? `Bearer ${token}` : undefined) },
   } as unknown as Context;
 }
 
@@ -21,6 +21,8 @@ describe("bearer actor identity", () => {
 
   it("treats absent or unknown credentials as unauthenticated", () => {
     expect(identify(context())).toBe("unauthenticated");
-    expect(identify(context("unknown-token-with-at-least-thirty-two-characters"))).toBe("unauthenticated");
+    expect(identify(context("unknown-token-with-at-least-thirty-two-characters"))).toBe(
+      "unauthenticated",
+    );
   });
 });

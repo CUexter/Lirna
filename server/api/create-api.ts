@@ -1,4 +1,4 @@
-import { serve, type ServerType } from "@hono/node-server";
+import { type ServerType, serve } from "@hono/node-server";
 import { Hono } from "hono";
 import type { ApiDependencies, DomainContract } from "./api-contracts.js";
 import { registerOperationRoutes } from "./operation-routes.js";
@@ -27,7 +27,8 @@ export function createApi(dependencies: ApiDependencies): ApiServer {
   });
   app.notFound((c) => c.json({ error: "Not found" }, 404));
   app.onError((error, c) =>
-    c.json({ error: error instanceof Error ? error.message : "Internal server error" }, 500));
+    c.json({ error: error instanceof Error ? error.message : "Internal server error" }, 500),
+  );
 
   let server: ServerType | undefined;
   return {

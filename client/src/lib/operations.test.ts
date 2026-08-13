@@ -46,9 +46,7 @@ describe("client operations boundary", () => {
         resultPath: "synthetic/op-2.md",
       },
     };
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue({ ok: true, json: async () => completed });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => completed });
     vi.stubGlobal("fetch", fetchMock);
 
     const operation = await getOperation("op-2");

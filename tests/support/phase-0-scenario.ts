@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
-import { createApi, type ApiServer } from "../../server/api/create-api.js";
+import { type ApiServer, createApi } from "../../server/api/create-api.js";
 import { ArtifactRegistry } from "../../server/artifacts/artifact-registry.js";
 import { FileArtifactStore } from "../../server/artifacts/file-artifact-store.js";
 import { ApplicationDatabase, type LirnaDatabase } from "../../server/database/database.js";

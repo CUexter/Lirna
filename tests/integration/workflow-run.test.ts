@@ -3,27 +3,23 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { sql } from "drizzle-orm";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ArtifactRegistry } from "../../server/artifacts/artifact-registry.js";
 import { FileArtifactStore } from "../../server/artifacts/file-artifact-store.js";
 import { ApplicationDatabase } from "../../server/database/database.js";
 import { migrate } from "../../server/database/migrate.js";
-import {
-  type WorkflowDefinition,
-} from "../../server/workflows/workflow-definition.js";
+import type { WorkflowDefinition } from "../../server/workflows/workflow-definition.js";
 import {
   ArtifactValidationError,
-  WorkflowCommitError,
-  WorkflowRunRepository,
-  WorkflowDefinitionError,
   type RunView,
+  WorkflowCommitError,
+  WorkflowDefinitionError,
+  WorkflowRunRepository,
 } from "../../server/workflows/workflow-run-repository.js";
-import {
-  forceWorkflowLeaseExpiry,
-} from "./workflow-test-support.js";
 import { executeTestSql, resetTestDatabase } from "./database-test-support.js";
 import { syntheticResumeWorkflow } from "./workflow-fixtures.js";
+import { forceWorkflowLeaseExpiry } from "./workflow-test-support.js";
 
 /**
  * Focused invariant tests at the WorkflowRunRepository seam. They prove the
@@ -118,13 +114,18 @@ describe("workflow run invariants", () => {
     ]);
 
     // Budgets are declared and inspectable before any work.
-    expect(view?.budgets.map((b) => ({ step: b.stepId, max: b.budget.maxAttempts, lease: b.budget.leaseSeconds })))
-      .toEqual([
-        { step: "gather", max: 3, lease: 2 },
-        { step: "refine", max: 3, lease: 2 },
-        { step: "approve", max: 1, lease: 60 },
-        { step: "publish", max: 3, lease: 2 },
-      ]);
+    expect(
+      view?.budgets.map((b) => ({
+        step: b.stepId,
+        max: b.budget.maxAttempts,
+        lease: b.budget.leaseSeconds,
+      })),
+    ).toEqual([
+      { step: "gather", max: 3, lease: 2 },
+      { step: "refine", max: 3, lease: 2 },
+      { step: "approve", max: 1, lease: 60 },
+      { step: "publish", max: 3, lease: 2 },
+    ]);
     expect(view?.budgets.every((b) => b.attemptsUsed === 0 && !b.activeLease)).toBe(true);
 
     // No attempts, checkpoints, or gates yet.
@@ -210,9 +211,7 @@ describe("workflow run invariants", () => {
     await expect(
       runs.commitCheckpoint(run.id, refineLease, {
         ...workSubmission("refined against nothing"),
-        references: [
-          { kind: "derivative", targetId: "0".repeat(64) },
-        ],
+        references: [{ kind: "derivative", targetId: "0".repeat(64) }],
       }),
     ).rejects.toThrow(/does not resolve to a registered artifact/);
 
@@ -243,11 +242,7 @@ describe("workflow run invariants", () => {
 
     // Committing with a wrong lease id is rejected.
     await expect(
-      runs.commitCheckpoint(
-        run.id,
-        { ...lease, leaseId: randomUUID() },
-        workSubmission("x"),
-      ),
+      runs.commitCheckpoint(run.id, { ...lease, leaseId: randomUUID() }, workSubmission("x")),
     ).rejects.toThrow(/Lease id does not match/);
 
     // The valid lease still commits after the rejected attempts.
@@ -282,11 +277,7 @@ describe("workflow run invariants", () => {
 
     // Re-committing the same committed attempt is idempotent: it cannot
     // create a second checkpoint or duplicate the committed work.
-    const redo = await runs.commitCheckpoint(
-      run.id,
-      lease0,
-      workSubmission("stale redo"),
-    );
+    const redo = await runs.commitCheckpoint(run.id, lease0, workSubmission("stale redo"));
     expect(redo.attempt).toBe(checkpoint0.attempt);
     expect(redo.artifactHash).toBe(checkpoint0.artifactHash);
 
@@ -337,11 +328,7 @@ describe("workflow run invariants", () => {
 
     // Advance through gather and refine.
     const gatherLease = (await runs.claimNextStep(run.id))!;
-    const gather = await runs.commitCheckpoint(
-      run.id,
-      gatherLease,
-      workSubmission("gathered"),
-    );
+    const gather = await runs.commitCheckpoint(run.id, gatherLease, workSubmission("gathered"));
     const refineLease = (await runs.claimNextStep(run.id))!;
     await runs.commitCheckpoint(run.id, refineLease, {
       ...workSubmission("refined"),
@@ -373,7 +360,11 @@ describe("workflow run invariants", () => {
     // (Use a fresh run so approve can be tested afterwards.)
     const rejectRun = await freshRun();
     const rGather = (await runs.claimNextStep(rejectRun.id))!;
-    const rGatherCheckpoint = await runs.commitCheckpoint(rejectRun.id, rGather, workSubmission("g"));
+    const rGatherCheckpoint = await runs.commitCheckpoint(
+      rejectRun.id,
+      rGather,
+      workSubmission("g"),
+    );
     const rRefine = (await runs.claimNextStep(rejectRun.id))!;
     await runs.commitCheckpoint(rejectRun.id, rRefine, {
       ...workSubmission("r"),
@@ -443,16 +434,22 @@ describe("workflow run invariants", () => {
     await runs.commitCheckpoint(run.id, lease, workSubmission("sealed"));
 
     await expect(
-      executeTestSql(database.db, sql`
+      executeTestSql(
+        database.db,
+        sql`
         UPDATE workflow_step_attempts SET artifact_hash = 'tampered'
          WHERE run_id = ${run.id} AND step_index = 0
-      `),
+      `,
+      ),
     ).rejects.toThrow(/immutable/);
 
     await expect(
-      executeTestSql(database.db, sql`
+      executeTestSql(
+        database.db,
+        sql`
         DELETE FROM workflow_step_attempts WHERE run_id = ${run.id} AND step_index = 0
-      `),
+      `,
+      ),
     ).rejects.toThrow(/immutable/);
   });
 
@@ -500,19 +497,15 @@ describe("workflow run invariants", () => {
   });
 
   it("refuses workflow input containing non-JSON values", async () => {
-    await expect(runs.createRun(
-      workflow.workflowId,
-      workflow.version,
-      { invalid: Number.NaN } as never,
-    )).rejects.toBeInstanceOf(WorkflowDefinitionError);
+    await expect(
+      runs.createRun(workflow.workflowId, workflow.version, { invalid: Number.NaN } as never),
+    ).rejects.toBeInstanceOf(WorkflowDefinitionError);
   });
 
   it("uses database time to decide whether a lease is active", async () => {
     const run = await freshRun();
     const lease = (await runs.claimNextStep(run.id))!;
-    const clock = vi
-      .spyOn(Date, "now")
-      .mockReturnValue(Date.now() + 24 * 60 * 60 * 1000);
+    const clock = vi.spyOn(Date, "now").mockReturnValue(Date.now() + 24 * 60 * 60 * 1000);
     try {
       expect((await runs.view(run.id))?.budgets[0]?.activeLease).toBe(true);
       await expect(
@@ -525,17 +518,23 @@ describe("workflow run invariants", () => {
 
   it("refuses to rewrite a workflow definition at the database boundary", async () => {
     await expect(
-      executeTestSql(database.db, sql`
+      executeTestSql(
+        database.db,
+        sql`
         UPDATE workflow_definitions SET definition = '{}'::jsonb
          WHERE workflow_id = ${workflow.workflowId} AND version = ${workflow.version}
-      `),
+      `,
+      ),
     ).rejects.toThrow(/append-only/);
 
     await expect(
-      executeTestSql(database.db, sql`
+      executeTestSql(
+        database.db,
+        sql`
         DELETE FROM workflow_definitions
          WHERE workflow_id = ${workflow.workflowId} AND version = ${workflow.version}
-      `),
+      `,
+      ),
     ).rejects.toThrow(/append-only/);
   });
 });

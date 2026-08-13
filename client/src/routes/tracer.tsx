@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent } from "react";
+import { type FormEvent, useId, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,9 +22,7 @@ export function TracerRoute() {
   }
 
   const completed =
-    operation.operation?.status === "completed"
-      ? operation.operation.result
-      : undefined;
+    operation.operation?.status === "completed" ? operation.operation.result : undefined;
 
   return (
     <main className="mx-auto w-[min(44rem,calc(100%-2rem))] py-[clamp(3rem,10vw,8rem)]">
@@ -35,9 +33,8 @@ export function TracerRoute() {
         Trace the whole system.
       </h1>
       <p className="max-w-xl leading-relaxed text-muted-foreground">
-        Submit a non-sensitive fixture through Lirna's public control plane.
-        PostgreSQL records it, the worker processes it, and replaceable adapters
-        preserve the result.
+        Submit a non-sensitive fixture through Lirna's public control plane. PostgreSQL records it,
+        the worker processes it, and replaceable adapters preserve the result.
       </p>
 
       <form onSubmit={onSubmit} className="mt-12 border-t border-border pt-6">
@@ -64,10 +61,7 @@ export function TracerRoute() {
         </div>
         <div className="mt-5 min-h-6 text-sm" aria-live="polite">
           {completed ? (
-            <a
-              className="text-primary underline underline-offset-2"
-              href={completed.artifactUrl}
-            >
+            <a className="text-primary underline underline-offset-2" href={completed.artifactUrl}>
               Open the stored synthetic artifact
             </a>
           ) : operation.errorMessage ? (

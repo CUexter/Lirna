@@ -53,8 +53,7 @@ export function useSyntheticOperation(): SyntheticOperationView {
     (operation?.status === "failed" ? operation.error : undefined);
 
   const isRunning =
-    submission.isPending ||
-    (operation !== undefined && !isTerminalStatus(operation.status));
+    submission.isPending || (operation !== undefined && !isTerminalStatus(operation.status));
 
   return {
     status,

@@ -12,9 +12,7 @@ function renderApp() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  const router = createAppRouter(
-    createMemoryHistory({ initialEntries: ["/"] }),
-  );
+  const router = createAppRouter(createMemoryHistory({ initialEntries: ["/"] }));
   render(<App queryClient={queryClient} router={router} />);
 }
 
@@ -40,9 +38,7 @@ describe("tracer application shell", () => {
       await screen.findByRole("heading", { name: "Trace the whole system." }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Synthetic fixture")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Run operation" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Run operation" })).toBeInTheDocument();
   });
 
   it("submits through TanStack Query and surfaces the completed artifact", async () => {
@@ -65,17 +61,13 @@ describe("tracer application shell", () => {
     renderApp();
 
     const user = userEvent.setup();
-    await user.click(
-      await screen.findByRole("button", { name: "Run operation" }),
-    );
+    await user.click(await screen.findByRole("button", { name: "Run operation" }));
 
     const link = await screen.findByRole("link", {
       name: "Open the stored synthetic artifact",
     });
     expect(link).toHaveAttribute("href", "/api/operations/op-9/artifact");
-    await waitFor(() =>
-      expect(screen.getByText("completed")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText("completed")).toBeInTheDocument());
   });
 
   it("surfaces a submission failure without a completed link", async () => {
@@ -83,13 +75,9 @@ describe("tracer application shell", () => {
     renderApp();
 
     const user = userEvent.setup();
-    await user.click(
-      await screen.findByRole("button", { name: "Run operation" }),
-    );
+    await user.click(await screen.findByRole("button", { name: "Run operation" }));
 
-    expect(
-      await screen.findByText("The operation could not be submitted"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("The operation could not be submitted")).toBeInTheDocument();
     expect(
       screen.queryByRole("link", {
         name: "Open the stored synthetic artifact",
@@ -125,23 +113,36 @@ describe("Source encounter", () => {
       .fn()
       .mockResolvedValueOnce({ ok: true, status: 201, json: async () => source })
       .mockResolvedValueOnce({ ok: true, json: async () => source })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ authoritativeText: "First line.\r\n\r\n   Second   line.  " }) });
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ authoritativeText: "First line.\r\n\r\n   Second   line.  " }),
+      });
     vi.stubGlobal("fetch", fetchMock);
     renderAppAt("/sources");
 
     const user = userEvent.setup();
     await user.type(await screen.findByLabelText("Access token"), "human-test-token");
     await user.type(await screen.findByLabelText("Title"), source.title);
-    await user.type(screen.getByLabelText("Publication text"), "First line.\r\n\r\n   Second   line.  ");
+    await user.type(
+      screen.getByLabelText("Publication text"),
+      "First line.\r\n\r\n   Second   line.  ",
+    );
     await user.selectOptions(screen.getByLabelText("Rights basis"), source.state.rightsBasis);
-    await user.selectOptions(screen.getByLabelText("Sensitivity level"), source.state.sensitivityLevel);
+    await user.selectOptions(
+      screen.getByLabelText("Sensitivity level"),
+      source.state.sensitivityLevel,
+    );
     await user.click(screen.getByRole("button", { name: "Admit Source" }));
 
     expect(await screen.findByRole("heading", { name: source.title })).toBeInTheDocument();
-    expect(document.querySelector("[data-normalized-text]")?.textContent).toBe("First line.\n\n   Second   line.  ");
+    expect(document.querySelector("[data-normalized-text]")?.textContent).toBe(
+      "First line.\n\n   Second   line.  ",
+    );
 
     await user.click(screen.getByRole("button", { name: "View authoritative evidence" }));
-    expect(document.querySelector("[data-authoritative-evidence]")?.textContent).toBe("First line.\r\n\r\n   Second   line.  ");
+    expect(document.querySelector("[data-authoritative-evidence]")?.textContent).toBe(
+      "First line.\r\n\r\n   Second   line.  ",
+    );
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/sources",
       expect.objectContaining({

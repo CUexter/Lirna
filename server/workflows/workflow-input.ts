@@ -7,8 +7,12 @@ export function isWorkflowInput(value: unknown): value is WorkflowInput {
 }
 
 function isJsonObject(value: unknown): value is Record<string, JsonValue> {
-  return value !== null && typeof value === "object" && !Array.isArray(value) &&
-    Object.values(value).every(isJsonValue);
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.values(value).every(isJsonValue)
+  );
 }
 
 function isJsonValue(value: unknown): value is JsonValue {

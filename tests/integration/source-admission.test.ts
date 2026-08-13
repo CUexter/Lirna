@@ -1,14 +1,14 @@
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createApi, type ApiServer } from "../../server/api/create-api.js";
+import { identifyBearerActor } from "../../server/access/identify-bearer-actor.js";
+import { type ApiServer, createApi } from "../../server/api/create-api.js";
 import { FileArtifactStore } from "../../server/artifacts/file-artifact-store.js";
 import { ApplicationDatabase } from "../../server/database/database.js";
 import { migrate } from "../../server/database/migrate.js";
 import { DomainDatabase } from "../../server/domain/synthetic-domain.js";
 import { OperationRepository } from "../../server/operations/operation-repository.js";
 import { SourceLibrary } from "../../server/sources/source-library.js";
-import { identifyBearerActor } from "../../server/access/identify-bearer-actor.js";
 import type { WorkflowRunRepository } from "../../server/workflows/workflow-run-repository.js";
 import { executeTestSql, resetTestDatabase } from "./database-test-support.js";
 
@@ -165,12 +165,22 @@ describe("Source admission", () => {
       sensitivityLevel: "ordinary-cloud",
     });
 
-    await expect(executeTestSql(database.db, sql`
+    await expect(
+      executeTestSql(
+        database.db,
+        sql`
       UPDATE source_states SET authoritative_text = 'tampered' WHERE id = ${admitted.state.id}
-    `)).rejects.toThrow(/append-only/i);
-    await expect(executeTestSql(database.db, sql`
+    `,
+      ),
+    ).rejects.toThrow(/append-only/i);
+    await expect(
+      executeTestSql(
+        database.db,
+        sql`
       DELETE FROM source_states WHERE id = ${admitted.state.id}
-    `)).rejects.toThrow(/append-only/i);
+    `,
+      ),
+    ).rejects.toThrow(/append-only/i);
   });
 
   it("normalizes line endings without changing whitespace-significant text", async () => {
@@ -181,31 +191,42 @@ describe("Source admission", () => {
       sensitivityLevel: "ordinary-cloud",
     });
 
-    expect(admitted.state.normalizedText).toBe(
-      "function example() {\n\treturn  twoSpaces;\n}\n",
-    );
+    expect(admitted.state.normalizedText).toBe("function example() {\n\treturn  twoSpaces;\n}\n");
   });
 
   it("refuses invalid Source handling policy at the database boundary", async () => {
     const sourceId = "00000000-0000-4000-8000-000000000037";
-    await executeTestSql(database.db, sql`
+    await executeTestSql(
+      database.db,
+      sql`
       INSERT INTO sources (id, title) VALUES (${sourceId}, 'Policy constraint')
-    `);
-    await expect(executeTestSql(database.db, sql`
+    `,
+    );
+    await expect(
+      executeTestSql(
+        database.db,
+        sql`
       INSERT INTO source_states (
         id, source_id, authoritative_text, normalized_text, rights_basis, sensitivity_level
       ) VALUES (
         '00000000-0000-4000-8000-000000000038', ${sourceId}, 'Exact', 'Exact',
         'invented-right', 'ordinary-cloud'
       )
-    `)).rejects.toThrow(/rights_basis/i);
-    await expect(executeTestSql(database.db, sql`
+    `,
+      ),
+    ).rejects.toThrow(/rights_basis/i);
+    await expect(
+      executeTestSql(
+        database.db,
+        sql`
       INSERT INTO source_states (
         id, source_id, authoritative_text, normalized_text, rights_basis, sensitivity_level
       ) VALUES (
         '00000000-0000-4000-8000-000000000039', ${sourceId}, 'Exact', 'Exact',
         'publicly-accessible', 'internet-everywhere'
       )
-    `)).rejects.toThrow(/sensitivity_level/i);
+    `,
+      ),
+    ).rejects.toThrow(/sensitivity_level/i);
   });
 });

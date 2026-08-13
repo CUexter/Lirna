@@ -1,7 +1,7 @@
-import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import tailwindcss from "@tailwindcss/vite";
+import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 
 const outDir = fileURLToPath(new URL("../dist/client", import.meta.url));

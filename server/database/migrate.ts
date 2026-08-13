@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
-import { migrate as applyDrizzleMigrations } from "drizzle-orm/node-postgres/migrator";
 import { sql } from "drizzle-orm";
+import { migrate as applyDrizzleMigrations } from "drizzle-orm/node-postgres/migrator";
 import { ApplicationDatabase, type LirnaDatabase } from "./database.js";
 
 export const migrationsFolder = fileURLToPath(new URL("../../drizzle", import.meta.url));
@@ -13,19 +13,30 @@ export const migrationsFolder = fileURLToPath(new URL("../../drizzle", import.me
 // changes (npm run db:generate) — a mismatch here means the schema is not the
 // exact schema Drizzle is about to take ownership of.
 const baselineTables = [
-  "application_operations", "synthetic_records", "synthetic_record_revisions",
-  "artifacts", "artifact_references", "domain_outbox", "workflow_definitions",
-  "workflow_runs", "workflow_routing_decisions", "workflow_step_attempts",
+  "application_operations",
+  "synthetic_records",
+  "synthetic_record_revisions",
+  "artifacts",
+  "artifact_references",
+  "domain_outbox",
+  "workflow_definitions",
+  "workflow_runs",
+  "workflow_routing_decisions",
+  "workflow_step_attempts",
   "workflow_human_gates",
 ] as const;
 const baselineFunctions = [
-  "reject_artifact_mutation", "reject_synthetic_history_mutation",
-  "reject_workflow_definition_mutation", "reject_workflow_routing_mutation",
+  "reject_artifact_mutation",
+  "reject_synthetic_history_mutation",
+  "reject_workflow_definition_mutation",
+  "reject_workflow_routing_mutation",
   "reject_workflow_checkpoint_mutation",
 ] as const;
 const baselineTriggers = [
-  "artifact_identity_immutable", "synthetic_history_immutable",
-  "workflow_definition_immutable", "workflow_routing_immutable",
+  "artifact_identity_immutable",
+  "synthetic_history_immutable",
+  "workflow_definition_immutable",
+  "workflow_routing_immutable",
   "workflow_checkpoint_immutable",
 ] as const;
 const baselineColumnCount = 75;
@@ -40,7 +51,10 @@ function nameList(names: ReadonlyArray<string>) {
 }
 
 export async function applyMigrations(db: LirnaDatabase): Promise<void> {
-  const state = await db.execute<{ application_schema: string | null; migration_schema: string | null }>(sql`
+  const state = await db.execute<{
+    application_schema: string | null;
+    migration_schema: string | null;
+  }>(sql`
     select
       to_regclass('public.application_operations')::text as application_schema,
       to_regclass('drizzle.__drizzle_migrations')::text as migration_schema
@@ -73,11 +87,15 @@ export async function applyMigrations(db: LirnaDatabase): Promise<void> {
       catalog.functions !== String(baselineFunctions.length) ||
       catalog.triggers !== String(baselineTriggers.length)
     ) {
-      throw new Error(`Cannot adopt incomplete pre-Drizzle schema (${JSON.stringify(catalog)}); restore the complete schema before running migrations`);
+      throw new Error(
+        `Cannot adopt incomplete pre-Drizzle schema (${JSON.stringify(catalog)}); restore the complete schema before running migrations`,
+      );
     }
     // Beta.2 adopts the baseline and applies later committed migrations but omitted
     // this option from its public type.
-    await applyDrizzleMigrations(db, { migrationsFolder, init: true } as Parameters<typeof applyDrizzleMigrations>[1]);
+    await applyDrizzleMigrations(db, { migrationsFolder, init: true } as Parameters<
+      typeof applyDrizzleMigrations
+    >[1]);
     return;
   }
   await applyDrizzleMigrations(db, { migrationsFolder });

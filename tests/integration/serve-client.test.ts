@@ -1,8 +1,8 @@
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createApi, type ApiServer, type DomainContract } from "../../server/api/create-api.js";
+import { type ApiServer, createApi, type DomainContract } from "../../server/api/create-api.js";
 import type { ArtifactStore } from "../../server/artifacts/file-artifact-store.js";
 import type { OperationRepository } from "../../server/operations/operation-repository.js";
 import type { WorkflowRunRepository } from "../../server/workflows/workflow-run-repository.js";
@@ -30,10 +30,7 @@ describe("static client serving", () => {
     await mkdir(join(clientRoot, "assets"), { recursive: true });
     await writeFile(join(clientRoot, "index.html"), SHELL_HTML);
     await writeFile(join(clientRoot, "assets", "app-abc123.js"), ASSET_JS);
-    await writeFile(
-      join(clientRoot, "manifest.webmanifest"),
-      JSON.stringify({ name: "Lirna" }),
-    );
+    await writeFile(join(clientRoot, "manifest.webmanifest"), JSON.stringify({ name: "Lirna" }));
     // A file that lives beside the client root, reachable only by escaping it.
     await writeFile(join(outsideRoot, "secret.txt"), "do not leak");
 
@@ -69,18 +66,14 @@ describe("static client serving", () => {
   it("serves a concrete asset with its mapped content type", async () => {
     const response = await fetch(`${address}/assets/app-abc123.js`);
     expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toBe(
-      "text/javascript; charset=utf-8",
-    );
+    expect(response.headers.get("content-type")).toBe("text/javascript; charset=utf-8");
     expect(await response.text()).toBe(ASSET_JS);
   });
 
   it("maps the web manifest to its own content type", async () => {
     const response = await fetch(`${address}/manifest.webmanifest`);
     expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toBe(
-      "application/manifest+json; charset=utf-8",
-    );
+    expect(response.headers.get("content-type")).toBe("application/manifest+json; charset=utf-8");
   });
 
   it("returns 404 for a named asset that does not exist", async () => {

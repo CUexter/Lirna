@@ -19,10 +19,12 @@
     "server/**/*.ts",
     "tests/integration/**/*.ts",
     "tests/e2e/**/*.ts",
+    "tests/browser/**/*.ts",
     "tests/gate/**/*.ts",
     "tests/support/**/*.ts",
     "client/vite.config.ts",
     "drizzle.config.ts",
-    "vitest.config.ts"
+    "vitest.config.ts",
+    "playwright.config.ts"
   ]
 }

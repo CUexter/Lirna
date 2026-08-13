@@ -24,10 +24,7 @@ export function isTerminalStatus(status: OperationStatus): boolean {
 }
 
 /** Read a control-plane response as an operation, surfacing failures as errors. */
-async function readOperation(
-  response: Response,
-  failure: string,
-): Promise<PublicOperation> {
+async function readOperation(response: Response, failure: string): Promise<PublicOperation> {
   if (!response.ok) {
     throw new Error(failure);
   }
@@ -35,9 +32,7 @@ async function readOperation(
 }
 
 /** Submit one synthetic operation through the public control plane. */
-export async function submitSyntheticOperation(
-  input: string,
-): Promise<PublicOperation> {
+export async function submitSyntheticOperation(input: string): Promise<PublicOperation> {
   const response = await fetch("/api/operations", {
     method: "POST",
     headers: { "content-type": "application/json" },

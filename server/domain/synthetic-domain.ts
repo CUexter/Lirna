@@ -1,11 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { asc, count, eq, isNull } from "drizzle-orm";
 import type { LirnaDatabase } from "../database/database.js";
-import {
-  domainOutbox,
-  syntheticRecordRevisions,
-  syntheticRecords,
-} from "./schema.js";
+import { domainOutbox, syntheticRecordRevisions, syntheticRecords } from "./schema.js";
 
 /** The immutable state carried by one synthetic record revision. */
 export interface SyntheticState {
@@ -65,9 +61,7 @@ export class ModuleWriteOwnershipError extends Error {
     readonly ownerModule: string,
     readonly actingModule: string,
   ) {
-    super(
-      `Module "${actingModule}" cannot write record ${recordId} owned by "${ownerModule}"`,
-    );
+    super(`Module "${actingModule}" cannot write record ${recordId} owned by "${ownerModule}"`);
     this.name = "ModuleWriteOwnershipError";
   }
 }
@@ -114,11 +108,7 @@ export class SyntheticDomainModule {
         .where(eq(syntheticRecords.id, command.recordId))
         .for("update");
       if (current && current.ownerModule !== this.moduleName) {
-        throw new ModuleWriteOwnershipError(
-          command.recordId,
-          current.ownerModule,
-          this.moduleName,
-        );
+        throw new ModuleWriteOwnershipError(command.recordId, current.ownerModule, this.moduleName);
       }
 
       const nextRevision = current ? current.revision + 1 : 1;
@@ -192,62 +182,65 @@ export async function readRecordView(
   db: LirnaDatabase,
   recordId: string,
 ): Promise<SyntheticRecordView | undefined> {
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .select({
-        ownerModule: syntheticRecords.ownerModule,
-        revision: syntheticRecords.revision,
-        state: syntheticRecords.state,
-      })
-      .from(syntheticRecords)
-      .where(eq(syntheticRecords.id, recordId));
-    if (!row) {
-      return undefined;
-    }
+  return db.transaction(
+    async (tx) => {
+      const [row] = await tx
+        .select({
+          ownerModule: syntheticRecords.ownerModule,
+          revision: syntheticRecords.revision,
+          state: syntheticRecords.state,
+        })
+        .from(syntheticRecords)
+        .where(eq(syntheticRecords.id, recordId));
+      if (!row) {
+        return undefined;
+      }
 
-    const history = await tx
-      .select({
-        revision: syntheticRecordRevisions.revision,
-        state: syntheticRecordRevisions.state,
-        note: syntheticRecordRevisions.note,
-        recordedAt: syntheticRecordRevisions.recordedAt,
-      })
-      .from(syntheticRecordRevisions)
-      .where(eq(syntheticRecordRevisions.recordId, recordId))
-      .orderBy(asc(syntheticRecordRevisions.revision));
+      const history = await tx
+        .select({
+          revision: syntheticRecordRevisions.revision,
+          state: syntheticRecordRevisions.state,
+          note: syntheticRecordRevisions.note,
+          recordedAt: syntheticRecordRevisions.recordedAt,
+        })
+        .from(syntheticRecordRevisions)
+        .where(eq(syntheticRecordRevisions.recordId, recordId))
+        .orderBy(asc(syntheticRecordRevisions.revision));
 
-    const events = await tx
-      .select({
-        id: domainOutbox.id,
-        eventType: domainOutbox.eventType,
-        revision: domainOutbox.revision,
-        payload: domainOutbox.payload,
-        publishedAt: domainOutbox.publishedAt,
-      })
-      .from(domainOutbox)
-      .where(eq(domainOutbox.recordId, recordId))
-      .orderBy(asc(domainOutbox.occurredAt), asc(domainOutbox.revision));
+      const events = await tx
+        .select({
+          id: domainOutbox.id,
+          eventType: domainOutbox.eventType,
+          revision: domainOutbox.revision,
+          payload: domainOutbox.payload,
+          publishedAt: domainOutbox.publishedAt,
+        })
+        .from(domainOutbox)
+        .where(eq(domainOutbox.recordId, recordId))
+        .orderBy(asc(domainOutbox.occurredAt), asc(domainOutbox.revision));
 
-    return {
-      id: recordId,
-      ownerModule: row.ownerModule,
-      revision: row.revision,
-      state: requireSyntheticState(row.state),
-      history: history.map((entry) => ({
-        revision: entry.revision,
-        state: requireSyntheticState(entry.state),
-        note: entry.note,
-        recordedAt: entry.recordedAt.toISOString(),
-      })),
-      events: events.map((event) => ({
-        id: event.id,
-        eventType: event.eventType,
-        revision: event.revision,
-        payload: requireJsonObject(event.payload, "outbox payload"),
-        publishedAt: event.publishedAt ? event.publishedAt.toISOString() : null,
-      })),
-    };
-  }, { isolationLevel: "repeatable read", accessMode: "read only" });
+      return {
+        id: recordId,
+        ownerModule: row.ownerModule,
+        revision: row.revision,
+        state: requireSyntheticState(row.state),
+        history: history.map((entry) => ({
+          revision: entry.revision,
+          state: requireSyntheticState(entry.state),
+          note: entry.note,
+          recordedAt: entry.recordedAt.toISOString(),
+        })),
+        events: events.map((event) => ({
+          id: event.id,
+          eventType: event.eventType,
+          revision: event.revision,
+          payload: requireJsonObject(event.payload, "outbox payload"),
+          publishedAt: event.publishedAt ? event.publishedAt.toISOString() : null,
+        })),
+      };
+    },
+    { isolationLevel: "repeatable read", accessMode: "read only" },
+  );
 }
 
 function requireSyntheticState(value: unknown): SyntheticState {

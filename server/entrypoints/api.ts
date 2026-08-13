@@ -1,7 +1,7 @@
-import { createApi } from "../api/create-api.js";
 import { identifyBearerActor } from "../access/identify-bearer-actor.js";
-import { FileArtifactStore } from "../artifacts/file-artifact-store.js";
+import { createApi } from "../api/create-api.js";
 import { ArtifactRegistry } from "../artifacts/artifact-registry.js";
+import { FileArtifactStore } from "../artifacts/file-artifact-store.js";
 import { loadApiConfig } from "../config.js";
 import { openCurrentDatabase } from "../database/open-current-database.js";
 import { DomainDatabase } from "../domain/synthetic-domain.js";
@@ -29,7 +29,7 @@ const api = createApi({
     serviceAccessToken: config.serviceAccessToken,
   }),
 });
-const address = await api.listen(config.port, "0.0.0.0");
+const address = await api.listen(config.port, config.host);
 console.log(`Lirna API and PWA listening at ${address}`);
 
 let stopping = false;

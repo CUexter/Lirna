@@ -13,8 +13,8 @@ import {
 } from "drizzle-orm/pg-core";
 import { artifacts } from "../artifacts/schema.js";
 import type { RoutingDecision } from "./executor-router.js";
-import type { AttemptStatus, GateStatus, RunStatus } from "./workflow-run-repository.js";
 import type { WorkflowDefinition } from "./workflow-definition.js";
+import type { AttemptStatus, GateStatus, RunStatus } from "./workflow-run-repository.js";
 
 export const workflowDefinitions = pgTable(
   "workflow_definitions",
@@ -47,7 +47,10 @@ export const workflowRuns = pgTable(
       columns: [table.workflowId, table.workflowVersion],
       foreignColumns: [workflowDefinitions.workflowId, workflowDefinitions.version],
     }),
-    check("workflow_runs_status_check", sql`${table.status} in ('running', 'paused', 'completed', 'failed')`),
+    check(
+      "workflow_runs_status_check",
+      sql`${table.status} in ('running', 'paused', 'completed', 'failed')`,
+    ),
     check("workflow_runs_current_step_check", sql`${table.currentStep} >= 0`),
   ],
 );
@@ -55,7 +58,9 @@ export const workflowRuns = pgTable(
 export const workflowRoutingDecisions = pgTable(
   "workflow_routing_decisions",
   {
-    runId: uuid("run_id").notNull().references(() => workflowRuns.id),
+    runId: uuid("run_id")
+      .notNull()
+      .references(() => workflowRuns.id),
     stepIndex: integer("step_index").notNull(),
     decision: jsonb().$type<RoutingDecision>().notNull(),
     recordedAt: timestamp("recorded_at", { withTimezone: true }).defaultNow().notNull(),
@@ -69,7 +74,9 @@ export const workflowRoutingDecisions = pgTable(
 export const workflowStepAttempts = pgTable(
   "workflow_step_attempts",
   {
-    runId: uuid("run_id").notNull().references(() => workflowRuns.id),
+    runId: uuid("run_id")
+      .notNull()
+      .references(() => workflowRuns.id),
     stepIndex: integer("step_index").notNull(),
     attempt: integer().notNull(),
     stepId: text("step_id").notNull(),
@@ -84,7 +91,10 @@ export const workflowStepAttempts = pgTable(
     primaryKey({ columns: [table.runId, table.stepIndex, table.attempt] }),
     check("workflow_step_attempts_step_index_check", sql`${table.stepIndex} >= 0`),
     check("workflow_step_attempts_attempt_check", sql`${table.attempt} >= 1`),
-    check("workflow_step_attempts_status_check", sql`${table.status} in ('leased', 'committed', 'expired')`),
+    check(
+      "workflow_step_attempts_status_check",
+      sql`${table.status} in ('leased', 'committed', 'expired')`,
+    ),
     index("workflow_step_attempts_active").on(
       table.runId,
       table.stepIndex,
@@ -97,7 +107,9 @@ export const workflowStepAttempts = pgTable(
 export const workflowHumanGates = pgTable(
   "workflow_human_gates",
   {
-    runId: uuid("run_id").notNull().references(() => workflowRuns.id),
+    runId: uuid("run_id")
+      .notNull()
+      .references(() => workflowRuns.id),
     stepIndex: integer("step_index").notNull(),
     stepId: text("step_id").notNull(),
     status: text().$type<GateStatus>().notNull(),
@@ -108,6 +120,9 @@ export const workflowHumanGates = pgTable(
   (table) => [
     primaryKey({ columns: [table.runId, table.stepIndex] }),
     check("workflow_human_gates_step_index_check", sql`${table.stepIndex} >= 0`),
-    check("workflow_human_gates_status_check", sql`${table.status} in ('pending', 'satisfied', 'rejected')`),
+    check(
+      "workflow_human_gates_status_check",
+      sql`${table.status} in ('pending', 'satisfied', 'rejected')`,
+    ),
   ],
 );

@@ -8,15 +8,19 @@ import {
 import type { ApiDependencies } from "./api-contracts.js";
 import { InvalidJsonRequestError, readJson } from "./api-contracts.js";
 
-const sourceIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const sourceIdPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const maximumTextPublicationBytes = 100 * 1024 * 1024;
 
 export function registerSourceRoutes(app: Hono, dependencies: ApiDependencies): void {
   if (!dependencies.sources) return;
-  app.use("/api/sources", bodyLimit({
-    maxSize: maximumTextPublicationBytes,
-    onError: (c) => c.json({ error: "Text publication is too large" }, 413),
-  }));
+  app.use(
+    "/api/sources",
+    bodyLimit({
+      maxSize: maximumTextPublicationBytes,
+      onError: (c) => c.json({ error: "Text publication is too large" }, 413),
+    }),
+  );
   app.post("/api/sources", (c) => admitSource(c, dependencies));
   app.get("/api/sources/:id", async (c) => {
     if (dependencies.identifyActor?.(c) !== "human") {
@@ -54,7 +58,8 @@ async function admitSource(c: Context, dependencies: ApiDependencies): Promise<R
     throw error;
   }
   if (
-    typeof body.title !== "string" || body.title.length > 300 ||
+    typeof body.title !== "string" ||
+    body.title.length > 300 ||
     typeof body.text !== "string" ||
     !isRightsBasis(body.rightsBasis) ||
     !isSensitivityLevel(body.sensitivityLevel)

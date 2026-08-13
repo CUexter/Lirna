@@ -1,4 +1,4 @@
-import { sql, type SQL } from "drizzle-orm";
+import { type SQL, sql } from "drizzle-orm";
 import type { LirnaDatabase } from "../../server/database/database.js";
 
 export async function executeTestSql(db: LirnaDatabase, query: SQL): Promise<void> {
@@ -12,7 +12,8 @@ export async function executeTestSql(db: LirnaDatabase, query: SQL): Promise<voi
 
 /** Reset application state when CI supplies one PostgreSQL database to all suites. */
 export async function resetTestDatabase(db: LirnaDatabase): Promise<void> {
-  await db.execute(sql.raw(`
+  await db.execute(
+    sql.raw(`
       TRUNCATE TABLE
         sources,
         source_states,
@@ -28,5 +29,6 @@ export async function resetTestDatabase(db: LirnaDatabase): Promise<void> {
         workflow_step_attempts,
         workflow_human_gates
       CASCADE
-    `));
+    `),
+  );
 }

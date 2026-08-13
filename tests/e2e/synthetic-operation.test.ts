@@ -1,21 +1,18 @@
-import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { setTimeout as delay } from "node:timers/promises";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
-import { chromium } from "playwright-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { identifyBearerActor } from "../../server/access/identify-bearer-actor.js";
 import { createApi } from "../../server/api/create-api.js";
 import { FileArtifactStore } from "../../server/artifacts/file-artifact-store.js";
 import { ApplicationDatabase } from "../../server/database/database.js";
 import { migrate } from "../../server/database/migrate.js";
 import { DomainDatabase } from "../../server/domain/synthetic-domain.js";
 import { OperationRepository } from "../../server/operations/operation-repository.js";
-import { SyntheticResultWriter } from "../../server/synthetic/synthetic-result-writer.js";
 import { SourceLibrary } from "../../server/sources/source-library.js";
-import { identifyBearerActor } from "../../server/access/identify-bearer-actor.js";
+import { SyntheticResultWriter } from "../../server/synthetic/synthetic-result-writer.js";
 import { OperationWorker } from "../../server/worker/operation-worker.js";
 import type { WorkflowRunRepository } from "../../server/workflows/workflow-run-repository.js";
 import { resetTestDatabase } from "../integration/database-test-support.js";
@@ -30,9 +27,7 @@ describe("synthetic application operation", () => {
 
   async function startScenario(adapterRoot: string) {
     const operations = new OperationRepository(database.db);
-    const artifacts = new FileArtifactStore(
-      join(temporaryRoot, adapterRoot, "artifacts"),
-    );
+    const artifacts = new FileArtifactStore(join(temporaryRoot, adapterRoot, "artifacts"));
     const resultWriter = new SyntheticResultWriter(
       join(temporaryRoot, adapterRoot, "synthetic-results"),
     );
@@ -101,9 +96,7 @@ describe("synthetic application operation", () => {
 
       expect(await scenario.worker.runOnce()).toBe(true);
 
-      const completedResponse = await fetch(
-        `${scenario.address}/api/operations/${submitted.id}`,
-      );
+      const completedResponse = await fetch(`${scenario.address}/api/operations/${submitted.id}`);
       expect(completedResponse.status).toBe(200);
       const completed = (await completedResponse.json()) as {
         id: string;
@@ -119,131 +112,12 @@ describe("synthetic application operation", () => {
         },
       });
 
-      const artifactResponse = await fetch(
-        `${scenario.address}${completed.result.artifactUrl}`,
-      );
+      const artifactResponse = await fetch(`${scenario.address}${completed.result.artifactUrl}`);
       expect(artifactResponse.status).toBe(200);
       expect(await artifactResponse.text()).toBe(
         "Synthetic operation result\n\nA synthetic, non-sensitive fixture\n",
       );
     } finally {
-      await scenario.close();
-    }
-  });
-
-  it("lets the installable PWA invoke and observe the public operation", async () => {
-    await migrate(databaseUrl);
-    const scenario = await startScenario("pwa");
-    let workerRunning = true;
-    const workerLoop = (async () => {
-      while (workerRunning) {
-        if (!(await scenario.worker.runOnce())) await delay(20);
-      }
-    })();
-    const browser = await chromium.launch({
-      executablePath: execFileSync("which", ["google-chrome"], {
-        encoding: "utf8",
-      }).trim(),
-      headless: true,
-    });
-
-    try {
-      const page = await browser.newPage();
-      await page.goto(scenario.address);
-      expect(await page.locator('link[rel="manifest"]').getAttribute("href")).toBe(
-        "/manifest.webmanifest",
-      );
-      const manifestResponse = await page.request.get(
-        `${scenario.address}/manifest.webmanifest`,
-      );
-      expect(await manifestResponse.json()).toMatchObject({
-        name: "Lirna",
-        display: "standalone",
-      });
-      expect(
-        await page.evaluate(() =>
-          navigator.serviceWorker.ready.then((registration) =>
-            Boolean(registration.active),
-          ),
-        ),
-      ).toBe(true);
-      await page.evaluate(async () => {
-        if (navigator.serviceWorker.controller) return;
-        await new Promise<void>((resolve) => {
-          navigator.serviceWorker.addEventListener("controllerchange", () => resolve(), {
-            once: true,
-          });
-        });
-      });
-
-      await page.context().setOffline(true);
-      await page.reload();
-      expect(await page.getByRole("heading", { name: "Trace the whole system." }).isVisible()).toBe(true);
-      await page.context().setOffline(false);
-
-      await page
-        .getByLabel("Synthetic fixture")
-        .fill("A fixture submitted by the PWA");
-      await page.getByRole("button", { name: "Run operation" }).click();
-      await page
-        .getByRole("link", { name: "Open the stored synthetic artifact" })
-        .waitFor();
-      expect(await page.locator("[data-operation-status]").textContent()).toBe("completed");
-      expect(
-        await page
-          .getByRole("link", { name: "Open the stored synthetic artifact" })
-          .getAttribute("href"),
-      ).toMatch(
-        /^\/api\/operations\/[0-9a-f-]+\/artifact$/,
-      );
-    } finally {
-      await browser.close();
-      workerRunning = false;
-      await workerLoop;
-      await scenario.close();
-    }
-  });
-
-  it("lets Nathan admit and read a text Source while refusing agent admission", async () => {
-    await migrate(databaseUrl);
-    const scenario = await startScenario("source");
-    const browser = await chromium.launch({
-      executablePath: execFileSync("which", ["google-chrome"], { encoding: "utf8" }).trim(),
-      headless: true,
-    });
-
-    try {
-      const denied = await fetch(`${scenario.address}/api/sources`, {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${serviceAccessToken}` },
-        body: JSON.stringify({
-          title: "Agent-selected publication",
-          text: "This cannot be admitted.",
-          rightsBasis: "publicly-accessible",
-          sensitivityLevel: "ordinary-cloud",
-        }),
-      });
-      expect(denied.status).toBe(403);
-
-      const page = await browser.newPage();
-      await page.goto(`${scenario.address}/sources`);
-      for (const destination of ["Research", "Read", "Learn", "Sources", "Notes"]) {
-        await expect(page.getByRole("link", { name: destination }).isVisible()).resolves.toBe(true);
-      }
-      await page.getByLabel("Access token").fill(humanAccessToken);
-      await page.getByLabel("Title").fill("A synthetic publication");
-      await page.getByLabel("Publication text").fill("First line.\r\n\r\n   Second   line.  ");
-      await page.getByLabel("Rights basis").selectOption("publicly-accessible");
-      await page.getByRole("button", { name: "Admit Source" }).click();
-
-      await page.getByRole("heading", { name: "A synthetic publication" }).waitFor();
-      expect(await page.locator("[data-normalized-text]").textContent()).toBe("First line.\n\n   Second   line.  ");
-      await page.getByRole("button", { name: "View authoritative evidence" }).click();
-      expect(await page.locator("[data-authoritative-evidence]").textContent()).toBe(
-        "First line.\n\n   Second   line.  ",
-      );
-    } finally {
-      await browser.close();
       await scenario.close();
     }
   });

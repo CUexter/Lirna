@@ -4,6 +4,7 @@ export interface RuntimeConfig {
   databaseUrl: string;
   artifactRoot: string;
   syntheticResultRoot: string;
+  host: string;
   port: number;
 }
 
@@ -18,12 +19,10 @@ export function loadConfig(environment = process.env): RuntimeConfig {
     throw new Error("PORT must be an integer between 1 and 65535");
   }
   return {
-    databaseUrl:
-      environment.DATABASE_URL ?? "postgres://lirna:lirna@127.0.0.1:5432/lirna",
+    databaseUrl: environment.DATABASE_URL ?? "postgres://lirna:lirna@127.0.0.1:5432/lirna",
     artifactRoot: resolve(environment.ARTIFACT_ROOT ?? ".lirna/artifacts"),
-    syntheticResultRoot: resolve(
-      environment.SYNTHETIC_RESULT_ROOT ?? ".lirna/synthetic-results",
-    ),
+    syntheticResultRoot: resolve(environment.SYNTHETIC_RESULT_ROOT ?? ".lirna/synthetic-results"),
+    host: environment.HOST ?? "127.0.0.1",
     port,
   };
 }

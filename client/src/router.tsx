@@ -2,13 +2,12 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
-  Outlet,
   Link,
+  Outlet,
   type RouterHistory,
 } from "@tanstack/react-router";
-
-import { TracerRoute } from "@/routes/tracer";
 import { SourceReaderRoute, SourcesRoute } from "@/routes/sources";
+import { TracerRoute } from "@/routes/tracer";
 
 const rootRoute = createRootRoute({
   component: AppShell,
@@ -19,8 +18,13 @@ function AppShell() {
   return (
     <>
       <header className="border-b border-border bg-background/90">
-        <nav aria-label="Primary" className="mx-auto flex w-[min(72rem,calc(100%-2rem))] items-center gap-5 overflow-x-auto py-4 text-sm">
-          <Link to="/" className="mr-auto font-semibold tracking-wide text-primary">Lirna</Link>
+        <nav
+          aria-label="Primary"
+          className="mx-auto flex w-[min(72rem,calc(100%-2rem))] items-center gap-5 overflow-x-auto py-4 text-sm"
+        >
+          <Link to="/" className="mr-auto font-semibold tracking-wide text-primary">
+            Lirna
+          </Link>
           {destinations.slice(0, 3).map((destination) => (
             <Link
               key={destination}
@@ -31,8 +35,19 @@ function AppShell() {
               {destination}
             </Link>
           ))}
-          <Link to="/sources" className="whitespace-nowrap text-muted-foreground hover:text-foreground">Sources</Link>
-          <Link to="/destinations/$destination" params={{ destination: "notes" }} className="whitespace-nowrap text-muted-foreground hover:text-foreground">Notes</Link>
+          <Link
+            to="/sources"
+            className="whitespace-nowrap text-muted-foreground hover:text-foreground"
+          >
+            Sources
+          </Link>
+          <Link
+            to="/destinations/$destination"
+            params={{ destination: "notes" }}
+            className="whitespace-nowrap text-muted-foreground hover:text-foreground"
+          >
+            Notes
+          </Link>
         </nav>
       </header>
       <Outlet />
@@ -66,11 +81,23 @@ const destinationRoute = createRoute({
   path: "/destinations/$destination",
   component: () => {
     const { destination } = destinationRoute.useParams();
-    return <main className="mx-auto w-[min(48rem,calc(100%-2rem))] py-20"><h1 className="text-5xl capitalize">{destination}</h1><p className="mt-4 text-muted-foreground">This destination is ready for later capabilities.</p></main>;
+    return (
+      <main className="mx-auto w-[min(48rem,calc(100%-2rem))] py-20">
+        <h1 className="text-5xl capitalize">{destination}</h1>
+        <p className="mt-4 text-muted-foreground">
+          This destination is ready for later capabilities.
+        </p>
+      </main>
+    );
   },
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, sourcesRoute, sourceReaderRoute, destinationRoute]);
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  sourcesRoute,
+  sourceReaderRoute,
+  destinationRoute,
+]);
 
 /**
  * TanStack Router owns URL and navigation state and provides the application

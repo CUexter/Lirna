@@ -9,10 +9,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import type {
-  ArtifactReference,
-  ProvenanceOrigin,
-} from "./artifact-registry.js";
+import type { ArtifactReference, ProvenanceOrigin } from "./artifact-registry.js";
 import type { RightsBasis, SensitivityLevel } from "./source-handling-policy.js";
 
 export const artifacts = pgTable(
@@ -32,7 +29,9 @@ export const artifacts = pgTable(
 export const artifactReferences = pgTable(
   "artifact_references",
   {
-    hash: text().notNull().references(() => artifacts.hash),
+    hash: text()
+      .notNull()
+      .references(() => artifacts.hash),
     kind: text().$type<ArtifactReference["kind"]>().notNull(),
     targetId: text("target_id").notNull(),
     locator: text().default("").notNull(),
@@ -44,7 +43,9 @@ export const artifactRegistrations = pgTable(
   "artifact_registrations",
   {
     id: uuid().primaryKey(),
-    hash: text().notNull().references(() => artifacts.hash),
+    hash: text()
+      .notNull()
+      .references(() => artifacts.hash),
     sensitivity: text().$type<SensitivityLevel>().notNull(),
     rightsBasis: text("rights_basis").$type<RightsBasis>().notNull(),
     provenanceOrigin: text("provenance_origin").$type<ProvenanceOrigin>().notNull(),

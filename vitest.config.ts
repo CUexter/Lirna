@@ -1,5 +1,5 @@
-import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
+import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
 // Colocated unit tests (client/server) run fast and in-process; integration and
@@ -15,6 +15,18 @@ export default defineConfig({
     // Serialize suites: integration/e2e share host resources (Postgres, ports,
     // a browser). Unit tests are fast enough that global serialization is cheap.
     fileParallelism: false,
+    coverage: {
+      provider: "v8",
+      include: ["server/**/*.ts", "client/src/**/*.{ts,tsx}"],
+      exclude: [
+        "**/*.test.{ts,tsx}",
+        "server/entrypoints/**",
+        "client/src/main.tsx",
+        "client/src/router.tsx",
+      ],
+      reporter: ["text-summary", "html", "json"],
+      reportOnFailure: true,
+    },
     projects: [
       {
         plugins: [react()],
@@ -24,10 +36,7 @@ export default defineConfig({
           globals: true,
           environment: "node",
           setupFiles: ["./client/vitest.setup.ts"],
-          include: [
-            "client/src/**/*.test.{ts,tsx}",
-            "server/**/*.test.ts",
-          ],
+          include: ["client/src/**/*.test.{ts,tsx}", "server/**/*.test.ts"],
         },
       },
       {

@@ -1,7 +1,7 @@
 import type { Hono } from "hono";
 import {
-  syntheticOperationKind,
   type ApplicationOperation,
+  syntheticOperationKind,
 } from "../operations/operation-repository.js";
 import type { ApiDependencies } from "./api-contracts.js";
 import { readJson } from "./api-contracts.js";
@@ -14,7 +14,8 @@ export function registerOperationRoutes(app: Hono, dependencies: ApiDependencies
       typeof body.input !== "string" ||
       body.input.length === 0 ||
       body.input.length > 1_000
-    ) return c.json({ error: "Invalid synthetic operation" }, 400);
+    )
+      return c.json({ error: "Invalid synthetic operation" }, 400);
     const operation = await dependencies.operations.submit(syntheticOperationKind, body.input);
     return c.json(publicOperation(operation), 202);
   });

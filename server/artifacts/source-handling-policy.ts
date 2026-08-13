@@ -1,16 +1,17 @@
 export {
-  rightsBases,
-  sensitivityLevels,
   type RightsBasis,
+  rightsBases,
   type SensitivityLevel,
   type SourceHandlingPolicy,
+  sensitivityLevels,
 } from "../shared/source-handling-policy.js";
+
 import {
-  rightsBases,
-  sensitivityLevels,
   type RightsBasis,
+  rightsBases,
   type SensitivityLevel,
   type SourceHandlingPolicy,
+  sensitivityLevels,
 } from "../shared/source-handling-policy.js";
 
 export function isSourceHandlingPolicy(value: unknown): value is SourceHandlingPolicy {

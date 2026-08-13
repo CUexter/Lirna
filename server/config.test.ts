@@ -8,13 +8,17 @@ describe("runtime configuration", () => {
 
   it("requires separate API credentials for Nathan and Service identities", () => {
     expect(() => loadApiConfig({})).toThrow(/HUMAN_ACCESS_TOKEN/);
-    expect(() => loadApiConfig({
-      HUMAN_ACCESS_TOKEN: "human-token-with-at-least-thirty-two-characters",
-    })).toThrow(/SERVICE_ACCESS_TOKEN/);
+    expect(() =>
+      loadApiConfig({
+        HUMAN_ACCESS_TOKEN: "human-token-with-at-least-thirty-two-characters",
+      }),
+    ).toThrow(/SERVICE_ACCESS_TOKEN/);
     const shared = "shared-token-with-at-least-thirty-two-characters";
-    expect(() => loadApiConfig({
-      HUMAN_ACCESS_TOKEN: shared,
-      SERVICE_ACCESS_TOKEN: shared,
-    })).toThrow(/must be different/);
+    expect(() =>
+      loadApiConfig({
+        HUMAN_ACCESS_TOKEN: shared,
+        SERVICE_ACCESS_TOKEN: shared,
+      }),
+    ).toThrow(/must be different/);
   });
 });

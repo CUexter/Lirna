@@ -1,18 +1,14 @@
 import type { ArtifactReference } from "../artifacts/artifact-registry.js";
 import {
-  PolicyAwareExecutorRouter,
   type ExecutorProfile,
   isSourceHandlingPolicy,
+  PolicyAwareExecutorRouter,
   type RetrievedEvidence,
   type RoutingDecision,
   type SourceEvidence,
 } from "./executor-router.js";
 import type { ArtifactSubmission, WorkStepDefinition } from "./workflow-definition.js";
-import {
-  WorkflowRunRepository,
-  type RunView,
-  type StepLease,
-} from "./workflow-run-repository.js";
+import type { RunView, StepLease, WorkflowRunRepository } from "./workflow-run-repository.js";
 
 export interface ExecutorAdapter extends ExecutorProfile {
   execute(command: {
@@ -101,12 +97,7 @@ export class WorkflowExecutor {
       return false;
     }
 
-    const preparation = await this.prepareWorkStep(
-      runId,
-      beforeLease,
-      current,
-      recordedRoute,
-    );
+    const preparation = await this.prepareWorkStep(runId, beforeLease, current, recordedRoute);
     if (preparation.outcome === "recorded-pause") {
       return true;
     }
@@ -122,9 +113,7 @@ export class WorkflowExecutor {
     // Reuse the freshly leased view rather than re-reading the run a third time.
     const route =
       recordedRoute?.decision ??
-      view.routingDecisions.find(
-        (recorded) => recorded.stepIndex === lease.stepIndex,
-      )?.decision;
+      view.routingDecisions.find((recorded) => recorded.stepIndex === lease.stepIndex)?.decision;
     const adapter = this.resolveAdapter(route, current, preparation.routableEvidence);
 
     const submission = adapter
@@ -175,18 +164,12 @@ export class WorkflowExecutor {
         requirements: current.routing,
         omittedEvidence: retrieval.omitted,
       });
-      const recorded = await this.runs.recordRoutingDecision(
-        runId,
-        view.currentStep,
-        decision,
-      );
+      const recorded = await this.runs.recordRoutingDecision(runId, view.currentStep, decision);
       if (recorded.outcome === "paused") {
         return { outcome: "recorded-pause" };
       }
     }
-    const retrieved = await Promise.all(
-      retrieval.eligible.map(this.retrieveEvidence),
-    );
+    const retrieved = await Promise.all(retrieval.eligible.map(this.retrieveEvidence));
     return { outcome: "ready", retrieved, routableEvidence: retrieval.eligible };
   }
 
@@ -205,8 +188,7 @@ export class WorkflowExecutor {
       route?.outcome === "selected"
         ? this.executors.find(
             (executor) =>
-              executor.executorId === route.executorId &&
-              executor.endpoint === route.endpoint,
+              executor.executorId === route.executorId && executor.endpoint === route.endpoint,
           )
         : undefined;
     if (route?.outcome === "selected" && !adapter) {
@@ -223,13 +205,8 @@ export class WorkflowExecutor {
         requirements: eligibilityRequirements,
         omittedEvidence: [],
       });
-      if (
-        eligibility.outcome !== "selected" ||
-        eligibility.executorId !== adapter.executorId
-      ) {
-        throw new Error(
-          `Selected executor ${adapter.executorId} is no longer eligible`,
-        );
+      if (eligibility.outcome !== "selected" || eligibility.executorId !== adapter.executorId) {
+        throw new Error(`Selected executor ${adapter.executorId} is no longer eligible`);
       }
     }
     return adapter;
@@ -244,12 +221,9 @@ export class WorkflowExecutor {
   private produceSubmission(view: RunView, lease: StepLease): ArtifactSubmission {
     const step = view.steps[lease.stepIndex] as WorkStepDefinition | undefined;
     if (!step || step.kind !== "work") {
-      throw new Error(
-        `Leased step ${lease.stepIndex} of run ${lease.runId} is not a work step`,
-      );
+      throw new Error(`Leased step ${lease.stepIndex} of run ${lease.runId} is not a work step`);
     }
-    const prompt =
-      typeof view.input.prompt === "string" ? view.input.prompt : "synthetic";
+    const prompt = typeof view.input.prompt === "string" ? view.input.prompt : "synthetic";
     const summary = `${step.stepId} of ${prompt}`;
     const content = Buffer.from(JSON.stringify({ summary }), "utf8");
 
@@ -282,10 +256,7 @@ function parseEvidence(value: unknown): SourceEvidence[] {
       throw new Error("workflow evidence must be an object");
     }
     const candidate = item as Partial<SourceEvidence>;
-    if (
-      typeof candidate.evidenceId !== "string" ||
-      !isSourceHandlingPolicy(candidate.policy)
-    ) {
+    if (typeof candidate.evidenceId !== "string" || !isSourceHandlingPolicy(candidate.policy)) {
       throw new Error("workflow evidence requires a valid id and Source handling policy");
     }
     return { evidenceId: candidate.evidenceId, policy: candidate.policy };

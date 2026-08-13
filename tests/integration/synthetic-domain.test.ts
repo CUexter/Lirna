@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ApplicationDatabase } from "../../server/database/database.js";
 import { migrate } from "../../server/database/migrate.js";
 import {
@@ -157,14 +157,20 @@ describe("synthetic domain invariants", () => {
     });
 
     await expect(
-      executeTestSql(applicationDatabase.db, sql`
+      executeTestSql(
+        applicationDatabase.db,
+        sql`
         UPDATE synthetic_record_revisions SET note = 'tampered' WHERE record_id = ${id}
-      `),
+      `,
+      ),
     ).rejects.toThrow(/append-only/i);
     await expect(
-      executeTestSql(applicationDatabase.db, sql`
+      executeTestSql(
+        applicationDatabase.db,
+        sql`
         DELETE FROM synthetic_record_revisions WHERE record_id = ${id}
-      `),
+      `,
+      ),
     ).rejects.toThrow(/append-only/i);
   });
 
