@@ -17,6 +17,8 @@
         docker
         docker-compose
         gitleaks
+        semgrep
+        trivy
       ];
       commonShell = {
         packages = commonPackages;

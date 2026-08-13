@@ -1,0 +1,79 @@
+rules:
+  - id: lirna-typescript-command-injection
+    languages: [typescript, javascript]
+    message: Do not pass untrusted data to a process API.
+    severity: ERROR
+    patterns:
+      - pattern-either:
+          - pattern: child_process.exec($X, ...)
+          - pattern: child_process.execSync($X, ...)
+          - patterns:
+              - pattern-inside: |
+                  import { exec } from "node:child_process";
+                  ...
+              - pattern: exec($X, ...)
+          - patterns:
+              - pattern-inside: |
+                  import { execSync } from "node:child_process";
+                  ...
+              - pattern: execSync($X, ...)
+    metadata:
+      category: security
+      confidence: HIGH
+  - id: lirna-typescript-unsafe-process-spawn
+    languages: [typescript, javascript]
+    message: Do not enable shell execution for process APIs.
+    severity: ERROR
+    patterns:
+      - pattern-either:
+          - pattern: 'child_process.spawn($X, {shell: true, ...})'
+          - pattern: 'child_process.spawn($X, $ARGS, {shell: true, ...})'
+          - pattern: 'spawn($X, {shell: true, ...})'
+          - pattern: 'spawn($X, $ARGS, {shell: true, ...})'
+          - pattern: 'child_process.execFile($X, {shell: true, ...})'
+          - pattern: 'child_process.execFile($X, $ARGS, {shell: true, ...})'
+          - pattern: 'execFile($X, {shell: true, ...})'
+          - pattern: 'execFile($X, $ARGS, {shell: true, ...})'
+    metadata:
+      category: security
+      confidence: HIGH
+  - id: lirna-typescript-path-traversal
+    languages: [typescript, javascript]
+    message: Validate user-controlled paths before joining or resolving them.
+    severity: ERROR
+    patterns:
+      - pattern-either:
+          - pattern: path.join($BASE, req.params.$KEY)
+          - pattern: path.resolve($BASE, req.params.$KEY)
+          - pattern: join($BASE, req.params.$KEY)
+          - pattern: resolve($BASE, req.params.$KEY)
+          - pattern: path.join($BASE, req.query.$KEY)
+          - pattern: path.resolve($BASE, req.query.$KEY)
+          - pattern: join($BASE, req.query.$KEY)
+          - pattern: resolve($BASE, req.query.$KEY)
+    metadata:
+      category: security
+      confidence: MEDIUM
+  - id: lirna-typescript-insecure-crypto
+    languages: [typescript, javascript]
+    message: Do not use broken cryptographic hashes for security decisions.
+    severity: ERROR
+    pattern-either:
+      - pattern: crypto.createHash("md5", ...)
+      - pattern: crypto.createHash("sha1", ...)
+      - pattern: createHash("md5", ...)
+      - pattern: createHash("sha1", ...)
+    metadata:
+      category: security
+      confidence: HIGH
+  - id: lirna-typescript-xss-sink
+    languages: [typescript, javascript]
+    message: Do not put untrusted content into an HTML sink.
+    severity: ERROR
+    pattern-either:
+      - pattern: $ELEMENT.innerHTML = $VALUE
+      - pattern: $ELEMENT.outerHTML = $VALUE
+      - pattern: document.write($VALUE, ...)
+    metadata:
+      category: security
+      confidence: HIGH

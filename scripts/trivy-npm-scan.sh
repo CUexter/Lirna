@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root=$(git rev-parse --show-toplevel)
+# Scan only committed lockfiles. Gitleaks owns secrets and this is not Nix/host coverage.
+lockfiles=("$root/package-lock.json")
+[[ -f "$root/prototype/visualization-relationship-editing/package-lock.json" ]] &&
+  lockfiles+=("$root/prototype/visualization-relationship-editing/package-lock.json")
+for lockfile in "${lockfiles[@]}"; do
+  trivy fs --scanners vuln --pkg-types library --severity HIGH,CRITICAL --format table "$lockfile"
+  trivy fs --scanners vuln --pkg-types library --severity CRITICAL --exit-code 1 --format table "$lockfile"
+done

@@ -80,6 +80,23 @@ paths. `npm search`, `npm view`, repository scripts, and `npm ci --ignore-script
 remain available. The pre-commit hook and CI detect direct dependency additions,
 but are detection controls rather than a claim to block every external process.
 
+### Repository security CI
+
+The required CI security checks are named `Gitleaks`, `Dependency verification`,
+`Semgrep`, and `Trivy npm vulnerability policy`. Gitleaks scans the relevant Git
+range with the repository-owned policy. Semgrep blocks only the reviewed rules in
+`config/semgrep/blocking.yml`; broader reporting rules remain visible without
+failing the initial rollout. Trivy scans only the committed npm dependency graph:
+critical findings fail, while high findings are reported. Trivy secret scanning is
+not enabled because Gitleaks is the sole secret-scanning authority.
+
+CI installs the lockfile with `npm ci --ignore-scripts` and invokes the same tools
+from the pinned Nix development shell. Reports are terminal output or ephemeral
+workflow artifacts, never committed files. The declarative ruleset in
+`.github/rulesets/main.json` requires all four named checks and blocks direct
+updates to `main`; apply it only after a pull request has caused each check to
+appear and stabilize. Branch publication remains allowed when a check fails.
+
 Tool configuration (Biome, Vitest, Playwright, Drizzle Kit, and the
 `tsconfig.*` build/typecheck projects) lives under [`config/`](./config) to keep
 the repository root uncluttered. Because those tools only auto-discover config at

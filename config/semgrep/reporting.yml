@@ -1,0 +1,11 @@
+rules:
+  - id: lirna-report-eval
+    languages: [typescript, javascript]
+    message: Review dynamic code evaluation.
+    severity: WARNING
+    pattern-either:
+      - pattern: eval($VALUE)
+      - pattern: new Function(...)
+    metadata:
+      category: security
+      confidence: MEDIUM

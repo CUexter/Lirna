@@ -28,20 +28,12 @@ jobs:
         with:
           fetch-depth: 0
       - uses: cachix/install-nix-action@v31
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: nix develop --command scripts/secret-scan.sh range "${{ github.event.pull_request.base.sha || github.event.before }}" "${{ github.sha }}"
-      - run: nix develop --command npm run test:secrets
-      - run: node scripts/verify-dependency-assessments.mjs --range "${{ github.event.pull_request.base.sha || github.event.before }}" "${{ github.sha }}"
-      - run: npm run test:dependency-assessments
-      - run: npm run check:persistence
-      - run: npm run typecheck
-      - run: npm run build
-      - run: npm test
-      - run: npm run metrics
+      - run: nix develop --command npm ci --ignore-scripts
+      - run: nix develop --command npm run check:persistence
+      - run: nix develop --command npm run typecheck
+      - run: nix develop --command npm run build
+      - run: nix develop --command npm test
+      - run: nix develop --command npm run metrics
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -50,3 +42,50 @@ jobs:
             coverage/
             metrics/
           if-no-files-found: ignore
+
+  gitleaks:
+    name: Gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: cachix/install-nix-action@v31
+      - run: nix develop --command scripts/secret-scan.sh range "${{ github.event.pull_request.base.sha || github.event.before }}" "${{ github.sha }}"
+      - run: nix develop --command npm run test:secrets
+
+  dependency-verification:
+    name: Dependency verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: cachix/install-nix-action@v31
+      - run: nix develop --command npm ci --ignore-scripts
+      - run: nix develop --command node scripts/verify-dependency-assessments.mjs --range "${{ github.event.pull_request.base.sha || github.event.before }}" "${{ github.sha }}"
+      - run: nix develop --command npm run test:dependency-assessments
+
+  semgrep:
+    name: Semgrep
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cachix/install-nix-action@v31
+      - id: blocking
+        continue-on-error: true
+        run: nix develop --command npm run check:semgrep
+      - if: always()
+        run: nix develop --command scripts/semgrep-scan.sh report
+      - if: always()
+        run: nix develop --command npm run test:security-scanning
+      - if: always()
+        run: test "${{ steps.blocking.outcome }}" = success
+
+  trivy:
+    name: Trivy npm vulnerability policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cachix/install-nix-action@v31
+      - run: nix develop --command npm ci --ignore-scripts
+      - run: nix develop --command npm run check:trivy
+      - run: nix develop --command npm run test:trivy-policy
