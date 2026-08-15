@@ -1,0 +1,345 @@
+<!doctype html>
+<!-- PROTOTYPE ONLY: Three whole-app IA variants, switchable via ?variant=A|B|C. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lirna whole-app information architecture prototype</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #18201f;
+      --muted: #69716e;
+      --paper: #f2efe7;
+      --panel: #fffdf8;
+      --line: #d9d4c8;
+      --forest: #1e5b4c;
+      --forest-soft: #e0eee8;
+      --blue: #355d83;
+      --blue-soft: #e5edf5;
+      --amber: #9b601c;
+      --amber-soft: #f7ead5;
+      --red: #9a463d;
+      --shadow: 0 18px 50px rgba(25, 31, 29, .14);
+      font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: var(--paper); color: var(--ink); }
+    button, input, textarea { font: inherit; }
+    button { color: inherit; cursor: pointer; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid #8fbcb1; outline-offset: 2px; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1, h2 { font-family: Georgia, serif; font-weight: 600; }
+    h1 { font-size: clamp(29px, 4vw, 48px); line-height: 1.06; }
+    h2 { font-size: 23px; }
+    h3 { font-size: 14px; }
+    p { line-height: 1.55; }
+    .muted { color: var(--muted); }
+    .eyebrow { color: var(--muted); font-size: 10px; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
+    .brand { font: 700 21px/1 Georgia, serif; letter-spacing: -.02em; }
+    .prototype-flag {
+      position: fixed; z-index: 50; top: 10px; left: 10px; border: 1px solid #e4bd70;
+      border-radius: 999px; background: #fff2c9; color: #694600; padding: 6px 9px;
+      font: 750 10px/1 ui-monospace, monospace; letter-spacing: .08em;
+    }
+    .button, .icon-button, .nav-button, .scenario-button {
+      border: 1px solid var(--line); border-radius: 9px; background: var(--panel); padding: 8px 11px;
+    }
+    .button.primary { border-color: var(--forest); background: var(--forest); color: white; }
+    .button.quiet { border-color: transparent; background: transparent; }
+    .icon-button { width: 38px; height: 38px; display: grid; place-items: center; padding: 0; }
+    .pill { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 5px 8px; background: #e8e5dc; font-size: 11px; }
+    .pill.blue { background: var(--blue-soft); color: #294f72; }
+    .pill.green { background: var(--forest-soft); color: #164c3f; }
+    .pill.amber { background: var(--amber-soft); color: #7b4b14; }
+    .card { border: 1px solid var(--line); border-radius: 15px; background: var(--panel); padding: 17px; }
+    .card.selected { border-color: #6fa393; box-shadow: 0 0 0 2px #d5e9e2; }
+    .row { display: flex; align-items: center; gap: 9px; }
+    .row.wrap { flex-wrap: wrap; }
+    .space { justify-content: space-between; }
+    .stack { display: grid; gap: 11px; }
+    .divider { height: 1px; margin: 14px 0; background: var(--line); }
+    .avatar { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--forest); color: white; font-weight: 800; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #3c8b6d; }
+    .status-dot.warn { background: #c78227; }
+    .state-dump {
+      position: fixed; z-index: 35; right: 12px; bottom: 82px; width: min(380px, calc(100vw - 24px));
+      max-height: 36vh; overflow: auto; border-radius: 10px; background: #111817; color: #d8eae5;
+      padding: 10px 12px; box-shadow: var(--shadow); font: 11px/1.5 ui-monospace, monospace;
+    }
+    .state-dump summary { cursor: pointer; font-weight: 800; }
+    .state-dump pre { white-space: pre-wrap; margin-bottom: 0; }
+    .prototype-controls {
+      position: fixed; z-index: 40; left: 50%; bottom: 16px; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 5px; border: 1px solid #42504c; border-radius: 999px;
+      background: #111a18; color: white; padding: 6px; box-shadow: var(--shadow);
+    }
+    .prototype-controls button { width: 35px; height: 35px; border: 0; border-radius: 50%; background: #2d3a37; color: white; }
+    .prototype-controls span { min-width: 220px; text-align: center; font-size: 12px; font-weight: 750; }
+    .scenario-picker { position: fixed; z-index: 38; left: 12px; bottom: 16px; width: 224px; }
+    .scenario-picker summary {
+      list-style: none; border: 1px solid #42504c; border-radius: 999px; background: #111a18;
+      color: white; padding: 12px 15px; cursor: pointer; box-shadow: var(--shadow); font-size: 12px; font-weight: 750;
+    }
+    .scenario-picker[open] summary { border-radius: 12px 12px 0 0; }
+    .scenario-list { border: 1px solid #42504c; border-top: 0; border-radius: 0 0 12px 12px; background: white; padding: 7px; }
+    .scenario-button { width: 100%; border-color: transparent; text-align: left; font-size: 12px; }
+    .scenario-button.active { background: var(--forest-soft); color: var(--forest); font-weight: 800; }
+    .mobile-tabs { display: none; }
+
+    /* A: Activity-centered resume cockpit. */
+    .a-shell { min-height: 100vh; display: grid; grid-template-columns: 224px minmax(0, 1fr); padding-bottom: 78px; }
+    .a-sidebar { position: sticky; top: 0; height: 100vh; border-right: 1px solid #34443f; background: #192824; color: #ecf2ef; padding: 25px 13px; }
+    .a-sidebar .brand { margin: 28px 12px 31px; }
+    .a-sidebar .eyebrow { color: #91a49e; margin: 22px 11px 8px; }
+    .a-sidebar .nav-button { width: 100%; display: flex; gap: 10px; border-color: transparent; background: transparent; color: #c6d2ce; text-align: left; }
+    .a-sidebar .nav-button.active { background: #31453f; color: white; }
+    .a-sidebar .sync { position: absolute; left: 18px; right: 18px; bottom: 22px; font-size: 11px; color: #aebdb8; }
+    .a-main { min-width: 0; }
+    .a-topbar { height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); background: rgba(255,253,248,.9); padding: 0 25px; }
+    .search { width: min(470px, 52vw); border: 1px solid var(--line); border-radius: 11px; background: white; padding: 10px 13px; }
+    .a-content { max-width: 1120px; margin: auto; padding: 40px clamp(20px, 5vw, 58px); }
+    .a-hero { display: grid; grid-template-columns: 1.5fr .85fr; gap: 18px; align-items: stretch; margin-bottom: 28px; }
+    .resume-card { min-height: 252px; padding: 27px; color: white; border: 0; background: linear-gradient(140deg, #244f45, #17352e); }
+    .resume-card .eyebrow, .resume-card .muted { color: #bcd0c9; }
+    .resume-card h1 { max-width: 680px; margin: 17px 0; }
+    .resume-card .button { margin-top: 9px; border-color: white; background: transparent; color: white; }
+    .a-next { display: grid; align-content: space-between; }
+    .a-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px; }
+    .a-grid .card { min-height: 158px; }
+    .exception { border-left: 4px solid var(--amber); }
+
+    /* B: Question-led canvas. */
+    .b-shell { min-height: 100vh; padding: 0 0 86px; background: #f7f5ef; }
+    .b-topbar { height: 66px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; border-bottom: 1px solid var(--line); padding: 0 25px 0 83px; }
+    .b-topbar .brand { justify-self: start; }
+    .b-topbar .context { justify-self: center; }
+    .b-topbar .actions { justify-self: end; }
+    .b-canvas { max-width: 1180px; margin: auto; padding: 45px 24px; }
+    .question-box { max-width: 780px; margin: 0 auto 45px; text-align: center; }
+    .question-box h1 { margin-bottom: 12px; }
+    .big-composer { display: flex; gap: 9px; border: 1px solid #aeb7b2; border-radius: 18px; background: white; padding: 10px; box-shadow: 0 12px 35px rgba(23,35,31,.1); }
+    .big-composer input { flex: 1; min-width: 0; border: 0; padding: 8px; font-size: 15px; }
+    .big-composer input:focus { outline: 0; }
+    .b-lanes { display: grid; grid-template-columns: 1.15fr .85fr .85fr; gap: 14px; align-items: start; }
+    .lane { min-width: 0; }
+    .lane-head { display: flex; justify-content: space-between; align-items: center; margin: 0 4px 10px; }
+    .work-tile { position: relative; overflow: hidden; margin-bottom: 11px; }
+    .work-tile::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--blue); }
+    .work-tile.learn::before { background: var(--forest); }
+    .work-tile.read::before { background: var(--amber); }
+    .work-tile .meta { margin-top: 15px; }
+    .b-dock { position: fixed; z-index: 15; left: 50%; bottom: 78px; transform: translateX(-50%); display: flex; gap: 4px; border: 1px solid var(--line); border-radius: 999px; background: white; padding: 5px; box-shadow: var(--shadow); }
+    .b-dock .nav-button { border: 0; border-radius: 999px; background: transparent; font-size: 12px; }
+    .b-dock .nav-button.active { background: var(--ink); color: white; }
+
+    /* C: Library and workbench split. */
+    .c-shell { min-height: 100vh; display: grid; grid-template-columns: 72px 280px minmax(0, 1fr); padding-bottom: 78px; background: #e9e5da; }
+    .c-rail { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; align-items: center; gap: 13px; padding: 21px 0; background: #15201e; color: white; }
+    .c-rail .brand { margin: 28px 0 20px; font-size: 18px; }
+    .c-rail .icon-button { border-color: transparent; background: #2b3935; color: #dbe6e2; }
+    .c-rail .icon-button.active { background: #e7f2ed; color: #143f34; }
+    .c-browser { position: sticky; top: 0; height: 100vh; overflow: auto; border-right: 1px solid var(--line); background: #f2efe7; padding: 25px 15px; }
+    .c-browser h2 { margin: 23px 8px 14px; }
+    .tree-row { width: 100%; display: flex; justify-content: space-between; gap: 8px; border: 0; border-radius: 8px; background: transparent; padding: 9px; text-align: left; font-size: 13px; }
+    .tree-row.active { background: white; box-shadow: 0 1px 5px rgba(20,30,27,.08); }
+    .c-workbench { min-width: 0; background: var(--panel); }
+    .c-toolbar { height: 64px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); padding: 0 25px; }
+    .c-document { max-width: 840px; margin: auto; padding: 47px clamp(22px, 6vw, 74px); }
+    .source-page { border-left: 1px solid #c7bfaf; padding-left: clamp(18px, 4vw, 42px); }
+    .highlight { background: linear-gradient(transparent 58%, #f1d795 58%); }
+    .margin-note { border-left: 3px solid var(--blue); margin: 20px 0; padding: 9px 13px; background: var(--blue-soft); }
+    .c-object-tabs { display: flex; gap: 5px; margin-bottom: 23px; border-bottom: 1px solid var(--line); }
+    .c-object-tabs button { border: 0; border-bottom: 3px solid transparent; background: transparent; padding: 9px 11px; }
+    .c-object-tabs button.active { border-bottom-color: var(--forest); color: var(--forest); font-weight: 800; }
+
+    .scenario-panel { max-width: 920px; margin: 0 auto; }
+    .scenario-panel h1 { max-width: 760px; }
+    .draft-diff { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .draft-diff .card:first-child { background: #f0eee7; }
+    .answer-bubble { margin: 18px 0; border-left: 3px solid var(--forest); padding-left: 18px; }
+    .evidence-line { border-left: 3px solid #82a99d; padding: 8px 12px; background: #edf4f1; font-family: Georgia, serif; }
+
+    @media (max-width: 900px) {
+      .state-dump { display: none; }
+      .prototype-flag { top: 7px; left: 7px; }
+      .scenario-picker { left: 7px; bottom: 9px; width: 160px; }
+      .scenario-picker summary { padding: 11px; }
+      .prototype-controls { left: auto; right: 7px; bottom: 9px; transform: none; }
+      .prototype-controls span { min-width: 104px; }
+      .a-shell, .c-shell { display: block; padding-bottom: 132px; }
+      .a-sidebar, .c-rail, .c-browser { display: none; }
+      .a-topbar, .b-topbar, .c-toolbar { height: 58px; padding: 0 12px 0 126px; }
+      .a-topbar .search { width: 45vw; }
+      .a-topbar .avatar, .b-topbar .context, .b-topbar .brand { display: none; }
+      .b-topbar { display: flex; justify-content: flex-end; }
+      .a-content, .b-canvas, .c-document { padding: 24px 15px; }
+      .a-hero, .a-grid, .b-lanes, .draft-diff { grid-template-columns: 1fr; }
+      .a-grid .card { min-height: 0; }
+      .resume-card { min-height: 220px; }
+      .b-lanes .lane:not(:first-child) { display: none; }
+      .question-box { text-align: left; margin-bottom: 28px; }
+      .b-dock { display: none; }
+      .mobile-tabs { position: fixed; z-index: 20; left: 0; right: 0; bottom: 62px; display: flex; justify-content: space-around; border-top: 1px solid var(--line); background: white; padding: 8px 4px; }
+      .mobile-tabs button { border: 0; background: transparent; font-size: 11px; }
+      .mobile-tabs button.active { color: var(--forest); font-weight: 850; }
+      .source-page { border: 0; padding-left: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="prototype-flag">THROWAWAY PROTOTYPE</div>
+  <div id="app"></div>
+  <details class="scenario-picker">
+    <summary>Try a whole-app journey</summary>
+    <div class="scenario-list" id="scenario-list"></div>
+  </details>
+  <details class="state-dump">
+    <summary>Prototype state</summary>
+    <pre id="state"></pre>
+  </details>
+  <div class="prototype-controls" aria-label="Prototype variant switcher">
+    <button id="previous" aria-label="Previous variant">&larr;</button>
+    <span id="variant-label"></span>
+    <button id="next" aria-label="Next variant">&rarr;</button>
+  </div>
+
+  <script>
+    const variants = {
+      A: { name: "Resume cockpit", render: renderA },
+      B: { name: "Question canvas", render: renderB },
+      C: { name: "Library workbench", render: renderC }
+    };
+    const scenarios = [
+      ["home", "1 Return after an interruption"],
+      ["intake", "2 Add something to work with"],
+      ["reading", "3 Read and annotate a Source"],
+      ["research", "4 Follow a Research thread"],
+      ["draft", "5 Review a Draft"],
+      ["learning", "6 Continue a Learning path"],
+      ["exception", "7 Handle an exception"]
+    ];
+    const state = {
+      variant: getVariant(),
+      scenario: new URLSearchParams(location.search).get("scenario") || "home",
+      offline: false,
+      sourceAdded: false,
+      annotationSaved: false,
+      draftAccepted: false,
+      exceptionResolved: false
+    };
+
+    function getVariant() {
+      const key = new URLSearchParams(location.search).get("variant") || "A";
+      return variants[key] ? key : "A";
+    }
+
+    function setUrl(key, value) {
+      const url = new URL(location.href);
+      url.searchParams.set(key, value);
+      history.replaceState({}, "", url);
+    }
+
+    function setVariant(key) {
+      state.variant = key;
+      setUrl("variant", key);
+      render();
+    }
+
+    function cycle(delta) {
+      const keys = Object.keys(variants);
+      const current = keys.indexOf(state.variant);
+      setVariant(keys[(current + delta + keys.length) % keys.length]);
+    }
+
+    function setScenario(key) {
+      state.scenario = key;
+      setUrl("scenario", key);
+      render();
+    }
+
+    function mobileTabs(active) {
+      return `<nav class="mobile-tabs"><button class="${active === "now" ? "active" : ""}">Now</button><button class="${active === "sources" ? "active" : ""}">Sources</button><button class="${active === "research" ? "active" : ""}">Research</button><button class="${active === "learn" ? "active" : ""}">Learn</button><button>More</button></nav>`;
+    }
+
+    function scenarioContent() {
+      const content = {
+        intake: `<section class="scenario-panel"><div class="eyebrow">Intake / one decision at a time</div><h1>What did you find?</h1><p class="muted">Lirna can capture it now. Decide whether it becomes a Source only after its identity and handling are clear.</p><div class="card stack"><label><strong>URL or local file</strong></label><input class="search" style="width:100%" value="https://example.org/attention-and-memory"><div class="row wrap"><span class="pill blue">Web publication</span><span class="pill">Ordinary cloud</span><span class="pill">Publicly accessible</span></div><div class="row space"><button class="button">Keep as Reference</button><button class="button primary" data-action="add-source">${state.sourceAdded ? "Added to Sources" : "Add as Source"}</button></div></div></section>`,
+        reading: `<section class="scenario-panel source-page"><div class="row space"><div><div class="eyebrow">Source / PDF / page 18 of 42</div><h1>Attention and memory in self-directed study</h1></div><span class="pill green">Offline ready</span></div><p>Learning is strengthened when a learner must reconstruct an idea rather than merely encounter it again. The effect depends on the character of the material and the task.</p><p><span class="highlight">A useful interruption preserves the question that made the passage matter, not only the last page viewed.</span></p><div class="margin-note"><strong>Your Annotation</strong><p style="margin:6px 0">This connects resumption to intellectual intent, not session restoration alone.</p><button class="button primary" data-action="save-annotation">${state.annotationSaved ? "Annotation saved" : "Save Annotation"}</button></div><div class="row wrap"><button class="button">Ask about selection</button><button class="button">Branch this question</button><button class="button">Continue Source</button></div></section>`,
+        research: `<section class="scenario-panel"><div class="eyebrow">Research thread / Quick / 4 References</div><h1>What makes resumption preserve thought rather than just screen state?</h1><div class="answer-bubble"><h2>Lirna</h2><p>Resumption needs to reconstruct the purpose of the work: the unresolved question, the evidence currently in tension, and one meaningful continuation. Restoring a page without that intent restores location but not reasoning. <button class="pill blue">3 citations</button></p><div class="evidence-line">“Task context is more effectively reinstated when cues represent the suspended goal...”</div></div><div class="row wrap"><button class="button">Inspect evidence</button><button class="button">Branch this</button><button class="button">Go deeper</button><button class="button primary">Draft one claim</button></div></section>`,
+        draft: `<section class="scenario-panel"><div class="row space"><div><div class="eyebrow">Draft review / proposed Owned-note revision</div><h1>Resumption cues should preserve intent</h1></div><span class="pill amber">Needs your review</span></div><div class="draft-diff"><div class="card"><div class="eyebrow">Current accepted revision</div><p>Resumption should restore a user’s previous location.</p></div><div class="card selected"><div class="eyebrow">Proposed Draft revision</div><p>Resumption should restore the unresolved question and meaningful next action, not only the previous location.</p><div class="row wrap"><span class="pill blue">2 Citations</span><span class="pill">Interpretation</span></div></div></div><div class="card" style="margin-top:12px"><strong>Why this changed</strong><p class="muted">Proposed from “What makes resumption preserve thought?” using one Source and one Owned note. Acceptance writes a new revision to the Vault.</p><div class="row space"><button class="button">Revise Draft</button><button class="button primary" data-action="accept-draft">${state.draftAccepted ? "Accepted revision" : "Accept revision"}</button></div></div></section>`,
+        learning: `<section class="scenario-panel"><div class="eyebrow">Learning path / developing understanding</div><h1>Understand event-driven architecture well enough to design reliable workers</h1><div class="row wrap"><span class="pill green">Exact return point</span><span class="pill">Lesson 3</span><span class="pill">2 unresolved questions</span></div><div class="card selected" style="margin-top:20px"><div class="eyebrow">Continue the current Lesson</div><h2>What belongs in an event?</h2><p>You distinguished commands from events, but your answer made consumers depend on the producer’s current database shape. Try this:</p><p><strong>If the producer deletes a field next month, what fact must the event preserve so this consumer can still explain what happened?</strong></p><textarea class="search" style="width:100%;min-height:84px" placeholder="Work through your answer..."></textarea><div class="row space" style="margin-top:10px"><button class="button">Reopen Source</button><button class="button primary">Commit answer</button></div></div><p class="muted" style="margin-top:14px">No overdue Lesson. No completion penalty. The route changes only after your reasoning gives it a reason to.</p></section>`,
+        exception: `<section class="scenario-panel"><div class="eyebrow">Quiet exception inbox / one affected object</div><h1>An Owned note changed in two places</h1><p class="muted">Other work remains available. Lirna will not silently merge semantic content or overwrite the Vault.</p><div class="card exception"><div class="row space"><strong>Resumption cues should preserve intent.md</strong><span class="pill amber">Needs a choice</span></div><p>Obsidian changed the accepted revision while the desktop client held an offline Draft based on the previous revision.</p><div class="draft-diff"><div><div class="eyebrow">Vault revision / accepted</div><p>Resumption restores the active question and source position.</p></div><div><div class="eyebrow">Offline Draft / provisional</div><p>Resumption restores the unresolved question and one meaningful continuation.</p></div></div><div class="row wrap"><button class="button">Keep both for later</button><button class="button">Revise Draft against Vault</button><button class="button primary" data-action="resolve-exception">${state.exceptionResolved ? "Resolved without data loss" : "Open comparison"}</button></div></div></section>`
+      };
+      return content[state.scenario] || "";
+    }
+
+    function aSidebar() {
+      return `<aside class="a-sidebar"><div class="brand">Lirna</div><div class="eyebrow">Work</div><button class="nav-button active">◉ &nbsp; Now</button><button class="nav-button">◇ &nbsp; Research</button><button class="nav-button">▤ &nbsp; Read</button><button class="nav-button">△ &nbsp; Learn</button><div class="eyebrow">Knowledge</div><button class="nav-button">◫ &nbsp; Sources</button><button class="nav-button">⌁ &nbsp; Notes</button><div class="sync"><div class="row"><span class="status-dot ${state.offline ? "warn" : ""}"></span>${state.offline ? "Offline / work preserved" : "Synced just now"}</div></div></aside>`;
+    }
+
+    function aHome() {
+      return `<div class="a-content"><div class="eyebrow">Tuesday, August 11 / one useful continuation</div><div class="a-hero"><section class="card resume-card"><div class="eyebrow">Resume your thought</div><h1>What makes resumption preserve thought rather than just screen state?</h1><p class="muted">Research thread · You were comparing task context with unresolved questions · 3 References</p><button class="button" data-scenario="research">Continue Research thread</button></section><section class="card a-next"><div><div class="eyebrow">Alongside it</div><h2>Continue the Source</h2><p class="muted">Attention and memory in self-directed study, page 18. Your question is parked beside the passage.</p></div><button class="button" data-scenario="reading">Return to page 18</button></section></div><div class="row space"><h2>Other meaningful next steps</h2><button class="button quiet">See all active work</button></div><div class="a-grid"><section class="card"><span class="pill amber">Draft review</span><h3 style="margin-top:15px">Resumption cues should preserve intent</h3><p class="muted">Proposed revision grounded in 2 Citations.</p><button class="button" data-scenario="draft">Review Draft</button></section><section class="card"><span class="pill green">Learning path</span><h3 style="margin-top:15px">Reliable event-driven workers</h3><p class="muted">Return to the question your last answer exposed.</p><button class="button" data-scenario="learning">Continue Lesson</button></section><section class="card exception"><span class="pill amber">1 exception</span><h3 style="margin-top:15px">Owned-note revisions diverged</h3><p class="muted">No work was discarded. Resolve when ready.</p><button class="button" data-scenario="exception">Inspect</button></section></div></div>`;
+    }
+
+    function renderA() {
+      const body = state.scenario === "home" ? aHome() : `<div class="a-content">${scenarioContent()}</div>`;
+      return `<main class="a-shell">${aSidebar()}<section class="a-main"><header class="a-topbar"><input class="search" placeholder="Ask, search, or add something"><div class="row"><button class="button" data-scenario="intake">+ Add</button><button class="icon-button" data-action="offline">${state.offline ? "↯" : "✓"}</button><span class="avatar">N</span></div></header>${body}</section>${mobileTabs(state.scenario === "learning" ? "learn" : state.scenario === "research" ? "research" : state.scenario === "reading" ? "sources" : "now")}</main>`;
+    }
+
+    function bHome() {
+      return `<div class="b-canvas"><section class="question-box"><div class="eyebrow">Begin with what matters</div><h1>What are you trying to understand?</h1><p class="muted">Ask directly, return to a question, or bring in something new.</p><div class="big-composer"><input placeholder="Ask, search your Vault, or paste a URL"><button class="button primary">Begin</button></div></section><div class="b-lanes"><section class="lane"><div class="lane-head"><strong>Questions in motion</strong><span class="pill">3</span></div><article class="card work-tile"><div class="eyebrow">Resume / Research thread</div><h2>What makes resumption preserve thought?</h2><p class="muted">At a comparison between task context and unresolved questions.</p><button class="button" data-scenario="research">Pick up the thread</button></article><article class="card work-tile learn"><div class="eyebrow">Learning goal</div><h3>Design reliable event-driven workers</h3><p class="muted">Your last explanation changed the next Lesson.</p><button class="button" data-scenario="learning">Continue</button></article></section><section class="lane"><div class="lane-head"><strong>Material beside you</strong><span class="pill">8</span></div><article class="card work-tile read"><div class="eyebrow">Source / page 18</div><h3>Attention and memory in self-directed study</h3><p class="muted">Question parked on a highlighted passage.</p><button class="button" data-scenario="reading">Continue reading</button></article><article class="card work-tile read"><div class="eyebrow">Recently admitted Source</div><h3>Interruptions and goal memory</h3></article></section><section class="lane"><div class="lane-head"><strong>Choices waiting</strong><span class="pill amber">2</span></div><article class="card work-tile learn"><div class="eyebrow">Draft review</div><h3>Resumption cues should preserve intent</h3><button class="button" data-scenario="draft">Review</button></article><article class="card work-tile read"><div class="eyebrow">Exception / no urgency</div><h3>Two revisions need comparison</h3><button class="button" data-scenario="exception">Inspect</button></article></section></div></div>`;
+    }
+
+    function renderB() {
+      const body = state.scenario === "home" ? bHome() : `<div class="b-canvas">${scenarioContent()}</div>`;
+      return `<main class="b-shell"><header class="b-topbar"><div class="brand">Lirna</div><div class="context"><span class="pill green">Question-led workspace</span></div><div class="actions row"><button class="button" data-scenario="intake">Bring something in</button><span class="avatar">N</span></div></header>${body}<nav class="b-dock"><button class="nav-button active" data-scenario="home">In motion</button><button class="nav-button">Library</button><button class="nav-button">Knowledge</button><button class="nav-button">History</button></nav>${mobileTabs(state.scenario === "learning" ? "learn" : state.scenario === "research" ? "research" : "now")}</main>`;
+    }
+
+    function cBrowser() {
+      return `<aside class="c-browser"><input class="search" style="width:100%" placeholder="Filter current view"><h2>${state.scenario === "home" ? "Active work" : "Nearby objects"}</h2><div class="eyebrow" style="margin:16px 9px 6px">Today</div><button class="tree-row ${state.scenario === "research" ? "active" : ""}" data-scenario="research"><span>Resumption and intent</span><span>R</span></button><button class="tree-row ${state.scenario === "reading" ? "active" : ""}" data-scenario="reading"><span>Attention and memory</span><span>S</span></button><button class="tree-row ${state.scenario === "draft" ? "active" : ""}" data-scenario="draft"><span>Resumption cues...</span><span>D</span></button><div class="eyebrow" style="margin:19px 9px 6px">Learning</div><button class="tree-row ${state.scenario === "learning" ? "active" : ""}" data-scenario="learning"><span>Reliable workers</span><span>L</span></button><div class="eyebrow" style="margin:19px 9px 6px">Needs attention</div><button class="tree-row ${state.scenario === "exception" ? "active" : ""}" data-scenario="exception"><span>Revision conflict</span><span>1</span></button></aside>`;
+    }
+
+    function cHome() {
+      return `<div class="c-document"><div class="c-object-tabs"><button class="active">Return point</button><button>Related</button><button>History</button></div><div class="eyebrow">Current workbench / Research thread</div><h1>What makes resumption preserve thought rather than just screen state?</h1><p class="muted">Exact return point: comparing a highlighted Source passage with an Owned note about interruption recovery.</p><div class="card selected"><div class="row space"><strong>Continue from the unresolved question</strong><span class="pill blue">3 References</span></div><p>Does restoring the suspended goal matter more than restoring the visual workspace, or are both necessary?</p><div class="row wrap"><button class="button primary" data-scenario="research">Continue thread</button><button class="button" data-scenario="reading">Open Source beside it</button><button class="button">Park this question</button></div></div><h2 style="margin-top:30px">Workbench queue</h2><div class="stack"><button class="tree-row active" data-scenario="draft"><span>Review “Resumption cues should preserve intent”</span><span class="pill amber">Draft</span></button><button class="tree-row active" data-scenario="learning"><span>Continue reliable-workers Lesson</span><span class="pill green">Learn</span></button><button class="tree-row active" data-scenario="exception"><span>Compare diverged note revisions</span><span class="pill amber">Exception</span></button></div></div>`;
+    }
+
+    function renderC() {
+      const body = state.scenario === "home" ? cHome() : `<div class="c-document">${scenarioContent()}</div>`;
+      return `<main class="c-shell"><nav class="c-rail"><div class="brand">Li</div><button class="icon-button active" data-scenario="home">↗</button><button class="icon-button">S</button><button class="icon-button">R</button><button class="icon-button">N</button><button class="icon-button">L</button><button class="icon-button" data-scenario="intake">+</button></nav>${cBrowser()}<section class="c-workbench"><header class="c-toolbar"><div><strong>${state.scenario === "home" ? "Workbench" : scenarios.find(([key]) => key === state.scenario)?.[1].replace(/^\d\s/, "")}</strong><div class="muted" style="font-size:11px">Structure stays available, never mandatory</div></div><div class="row"><button class="button">Related</button><span class="avatar">N</span></div></header>${body}</section>${mobileTabs(state.scenario === "learning" ? "learn" : state.scenario === "reading" ? "sources" : "now")}</main>`;
+    }
+
+    function bindActions() {
+      document.querySelectorAll("[data-scenario]").forEach(button => button.addEventListener("click", () => setScenario(button.dataset.scenario)));
+      document.querySelectorAll('[data-action="add-source"]').forEach(button => button.addEventListener("click", () => { state.sourceAdded = true; render(); }));
+      document.querySelectorAll('[data-action="save-annotation"]').forEach(button => button.addEventListener("click", () => { state.annotationSaved = true; render(); }));
+      document.querySelectorAll('[data-action="accept-draft"]').forEach(button => button.addEventListener("click", () => { state.draftAccepted = true; render(); }));
+      document.querySelectorAll('[data-action="resolve-exception"]').forEach(button => button.addEventListener("click", () => { state.exceptionResolved = true; render(); }));
+      document.querySelectorAll('[data-action="offline"]').forEach(button => button.addEventListener("click", () => { state.offline = !state.offline; render(); }));
+    }
+
+    function render() {
+      if (!scenarios.some(([key]) => key === state.scenario)) state.scenario = "home";
+      document.getElementById("app").innerHTML = variants[state.variant].render();
+      document.getElementById("variant-label").textContent = `${state.variant} - ${variants[state.variant].name}`;
+      document.getElementById("scenario-list").innerHTML = scenarios.map(([key, label]) => `<button class="scenario-button ${state.scenario === key ? "active" : ""}" data-scenario="${key}">${label}</button>`).join("");
+      document.getElementById("state").textContent = JSON.stringify(state, null, 2);
+      bindActions();
+    }
+
+    document.getElementById("previous").addEventListener("click", () => cycle(-1));
+    document.getElementById("next").addEventListener("click", () => cycle(1));
+    addEventListener("keydown", event => {
+      if (["INPUT", "TEXTAREA"].includes(event.target.tagName) || event.target.isContentEditable) return;
+      if (event.key === "ArrowLeft") cycle(-1);
+      if (event.key === "ArrowRight") cycle(1);
+    });
+    addEventListener("popstate", () => {
+      state.variant = getVariant();
+      state.scenario = new URLSearchParams(location.search).get("scenario") || "home";
+      render();
+    });
+    render();
+  </script>
+</body>
+</html>

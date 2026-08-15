@@ -1,0 +1,400 @@
+<!doctype html>
+<!-- PROTOTYPE ONLY: Three sourced-research workspace variants, switchable via ?variant=A|B|C. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lirna sourced research prototype</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17211f;
+      --muted: #68726f;
+      --paper: #f5f3ed;
+      --panel: #fffefa;
+      --line: #d8d5ca;
+      --green: #176b58;
+      --amber: #9b5a12;
+      --red: #a53d34;
+      --blue: #315b88;
+      --shadow: 0 16px 50px rgba(22, 33, 31, .12);
+      font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: var(--paper); color: var(--ink); }
+    button, input, textarea { font: inherit; }
+    button { cursor: pointer; }
+    .prototype-flag {
+      position: fixed; z-index: 20; top: 12px; left: 12px; padding: 6px 10px;
+      border: 1px solid #f1c571; border-radius: 999px; background: #fff4cc;
+      color: #6a4700; font: 700 11px/1 ui-monospace, monospace; letter-spacing: .08em;
+    }
+    .shell { min-height: 100vh; padding-bottom: 96px; }
+    .topbar {
+      height: 62px; padding: 0 22px 0 160px; display: flex; align-items: center;
+      justify-content: space-between; border-bottom: 1px solid var(--line); background: rgba(255,254,250,.9);
+    }
+    .brand { font-family: Georgia, serif; font-size: 21px; font-weight: 700; }
+    .thread-title { color: var(--muted); font-size: 13px; }
+    .actions, .chips, .scope-items, .meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .button, .chip, .icon-button {
+      border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 9px;
+      padding: 8px 11px; font-size: 13px;
+    }
+    .button.primary { border-color: var(--green); background: var(--green); color: white; }
+    .button.ghost { background: transparent; }
+    .button:focus-visible, .chip:focus-visible { outline: 3px solid #9bc7bc; outline-offset: 2px; }
+    .chip { border-radius: 999px; padding: 6px 9px; }
+    .chip.active { border-color: #8eb8ad; background: #e5f2ee; color: #0e5747; }
+    .chip.off { opacity: .48; text-decoration: line-through; }
+    .eyebrow { color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { font-family: Georgia, serif; font-size: clamp(26px, 4vw, 44px); line-height: 1.08; }
+    h2 { font-family: Georgia, serif; font-size: 22px; }
+    h3 { font-size: 14px; }
+    p { line-height: 1.58; }
+    .muted { color: var(--muted); }
+    .card { border: 1px solid var(--line); border-radius: 14px; background: var(--panel); padding: 16px; }
+    .citation {
+      display: inline-grid; place-items: center; min-width: 21px; height: 21px; margin: 0 2px;
+      border: 0; border-radius: 6px; background: #dce9f6; color: #234c78; font-weight: 800; font-size: 11px;
+    }
+    .citation.selected { outline: 2px solid var(--blue); }
+    .marker { display: inline-flex; gap: 5px; align-items: center; border-radius: 6px; padding: 3px 6px; font-size: 11px; font-weight: 700; }
+    .marker.conflict { background: #f8dfda; color: var(--red); }
+    .marker.indirect { background: #faead5; color: var(--amber); }
+    .claim { border-left: 3px solid transparent; padding-left: 12px; }
+    .claim.selected { border-color: var(--blue); }
+    .evidence-passage { border-left: 3px solid #82a89f; padding-left: 12px; font-family: Georgia, serif; line-height: 1.55; }
+    .relation { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--green); }
+    .relation.conflicts { color: var(--red); }
+    .composer textarea {
+      width: 100%; min-height: 66px; resize: vertical; border: 1px solid var(--line); border-radius: 11px;
+      background: white; color: var(--ink); padding: 12px;
+    }
+    .composer-foot { display: flex; justify-content: space-between; gap: 12px; margin-top: 9px; }
+    .ledger-row { padding: 12px 0; border-top: 1px solid var(--line); }
+    .ledger-row:first-of-type { border-top: 0; }
+    .ledger-row strong { display: block; margin-bottom: 3px; }
+    .source-kind { color: var(--blue); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+    .step-nav { display: flex; gap: 6px; overflow-x: auto; padding: 10px 16px; border-bottom: 1px solid var(--line); background: #e9e6de; }
+    .step-nav button { white-space: nowrap; }
+    .step-nav button.active { background: var(--ink); color: white; border-color: var(--ink); }
+    .stage-note { display: none; margin: 14px auto; max-width: 900px; border: 1px dashed #ba9d64; border-radius: 10px; background: #fff8e4; padding: 10px 13px; font-size: 13px; }
+    .stage-note.visible { display: block; }
+    .state-dump {
+      position: fixed; z-index: 16; right: 12px; bottom: 82px; width: min(390px, calc(100vw - 24px));
+      max-height: 38vh; overflow: auto; border-radius: 10px; background: #111918; color: #d4ebe4;
+      padding: 11px 13px; box-shadow: var(--shadow); font: 11px/1.5 ui-monospace, monospace;
+    }
+    .state-dump summary { cursor: pointer; font-weight: 800; }
+    .state-dump pre { white-space: pre-wrap; margin-bottom: 0; }
+    .switcher {
+      position: fixed; z-index: 30; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex;
+      align-items: center; gap: 5px; padding: 6px; border: 1px solid #42504c; border-radius: 999px;
+      background: #121c1a; color: white; box-shadow: var(--shadow);
+    }
+    .switcher button { border: 0; border-radius: 999px; background: #2c3936; color: white; width: 35px; height: 35px; }
+    .switcher span { min-width: 190px; text-align: center; font-size: 12px; font-weight: 750; }
+
+    /* Variant A: conventional three-pane evidence workbench. */
+    .a-layout { display: grid; grid-template-columns: 230px minmax(320px, 1fr) 330px; min-height: calc(100vh - 106px); }
+    .a-scope, .a-evidence { padding: 22px 16px; background: #efede6; }
+    .a-scope { border-right: 1px solid var(--line); }
+    .a-evidence { border-left: 1px solid var(--line); }
+    .a-answer { padding: 30px clamp(20px, 5vw, 70px); }
+    .scope-group { margin-bottom: 22px; }
+    .scope-item { display: flex; justify-content: space-between; gap: 8px; padding: 8px 0; font-size: 13px; }
+    .scope-item button { border: 0; background: none; color: var(--muted); }
+    .answer-status { display: flex; justify-content: space-between; gap: 10px; padding-bottom: 14px; margin-bottom: 20px; border-bottom: 1px solid var(--line); }
+
+    /* Variant B: claim audit table with evidence directly underneath. */
+    .b-wrap { max-width: 1180px; margin: auto; padding: 30px 22px; }
+    .b-scope { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 20px; }
+    .b-question { background: #13201d; color: white; padding: 28px; border-radius: 4px; }
+    .b-question h1 { max-width: 850px; margin-bottom: 10px; }
+    .audit-row { display: grid; grid-template-columns: minmax(280px, 1.25fr) minmax(280px, 1fr); border: 1px solid var(--line); border-top: 0; background: var(--panel); }
+    .audit-row:first-of-type { border-top: 1px solid var(--line); margin-top: 20px; }
+    .audit-claim, .audit-proof { padding: 20px; }
+    .audit-proof { border-left: 1px solid var(--line); background: #f1f4f1; }
+    .b-ledger { margin-top: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .b-composer { position: sticky; bottom: 76px; max-width: 820px; margin: 24px auto 0; box-shadow: var(--shadow); }
+
+    /* Variant C: chronological research notebook. */
+    .c-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; max-width: 1120px; margin: auto; }
+    .c-notebook { padding: 36px clamp(20px, 6vw, 80px); border-left: 1px solid #c9c1b0; }
+    .c-margin { padding: 30px 18px; background: #ebe6da; border-left: 1px solid var(--line); }
+    .timeline-item { position: relative; padding: 0 0 34px 30px; border-left: 2px solid #bdb4a2; }
+    .timeline-item::before { content: ""; position: absolute; left: -7px; top: 0; width: 12px; height: 12px; border-radius: 50%; background: var(--green); }
+    .timeline-item .card { border-radius: 2px; }
+    .checkpoint { border: 2px solid var(--amber); background: #fff9e8; }
+    .draft-sheet { border: 2px solid var(--green); background: #f0f7f3; }
+
+    .stage-deep, .stage-draft { display: none; }
+    body[data-stage="deep"] .stage-deep, body[data-stage="draft"] .stage-draft { display: block; }
+    body[data-stage="deep"] .stage-answer, body[data-stage="draft"] .stage-answer { display: none; }
+
+    @media (max-width: 850px) {
+      .topbar { padding-left: 128px; }
+      .thread-title { display: none; }
+      .a-layout, .c-layout { display: block; }
+      .a-scope { border-right: 0; border-bottom: 1px solid var(--line); }
+      .a-evidence { border-left: 0; border-top: 1px solid var(--line); }
+      .b-scope { align-items: flex-start; flex-direction: column; }
+      .audit-row { grid-template-columns: 1fr; }
+      .audit-proof { border-left: 0; border-top: 1px solid var(--line); }
+      .b-ledger { grid-template-columns: 1fr; }
+      .c-margin { border-left: 0; border-top: 1px solid var(--line); }
+      .state-dump { display: none; }
+    }
+
+    /* Round two: chat first. Trust tooling is progressively disclosed. */
+    .simple-topbar { height: 58px; padding: 0 18px 0 190px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); background: white; }
+    .walkthrough { position: fixed; z-index: 25; left: 14px; bottom: 18px; width: 220px; }
+    .walkthrough summary { list-style: none; border: 1px solid #42504c; border-radius: 999px; background: #121c1a; color: white; padding: 12px 16px; cursor: pointer; font-size: 12px; font-weight: 750; box-shadow: var(--shadow); }
+    .walkthrough[open] summary { border-radius: 12px 12px 0 0; }
+    .walkthrough .walkthrough-body { border: 1px solid #42504c; border-top: 0; border-radius: 0 0 12px 12px; background: white; padding: 8px; box-shadow: var(--shadow); }
+    .walkthrough .walkthrough-body button { width: 100%; margin: 3px 0; text-align: left; }
+    .chat-frame { min-height: calc(100vh - 58px); }
+    .thread-sidebar { width: 250px; padding: 22px 14px; border-right: 1px solid var(--line); background: #efede7; }
+    .thread-link { width: 100%; border: 0; border-radius: 9px; background: transparent; padding: 10px; text-align: left; color: var(--muted); }
+    .thread-link.active { background: white; color: var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    .chat-column { width: min(760px, calc(100% - 32px)); margin: 0 auto; padding: 42px 0 130px; }
+    .user-message { width: fit-content; max-width: 82%; margin-left: auto; border-radius: 18px 18px 4px 18px; background: #e6e4dd; padding: 12px 16px; }
+    .assistant-message { margin-top: 30px; }
+    .assistant-message h2 { font-size: 17px; margin-bottom: 8px; }
+    .answer-tools { display: flex; gap: 5px; margin-top: 14px; }
+    .answer-tools button { border: 0; background: transparent; color: var(--muted); padding: 5px 7px; font-size: 12px; }
+    .disclosure { margin-top: 15px; border-top: 1px solid var(--line); padding-top: 12px; }
+    .disclosure summary { cursor: pointer; color: var(--muted); font-size: 12px; font-weight: 750; }
+    .disclosure-content { margin-top: 12px; }
+    .citation-subtle { border: 0; border-radius: 999px; background: #e9edf2; color: #3c536d; padding: 2px 7px; font-size: 10px; font-weight: 800; }
+    .chat-composer { position: fixed; z-index: 12; left: 50%; bottom: 75px; transform: translateX(-50%); width: min(760px, calc(100% - 32px)); border: 1px solid #bfc4c0; border-radius: 18px; background: white; padding: 11px; box-shadow: 0 8px 35px rgba(22,33,31,.13); }
+    .chat-composer textarea { min-height: 44px; border: 0; resize: none; }
+    .chat-composer textarea:focus { outline: 0; }
+    .composer-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .round-button { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: white; }
+    .mode-button { border: 0; background: transparent; color: var(--muted); padding: 7px; font-size: 12px; }
+    .details-drawer { position: fixed; z-index: 18; top: 58px; right: 0; bottom: 0; width: min(390px, 100vw); overflow: auto; border-left: 1px solid var(--line); background: white; padding: 24px; box-shadow: -18px 0 50px rgba(22,33,31,.12); }
+    .details-drawer[hidden] { display: none; }
+    .details-drawer .close { float: right; }
+    .scope-popover { position: fixed; z-index: 19; left: 50%; bottom: 160px; transform: translateX(-50%); width: min(420px, calc(100% - 32px)); background: white; border: 1px solid var(--line); border-radius: 14px; padding: 16px; box-shadow: var(--shadow); }
+    .scope-popover[hidden] { display: none; }
+    .focus-header { max-width: 760px; margin: auto; padding: 22px 0; display: flex; justify-content: space-between; align-items: center; }
+    .compact-rail { width: 66px; border-right: 1px solid var(--line); background: #1b2724; display: flex; flex-direction: column; align-items: center; gap: 14px; padding-top: 18px; }
+    .compact-rail button { width: 36px; height: 36px; border: 0; border-radius: 9px; background: #34433f; color: white; }
+    .centered-welcome { text-align: center; padding-top: 8vh; }
+    .centered-welcome h1 { font-size: 30px; }
+    .blank-chat { display: grid; place-items: center; min-height: calc(100vh - 58px); }
+    .blank-chat .chat-composer { position: static; transform: none; width: min(680px, calc(100vw - 32px)); }
+    @media (max-width: 850px) {
+      .simple-topbar { padding-left: 8px; justify-content: flex-end; }
+      .simple-topbar .brand { display: none; }
+      .thread-sidebar, .compact-rail { display: none; }
+      .walkthrough { left: 8px; bottom: 12px; width: 165px; }
+      .switcher { left: auto; right: 8px; transform: none; bottom: 12px; }
+      .switcher span { min-width: 105px; }
+      .chat-column { padding-top: 26px; }
+    }
+  </style>
+</head>
+<body data-stage="answer">
+  <div class="prototype-flag">THROWAWAY PROTOTYPE</div>
+  <div id="app"></div>
+  <details class="state-dump">
+    <summary>Prototype state</summary>
+    <pre id="state"></pre>
+  </details>
+  <div class="switcher" aria-label="Prototype variant switcher">
+    <button id="previous" aria-label="Previous variant">&larr;</button>
+    <span id="variant-label"></span>
+    <button id="next" aria-label="Next variant">&rarr;</button>
+  </div>
+
+  <script>
+    const variants = {
+      A: { name: "Threaded chat", render: renderA },
+      B: { name: "Focus mode", render: renderB },
+      C: { name: "Compact chat", render: renderC }
+    };
+    const steps = [
+      ["scope", "1 Scope composer"],
+      ["ledger", "2 Source ledger"],
+      ["evidence", "3 Evidence lens"],
+      ["uncertainty", "4 Contradiction"],
+      ["deep", "5 Deep checkpoint"],
+      ["draft", "6 Answer to Draft"]
+    ];
+    const state = {
+      variant: getVariant(), stage: "answer", focus: "chat", selectedClaim: 2,
+      scope: { Web: true, Vault: true, Sources: true, "Selected passage": true },
+      sourceCount: 4, referenceCount: 3, evidencePanel: false, scopeOpen: false,
+      uncertainty: ["conflicting", "indirect"], deepStarted: false, draftCreated: false,
+      auditMode: new URLSearchParams(location.search).get("audit") === "1"
+    };
+
+    function getVariant() {
+      const key = new URLSearchParams(location.search).get("variant") || "B";
+      return variants[key] ? key : "A";
+    }
+
+    function setVariant(key) {
+      const url = new URL(location.href);
+      url.searchParams.set("variant", key);
+      history.replaceState({}, "", url);
+      state.variant = key;
+      render();
+    }
+
+    function cycle(delta) {
+      const keys = Object.keys(variants);
+      const index = keys.indexOf(state.variant);
+      setVariant(keys[(index + delta + keys.length) % keys.length]);
+    }
+
+    function topbar() {
+      return `<header class="simple-topbar"><div class="brand">Lirna</div><div class="actions"><button class="button ghost">New thread</button><button class="button ghost">Settings</button></div></header>${stepNav()}`;
+    }
+
+    function stepNav() {
+      return `<details class="walkthrough"><summary>Test trust checkpoints</summary><div class="walkthrough-body">${steps.map(([key, label]) => `<button class="button ${state.focus === key ? "primary" : ""}" data-step="${key}">${label}</button>`).join("")}</div></details>`;
+    }
+
+    function stageNote() {
+      const notes = {
+        scope: "Try disabling Web or Vault. Scope remains visible and follow-ups inherit it.",
+        ledger: "References ground this answer without becoming Sources. Admission is always explicit.",
+        evidence: "Select citation 2 to inspect exact evidence, context, locator, version, and relation.",
+        uncertainty: "The claim carries typed causes, not a confidence score. Conflicting positions remain visible."
+      };
+      return notes[state.focus] || "";
+    }
+
+    function scopeChips() {
+      return Object.entries(state.scope).map(([name, on]) => `<button class="chip ${on ? "active" : "off"}" data-scope="${name}">${name}</button>`).join("");
+    }
+
+    function answerClaims(mode = "plain") {
+      if (mode === "audit") return `
+        <div class="audit-row"><section class="audit-claim"><div class="eyebrow">Claim 1 / supported</div><p>Reviews that require retrieval improve later recall more than repeated reading under comparable conditions.</p></section><section class="audit-proof"><div class="relation">supports</div><p class="evidence-passage">Taking a memory test not only assesses what one knows, but enhances later retention...</p><div class="muted">Roediger &amp; Karpicke, 2006, p. 249</div></section></div>
+        <div class="audit-row"><section class="audit-claim"><div class="eyebrow">Claim 2 / contested boundary</div><p>The optimal interval depends on the desired retention period. <span class="marker conflict">conflicting</span> <span class="marker indirect">indirect</span></p></section><section class="audit-proof"><div class="relation">qualifies</div><p class="evidence-passage">The optimal gap increased as the final test delay increased...</p><div class="relation conflicts">conflicts</div><p class="evidence-passage">A fixed expanding schedule showed no general advantage in this classroom study.</p></section></div>`;
+      return `
+        <section class="claim"><p>Reviews that require retrieval improve later recall more than repeated reading under comparable conditions. <button class="citation" data-citation="1">1</button></p></section>
+        <section class="claim ${state.selectedClaim === 2 ? "selected" : ""}"><p>The interval that works best depends on how long the knowledge must be retained. <button class="citation ${state.selectedClaim === 2 ? "selected" : ""}" data-citation="2">2</button> <span class="marker conflict">conflicting</span> <span class="marker indirect">indirect</span></p><p>Evidence does not support one universally optimal schedule. The disagreement appears to turn on final-test delay and study setting. <button class="citation" data-citation="3">3</button></p></section>`;
+    }
+
+    function evidenceLens() {
+      return `<div class="eyebrow">Evidence for claim 2 / Citation 2 of 3</div><h2>Spacing effects across retention intervals</h2><div class="relation">qualifies claim</div><p class="evidence-passage">The optimal gap increased as the final test delay increased, from about 20% to 40% of the test delay.</p><p class="muted">Surrounding context: experimental comparison across 26 study-test intervals.</p><div class="meta"><span class="chip">Cepeda et al.</span><span class="chip">2008</span><span class="chip">p. 1098</span><span class="chip">observed version current</span></div><div class="actions" style="margin-top:14px"><button class="button">Open Reference</button><button class="button primary" data-action="admit">Add as Source</button></div>`;
+    }
+
+    function ledger() {
+      return `<div class="ledger-row"><span class="source-kind">Source / admitted</span><strong>Make It Stick</strong><span class="muted">EPUB, 3 cited passages</span></div><div class="ledger-row"><span class="source-kind">Reference / answer evidence</span><strong>Spacing effects in learning</strong><span class="muted">Web publication, observed today</span></div><div class="ledger-row"><span class="source-kind">Reference / conflicting</span><strong>Expanding retrieval practice</strong><span class="muted">PDF, 1 cited passage</span></div>`;
+    }
+
+    function composer() {
+      return `<div class="composer"><textarea aria-label="Follow-up question">Does this still hold for conceptual material rather than facts?</textarea><div class="composer-foot"><div class="scope-items">${scopeChips()}</div><button class="button primary">Ask</button></div></div>`;
+    }
+
+    function deepCheckpoint() {
+      return `<section class="card checkpoint"><div class="eyebrow">Deep research checkpoint / not started</div><h2>Confirm the investigation before Lirna spends the effort</h2><p><strong>Working question:</strong> When and why does spaced retrieval improve durable conceptual learning?</p><h3>Clarifications</h3><p>Include adult self-study and higher education. Prefer measured retention after at least one week. Exclude clinical rehabilitation.</p><h3>Editable plan</h3><ol><li>Separate spacing effects from retrieval-practice effects.</li><li>Compare factual and conceptual outcomes.</li><li>Preserve disagreements by study setting.</li><li>Stop after saturation or 20 admitted publications.</li></ol><div class="chips"><span class="chip active">Web</span><span class="chip active">Vault</span><span class="chip active">4 Sources</span></div><div class="actions" style="margin-top:16px"><button class="button">Edit plan</button><button class="button">Proceed with assumptions</button><button class="button primary" data-action="start-deep">Start deep research</button></div></section>`;
+    }
+
+    function draftTransition() {
+      return `<section class="card draft-sheet"><div class="eyebrow">Candidate atomic claims / no Draft yet</div><h2>What should become durable knowledge?</h2><p>The answer stays in this Research thread. Choose one claim to create exactly one Draft.</p><label class="card" style="display:block;margin:10px 0"><input type="radio" name="claim" checked> Retrieval practice improves delayed recall more than restudy under comparable conditions.</label><label class="card" style="display:block;margin:10px 0"><input type="radio" name="claim"> The useful spacing interval scales with the desired retention period.</label><label class="card" style="display:block;margin:10px 0"><input type="radio" name="claim"> Revise existing Owned note: "Spaced review strengthens memory"</label><div class="actions"><button class="button">Describe a different note</button><button class="button primary" data-action="create-draft">Create one Draft for review</button></div></section>`;
+    }
+
+    function simpleAnswer() {
+      return `<div class="assistant-message"><h2>Lirna</h2><p>Spaced reviews improve retention because recalling something strengthens access to it, while the delay makes each retrieval effortful enough to matter. The most useful interval is not fixed: it generally grows with how long you want to retain the material. <button class="citation-subtle" data-citation="2">3 sources</button></p><p>The evidence is strongest for delayed recall. Results for conceptual transfer are promising but less consistent.</p><div class="answer-tools"><button>Copy</button><button data-action="show-details">Sources</button><button data-action="draft">Draft note</button><button data-action="deep">Go deeper</button></div>${hiddenTrust()}</div>`;
+    }
+
+    function hiddenTrust() {
+      if (state.focus !== "uncertainty") return "";
+      return `<details class="disclosure" open><summary>Evidence note</summary><div class="disclosure-content"><span class="marker conflict">conflicting</span> <span class="marker indirect">indirect</span><p class="muted">Studies disagree about a fixed expanding schedule, and conceptual-transfer evidence is indirect. This does not change the core answer.</p></div></details>`;
+    }
+
+    function simpleComposer(extra = "") {
+      return `<div class="chat-composer"><textarea aria-label="Message" placeholder="Ask anything"></textarea><div class="composer-row"><div><button class="round-button" data-action="scope" aria-label="Add context">+</button>${extra}</div><div class="actions"><button class="mode-button" data-action="deep">Quick</button><button class="round-button primary">&uarr;</button></div></div></div>`;
+    }
+
+    function trustDrawer() {
+      return `<aside class="details-drawer" ${state.evidencePanel ? "" : "hidden"}><button class="button close" data-action="close-details">Close</button><div class="eyebrow">Sources for this answer</div><h2>3 References</h2>${state.focus === "evidence" ? evidenceLens() : ledger()}${state.focus !== "evidence" ? `<div class="actions" style="margin-top:12px"><button class="button" data-step="evidence">Inspect cited passage</button>${state.variant === "B" ? `<button class="button primary" data-action="audit">Audit claims</button>` : ""}</div>` : ""}</aside>`;
+    }
+
+    function scopePopover() {
+      return `<section class="scope-popover" ${state.scopeOpen ? "" : "hidden"}><div class="eyebrow">Context for the next message</div><h2>Choose where Lirna can look</h2><div class="chips">${scopeChips()}</div><p class="muted" style="margin-top:12px">These choices carry into follow-ups. Nothing broadens silently.</p></section>`;
+    }
+
+    function activeStage() {
+      if (state.stage === "deep") return deepCheckpoint();
+      if (state.stage === "draft") return draftTransition();
+      return `<div class="user-message">Why do spaced reviews improve retention?</div>${simpleAnswer()}`;
+    }
+
+    function auditView() {
+      return `<div class="actions" style="justify-content:space-between;margin-bottom:18px"><div><div class="eyebrow">Evidence mode</div><strong>Claims paired with their cited passages</strong></div><button class="button" data-action="audit">Back to chat</button></div><header class="b-question"><div class="eyebrow">Grounded Quick answer</div><h1>Why do spaced reviews improve retention?</h1><span>This inspection view is temporary; the Research thread remains a chat.</span></header>${answerClaims("audit")}<section class="b-ledger">${ledger()}</section>`;
+    }
+
+    function renderA() {
+      return `<main class="shell">${topbar()}<div class="chat-frame" style="display:flex"><aside class="thread-sidebar"><button class="button primary" style="width:100%;margin-bottom:18px">+ New thread</button><div class="eyebrow">Today</div><button class="thread-link active">Why spaced reviews work</button><button class="thread-link">Reading notes on actualism</button><div class="eyebrow" style="margin-top:22px">Yesterday</div><button class="thread-link">PDF annotation anchors</button></aside><section style="flex:1;min-width:0"><article class="chat-column">${activeStage()}</article>${state.stage === "answer" ? simpleComposer() : ""}</section></div>${trustDrawer()}${scopePopover()}</main>`;
+    }
+
+    function renderB() {
+      return `<main class="shell">${topbar()}<div class="chat-frame"><header class="focus-header"><div><strong>Why spaced reviews work</strong><div class="muted" style="font-size:12px">Research thread</div></div><button class="button">Thread menu</button></header><article class="${state.auditMode ? "b-wrap" : "chat-column"}">${state.auditMode ? auditView() : activeStage()}</article>${state.stage === "answer" && !state.auditMode ? simpleComposer(`<button class="mode-button" data-action="show-details">3 sources</button>`) : ""}</div>${trustDrawer()}${scopePopover()}</main>`;
+    }
+
+    function renderC() {
+      const isEmpty = state.focus === "scope" && state.stage === "answer";
+      return `<main class="shell">${topbar()}<div class="chat-frame" style="display:flex"><nav class="compact-rail"><button>+</button><button>Q</button><button>R</button></nav><section style="flex:1;min-width:0">${isEmpty ? `<div class="blank-chat"><div><div class="centered-welcome"><div class="eyebrow">New Research thread</div><h1>What are you working through?</h1><p class="muted">Ask directly. Add Sources or adjust scope only when you need to.</p></div>${simpleComposer(`<button class="mode-button" data-action="show-details">Context</button>`)}</div></div>` : `<article class="chat-column">${activeStage()}</article>${state.stage === "answer" ? simpleComposer(`<button class="mode-button" data-action="show-details">Details</button>`) : ""}`}</section></div>${trustDrawer()}${scopePopover()}</main>`;
+    }
+
+    function render() {
+      document.body.dataset.stage = state.stage;
+      document.getElementById("app").innerHTML = variants[state.variant].render();
+      document.getElementById("variant-label").textContent = `${state.variant} - ${variants[state.variant].name}`;
+      document.getElementById("state").textContent = JSON.stringify(state, null, 2);
+      bindActions();
+    }
+
+    function bindActions() {
+      document.querySelectorAll("[data-scope]").forEach(button => button.addEventListener("click", () => {
+        const key = button.dataset.scope; state.scope[key] = !state.scope[key]; render();
+      }));
+      document.querySelectorAll("[data-citation]").forEach(button => button.addEventListener("click", () => {
+        state.selectedClaim = Number(button.dataset.citation); state.evidencePanel = true; state.focus = "evidence"; render();
+      }));
+      document.querySelectorAll("[data-step]").forEach(button => button.addEventListener("click", () => {
+        state.focus = button.dataset.step;
+        state.stage = ["deep", "draft"].includes(state.focus) ? state.focus : "answer";
+        state.evidencePanel = ["ledger", "evidence"].includes(state.focus);
+        state.scopeOpen = state.focus === "scope";
+        render();
+      }));
+      document.querySelectorAll('[data-action="draft"]').forEach(button => button.addEventListener("click", () => { state.focus = "draft"; state.stage = "draft"; render(); }));
+      document.querySelectorAll('[data-action="deep"]').forEach(button => button.addEventListener("click", () => { state.focus = "deep"; state.stage = "deep"; render(); }));
+      document.querySelectorAll('[data-action="scope"]').forEach(button => button.addEventListener("click", () => { state.focus = "scope"; state.scopeOpen = !state.scopeOpen; render(); }));
+      document.querySelectorAll('[data-action="show-details"]').forEach(button => button.addEventListener("click", () => { state.focus = "ledger"; state.evidencePanel = true; render(); }));
+      document.querySelectorAll('[data-action="close-details"]').forEach(button => button.addEventListener("click", () => { state.evidencePanel = false; render(); }));
+      document.querySelectorAll('[data-action="audit"]').forEach(button => button.addEventListener("click", () => {
+        state.auditMode = !state.auditMode; state.evidencePanel = false;
+        const url = new URL(location.href);
+        state.auditMode ? url.searchParams.set("audit", "1") : url.searchParams.delete("audit");
+        history.replaceState({}, "", url); render();
+      }));
+      document.querySelectorAll('[data-action="admit"]').forEach(button => button.addEventListener("click", () => { state.sourceCount++; state.referenceCount--; render(); }));
+      document.querySelectorAll('[data-action="start-deep"]').forEach(button => button.addEventListener("click", () => { state.deepStarted = true; render(); }));
+      document.querySelectorAll('[data-action="create-draft"]').forEach(button => button.addEventListener("click", () => { state.draftCreated = true; render(); }));
+    }
+
+    document.getElementById("previous").addEventListener("click", () => cycle(-1));
+    document.getElementById("next").addEventListener("click", () => cycle(1));
+    addEventListener("keydown", event => {
+      const tag = event.target.tagName;
+      if (["INPUT", "TEXTAREA"].includes(tag) || event.target.isContentEditable) return;
+      if (event.key === "ArrowLeft") cycle(-1);
+      if (event.key === "ArrowRight") cycle(1);
+    });
+    addEventListener("popstate", () => { state.variant = getVariant(); render(); });
+    render();
+  </script>
+</body>
+</html>
