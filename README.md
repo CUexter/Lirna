@@ -1,96 +1,113 @@
-# rewrite
+# Lirna
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, TanStack Router, Hono, TRPC, and more.
+Lirna is a first-party, self-hosted personal research and learning application
+for desktop and mobile. See [`CONTEXT.md`](./CONTEXT.md) for the domain language
+and [`docs/adr/`](./docs/adr) for architectural decisions.
+
+The project uses [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack),
+a modern TypeScript stack combining React, TanStack Router, Hono, tRPC, and more.
 
 ## Features
 
-- **TypeScript** - For type safety and improved developer experience
+- **TypeScript** - Type safety and an improved developer experience
 - **TanStack Router** - File-based routing with full type safety
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
+- **Tailwind CSS** - Utility-first CSS for rapid UI development
+- **Shared UI package** - shadcn/ui primitives in `packages/ui`
 - **Hono** - Lightweight, performant server framework
 - **tRPC** - End-to-end type-safe APIs
-- **Bun** - Runtime environment
+- **Bun** - Runtime and package manager
 - **Drizzle** - TypeScript-first ORM
 - **PostgreSQL** - Database engine
-- **Authentication** - Better-Auth
+- **Better Auth** - Authentication
 - **Biome** - Linting and formatting
 - **Husky** - Git hooks for code quality
 - **PWA** - Progressive Web App support
-- **Tauri** - Build native desktop applications
-- **Starlight** - Documentation site with Astro
+- **Tauri** - Native desktop application support
+- **Starlight** - Astro-powered documentation site
 - **Vite+** - Unified Vite toolchain, workspace task runner, linting, and formatting
+
+## Boundaries
+
+- Owned knowledge remains plain Markdown compatible with Obsidian and Neovim.
+- AI-written knowledge remains provisional until Nathan explicitly owns it.
+- Vault content and personal source material never belong in this repository.
+- The product is single-user and hosted on Nathan-controlled infrastructure.
 
 ## Getting Started
 
-First, install the dependencies:
+Install dependencies from the project root:
 
 ```bash
 bun install
 ```
 
-## Database Setup
+### Database Setup
 
-This project uses PostgreSQL with Drizzle ORM.
+Lirna uses PostgreSQL with Drizzle ORM.
 
-1. Make sure you have a PostgreSQL database set up.
-2. Update your `apps/server/.env` file with your PostgreSQL connection details.
-
-3. Apply the schema to your database:
+1. Set up a PostgreSQL database.
+2. Add the PostgreSQL connection details to `apps/server/.env`.
+3. Apply the schema:
 
 ```bash
 bun run db:push
 ```
 
-Then, run the development server:
+Start all development applications:
 
 ```bash
 bun run dev
 ```
 
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application.
-The API is running at [http://localhost:3000](http://localhost:3000).
+Open <http://localhost:3001> for the web application. The API runs at
+<http://localhost:3000>.
 
 ## UI Customization
 
-React web apps in this stack share shadcn/ui primitives through `packages/ui`.
+React web apps share shadcn/ui primitives through `packages/ui`.
 
-- Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Update shared primitives in `packages/ui/src/components/*`
-- Adjust shadcn aliases or style config in `packages/ui/components.json` and `apps/web/components.json`
+- Change design tokens and global styles in `packages/ui/src/styles/globals.css`.
+- Update shared primitives in `packages/ui/src/components/*`.
+- Adjust shadcn aliases or style configuration in `packages/ui/components.json`
+  and `apps/web/components.json`.
 
-### Add more shared components
+### Add Shared Components
 
-Run this from the project root to add more primitives to the shared UI package:
+Run the shadcn CLI from the project root to add primitives to the shared UI
+package:
 
 ```bash
 npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
 ```
 
-Import shared components like this:
+Import shared components from the package:
 
 ```tsx
 import { Button } from "@rewrite/ui/components/button";
 ```
 
-### Add app-specific blocks
+### Add App-Specific Blocks
 
-If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from `apps/web`.
+Run the shadcn CLI from `apps/web` when adding app-specific blocks rather than
+shared primitives.
 
 ## Deployment
 
 ### Docker Compose
 
-- Target: web + server
-- Config: `docker-compose.yml` (app Dockerfiles live in `apps/*/Dockerfile`)
-- Build images: bun run docker:build
-- Start: bun run docker:up
-- Logs: bun run docker:logs
-- Stop: bun run docker:down
+- Target: web and server
+- Configuration: `docker-compose.yml`; app Dockerfiles are under `apps/*/Dockerfile`
+- Build images: `bun run docker:build`
+- Start: `bun run docker:up`
+- View logs: `bun run docker:logs`
+- Stop: `bun run docker:down`
 
-Environment variables are read from each app's `.env` file (baked into web builds for public variables) and overridden in `docker-compose.yml` for container networking.
+Environment variables come from each app's `.env` file and are overridden in
+`docker-compose.yml` for container networking. Public web variables are baked
+into web builds.
 
-For more details, see the guide on [Deploying with Docker Compose](https://www.better-t-stack.dev/docs/guides/docker).
+See the [Better-T-Stack Docker Compose guide](https://www.better-t-stack.dev/docs/guides/docker)
+for more details.
 
 ## Git Hooks and Formatting
 
@@ -99,17 +116,17 @@ For more details, see the guide on [Deploying with Docker Compose](https://www.b
 
 ## Project Structure
 
-```
+```text
 rewrite/
 ├── apps/
-│   ├── web/         # Frontend application (React + TanStack Router)
-│   ├── docs/        # Documentation site (Astro Starlight)
-│   └── server/      # Backend API (Hono, TRPC)
-├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
-│   ├── api/         # API layer / business logic
-│   ├── auth/        # Authentication configuration & logic
-│   └── db/          # Database schema & queries
+│   ├── web/         # React and TanStack Router frontend
+│   ├── docs/        # Astro Starlight documentation site
+│   └── server/      # Hono and tRPC backend API
+└── packages/
+    ├── ui/          # Shared shadcn/ui components and styles
+    ├── api/         # API layer and business logic
+    ├── auth/        # Authentication configuration and logic
+    └── db/          # Database schema and queries
 ```
 
 ## Available Scripts
@@ -119,20 +136,26 @@ rewrite/
 - `bun run dev:web`: Start only the web application
 - `bun run dev:server`: Start only the server
 - `bun run check-types`: Check TypeScript types across all apps
-- `bun run db:push`: Push schema changes to database
-- `bun run db:generate`: Generate database client/types
+- `bun run db:push`: Push schema changes to the database
+- `bun run db:generate`: Generate database client and types
 - `bun run db:migrate`: Run database migrations
-- `bun run db:studio`: Open database studio UI
+- `bun run db:studio`: Open the database studio UI
 - `bun run check`: Run Vite+ format/lint checks and workspace TypeScript checks
 - `bun run lint`: Run Vite+ lint checks
 - `bun run format`: Run Vite+ formatting
 - `bun run staged`: Run Vite+ checks against staged files
 - `cd apps/web && bun run generate-pwa-assets`: Generate PWA assets
-- `cd apps/web && bun run desktop:dev`: Start Tauri desktop app in development
-- `cd apps/web && bun run desktop:build`: Build Tauri desktop app
-- `cd apps/docs && bun run dev`: Start documentation site
-- `cd apps/docs && bun run build`: Build documentation site
+- `cd apps/web && bun run desktop:dev`: Start the Tauri desktop app in development
+- `cd apps/web && bun run desktop:build`: Build the Tauri desktop app
+- `cd apps/docs && bun run dev`: Start the documentation site
+- `cd apps/docs && bun run build`: Build the documentation site
 - `bun run docker:build`: Build the Docker Compose images
 - `bun run docker:up`: Build and start the Docker Compose stack
-- `bun run docker:logs`: Tail logs from the Docker Compose stack
+- `bun run docker:logs`: Follow logs from the Docker Compose stack
 - `bun run docker:down`: Stop the Docker Compose stack
+
+## Planning
+
+The canonical planning artifact lives in this repository's GitHub Issues as a
+Wayfinder map. Earlier [Ariadne](https://github.com/CUexter/ariadne) discussions
+are prior evidence, not inherited decisions.
