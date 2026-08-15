@@ -1,0 +1,3 @@
+{
+  "extends": "@rewrite/config/tsconfig.base.json"
+}
