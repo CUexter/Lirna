@@ -1,0 +1,90 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: Install dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+  static:
+    name: Static checks
+    needs: install
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30af803 # v6
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Test quality gate policy
+        run: bun run quality:policy
+      - name: Run static checks
+        run: bun run quality:ci
+
+  types:
+    name: Type checks
+    needs: install
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30af803 # v6
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Check workspace types
+        run: bun run check-types
+
+  build:
+    name: Production builds
+    needs: install
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Build workspaces
+        run: bun run build
+
+  quality:
+    name: quality
+    if: ${{ always() }}
+    needs: [install, static, types, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every quality job to pass
+        run: |
+          test "${{ needs.install.result }}" = success
+          test "${{ needs.static.result }}" = success
+          test "${{ needs.types.result }}" = success
+          test "${{ needs.build.result }}" = success

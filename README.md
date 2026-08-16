@@ -123,7 +123,8 @@ deployment example, and checks.
 
 - Enter the Nix development shell for Gitleaks and the other native tools: `nix develop`
 - Initialize hooks: `bun run prepare`
-- Run checks: `bun run check`
+- Run read-only checks: `bun run check`
+- Apply automatic fixes: `bun run check:fix`
 - Scan repository history for secrets: `bun run secrets:check`
 - Run blocking source security rules: `bun run check:semgrep`
 - Report lower-confidence source security findings: `bun run report:semgrep`
@@ -152,11 +153,14 @@ lirna/
 - `bun run dev:web`: Start only the web application
 - `bun run dev:server`: Start only the server
 - `bun run check-types`: Check TypeScript types across all apps
+- `bun run quality:ci`: Run the read-only Biome and configured quality checks
+- `bun run quality:policy`: Verify the quality workflow and command contracts
 - `bun run db:push`: Push schema changes to the database
 - `bun run db:generate`: Generate database client and types
 - `bun run db:migrate`: Run database migrations
 - `bun run db:studio`: Open the database studio UI
-- `bun run check`: Run Vite+ format/lint checks and workspace TypeScript checks
+- `bun run check`: Run the read-only configured Biome checks
+- `bun run check:fix`: Apply Biome formatting, lint, and assist fixes
 - `bun run lint`: Run Vite+ lint checks
 - `bun run format`: Run Vite+ formatting
 - `bun run staged`: Run Vite+ checks against staged files
