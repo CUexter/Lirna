@@ -5,12 +5,11 @@
 # Consume this with `fetchBunDeps` (recommended)
 # or `pkgs.callPackage` if you wish to handle
 # it manually.
-{
-  copyPathToStore,
-  fetchFromGitHub,
-  fetchgit,
-  fetchurl,
-  ...
+{ copyPathToStore
+, fetchFromGitHub
+, fetchgit
+, fetchurl
+, ...
 }:
 {
   "@alloc/quick-lru@5.2.0" = fetchurl {
@@ -1489,6 +1488,10 @@
     url = "https://registry.npmjs.org/@pagefind/windows-x64/-/windows-x64-1.5.2.tgz";
     hash = "sha512-Fa2Iyw7kaDRzGMfNYNUXNW2zbL5FQVDgSOcbDHdzBrDEdpqOqg8TcZ68F22ol6NJ9IGzvUdmeyZypLW5dyhqsg==";
   };
+  "@playwright/test@1.61.1" = fetchurl {
+    url = "https://registry.npmjs.org/@playwright/test/-/test-1.61.1.tgz";
+    hash = "sha512-8nKv6+0RJSL9FE4jYOEGXnPeM/Hg12qZpmqzZjRh3qM0Y7c3z1mrOTfFLids72RDQYVh9WpLEfR5WdpNX4fkig==";
+  };
   "@polka/url@1.0.0-next.29" = fetchurl {
     url = "https://registry.npmjs.org/@polka/url/-/url-1.0.0-next.29.tgz";
     hash = "sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==";
@@ -1497,12 +1500,12 @@
     url = "https://registry.npmjs.org/@quansync/fs/-/fs-1.0.0.tgz";
     hash = "sha512-4TJ3DFtlf1L5LDMaM6CanJ/0lckGNtJcMjQ1NAV6zDmA0tEHKZtxNKin8EgPaVX1YzljbxckyT2tJrpQKAtngQ==";
   };
-  "@rewrite/api" = copyPathToStore ../packages/api;
-  "@rewrite/auth" = copyPathToStore ../packages/auth;
-  "@rewrite/config" = copyPathToStore ../packages/config;
-  "@rewrite/db" = copyPathToStore ../packages/db;
-  "@rewrite/env" = copyPathToStore ../packages/env;
-  "@rewrite/ui" = copyPathToStore ../packages/ui;
+  "@lirna/api" = copyPathToStore ../packages/api;
+  "@lirna/auth" = copyPathToStore ../packages/auth;
+  "@lirna/config" = copyPathToStore ../packages/config;
+  "@lirna/db" = copyPathToStore ../packages/db;
+  "@lirna/env" = copyPathToStore ../packages/env;
+  "@lirna/ui" = copyPathToStore ../packages/ui;
   "@rolldown/binding-android-arm64@1.2.0" = fetchurl {
     url = "https://registry.npmjs.org/@rolldown/binding-android-arm64/-/binding-android-arm64-1.2.0.tgz";
     hash = "sha512-9yB1l95IrJuNGDFdOYe79vdApdz6WWBCObE+rQ2LUliYUlcyFwSYIb2xb5/Ifw7dAtMy2ZqNyd8QTSOc7duAKw==";
@@ -3236,6 +3239,10 @@
     url = "https://registry.npmjs.org/fs-extra/-/fs-extra-9.1.0.tgz";
     hash = "sha512-hcg3ZmepS30/7BSFqRvoo3DOMQu7IjqxO5nCDt+zM9XWjb33Wg7ziNT+Qvqbuc3+gWpzO02JubVyk2G4Zvo1OQ==";
   };
+  "fsevents@2.3.2" = fetchurl {
+    url = "https://registry.npmjs.org/fsevents/-/fsevents-2.3.2.tgz";
+    hash = "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==";
+  };
   "fsevents@2.3.3" = fetchurl {
     url = "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz";
     hash = "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==";
@@ -4583,6 +4590,14 @@
   "pkg-up@3.1.0" = fetchurl {
     url = "https://registry.npmjs.org/pkg-up/-/pkg-up-3.1.0.tgz";
     hash = "sha512-nDywThFk1i4BQK4twPQ6TA4RT8bDY96yeuCVBWL3ePARCiEKDRSrNGbFIgUJpLp+XeIR65v8ra7WuJOFUBtkMA==";
+  };
+  "playwright-core@1.61.1" = fetchurl {
+    url = "https://registry.npmjs.org/playwright-core/-/playwright-core-1.61.1.tgz";
+    hash = "sha512-h7Qlt6m4REp25qvIdvbDtVmD4LqVXfpRxhORv9L0jzETM05p4fuPJ3dKyuSXQxDSbXnmS79HAgi9589lGSpLkg==";
+  };
+  "playwright@1.61.1" = fetchurl {
+    url = "https://registry.npmjs.org/playwright/-/playwright-1.61.1.tgz";
+    hash = "sha512-DWnY5o3YbLWK4GovuAVwpqL+1VwGNdUGrRr++8j8PtQQzvAVZUIMjKQ90fY689sEJZJBbZVw1rXaOKSTitkzPQ==";
   };
   "pngjs@7.0.0" = fetchurl {
     url = "https://registry.npmjs.org/pngjs/-/pngjs-7.0.0.tgz";

@@ -1,5 +1,5 @@
 {
-  "name": "@rewrite/auth",
+  "name": "@lirna/auth",
   "type": "module",
   "exports": {
     ".": {
@@ -11,14 +11,14 @@
   },
   "scripts": {},
   "dependencies": {
-    "@rewrite/db": "workspace:*",
-    "@rewrite/env": "workspace:*",
+    "@lirna/db": "workspace:*",
+    "@lirna/env": "workspace:*",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@rewrite/config": "workspace:*",
+    "@lirna/config": "workspace:*",
     "typescript": "catalog:"
   }
 }

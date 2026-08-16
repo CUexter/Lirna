@@ -12,11 +12,11 @@
   },
   "iconLibrary": "lucide",
   "aliases": {
-    "components": "@rewrite/ui/components",
-    "utils": "@rewrite/ui/lib/utils",
-    "hooks": "@rewrite/ui/hooks",
-    "lib": "@rewrite/ui/lib",
-    "ui": "@rewrite/ui/components"
+    "components": "@lirna/ui/components",
+    "utils": "@lirna/ui/lib/utils",
+    "hooks": "@lirna/ui/hooks",
+    "lib": "@lirna/ui/lib",
+    "ui": "@lirna/ui/components"
   },
   "menuColor": "default",
   "menuAccent": "subtle",

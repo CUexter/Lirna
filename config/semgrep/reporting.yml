@@ -1,0 +1,22 @@
+rules:
+  - id: lirna-typescript-dynamic-code-execution
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: Dynamic code execution expands the injection surface. Prefer explicit parsing or dispatch.
+    metadata:
+      category: security
+      cwe: CWE-95
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+
+  - id: lirna-typescript-disabled-tls-verification
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: TLS certificate verification is disabled.
+    metadata:
+      category: security
+      cwe: CWE-295
+    pattern-either:
+      - pattern: '$OPTIONS = { ..., rejectUnauthorized: false, ... }'
+      - pattern: process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"

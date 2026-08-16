@@ -1,6 +1,6 @@
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
-import { cn } from "@rewrite/ui/lib/utils";
+import { cn } from "@lirna/ui/lib/utils";
 import { cva, type VariantProps } from "class-variance-authority";
 import * as React from "react";
 
@@ -45,7 +45,10 @@ function MarkerIcon({ className, ...props }: React.ComponentProps<"span">) {
     <span
       data-slot="marker-icon"
       aria-hidden="true"
-      className={cn("size-3.5 shrink-0 [&_svg:not([class*='size-'])]:size-3.5", className)}
+      className={cn(
+        "size-3.5 shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+        className,
+      )}
       {...props}
     />
   );

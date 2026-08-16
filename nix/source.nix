@@ -15,6 +15,7 @@
         "dist"
         "lirna-legacy"
         "node_modules"
+        "playwright-report"
         "prototype"
         "test-results"
       ]);

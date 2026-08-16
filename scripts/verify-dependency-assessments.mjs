@@ -11,7 +11,9 @@ import { decisionIdentity } from "./dependency-decisions.mjs";
 const exec = promisify(execFile);
 const projectRoot = process.env.LIRNA_DEPENDENCY_PROJECT_ROOT ?? process.cwd();
 const policy = JSON.parse(
-  await readFile(new URL("../config/dependency-assessment-policy.json", import.meta.url)),
+  await readFile(
+    new URL("../config/dependency-assessment-policy.json", import.meta.url),
+  ),
 );
 const directSections = [
   "dependencies",
@@ -24,18 +26,27 @@ process.chdir(projectRoot);
 
 async function main() {
   const [mode, ...args] = process.argv.slice(2);
-  const revisions = mode === "--staged" ? { base: "HEAD", target: ":" } : range(args);
+  const revisions =
+    mode === "--staged" ? { base: "HEAD", target: ":" } : range(args);
   if (/^0+$/.test(revisions.base)) {
-    console.log("dependency assessment verification skipped: the comparison base is empty");
+    console.log(
+      "dependency assessment verification skipped: the comparison base is empty",
+    );
     return;
   }
-  const [baseManifest, targetManifest, baseLock, targetLock] = await Promise.all([
-    readJson(revisions.base, "package.json"),
-    readJson(revisions.target, "package.json"),
-    readJson(revisions.base, "package-lock.json"),
-    readJson(revisions.target, "package-lock.json"),
-  ]);
-  const additions = directAdditions(baseManifest, targetManifest, baseLock, targetLock);
+  const [baseManifest, targetManifest, baseLock, targetLock] =
+    await Promise.all([
+      readJson(revisions.base, "package.json"),
+      readJson(revisions.target, "package.json"),
+      readJson(revisions.base, "package-lock.json"),
+      readJson(revisions.target, "package-lock.json"),
+    ]);
+  const additions = directAdditions(
+    baseManifest,
+    targetManifest,
+    baseLock,
+    targetLock,
+  );
 
   for (const dependency of additions) {
     const assessment = await readJson(
@@ -61,7 +72,10 @@ async function validateArchiveEvidence(record, dependency) {
   let url;
   try {
     url = new URL(record.tarballUrl);
-    if (url.protocol !== "https:" && !["127.0.0.1", "localhost"].includes(url.hostname)) {
+    if (
+      url.protocol !== "https:" &&
+      !["127.0.0.1", "localhost"].includes(url.hostname)
+    ) {
       throw new Error();
     }
   } catch {
@@ -78,7 +92,9 @@ async function validateArchiveEvidence(record, dependency) {
   const archive = Buffer.from(await response.arrayBuffer());
   const digest = createHash("sha512").update(archive).digest("base64");
   if (digest !== record.archiveSha512) {
-    throw new Error(`assessed archive digest changed for ${dependency.name}@${dependency.version}`);
+    throw new Error(
+      `assessed archive digest changed for ${dependency.name}@${dependency.version}`,
+    );
   }
   if (!archiveMatchesIntegrity(archive, record.integrity)) {
     throw new Error(
@@ -100,17 +116,26 @@ function archiveMatchesIntegrity(archive, integrity) {
 
 function range(args) {
   if (args.length !== 2)
-    throw new Error("usage: verify-dependency-assessments.mjs --staged | --range BASE HEAD");
+    throw new Error(
+      "usage: verify-dependency-assessments.mjs --staged | --range BASE HEAD",
+    );
   return { base: args[0], target: args[1] };
 }
 
-function directAdditions(baseManifest = {}, targetManifest = {}, baseLock = {}, targetLock = {}) {
+function directAdditions(
+  baseManifest = {},
+  targetManifest = {},
+  baseLock = {},
+  targetLock = {},
+) {
   const base = directDependencies(baseManifest, baseLock);
   const target = directDependencies(targetManifest, targetLock);
   return [...target].flatMap(([name, dependency]) => {
     const installed = targetLock.packages?.[`node_modules/${name}`];
     if (!installed?.version) {
-      throw new Error(`direct dependency ${name} is missing an exact lockfile package entry`);
+      throw new Error(
+        `direct dependency ${name} is missing an exact lockfile package entry`,
+      );
     }
     const previous = base.get(name);
     const changed =
@@ -155,7 +180,10 @@ function directDependencies(manifest, lock) {
 }
 
 function validateAssessment(record, dependency) {
-  if (record.package !== dependency.name || record.version !== dependency.version) {
+  if (
+    record.package !== dependency.name ||
+    record.version !== dependency.version
+  ) {
     throw new Error(
       `assessment evidence does not match exact package ${dependency.name}@${dependency.version}`,
     );

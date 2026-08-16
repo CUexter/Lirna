@@ -2,13 +2,17 @@ import { readdir, readFile } from "node:fs/promises";
 import { extname, join, relative } from "node:path";
 
 const root = new URL("../client/src/", import.meta.url);
-const nativeControl = /<(button|dialog|input|optgroup|option|select|textarea)\b/g;
+const nativeControl =
+  /<(button|dialog|input|optgroup|option|select|textarea)\b/g;
 const primitiveImplementations = new Map([
   ["components/ui/button.tsx", new Set(["button"])],
   ["components/ui/checkbox.tsx", new Set(["input"])],
   ["components/ui/dialog.tsx", new Set(["dialog"])],
   ["components/ui/input.tsx", new Set(["input"])],
-  ["components/ui/native-select.tsx", new Set(["optgroup", "option", "select"])],
+  [
+    "components/ui/native-select.tsx",
+    new Set(["optgroup", "option", "select"]),
+  ],
   ["components/ui/textarea.tsx", new Set(["textarea"])],
 ]);
 const violations = [];

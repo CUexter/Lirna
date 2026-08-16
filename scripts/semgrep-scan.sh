@@ -8,7 +8,7 @@ if ! command -v semgrep >/dev/null 2>&1 || [[ ! -x "$(command -v semgrep)" ]]; t
   exit 127
 fi
 case "${1:-blocking}" in
-  blocking) exec semgrep --config "$root/config/semgrep/blocking.yml" --exclude config/semgrep/fixtures --exclude prototype --exclude node_modules --exclude dist --error --metrics=off "$root" ;;
-  report) semgrep --config "$root/config/semgrep/reporting.yml" --exclude config/semgrep/fixtures --exclude prototype --exclude node_modules --exclude dist --metrics=off "$root" || true ;;
+  blocking) exec semgrep --disable-version-check --no-git-ignore --config "$root/config/semgrep/blocking.yml" --exclude config/semgrep/fixtures --exclude prototype --exclude lirna-legacy --exclude node_modules --exclude dist --error --metrics=off "$root" ;;
+  report) exec semgrep --disable-version-check --no-git-ignore --config "$root/config/semgrep/reporting.yml" --exclude config/semgrep/fixtures --exclude prototype --exclude lirna-legacy --exclude node_modules --exclude dist --metrics=off "$root" ;;
   *) printf '%s\n' "Usage: $0 {blocking|report}" >&2; exit 2 ;;
 esac

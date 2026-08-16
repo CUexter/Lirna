@@ -7,7 +7,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { assessmentVersion, classifyAssessment } from "./dependency-assessment-policy.mjs";
+import {
+  assessmentVersion,
+  classifyAssessment,
+} from "./dependency-assessment-policy.mjs";
 import { decisionPath } from "./dependency-decisions.mjs";
 
 const exec = promisify(execFile);
@@ -28,13 +31,16 @@ async function main() {
       "usage: npm run dependency:add -- [--dev|--optional|--peer] <one-package-request>",
     );
   }
-  const projectRoot = process.env.LIRNA_DEPENDENCY_PROJECT_ROOT ?? process.cwd();
+  const projectRoot =
+    process.env.LIRNA_DEPENDENCY_PROJECT_ROOT ?? process.cwd();
   const registry = normalizeBaseUrl(
     process.env.LIRNA_NPM_REGISTRY ??
       process.env.npm_config_registry ??
       "https://registry.npmjs.org/",
   );
-  const temporaryRoot = await mkdtemp(join(tmpdir(), "lirna-dependency-assessment-"));
+  const temporaryRoot = await mkdtemp(
+    join(tmpdir(), "lirna-dependency-assessment-"),
+  );
   const cache = join(temporaryRoot, "npm-cache");
   const archivePath = join(temporaryRoot, "package.tgz");
   const policy = JSON.parse(await readFile(policyPath(), "utf8"));
@@ -42,7 +48,16 @@ async function main() {
   try {
     const selectedVersion = lastValue(
       await npmJson(
-        ["view", request, "version", "--json", "--registry", registry, "--cache", cache],
+        [
+          "view",
+          request,
+          "version",
+          "--json",
+          "--registry",
+          registry,
+          "--cache",
+          cache,
+        ],
         temporaryRoot,
       ),
     );
@@ -60,17 +75,29 @@ async function main() {
       temporaryRoot,
     );
     const name = requiredString(resolved.name, "resolved package name");
-    const version = requiredString(resolved.version, "resolved package version");
+    const version = requiredString(
+      resolved.version,
+      "resolved package version",
+    );
     if (name !== requestedName) {
-      throw new Error(`registry resolved ${request} to unexpected package identity ${name}`);
+      throw new Error(
+        `registry resolved ${request} to unexpected package identity ${name}`,
+      );
     }
-    const packument = await fetchJson(new URL(encodeURIComponent(name), registry));
+    const packument = await fetchJson(
+      new URL(encodeURIComponent(name), registry),
+    );
     const release = packument.versions?.[version];
     if (!release || typeof release !== "object") {
-      throw new Error(`registry metadata does not contain resolved release ${name}@${version}`);
+      throw new Error(
+        `registry metadata does not contain resolved release ${name}@${version}`,
+      );
     }
 
-    const tarballUrl = requiredString(release.dist?.tarball, "release tarball URL");
+    const tarballUrl = requiredString(
+      release.dist?.tarball,
+      "release tarball URL",
+    );
     const archive = await fetchBytes(new URL(tarballUrl));
     verifyRegistryIntegrity(archive, release.dist);
     await writeFile(archivePath, archive);
@@ -99,25 +126,43 @@ async function main() {
       .filter(([script]) => lifecycleNames.has(script))
       .map(([script, command]) => `${script}: ${String(command)}`);
     const nativeBuildFiles = entries.filter((entry) =>
-      /(^|\/)(binding\.gyp|\.node-gyp|CMakeLists\.txt|[^/]+\.node)$/.test(entry),
+      /(^|\/)(binding\.gyp|\.node-gyp|CMakeLists\.txt|[^/]+\.node)$/.test(
+        entry,
+      ),
     );
 
     const repository = release.repository ?? packument.repository;
     const declaredRepository = githubRepository(repository);
-    const [search, provenance, downloads, vulnerabilities, sourceRepository] = await Promise.all([
-      fetchJson(new URL(`-/v1/search?text=${encodeURIComponent(name)}&size=10`, registry)),
-      optionalJson(
-        new URL(`-/npm/v1/attestations/${encodeURIComponent(`${name}@${version}`)}`, registry),
-      ),
-      fetchJson(downloadUrl(name)),
-      osvVulnerabilities(name, version),
-      declaredRepository ? fetchJson(githubUrl(declaredRepository)) : undefined,
-    ]);
-    const similarNames = (search.objects ?? []).map((entry) => entry?.package).filter(Boolean);
+    const [search, provenance, downloads, vulnerabilities, sourceRepository] =
+      await Promise.all([
+        fetchJson(
+          new URL(
+            `-/v1/search?text=${encodeURIComponent(name)}&size=10`,
+            registry,
+          ),
+        ),
+        optionalJson(
+          new URL(
+            `-/npm/v1/attestations/${encodeURIComponent(`${name}@${version}`)}`,
+            registry,
+          ),
+        ),
+        fetchJson(downloadUrl(name)),
+        osvVulnerabilities(name, version),
+        declaredRepository
+          ? fetchJson(githubUrl(declaredRepository))
+          : undefined,
+      ]);
+    const similarNames = (search.objects ?? [])
+      .map((entry) => entry?.package)
+      .filter(Boolean);
     const scorecard = declaredRepository
       ? await optionalJson(scorecardUrl(declaredRepository))
       : undefined;
-    const releaseYears = releaseActivityByYear(packument.time, packument.versions);
+    const releaseYears = releaseActivityByYear(
+      packument.time,
+      packument.versions,
+    );
     const criticalVulnerabilityIds = criticalVulnerabilities(vulnerabilities);
     const classification = classifyAssessment(
       assessmentFindings({
@@ -161,10 +206,14 @@ async function main() {
       version,
     });
 
-    await exec("npm", ["cache", "add", archivePath, "--cache", cache, "--ignore-scripts"], {
-      cwd: temporaryRoot,
-      maxBuffer: 10 * 1024 * 1024,
-    });
+    await exec(
+      "npm",
+      ["cache", "add", archivePath, "--cache", cache, "--ignore-scripts"],
+      {
+        cwd: temporaryRoot,
+        maxBuffer: 10 * 1024 * 1024,
+      },
+    );
     // Prime the isolated cache with the assessed package's dependency tree before
     // the final offline install into the project. Lifecycle scripts stay disabled.
     await exec(
@@ -203,7 +252,9 @@ async function main() {
       release.dist?.integrity,
     );
     if (!archiveMatchesIntegrity(archive, installedIntegrity)) {
-      throw new Error(`installed lockfile integrity does not match assessed ${name}@${version}`);
+      throw new Error(
+        `installed lockfile integrity does not match assessed ${name}@${version}`,
+      );
     }
     await writeAssessmentEvidence({
       archiveSha512: createHash("sha512").update(archive).digest("base64"),
@@ -216,7 +267,9 @@ async function main() {
       version,
     });
     printConfidenceWarning(name, version, classification);
-    console.log(`\nInstalled ${name}@${version} with lifecycle scripts disabled.`);
+    console.log(
+      `\nInstalled ${name}@${version} with lifecycle scripts disabled.`,
+    );
     if (lifecycleScripts.length > 0 || nativeBuildFiles.length > 0) {
       console.log(
         `package scripts remain disabled for ${name}@${version}; record an exact script justification and run npm run dependency:run-scripts -- ${name}@${version} only if those capabilities are required.`,
@@ -240,7 +293,9 @@ async function fetchJson(url) {
     headers: { accept: "application/json" },
   });
   if (!response.ok) {
-    throw new Error(`required registry request failed (${response.status} ${url})`);
+    throw new Error(
+      `required registry request failed (${response.status} ${url})`,
+    );
   }
   return response.json();
 }
@@ -269,7 +324,9 @@ async function osvVulnerabilities(name, version) {
 async function fetchBytes(url) {
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`package archive request failed (${response.status} ${url})`);
+    throw new Error(
+      `package archive request failed (${response.status} ${url})`,
+    );
   }
   return Buffer.from(await response.arrayBuffer());
 }
@@ -280,16 +337,24 @@ function verifyRegistryIntegrity(archive, dist) {
     .map((value) => value.match(/^(sha512|sha384|sha256|sha1)-(.+)$/))
     .filter(Boolean);
   if (candidates.length === 0 && typeof dist?.shasum === "string") {
-    candidates.push([dist.shasum, "sha1", Buffer.from(dist.shasum, "hex").toString("base64")]);
+    candidates.push([
+      dist.shasum,
+      "sha1",
+      Buffer.from(dist.shasum, "hex").toString("base64"),
+    ]);
   }
   if (candidates.length === 0) {
-    throw new Error("registry release has no supported archive integrity evidence");
+    throw new Error(
+      "registry release has no supported archive integrity evidence",
+    );
   }
   const verified = candidates.some(([, algorithm, expectedBase64]) =>
     archiveMatchesIntegrity(archive, `${algorithm}-${expectedBase64}`),
   );
   if (!verified) {
-    throw new Error("package archive integrity does not match registry evidence");
+    throw new Error(
+      "package archive integrity does not match registry evidence",
+    );
   }
 }
 
@@ -301,7 +366,9 @@ function archiveMatchesIntegrity(archive, integrity) {
     .some(([, algorithm, expectedBase64]) => {
       const actual = createHash(algorithm).update(archive).digest();
       const expected = Buffer.from(expectedBase64, "base64");
-      return actual.length === expected.length && timingSafeEqual(actual, expected);
+      return (
+        actual.length === expected.length && timingSafeEqual(actual, expected)
+      );
     });
 }
 
@@ -336,13 +403,19 @@ function assessmentFindings({
   const criticalIds = new Set(criticalVulnerabilityIds);
   return [
     policy.warnOnDeprecation && deprecated
-      ? finding("deprecated-release", `exact release is deprecated: ${deprecated}`)
+      ? finding(
+          "deprecated-release",
+          `exact release is deprecated: ${deprecated}`,
+        )
       : undefined,
     policy.warnOnLifecycleScripts && lifecycleScripts.length > 0
       ? finding("lifecycle-scripts", "archive declares lifecycle scripts")
       : undefined,
     policy.warnOnNativeBuildFiles && nativeBuildFiles.length > 0
-      ? finding("native-build-files", "archive contains implicit native-build files")
+      ? finding(
+          "native-build-files",
+          "archive contains implicit native-build files",
+        )
       : undefined,
     policy.warnOnMissingRepository && !repository
       ? finding("missing-repository", "no source repository is declared")
@@ -373,14 +446,16 @@ function assessmentFindings({
       : undefined,
     policy.warnOnRepositoryMismatch &&
     sourceRepository &&
-    ageInDays(now, sourceRepository.pushed_at) > policy.maximumRepositoryStalenessDays
+    ageInDays(now, sourceRepository.pushed_at) >
+      policy.maximumRepositoryStalenessDays
       ? finding(
           "stale-repository",
           `declared source repository has no recent push within ${policy.maximumRepositoryStalenessDays} days`,
         )
       : undefined,
     sourceRepository &&
-    sourceRepository.full_name.toLowerCase() !== githubRepository(repository)?.toLowerCase()
+    sourceRepository.full_name.toLowerCase() !==
+      githubRepository(repository)?.toLowerCase()
       ? finding(
           "repository-mismatch",
           "declared source repository does not match repository metadata",
@@ -395,7 +470,10 @@ function assessmentFindings({
         candidate.date &&
         ageInDays(now, candidate.date) >= policy.minimumSimilarPackageAgeDays,
     )
-      ? finding("similar-name", "registry search returned similarly named established packages")
+      ? finding(
+          "similar-name",
+          "registry search returned similarly named established packages",
+        )
       : undefined,
     ...(policy.warnOnVulnerabilities
       ? (vulnerabilities.vulns ?? []).map((vulnerability) => {
@@ -424,7 +502,10 @@ function similarlyNamed(name, candidate) {
   if (left.includes(right) || right.includes(left)) return true;
   if (Math.abs(left.length - right.length) > 2) return false;
 
-  const distances = Array.from({ length: right.length + 1 }, (_, index) => index);
+  const distances = Array.from(
+    { length: right.length + 1 },
+    (_, index) => index,
+  );
   for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
     let diagonal = distances[0];
     distances[0] = leftIndex;
@@ -473,9 +554,14 @@ function cvssV3BaseScore(vector) {
     CIA: { H: 0.56, L: 0.22, N: 0 },
   };
   const scopeChanged = metrics.S === "C";
-  const privileges = scopeChanged ? { N: 0.85, L: 0.68, H: 0.5 } : { N: 0.85, L: 0.62, H: 0.27 };
+  const privileges = scopeChanged
+    ? { N: 0.85, L: 0.68, H: 0.5 }
+    : { N: 0.85, L: 0.62, H: 0.27 };
   const impactSubscore =
-    1 - (1 - values.CIA[metrics.C]) * (1 - values.CIA[metrics.I]) * (1 - values.CIA[metrics.A]);
+    1 -
+    (1 - values.CIA[metrics.C]) *
+      (1 - values.CIA[metrics.I]) *
+      (1 - values.CIA[metrics.A]);
   const impact = scopeChanged
     ? 7.52 * (impactSubscore - 0.029) - 3.25 * (impactSubscore - 0.02) ** 15
     : 6.42 * impactSubscore;
@@ -485,7 +571,8 @@ function cvssV3BaseScore(vector) {
     values.AC[metrics.AC] *
     privileges[metrics.PR] *
     values.UI[metrics.UI];
-  if (![impact, exploitability].every(Number.isFinite) || impact <= 0) return Number.NaN;
+  if (![impact, exploitability].every(Number.isFinite) || impact <= 0)
+    return Number.NaN;
   const score = scopeChanged
     ? Math.min(10, 1.08 * (impact + exploitability))
     : Math.min(10, impact + exploitability);
@@ -493,31 +580,51 @@ function cvssV3BaseScore(vector) {
 }
 
 function printReport(evidence) {
-  const repository = evidence.release.repository ?? evidence.packument.repository;
+  const repository =
+    evidence.release.repository ?? evidence.packument.repository;
   const author = evidence.release.author ?? evidence.packument.author;
-  const maintainers = evidence.packument.maintainers ?? evidence.release.maintainers;
+  const maintainers =
+    evidence.packument.maintainers ?? evidence.release.maintainers;
   const publisher = evidence.release._npmUser;
-  console.log(`Dependency artifact assessment: ${evidence.name}@${evidence.version}`);
+  console.log(
+    `Dependency artifact assessment: ${evidence.name}@${evidence.version}`,
+  );
   console.log("\nRegistry-observed facts");
   console.log(`  Request: ${evidence.request}`);
   console.log(`  Exact selected release: ${evidence.name}@${evidence.version}`);
   console.log(`  Package created: ${show(evidence.packument.time?.created)}`);
-  console.log(`  Exact release published: ${show(evidence.packument.time?.[evidence.version])}`);
-  console.log(`  Last registry update: ${show(evidence.packument.time?.modified)}`);
+  console.log(
+    `  Exact release published: ${show(evidence.packument.time?.[evidence.version])}`,
+  );
+  console.log(
+    `  Last registry update: ${show(evidence.packument.time?.modified)}`,
+  );
   console.log(
     `  Release activity by year: ${evidence.releaseYears.map(([year, count]) => `${year}: ${count}`).join(", ") || "unavailable"}`,
   );
-  console.log(`  Deprecation: ${show(evidence.release.deprecated, "none declared")}`);
-  console.log(`  Archive integrity: verified (${show(evidence.release.dist?.integrity)})`);
+  console.log(
+    `  Deprecation: ${show(evidence.release.deprecated, "none declared")}`,
+  );
+  console.log(
+    `  Archive integrity: verified (${show(evidence.release.dist?.integrity)})`,
+  );
   console.log(`  Archive bytes inspected: ${evidence.archive.byteLength}`);
-  console.log("\nSelf-declared npm identity (unverified; maintainer history is unavailable)");
+  console.log(
+    "\nSelf-declared npm identity (unverified; maintainer history is unavailable)",
+  );
   console.log(`  Declared author: ${identity(author)}`);
   console.log(`  Current maintainers: ${identityList(maintainers)}`);
   console.log(`  Exact-version publisher: ${identity(publisher)}`);
   console.log(`  Repository declaration: ${repositoryValue(repository)}`);
-  console.log("\nArchive-observed static evidence (verified bytes; nothing executed)");
-  console.log(`  Lifecycle scripts: ${evidence.lifecycleScripts.join("; ") || "none"}`);
-  console.log(`  Implicit native-build files: ${evidence.nativeBuildFiles.join(", ") || "none"}`);
+  console.log(
+    "\nArchive-observed static evidence (verified bytes; nothing executed)",
+  );
+  console.log(
+    `  Lifecycle scripts: ${evidence.lifecycleScripts.join("; ") || "none"}`,
+  );
+  console.log(
+    `  Implicit native-build files: ${evidence.nativeBuildFiles.join(", ") || "none"}`,
+  );
   console.log(`  Archive entries: ${evidence.entries.length}`);
   console.log("\nAvailability and activity evidence (not trust evidence)");
   console.log(
@@ -533,8 +640,12 @@ function printReport(evidence) {
     }`,
   );
   console.log("\nIndependently observed source evidence");
-  console.log(`  Declared repository owner: ${show(evidence.sourceRepository?.owner?.login)}`);
-  console.log(`  Declared repository activity: ${show(evidence.sourceRepository?.pushed_at)}`);
+  console.log(
+    `  Declared repository owner: ${show(evidence.sourceRepository?.owner?.login)}`,
+  );
+  console.log(
+    `  Declared repository activity: ${show(evidence.sourceRepository?.pushed_at)}`,
+  );
   console.log(
     `  Declared repository archived: ${show(evidence.sourceRepository?.archived, "unavailable")}`,
   );
@@ -551,7 +662,8 @@ function printReport(evidence) {
   for (const finding of evidence.classification.findings) {
     console.log(`  - ${finding.message} (-${finding.deduction})`);
   }
-  if (evidence.classification.findings.length === 0) console.log("  Findings: none");
+  if (evidence.classification.findings.length === 0)
+    console.log("  Findings: none");
 }
 
 function printConfidenceWarning(name, version, classification) {
@@ -559,18 +671,24 @@ function printConfidenceWarning(name, version, classification) {
   console.log(
     `\nWARNING: ${name}@${version} confidence score ${classification.confidenceScore}/100 (${classification.confidenceTier}).`,
   );
-  console.log("No override is required; exact assessment evidence was recorded.");
+  console.log(
+    "No override is required; exact assessment evidence was recorded.",
+  );
 }
 
 async function assertInstalledArtifact(projectRoot, name, version, integrity) {
-  const lock = JSON.parse(await readFile(join(projectRoot, "package-lock.json"), "utf8"));
+  const lock = JSON.parse(
+    await readFile(join(projectRoot, "package-lock.json"), "utf8"),
+  );
   const installed = lock.packages?.[`node_modules/${name}`];
   if (
     installed?.version !== version ||
     typeof installed.integrity !== "string" ||
     (integrity && installed.integrity !== integrity)
   ) {
-    throw new Error(`installed lockfile artifact does not match assessed ${name}@${version}`);
+    throw new Error(
+      `installed lockfile artifact does not match assessed ${name}@${version}`,
+    );
   }
   return installed.integrity;
 }
@@ -586,7 +704,9 @@ async function writeAssessmentEvidence({
   version,
 }) {
   const path = decisionPath(projectRoot, name, version, "assessment");
-  await mkdir(join(projectRoot, "config", "dependency-decisions"), { recursive: true });
+  await mkdir(join(projectRoot, "config", "dependency-decisions"), {
+    recursive: true,
+  });
   await writeFile(
     path,
     `${JSON.stringify({ archiveSha512, assessmentDate: assessmentNow(), assessmentVersion, ...classification, integrity, package: name, section, tarballUrl, version }, null, 2)}\n`,
@@ -602,10 +722,17 @@ function dependencyRequest(args) {
   };
   const flags = args.filter((value) => value.startsWith("-"));
   const requests = args.filter((value) => !value.startsWith("-"));
-  if (flags.length > 1 || requests.length !== 1 || (flags[0] && !sections[flags[0]])) {
+  if (
+    flags.length > 1 ||
+    requests.length !== 1 ||
+    (flags[0] && !sections[flags[0]])
+  ) {
     return {};
   }
-  return { request: requests[0], section: flags[0] ? sections[flags[0]] : "dependencies" };
+  return {
+    request: requests[0],
+    section: flags[0] ? sections[flags[0]] : "dependencies",
+  };
 }
 
 function installSectionFlag(section) {
@@ -619,7 +746,8 @@ function installSectionFlag(section) {
 
 function downloadUrl(name) {
   const base = normalizeBaseUrl(
-    process.env.LIRNA_NPM_DOWNLOADS_URL ?? "https://api.npmjs.org/downloads/point/last-month/",
+    process.env.LIRNA_NPM_DOWNLOADS_URL ??
+      "https://api.npmjs.org/downloads/point/last-month/",
   );
   return new URL(encodeURIComponent(name), base);
 }
@@ -637,7 +765,8 @@ function githubUrl(repository) {
 
 function scorecardUrl(repository) {
   const base = normalizeBaseUrl(
-    process.env.LIRNA_SCORECARD_API_URL ?? "https://api.securityscorecards.dev/projects/",
+    process.env.LIRNA_SCORECARD_API_URL ??
+      "https://api.securityscorecards.dev/projects/",
   );
   return new URL(`github.com/${repository}`, base);
 }
@@ -647,7 +776,9 @@ function githubRepository(repository) {
     .replace(/^git\+/, "")
     .replace(/^git:\/\//, "https://")
     .replace(/\.git(?=#|$)/, "");
-  const match = value.match(/^https?:\/\/(?:www\.)?github\.com\/([^/]+\/[^/#]+)\/?(?:#.*)?$/i);
+  const match = value.match(
+    /^https?:\/\/(?:www\.)?github\.com\/([^/]+\/[^/#]+)\/?(?:#.*)?$/i,
+  );
   return match?.[1];
 }
 
@@ -661,7 +792,9 @@ function ageInDays(now, date) {
 }
 
 function policyPath() {
-  return fileURLToPath(new URL("../config/dependency-assessment-policy.json", import.meta.url));
+  return fileURLToPath(
+    new URL("../config/dependency-assessment-policy.json", import.meta.url),
+  );
 }
 
 function normalizeBaseUrl(url) {
@@ -669,7 +802,8 @@ function normalizeBaseUrl(url) {
 }
 
 function requiredString(value, label) {
-  if (typeof value !== "string" || value.length === 0) throw new Error(`missing ${label}`);
+  if (typeof value !== "string" || value.length === 0)
+    throw new Error(`missing ${label}`);
   return value;
 }
 
@@ -687,13 +821,18 @@ function packageName(request) {
 }
 
 function show(value, fallback = "unavailable") {
-  return value === undefined || value === null || value === "" ? fallback : String(value);
+  return value === undefined || value === null || value === ""
+    ? fallback
+    : String(value);
 }
 
 function identity(value) {
   if (!value) return "unavailable";
   if (typeof value === "string") return value;
-  return [value.name, value.email].filter(Boolean).join(" <") + (value.email ? ">" : "");
+  return (
+    [value.name, value.email].filter(Boolean).join(" <") +
+    (value.email ? ">" : "")
+  );
 }
 
 function identityList(values) {
@@ -708,6 +847,8 @@ function repositoryValue(repository) {
 }
 
 main().catch((error) => {
-  console.error(`Dependency assessment failed: ${error instanceof Error ? error.message : error}`);
+  console.error(
+    `Dependency assessment failed: ${error instanceof Error ? error.message : error}`,
+  );
   process.exitCode = 1;
 });

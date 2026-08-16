@@ -1,5 +1,5 @@
 {
-  "name": "@rewrite/api",
+  "name": "@lirna/api",
   "type": "module",
   "exports": {
     ".": {
@@ -11,16 +11,16 @@
   },
   "scripts": {},
   "dependencies": {
-    "@rewrite/auth": "workspace:*",
-    "@rewrite/db": "workspace:*",
-    "@rewrite/env": "workspace:*",
+    "@lirna/auth": "workspace:*",
+    "@lirna/db": "workspace:*",
+    "@lirna/env": "workspace:*",
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
     "dotenv": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@rewrite/config": "workspace:*",
+    "@lirna/config": "workspace:*",
     "hono": "catalog:",
     "typescript": "catalog:"
   }

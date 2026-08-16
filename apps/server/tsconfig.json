@@ -1,5 +1,5 @@
 {
-  "extends": "@rewrite/config/tsconfig.base.json",
+  "extends": "@lirna/config/tsconfig.base.json",
   "compilerOptions": {
     "composite": true,
     "outDir": "dist",

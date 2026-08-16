@@ -1,4 +1,4 @@
-import { Button } from "@rewrite/ui/components/button";
+import { Button } from "@lirna/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,8 +7,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@rewrite/ui/components/dropdown-menu";
-import { Skeleton } from "@rewrite/ui/components/skeleton";
+} from "@lirna/ui/components/dropdown-menu";
+import { Skeleton } from "@lirna/ui/components/skeleton";
 import { Link, useNavigate } from "@tanstack/react-router";
 
 import { authClient } from "@/lib/auth-client";

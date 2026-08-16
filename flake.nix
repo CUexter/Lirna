@@ -1,5 +1,5 @@
 {
-  description = "Lirna rewrite development environment";
+  description = "Lirna development environment";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -67,6 +67,10 @@
       };
 
       devShells.${system}.default = pkgs.mkShell {
+        PLAYWRIGHT_BROWSERS_PATH = pkgs.playwright-driver.browsers;
+        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
+        PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
+
         packages = with pkgs; [
           bun
           cargo
@@ -86,6 +90,7 @@
           gitleaks
           semgrep
           trivy
+          playwright-driver.browsers
         ];
       };
     };

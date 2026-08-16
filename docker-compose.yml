@@ -1,4 +1,4 @@
-name: rewrite
+name: lirna
 
 services:
   web:
@@ -36,7 +36,7 @@ services:
         required: false
     environment:
       CORS_ORIGIN: http://localhost:3001
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/rewrite
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/lirna
     healthcheck:
       test:
         [
@@ -56,15 +56,15 @@ services:
 
   postgres:
     image: postgres:18
-    container_name: rewrite-postgres
+    container_name: lirna-postgres
     environment:
-      POSTGRES_DB: rewrite
+      POSTGRES_DB: lirna
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
     ports:
       - "5432:5432"
     volumes:
-      - rewrite_postgres_data:/var/lib/postgresql
+      - lirna_postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -73,4 +73,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  rewrite_postgres_data:
+  lirna_postgres_data:
