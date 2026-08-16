@@ -10,7 +10,7 @@ Accepted
 
 ## Decision
 
-- `package.json` and `package-lock.json` own exact JavaScript tooling versions.
+- `package.json` and `bun.lock` own exact JavaScript tooling versions.
   Nix pins Node 22, PostgreSQL 16, system libraries, and Playwright's patched
   Firefox browser. The npm Playwright version must match Nixpkgs' Playwright
   driver version.

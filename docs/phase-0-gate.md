@@ -6,32 +6,17 @@ Tracks issue #36 ("Prove the Phase 0 invariants"), the architecture-skeleton
 gate for the destination in #30. This document is the gate's recorded result:
 what was proven, how, and the known limitations handed to the next phase.
 
-## Result
+## Historical result
 
 **Passed.** One reproducible body of evidence covers the riskiest Phase 0
 authority, durability, artifact, workflow, and policy promises. It is produced
 through a single application scenario seam against disposable real
 infrastructure and runs in local development and CI.
 
-- Evidence suite: `tests/gate/phase-0-gate.test.ts` (9 tests).
-- Application scenario seam: `tests/support/phase-0-scenario.ts`
-  (`startPhase0Scenario`) — one fully-wired boot of the web/API control plane,
-  the operation worker, the typed-workflow kernel and its background executor,
-  PostgreSQL authority, a content-addressed filesystem artifact store shared by
-  every module, and a synthetic Vault adapter.
-- Disposable real infrastructure: a throwaway PostgreSQL (a per-run
-  Testcontainers container locally, or the CI-supplied `TEST_DATABASE_URL`), a
-  temporary artifact store, and a temporary synthetic Vault root. No private
-  Vault material (`~/vaults`) is read or written; all fixtures are synthetic,
-  non-sensitive bytes.
-
-Run it with:
-
-```sh
-npm run test:gate
-```
-
-The gate is also part of the full suite (`npm test`).
+The original Phase 0 evidence was produced in an earlier checkout. Its test
+harness is not part of the current repository and is not presented as a command
+that can be rerun here. No private Vault material (`~/vaults`) was read or
+written; the original fixtures were synthetic, non-sensitive bytes.
 
 ## What the gate proves
 
