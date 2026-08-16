@@ -36,8 +36,8 @@ accepted
 - The client↔server boundary is an explicit, offline-tolerant network boundary;
   it is *not* a colocated-server-function boundary (server functions could not
   run in either the PWA or the Tauri host anyway).
-- A typed Hono RPC contract (`hc`) remains a future option. The current client
-  calls the API through raw `fetch` (`client/src/lib/operations.ts`), and the
+- A typed Hono RPC contract (`hc`) remains a future option. The current web app
+  calls the API through raw `fetch`, and the
   server exports no route type yet. Wiring up the typed client is first-build
   work, to be tracked separately if/when prioritised; re-audit this ADR
   if/when it lands.
