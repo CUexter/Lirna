@@ -1,0 +1,52 @@
+name: Nix
+
+on:
+  pull_request:
+    paths:
+      - "flake.nix"
+      - "flake.lock"
+      - "nix/**"
+      - "apps/server/**"
+      - "apps/web/**"
+      - "packages/**"
+      - "bun.lock"
+      - "package.json"
+      - ".github/workflows/nix.yml"
+  push:
+    paths:
+      - "flake.nix"
+      - "flake.lock"
+      - "nix/**"
+      - "apps/server/**"
+      - "apps/web/**"
+      - "packages/**"
+      - "bun.lock"
+      - "package.json"
+      - ".github/workflows/nix.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: nix-${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Flake checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@33c9ab3ef95cd57c164d9d6eb1f9a46338538d41 # main, 2026-07-15
+      - name: Configure Nix binary cache
+        uses: DeterminateSystems/magic-nix-cache-action@55718cd9ebf1737a061487d5ada21abf31e99a98 # main, 2026-07-15
+        with:
+          upstream-cache: https://cache.nixos.org
+      - name: Verify Nix workflow policy
+        run: scripts/test-nix-verification.sh
+      - name: Verify Nix packaging and VM behavior
+        run: nix flake check --print-build-logs
