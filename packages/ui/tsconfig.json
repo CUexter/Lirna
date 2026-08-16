@@ -1,11 +1,11 @@
 {
-  "extends": "@rewrite/config/tsconfig.base.json",
+  "extends": "@lirna/config/tsconfig.base.json",
   "compilerOptions": {
     "jsx": "react-jsx",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": [],
     "paths": {
-      "@rewrite/ui/*": ["./src/*"]
+      "@lirna/ui/*": ["./src/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],

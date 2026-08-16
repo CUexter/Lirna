@@ -1,8 +1,8 @@
 import { trpcServer } from "@hono/trpc-server";
-import { createContext } from "@rewrite/api/context";
-import { appRouter } from "@rewrite/api/routers/index";
-import { auth } from "@rewrite/auth";
-import { env } from "@rewrite/env/server";
+import { createContext } from "@lirna/api/context";
+import { appRouter } from "@lirna/api/routers/index";
+import { auth } from "@lirna/auth";
+import { env } from "@lirna/env/server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";

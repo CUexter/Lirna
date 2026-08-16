@@ -1,4 +1,4 @@
-import { env } from "@rewrite/env/server";
+import { env } from "@lirna/env/server";
 import { drizzle } from "drizzle-orm/node-postgres";
 
 import * as schema from "./schema";

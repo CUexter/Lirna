@@ -1,1 +1,3 @@
+bun run secrets:staged
 lint-staged
+bun run quality

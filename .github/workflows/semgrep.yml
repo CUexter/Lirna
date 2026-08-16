@@ -1,0 +1,26 @@
+name: Semgrep
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: Scan source
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Install Semgrep
+        run: python3 -m pip install --disable-pip-version-check semgrep==1.172.0
+      - name: Test scanning policy
+        run: scripts/test-security-scanning.sh
+      - name: Scan blocking security rules
+        run: scripts/semgrep-scan.sh blocking
+      - name: Report lower-confidence security findings
+        run: scripts/semgrep-scan.sh report

@@ -1,5 +1,5 @@
 {
-  "name": "@rewrite/env",
+  "name": "@lirna/env",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@rewrite/config": "workspace:*",
+    "@lirna/config": "workspace:*",
     "@types/bun": "catalog:",
     "typescript": "catalog:"
   }

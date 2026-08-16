@@ -11,10 +11,10 @@
   },
   "dependencies": {
     "@hono/trpc-server": "^0.4.2",
-    "@rewrite/api": "workspace:*",
-    "@rewrite/auth": "workspace:*",
-    "@rewrite/db": "workspace:*",
-    "@rewrite/env": "workspace:*",
+    "@lirna/api": "workspace:*",
+    "@lirna/auth": "workspace:*",
+    "@lirna/db": "workspace:*",
+    "@lirna/env": "workspace:*",
     "@trpc/server": "catalog:",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
@@ -22,7 +22,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@rewrite/config": "workspace:*",
+    "@lirna/config": "workspace:*",
     "@types/bun": "catalog:",
     "tsdown": "^0.22.14",
     "typescript": "catalog:"

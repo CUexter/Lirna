@@ -21,9 +21,9 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       manifest: {
-        name: "rewrite",
-        short_name: "rewrite",
-        description: "rewrite - PWA Application",
+        name: "Lirna",
+        short_name: "Lirna",
+        description: "Lirna - PWA Application",
         theme_color: "#0c0c0c",
       },
       pwaAssets: { disabled: false, config: true },

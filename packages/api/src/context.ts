@@ -1,4 +1,4 @@
-import { auth } from "@rewrite/auth";
+import { auth } from "@lirna/auth";
 import type { Context as HonoContext } from "hono";
 
 export type CreateContextOptions = {

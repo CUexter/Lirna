@@ -21,6 +21,8 @@ a modern TypeScript stack combining React, TanStack Router, Hono, tRPC, and more
 - **Better Auth** - Authentication
 - **Biome** - Linting and formatting
 - **Husky** - Git hooks for code quality
+- **Gitleaks** - Secret scanning before commits and in CI
+- **Semgrep** - Security-focused static analysis for application source
 - **Trivy** - Container vulnerability and deployment configuration scanning
 - **PWA** - Progressive Web App support
 - **Tauri** - Native desktop application support
@@ -84,7 +86,7 @@ npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
 Import shared components from the package:
 
 ```tsx
-import { Button } from "@rewrite/ui/components/button";
+import { Button } from "@lirna/ui/components/button";
 ```
 
 ### Add App-Specific Blocks
@@ -119,15 +121,19 @@ deployment example, and checks.
 
 ## Git Hooks and Formatting
 
+- Enter the Nix development shell for Gitleaks and the other native tools: `nix develop`
 - Initialize hooks: `bun run prepare`
 - Run checks: `bun run check`
+- Scan repository history for secrets: `bun run secrets:check`
+- Run blocking source security rules: `bun run check:semgrep`
+- Report lower-confidence source security findings: `bun run report:semgrep`
 - Scan deployable configuration: `scripts/trivy-scan.sh config`
 - Scan Bun and Cargo lockfiles: `scripts/trivy-scan.sh dependencies`
 
 ## Project Structure
 
 ```text
-rewrite/
+lirna/
 ├── apps/
 │   ├── web/         # React and TanStack Router frontend
 │   ├── docs/        # Astro Starlight documentation site
@@ -154,6 +160,9 @@ rewrite/
 - `bun run lint`: Run Vite+ lint checks
 - `bun run format`: Run Vite+ formatting
 - `bun run staged`: Run Vite+ checks against staged files
+- `bun run secrets:check`: Scan repository history for secrets
+- `bun run check:semgrep`: Run blocking security-focused Semgrep rules
+- `bun run report:semgrep`: Report non-blocking security-focused Semgrep rules
 - `scripts/trivy-scan.sh config`: Scan Docker and deployment configuration with Trivy
 - `scripts/trivy-scan.sh dependencies`: Scan Bun and Cargo lockfiles with Trivy
 - `cd apps/web && bun run generate-pwa-assets`: Generate PWA assets

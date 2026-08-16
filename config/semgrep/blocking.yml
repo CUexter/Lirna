@@ -1,0 +1,143 @@
+rules:
+  - id: lirna-typescript-command-injection
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Untrusted input reaches a shell command. Use an argument-array API without a shell.
+    metadata:
+      category: security
+      cwe: CWE-78
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: process.argv[$INDEX]
+          - pattern: $CONTEXT.req.query($KEY)
+          - pattern: $CONTEXT.req.param($KEY)
+          - pattern: $CONTEXT.req.header($KEY)
+          - pattern: $CONTEXT.req.json()
+          - pattern: $CONTEXT.req.parseBody()
+          - pattern: $CONTEXT.req.formData()
+          - pattern: $CONTEXT.req.text()
+    pattern-sinks:
+      - pattern: exec($COMMAND, ...)
+      - pattern: execSync($COMMAND, ...)
+      - pattern: $CHILD_PROCESS.exec($COMMAND, ...)
+      - pattern: $CHILD_PROCESS.execSync($COMMAND, ...)
+
+  - id: lirna-typescript-sql-injection
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Untrusted input reaches a raw SQL API. Use parameterized queries.
+    metadata:
+      category: security
+      cwe: CWE-89
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: $CONTEXT.req.query($KEY)
+          - pattern: $CONTEXT.req.param($KEY)
+          - pattern: $CONTEXT.req.header($KEY)
+          - pattern: $CONTEXT.req.json()
+          - pattern: $CONTEXT.req.parseBody()
+          - pattern: $CONTEXT.req.formData()
+          - pattern: $CONTEXT.req.text()
+    pattern-sinks:
+      - pattern: sql.raw($QUERY)
+      - pattern: $SQL.raw($QUERY)
+      - pattern: $DATABASE.unsafe($QUERY, ...)
+      - pattern: $DATABASE.$queryRawUnsafe($QUERY, ...)
+      - pattern: $DATABASE.$executeRawUnsafe($QUERY, ...)
+
+  - id: lirna-typescript-unsafe-process-spawn
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: A child process is spawned through a shell. Pass the executable and arguments without shell mode.
+    metadata:
+      category: security
+      cwe: CWE-78
+    patterns:
+      - pattern-either:
+          - pattern: 'spawn($COMMAND, $ARGS, { ..., shell: true, ... })'
+          - pattern: 'spawnSync($COMMAND, $ARGS, { ..., shell: true, ... })'
+          - pattern: '$CHILD_PROCESS.spawn($COMMAND, $ARGS, { ..., shell: true, ... })'
+          - pattern: '$CHILD_PROCESS.spawnSync($COMMAND, $ARGS, { ..., shell: true, ... })'
+
+  - id: lirna-typescript-path-traversal
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Untrusted input reaches a filesystem path. Resolve it beneath an allowed root before access.
+    metadata:
+      category: security
+      cwe: CWE-22
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: process.argv[$INDEX]
+          - pattern: $CONTEXT.req.query($KEY)
+          - pattern: $CONTEXT.req.param($KEY)
+          - pattern: $CONTEXT.req.header($KEY)
+          - pattern: $CONTEXT.req.json()
+          - pattern: $CONTEXT.req.parseBody()
+          - pattern: $CONTEXT.req.formData()
+          - pattern: $CONTEXT.req.text()
+    pattern-sinks:
+      - pattern: readFile($PATH, ...)
+      - pattern: readFileSync($PATH, ...)
+      - pattern: writeFile($PATH, ...)
+      - pattern: writeFileSync($PATH, ...)
+      - pattern: open($PATH, ...)
+      - pattern: openSync($PATH, ...)
+      - pattern: createReadStream($PATH, ...)
+      - pattern: createWriteStream($PATH, ...)
+      - pattern: readdir($PATH, ...)
+      - pattern: rm($PATH, ...)
+      - pattern: stat($PATH, ...)
+      - pattern: unlink($PATH, ...)
+      - pattern: $FS.readFile($PATH, ...)
+      - pattern: $FS.readFileSync($PATH, ...)
+      - pattern: $FS.writeFile($PATH, ...)
+      - pattern: $FS.writeFileSync($PATH, ...)
+      - pattern: $FS.open($PATH, ...)
+      - pattern: $FS.openSync($PATH, ...)
+      - pattern: $FS.createReadStream($PATH, ...)
+      - pattern: $FS.createWriteStream($PATH, ...)
+      - pattern: $FS.readdir($PATH, ...)
+      - pattern: $FS.rm($PATH, ...)
+      - pattern: $FS.stat($PATH, ...)
+      - pattern: $FS.unlink($PATH, ...)
+
+  - id: lirna-typescript-insecure-crypto
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: MD5 and SHA-1 are not suitable for security-sensitive hashing. Use a modern algorithm.
+    metadata:
+      category: security
+      cwe: CWE-328
+    pattern-either:
+      - pattern: createHash("md5")
+      - pattern: createHash("sha1")
+      - pattern: createHash("sha-1")
+      - pattern: $CRYPTO.createHash("md5")
+      - pattern: $CRYPTO.createHash("sha1")
+      - pattern: $CRYPTO.createHash("sha-1")
+
+  - id: lirna-typescript-xss-sink
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Untrusted input is assigned to an HTML execution sink. Render it as text or sanitize it first.
+    metadata:
+      category: security
+      cwe: CWE-79
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: $CONTEXT.req.query($KEY)
+          - pattern: $CONTEXT.req.param($KEY)
+          - pattern: $CONTEXT.req.header($KEY)
+          - pattern: $CONTEXT.req.json()
+          - pattern: $CONTEXT.req.parseBody()
+          - pattern: $CONTEXT.req.formData()
+          - pattern: $CONTEXT.req.text()
+    pattern-sinks:
+      - pattern: $ELEMENT.innerHTML = $HTML
+      - pattern: $ELEMENT.outerHTML = $HTML
+      - pattern: $DOCUMENT.write($HTML)

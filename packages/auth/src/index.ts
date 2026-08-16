@@ -1,6 +1,6 @@
-import { createDb } from "@rewrite/db";
-import * as schema from "@rewrite/db/schema/auth";
-import { env } from "@rewrite/env/server";
+import { createDb } from "@lirna/db";
+import * as schema from "@lirna/db/schema/auth";
+import { env } from "@lirna/env/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 

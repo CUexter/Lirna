@@ -1,4 +1,4 @@
-import { cn } from "@rewrite/ui/lib/utils";
+import { cn } from "@lirna/ui/lib/utils";
 import * as React from "react";
 
 function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {

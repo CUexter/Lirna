@@ -1,4 +1,4 @@
-import { cn } from "@rewrite/ui/lib/utils";
+import { cn } from "@lirna/ui/lib/utils";
 import * as React from "react";
 
 function MessageGroup({ className, ...props }: React.ComponentProps<"div">) {
@@ -81,4 +81,11 @@ function MessageFooter({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-export { MessageGroup, Message, MessageAvatar, MessageContent, MessageFooter, MessageHeader };
+export {
+  MessageGroup,
+  Message,
+  MessageAvatar,
+  MessageContent,
+  MessageFooter,
+  MessageHeader,
+};

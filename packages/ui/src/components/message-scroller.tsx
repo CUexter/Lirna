@@ -1,7 +1,7 @@
 "use client";
 
-import { Button } from "@rewrite/ui/components/button";
-import { cn } from "@rewrite/ui/lib/utils";
+import { Button } from "@lirna/ui/components/button";
+import { cn } from "@lirna/ui/lib/utils";
 import {
   MessageScroller as MessageScrollerPrimitive,
   useMessageScroller,
@@ -56,7 +56,10 @@ function MessageScrollerContent({
   return (
     <MessageScrollerPrimitive.Content
       data-slot="message-scroller-content"
-      className={cn("cn-message-scroller-content flex h-max min-h-full flex-col gap-6", className)}
+      className={cn(
+        "cn-message-scroller-content flex h-max min-h-full flex-col gap-6",
+        className,
+      )}
       {...props}
     />
   );

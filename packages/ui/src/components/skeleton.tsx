@@ -1,4 +1,4 @@
-import { cn } from "@rewrite/ui/lib/utils";
+import { cn } from "@lirna/ui/lib/utils";
 
 function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   return (

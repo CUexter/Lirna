@@ -28,7 +28,10 @@ export function importedArea(sourcePath, specifier) {
   let aliasRoot;
   if (specifier === "@shared" || specifier.startsWith("@shared/")) {
     aliasRoot = resolve(projectRoot, "shared");
-    target = resolve(aliasRoot, specifier.slice("@shared".length).replace(/^\//, ""));
+    target = resolve(
+      aliasRoot,
+      specifier.slice("@shared".length).replace(/^\//, ""),
+    );
   } else if (specifier === "@" || specifier.startsWith("@/")) {
     aliasRoot = resolve(projectRoot, "client/src");
     target = resolve(aliasRoot, specifier.slice(1).replace(/^\//, ""));
@@ -37,7 +40,8 @@ export function importedArea(sourcePath, specifier) {
   } else {
     return undefined;
   }
-  if (aliasRoot && relative(aliasRoot, target).startsWith("..")) return "alias-escape";
+  if (aliasRoot && relative(aliasRoot, target).startsWith(".."))
+    return "alias-escape";
   return sourceArea(relative(projectRoot, target));
 }
 
@@ -51,7 +55,11 @@ export function moduleFacts(sourcePath, source) {
   );
   const imports = [];
   let createsRoute = false;
-  const routeCreators = new Set(["createFileRoute", "createRootRoute", "createRoute"]);
+  const routeCreators = new Set([
+    "createFileRoute",
+    "createRootRoute",
+    "createRoute",
+  ]);
   const visit = (node) => {
     if (
       (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
@@ -68,7 +76,10 @@ export function moduleFacts(sourcePath, source) {
       ) {
         imports.push(node.arguments[0].text);
       }
-      if (ts.isIdentifier(node.expression) && routeCreators.has(node.expression.text)) {
+      if (
+        ts.isIdentifier(node.expression) &&
+        routeCreators.has(node.expression.text)
+      ) {
         createsRoute = true;
       }
     }
@@ -91,38 +102,60 @@ async function inspect(sourcePath) {
   if (cap !== undefined) {
     seenCaps.add(sourcePath);
     if (lines > cap) {
-      violations.push(`${sourcePath} grew from its existing cap (${lines} > ${cap})`);
+      violations.push(
+        `${sourcePath} grew from its existing cap (${lines} > ${cap})`,
+      );
     } else if (lines <= maximumLines) {
-      violations.push(`${sourcePath} no longer needs its architecture-check exception`);
+      violations.push(
+        `${sourcePath} no longer needs its architecture-check exception`,
+      );
     } else if (lines < cap) {
-      violations.push(`${sourcePath} shrank; lower its existing cap from ${cap} to ${lines}`);
+      violations.push(
+        `${sourcePath} shrank; lower its existing cap from ${cap} to ${lines}`,
+      );
     }
   } else if (lines > maximumLines) {
-    violations.push(`${sourcePath} exceeds the ${maximumLines}-line module ceiling (${lines})`);
+    violations.push(
+      `${sourcePath} exceeds the ${maximumLines}-line module ceiling (${lines})`,
+    );
   }
   if (lines > advisoryLines) hotspots.push(`${sourcePath} (${lines})`);
   const facts = moduleFacts(sourcePath, source);
   if (sourcePath.startsWith("client/src/routes/") && !facts.createsRoute) {
-    violations.push(`${sourcePath} is under routes/ but does not create a TanStack Router route`);
+    violations.push(
+      `${sourcePath} is under routes/ but does not create a TanStack Router route`,
+    );
   }
 
   const area = sourceArea(sourcePath);
   for (const specifier of facts.imports) {
     const target = importedArea(sourcePath, specifier);
     if (target === "alias-escape") {
-      violations.push(`${sourcePath} escapes an import alias through ${specifier}`);
+      violations.push(
+        `${sourcePath} escapes an import alias through ${specifier}`,
+      );
       continue;
     }
     if (area === "client" && target === "server") {
-      violations.push(`${sourcePath} imports server-owned implementation through ${specifier}`);
+      violations.push(
+        `${sourcePath} imports server-owned implementation through ${specifier}`,
+      );
     }
     if (area === "server" && target === "client") {
-      violations.push(`${sourcePath} imports client-owned implementation through ${specifier}`);
+      violations.push(
+        `${sourcePath} imports client-owned implementation through ${specifier}`,
+      );
     }
     if (area === "shared" && (target === "client" || target === "server")) {
-      violations.push(`${sourcePath} makes shared contracts depend on ${target} implementation`);
+      violations.push(
+        `${sourcePath} makes shared contracts depend on ${target} implementation`,
+      );
     }
-    if (area === "client" && target === "shared" && !specifier.startsWith("@shared/")) {
+    if (
+      area === "client" &&
+      target === "shared" &&
+      !specifier.startsWith("@shared/")
+    ) {
       violations.push(
         `${sourcePath} must import shared contracts through @shared, not ${specifier}`,
       );
@@ -131,7 +164,9 @@ async function inspect(sourcePath) {
 }
 
 async function visit(directory) {
-  for (const entry of await readdir(resolve(projectRoot, directory), { withFileTypes: true })) {
+  for (const entry of await readdir(resolve(projectRoot, directory), {
+    withFileTypes: true,
+  })) {
     const sourcePath = `${directory}/${entry.name}`;
     if (entry.isDirectory()) {
       await visit(sourcePath);
@@ -162,4 +197,8 @@ async function main() {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();
+if (
+  process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+)
+  await main();

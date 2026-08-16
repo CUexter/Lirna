@@ -8,7 +8,7 @@ desktop packages, and a NixOS service module. It currently supports
 
 | Output | Purpose |
 | --- | --- |
-| `devShells.x86_64-linux.default` | Development tools for Bun, Tauri, PostgreSQL, containers, and security checks |
+| `devShells.x86_64-linux.default` | Development tools for Bun, Playwright, Tauri, PostgreSQL, containers, and security checks |
 | `packages.x86_64-linux.default` | Standalone Lirna server executable |
 | `packages.x86_64-linux.server` | Alias of the default server package |
 | `packages.x86_64-linux.desktop` | Tauri desktop application |
@@ -22,6 +22,16 @@ Enter the development shell:
 ```bash
 nix develop
 ```
+
+The shell supplies Nixpkgs' patched Playwright browsers and prevents Playwright
+from downloading separate browser binaries. Run the Firefox E2E suite with:
+
+```bash
+bun run test:e2e
+```
+
+The pinned `@playwright/test` version in `package.json` must match the
+`playwright-driver` version from the locked Nixpkgs input.
 
 Build or run the server package:
 
@@ -107,7 +117,7 @@ The environment file must be deployed outside the Nix store with permissions
 appropriate for secrets. It must contain:
 
 ```dotenv
-BETTER_AUTH_SECRET=replace-with-at-least-32-characters
+BETTER_AUTH_SECRET=generate-a-secret-at-deploy-time
 BETTER_AUTH_URL=https://lirna.example.com
 CORS_ORIGIN=https://lirna.example.com
 ```
