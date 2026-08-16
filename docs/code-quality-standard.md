@@ -120,7 +120,8 @@ required status name.
 
 | Workflow | Blocking behavior | Scope |
 | --- | --- | --- |
-| Gitleaks | Fails on detected secrets | Full fetched Git history. |
+| Gitleaks | Fails on detected secrets | Full fetched Git history through the repository-owned `.gitleaks.toml`; local staged and outgoing-range scans use the same configuration. |
+| Dependency assessment verification | Fails when a changed direct dependency lacks a committed decision matching `package.json` and `bun.lock` | `bun run dependency:check` in the active Husky pre-commit hook and `bun run maintenance:test` in Quality CI; human review owns necessity, provenance, and license decisions. |
 | Semgrep blocking scan | Fails on findings or scanner errors | Repository-owned command injection, SQL injection, unsafe process spawn, path traversal, insecure cryptography, and XSS rules for JavaScript and TypeScript. |
 | Semgrep reporting scan | Reports findings but does not fail for a finding | Dynamic code execution and disabled TLS verification. Scanner or configuration errors still fail. |
 | Semgrep policy test | Fails when expected fixture findings, safe behavior, or workflow wiring regress | Local Semgrep rules and fixtures. |
@@ -131,8 +132,10 @@ required status name.
 | Quality gate policy test | Fails when the read-only commands, frozen install, or aggregate workflow wiring regress | `scripts/test-quality-gate.sh` in the `Quality` workflow. |
 | General quality gate | Fails on formatting/linting, configured complexity/size/props/duplication checks, workspace type errors, or production build errors | `.github/workflows/quality.yml`; aggregate status: `Quality / quality`. |
 
-The Quality workflow does not run tests, Nix flake checks, migrations, or
-dependency-assessment verification.
+The Quality workflow does not run tests, Nix flake checks, or migrations. Trivy owns
+dependency vulnerability scanning; dependency assessment verification only
+checks that direct dependency changes have matching committed evidence, avoiding
+duplicate vulnerability responsibility.
 
 ### Available but manual
 

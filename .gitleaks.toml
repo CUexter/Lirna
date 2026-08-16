@@ -1,0 +1,6 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Only repository-owned example files are excluded."
+paths = ['''(^|/)\.env\.example$''']
