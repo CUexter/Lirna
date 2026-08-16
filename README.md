@@ -157,6 +157,7 @@ lirna/
 - `bun run test:e2e`: Run the deterministic Playwright browser suite locally
 - `bun run test:e2e:ci`: Run the Playwright suite with CI retries and diagnostics
 - `bun run quality:ci`: Run the read-only Biome and configured quality checks
+- `bun run quality:bundle`: Build the web app and enforce its production asset budget
 - `bun run quality:policy`: Verify the quality workflow and command contracts
 - `bun run db:push`: Push schema changes to the database
 - `bun run db:generate`: Generate database client and types

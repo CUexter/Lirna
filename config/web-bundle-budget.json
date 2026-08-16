@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "scope": {
+    "webBuildDirectory": "apps/web/dist",
+    "measured": "All production files except source maps and the generated metrics file.",
+    "sourceMaps": "Excluded from all budgets and reported asset lists.",
+    "generatedAssets": "Included when shipped in dist, including service-worker and manifest files.",
+    "thirdPartyChunks": "Included; dependency provenance does not exempt a shipped chunk.",
+    "compressedSizes": "Reported as gzip bytes for review, but raw bytes are the budget metric.",
+    "budgetLevel": "Aggregate JavaScript and largest individual JavaScript asset. No per-entry budget."
+  },
+  "baseline": {
+    "javascriptBytes": 952410,
+    "largestJavascriptBytes": 416452,
+    "assetBytes": 1063374
+  },
+  "headroomPercent": 10,
+  "budget": {
+    "javascriptBytes": 1047651,
+    "largestJavascriptBytes": 458098,
+    "assetBytes": 1169712
+  }
+}
