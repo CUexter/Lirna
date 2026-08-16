@@ -111,6 +111,13 @@ Semgrep, Trivy, unit tests, integration tests, or E2E tests.
 
 All current workflows run on pushes and pull requests. Trivy also runs weekly.
 
+The `Quality` workflow exposes one stable aggregate job named `quality` (check
+name: `Quality / quality`). The
+aggregate waits for dependency installation, static checks, workspace type
+checks, and production builds, and is the required status to configure for the
+main branch. The implementation jobs may run in parallel without changing the
+required status name.
+
 | Workflow | Blocking behavior | Scope |
 | --- | --- | --- |
 | Gitleaks | Fails on detected secrets | Full fetched Git history. |
@@ -121,22 +128,25 @@ All current workflows run on pushes and pull requests. Trivy also runs weekly.
 | Trivy dependency scan | Fails on fixed high or critical vulnerabilities | Bun and Cargo lockfile dependencies, including development dependencies; unfixed vulnerabilities are ignored. |
 | Trivy image scan | Fails on fixed high or critical vulnerabilities | Freshly built server and web images; both OS and library packages. |
 | Trivy policy test | Fails when thresholds, exclusions, scanner failure propagation, pinning, or workflow wiring regress | Trivy wrapper and workflow policy. |
+| Quality gate policy test | Fails when the read-only commands, frozen install, or aggregate workflow wiring regress | `scripts/test-quality-gate.sh` in the `Quality` workflow. |
+| General quality gate | Fails on formatting/linting, configured complexity/size/props/duplication checks, workspace type errors, or production build errors | `.github/workflows/quality.yml`; aggregate status: `Quality / quality`. |
 
-No GitHub Actions workflow currently runs formatting verification, the full Biome
-linter, `bun run quality`, TypeScript checking, application builds, tests, Nix
-flake checks, migrations, or dependency-assessment verification.
+The Quality workflow does not run tests, Nix flake checks, migrations, or
+dependency-assessment verification.
 
 ### Available but manual
 
 | Command or configuration | What it provides | Current status |
 | --- | --- | --- |
-| `bun run check-types` | Workspace TypeScript checks; the web task also builds the frontend | Available locally; not run by a hook or CI. Only workspaces declaring `check-types` participate directly. |
-| `bun run build` | Builds workspaces that declare a build task | Available locally; not run by a hook or CI. |
-| `bun run check` | Runs the full configured Biome formatter, linter, and assists with writes enabled | Manual and mutating; not a read-only CI gate. |
+| `bun run check-types` | Workspace TypeScript checks; the web task also builds the frontend | Automated in the Quality workflow; available locally. Only workspaces declaring `check-types` participate directly. |
+| `bun run build` | Builds workspaces that declare a build task | Automated in the Quality workflow; available locally. |
+| `bun run check` | Runs the full configured Biome formatter, linter, and assist checks without modifying files | Automated in the Quality workflow; read-only locally. |
+| `bun run check:fix` | Applies configured Biome formatting, lint, and assist fixes | Manual and mutating. |
+| `bun run quality:ci` | Runs read-only Biome checks and the existing complexity, parameter-count, file-size, React-prop, and duplication checks | Automated in the Quality workflow. |
 | `bun run lint` | Runs Vite+'s workspace lint task | Available locally; not run by a hook or CI. |
 | `bun run check:semgrep` | Runs the blocking Semgrep rules | Automated in CI, but optional locally and absent from pre-commit. |
 | `bun run report:semgrep` | Runs non-blocking Semgrep rules | Automated in CI, but optional locally and absent from pre-commit. |
-| `nix flake check` | Builds/evaluates the server package, desktop package, and NixOS module checks | Defined in `flake.nix`; not run by a hook or CI. The NixOS VM test is exposed as a package but is not in the default `checks` set. |
+| `Nix flake checks` | Builds/evaluates the server package, desktop package, NixOS module closure, and NixOS VM integration test | `.github/workflows/nix.yml` runs `nix flake check --print-build-logs` on relevant pull requests and pushes with pinned Nix installation and cache actions. |
 | `playwright.config.ts` | Defines one Firefox application-shell E2E test | Not wired to a current package script or CI workflow. The root manifest does not declare `@playwright/test`, although the generated Nix dependency file still contains it. |
 
 ## Not automated
@@ -162,8 +172,8 @@ The following standards require human review today:
 
 These are current repository gaps, not approved exceptions to the standard.
 
-1. There is no general CI quality workflow. A change can pass all active GitHub
-   workflows while failing to build, type-check, lint, or test.
+1. The general CI quality workflow does not run tests, Nix flake checks,
+   migrations, or dependency-assessment verification.
 2. There are no unit or integration test files under `apps/` or `packages/`, no
    test or coverage command in the root manifest, and no coverage threshold.
 3. The Playwright smoke test is incomplete as repository automation: the
@@ -175,16 +185,15 @@ These are current repository gaps, not approved exceptions to the standard.
    enforce the current `apps/` and `packages/` architecture.
 5. `scripts/check-ui-primitives.mjs` also targets the removed `client/src`
    layout and is not wired to a hook, package command, or workflow.
-6. The full Biome recommended rules are not automated. Pre-commit formats staged
-   files and runs only the selected complexity and size rules.
-7. Nix package and module checks exist but are not run in GitHub Actions; the
-   NixOS VM integration test is not part of `nix flake check`.
-8. Dependency-assessment and older secret-scanning scripts reference npm
+6. The Nix workflow intentionally runs only for changes that can affect the
+   server package, desktop package, NixOS module, or VM integration test. It is
+   separate from the fast quality and security workflows.
+7. Dependency-assessment and older secret-scanning scripts reference npm
    `package-lock.json`, `.githooks`, `config/gitleaks.toml`, or a removed
    `checks.yml` workflow. They are not active in the current Bun/Husky setup.
-9. Pre-commit quality checks run across `apps/` and `packages/`, but local hooks
+8. Pre-commit quality checks run across `apps/` and `packages/`, but local hooks
    can be bypassed and CI does not repeat them.
-10. No automated check verifies accessibility, workspace dependency direction,
+9. No automated check verifies accessibility, workspace dependency direction,
     public API compatibility, migration safety, documentation freshness, or
     performance budgets.
 
