@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+set -eu
+
+old=$(git rev-parse "$3" 2>/dev/null || printf '%s' 0000000000000000000000000000000000000000)
+new=$(git rev-parse "$2")
+bun run secrets:range -- "$old" "$new"

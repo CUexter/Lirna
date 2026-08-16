@@ -126,6 +126,7 @@ deployment example, and checks.
 - Run read-only checks: `bun run check`
 - Apply automatic fixes: `bun run check:fix`
 - Scan repository history for secrets: `bun run secrets:check`
+- Verify changed direct dependencies against `bun.lock`: `bun run dependency:check`
 - Run blocking source security rules: `bun run check:semgrep`
 - Report lower-confidence source security findings: `bun run report:semgrep`
 - Scan deployable configuration: `scripts/trivy-scan.sh config`
@@ -166,6 +167,9 @@ lirna/
 - `bun run lint`: Run Vite+ lint checks
 - `bun run format`: Run Vite+ formatting
 - `bun run staged`: Run Vite+ checks against staged files
+- `bun run maintenance:test`: Exercise dependency and secret policy safe, violation, and tool-error fixtures
+- `bun run security:trivy:config`: Scan deployable configuration with Trivy
+- `bun run security:trivy:dependencies`: Scan Bun and Cargo lockfiles with Trivy
 - `bun run secrets:check`: Scan repository history for secrets
 - `bun run check:semgrep`: Run blocking security-focused Semgrep rules
 - `bun run report:semgrep`: Report non-blocking security-focused Semgrep rules
