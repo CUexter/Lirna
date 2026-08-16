@@ -109,6 +109,13 @@ into web builds.
 See the [Better-T-Stack Docker Compose guide](https://www.better-t-stack.dev/docs/guides/docker)
 for more details.
 
+### Nix and NixOS
+
+The flake provides a development shell, a reproducible server package, and a
+NixOS service module with optional local PostgreSQL. See
+[`docs/nix.md`](./docs/nix.md) for the available outputs, module options,
+deployment example, and checks.
+
 ## Git Hooks and Formatting
 
 - Initialize hooks: `bun run prepare`

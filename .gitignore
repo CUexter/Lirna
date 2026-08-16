@@ -59,6 +59,4 @@ temp
 
 # Deferred legacy and Nix setup
 lirna-legacy/
-nix/
-flake.nix
-flake.lock
+/.direnv
