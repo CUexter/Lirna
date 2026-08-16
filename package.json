@@ -32,6 +32,8 @@
     "check-types": "vp run -r check-types",
     "test": "bun test --isolate --pass-with-no-tests --path-ignore-patterns=lirna-legacy/** --path-ignore-patterns=tests/e2e/**",
     "test:coverage": "bun test --isolate --pass-with-no-tests --path-ignore-patterns=lirna-legacy/** --path-ignore-patterns=tests/e2e/** --coverage --coverage-reporter=text --coverage-reporter=lcov --coverage-dir=coverage && node scripts/check-coverage.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:ci": "CI=1 playwright test",
     "check": "biome check .",
     "check:fix": "biome check --write .",
     "lint": "vp lint",
@@ -43,6 +45,7 @@
     "quality:policy": "scripts/test-quality-gate.sh",
     "quality:props": "node scripts/check-react-props.mjs",
     "quality:duplication": "node scripts/check-duplication.mjs",
+    "e2e:api": "node scripts/e2e-api-substitute.mjs",
     "check:semgrep": "scripts/semgrep-scan.sh blocking",
     "report:semgrep": "scripts/semgrep-scan.sh report",
     "secrets:check": "gitleaks git --no-banner --redact .",
@@ -69,8 +72,10 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.10.2",
     "@biomejs/biome": "^2.5.6",
     "@lirna/config": "workspace:*",
+    "@playwright/test": "1.61.1",
     "@types/bun": "catalog:",
     "husky": "^9.1.7",
     "lint-staged": "^17.2.0",

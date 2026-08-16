@@ -153,6 +153,8 @@ lirna/
 - `bun run dev:web`: Start only the web application
 - `bun run dev:server`: Start only the server
 - `bun run check-types`: Check TypeScript types across all apps
+- `bun run test:e2e`: Run the deterministic Playwright browser suite locally
+- `bun run test:e2e:ci`: Run the Playwright suite with CI retries and diagnostics
 - `bun run quality:ci`: Run the read-only Biome and configured quality checks
 - `bun run quality:policy`: Verify the quality workflow and command contracts
 - `bun run db:push`: Push schema changes to the database

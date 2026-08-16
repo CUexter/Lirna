@@ -76,10 +76,38 @@ jobs:
       - name: Build workspaces
         run: bun run build
 
+  e2e:
+    name: Browser E2E and accessibility
+    needs: install
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Install pinned Firefox runtime
+        run: bunx playwright install --with-deps firefox
+      - name: Run browser E2E suite
+        run: bun run test:e2e:ci
+      - name: Upload browser diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-diagnostics
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+
   quality:
     name: quality
     if: ${{ always() }}
-    needs: [install, static, types, build]
+    needs: [install, static, types, build, e2e]
     runs-on: ubuntu-latest
     steps:
       - name: Require every quality job to pass
@@ -88,3 +116,4 @@ jobs:
           test "${{ needs.static.result }}" = success
           test "${{ needs.types.result }}" = success
           test "${{ needs.build.result }}" = success
+          test "${{ needs.e2e.result }}" = success
