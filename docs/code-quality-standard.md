@@ -138,6 +138,7 @@ required status name.
 | Architecture policy | `bun run quality:architecture` | Current workspace edges, package exports, browser/server boundary, route placement, and owned UI primitives. |
 | Documentation quality | `bun run quality:docs` | First-party Markdown links, root/workspace Bun commands, and code-form repository paths. Focused fixtures prove stale references fail. |
 | Quality gate policy test | Fails when the read-only commands, frozen install, architecture policy, or aggregate workflow wiring regress | `scripts/test-quality-gate.sh` in the `Quality` workflow. |
+| Web bundle budget | `bun run quality:bundle` | Builds `apps/web`, writes `apps/web/dist/bundle-size.json`, and enforces the reviewed aggregate raw-byte budgets in `config/web-bundle-budget.json`. |
 | General quality gate | Fails on formatting/linting, configured complexity/size/props/duplication checks, behavior tests, coverage ratchet, workspace type errors, or production build errors | `.github/workflows/quality.yml`; aggregate status: `Quality / quality`. |
 
 The Quality workflow does not run Nix flake checks or migrations. Trivy owns
@@ -153,7 +154,7 @@ duplicate vulnerability responsibility.
 | `bun run build` | Builds workspaces that declare a build task | Automated in the Quality workflow; available locally. |
 | `bun run check` | Runs the full configured Biome formatter, linter, and assist checks without modifying files | Automated in the Quality workflow; read-only locally. |
 | `bun run check:fix` | Applies configured Biome formatting, lint, and assist fixes | Manual and mutating. |
-| `bun run quality:ci` | Runs read-only Biome checks, the architecture, complexity/parameter-count/file-size/React-prop/duplication checks, and configured behavior checks | Automated in the Quality workflow. |
+| `bun run quality:ci` | Runs read-only Biome checks, the architecture, complexity/parameter-count/file-size/React-prop/duplication checks, and configured behavior/bundle checks | Automated in the Quality workflow. |
 | `bun run lint` | Runs Vite+'s workspace lint task | Available locally; not run by a hook or CI. |
 | `bun run check:semgrep` | Runs the blocking Semgrep rules | Automated in CI, but optional locally and absent from pre-commit. |
 | `bun run report:semgrep` | Runs non-blocking Semgrep rules | Automated in CI, but optional locally and absent from pre-commit. |
@@ -200,7 +201,8 @@ These are current repository gaps, not approved exceptions to the standard.
 6. Pre-commit quality checks run across `apps/` and `packages/`, but local hooks
     can be bypassed and CI does not repeat them.
 7. No automated check verifies accessibility, public API compatibility, migration safety,
-    runtime and user-perceived performance.
+    runtime and user-perceived performance. Bundle-size budgets are automated,
+   but do not replace that review.
 
 ## Required verification until gaps close
 

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vp dev",
-    "build": "vp build",
+    "build": "vp build && node ../../scripts/check-web-bundle.mjs",
     "serve": "vp preview",
     "start": "vp dev",
     "check-types": "vp build && tsc --noEmit",
