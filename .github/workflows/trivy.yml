@@ -1,0 +1,58 @@
+name: Trivy
+
+on:
+  pull_request:
+  push:
+  schedule:
+    - cron: "37 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  configuration:
+    name: Scan configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Test scanning policy
+        run: scripts/test-trivy-policy.sh
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514 # v0.2.6
+        with:
+          version: v0.73.0
+          cache: true
+      - name: Scan deployable configuration
+        run: scripts/trivy-scan.sh config
+      - name: Scan dependency lockfiles
+        run: scripts/trivy-scan.sh dependencies
+
+  images:
+    name: Scan ${{ matrix.name }} image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: server
+            dockerfile: apps/server/Dockerfile
+            image: lirna-server:trivy
+          - name: web
+            dockerfile: apps/web/Dockerfile
+            image: lirna-web:trivy
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Build image
+        run: docker build --pull --file "${{ matrix.dockerfile }}" --tag "${{ matrix.image }}" .
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514 # v0.2.6
+        with:
+          version: v0.73.0
+          cache: true
+      - name: Scan image vulnerabilities
+        run: scripts/trivy-scan.sh image "${{ matrix.image }}"

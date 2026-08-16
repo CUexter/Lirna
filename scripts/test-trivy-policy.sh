@@ -4,13 +4,11 @@ set -euo pipefail
 root=$(git rev-parse --show-toplevel)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
-grep -v '^[[:space:]]*#' "$root/.github/workflows/checks.yml" | grep -Fq 'run: nix develop --command npm run check:trivy'
-node -e 'const p=require(process.argv[1]); if(p.scripts["check:trivy"]!=="scripts/trivy-npm-scan.sh") process.exit(1)' "$root/package.json"
 log="$tmp/trivy.log"
 mkdir -p "$tmp/bin"
 ln -s "$(command -v git)" "$tmp/bin/git"
 ln -s "$(command -v bash)" "$tmp/bin/bash"
-if PATH="$tmp/bin" /usr/bin/env bash "$root/scripts/trivy-npm-scan.sh" >"$tmp/missing-trivy.log" 2>&1; then
+if PATH="$tmp/bin" /usr/bin/env bash "$root/scripts/trivy-scan.sh" config >"$tmp/missing-trivy.log" 2>&1; then
   printf '%s\n' "Trivy scan did not fail closed when the scanner was missing" >&2
   exit 1
 fi
@@ -18,20 +16,30 @@ grep -q 'nix develop' "$tmp/missing-trivy.log"
 cat > "$tmp/bin/trivy" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$TRIVY_TEST_LOG"
-[[ "$*" == *"--severity CRITICAL"* ]] && exit 1
-exit 0
+exit "${TRIVY_TEST_EXIT:-0}"
 EOF
 chmod +x "$tmp/bin/trivy"
 
-if TRIVY_TEST_LOG="$log" PATH="$tmp/bin:$PATH" "$root/scripts/trivy-npm-scan.sh"; then
-  printf '%s\n' "Trivy policy accepted a synthetic critical finding" >&2
-  exit 1
-fi
-grep -q -- '--severity HIGH,CRITICAL' "$log"
-grep -q -- '--severity CRITICAL' "$log"
-if ! grep -q -- '--exit-code 1' "$log"; then
-  printf '%s\n' "Trivy critical policy did not set a blocking exit code" >&2
+TRIVY_TEST_LOG="$log" PATH="$tmp/bin:$PATH" "$root/scripts/trivy-scan.sh" config
+TRIVY_TEST_LOG="$log" PATH="$tmp/bin:$PATH" "$root/scripts/trivy-scan.sh" dependencies
+TRIVY_TEST_LOG="$log" PATH="$tmp/bin:$PATH" "$root/scripts/trivy-scan.sh" image lirna-server:test
+if TRIVY_TEST_EXIT=23 TRIVY_TEST_LOG="$log" PATH="$tmp/bin:$PATH" "$root/scripts/trivy-scan.sh" dependencies; then
+  printf '%s\n' "Trivy scan did not propagate a blocking finding" >&2
   exit 1
 fi
 
-printf '%s\n' "Trivy npm vulnerability policy tests passed"
+grep -Fq 'config --severity HIGH,CRITICAL --exit-code 1 --skip-dirs **/node_modules --skip-dirs prototype --skip-dirs lirna-legacy' "$log"
+grep -Fq 'fs --scanners vuln --pkg-types library --include-dev-deps --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --skip-dirs **/node_modules --skip-dirs prototype --skip-dirs lirna-legacy' "$log"
+grep -Fq 'image --scanners vuln --pkg-types os,library --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --disable-telemetry --skip-version-check lirna-server:test' "$log"
+
+workflow="$root/.github/workflows/trivy.yml"
+grep -Fq 'aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514' "$workflow"
+grep -Fq 'version: v0.73.0' "$workflow"
+grep -Fq 'dockerfile: apps/server/Dockerfile' "$workflow"
+grep -Fq 'dockerfile: apps/web/Dockerfile' "$workflow"
+grep -Fq 'run: scripts/test-trivy-policy.sh' "$workflow"
+grep -Fq 'run: scripts/trivy-scan.sh config' "$workflow"
+grep -Fq 'run: scripts/trivy-scan.sh dependencies' "$workflow"
+grep -Fq 'run: scripts/trivy-scan.sh image "${{ matrix.image }}"' "$workflow"
+
+printf '%s\n' "Trivy security policy tests passed"

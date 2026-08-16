@@ -9,7 +9,7 @@ services:
         VITE_SERVER_URL: http://localhost:3000
     init: true
     ports:
-      - "3001:80"
+      - "3001:8080"
     env_file:
       - path: apps/web/.env
         required: false
@@ -17,7 +17,7 @@ services:
       server:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:80/"]
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/"]
       interval: 10s
       timeout: 5s
       retries: 5

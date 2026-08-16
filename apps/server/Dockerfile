@@ -6,14 +6,17 @@ COPY . .
 RUN --mount=type=cache,target=/root/.bun/install/cache bun install
 
 ENV NODE_ENV=production
-RUN cd apps/server && bun run build
+RUN cd apps/server && bun run compile
 
 FROM oven/bun:1 AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=builder /app /app
+RUN DEBIAN_FRONTEND=noninteractive apt-get update \
+  && apt-get upgrade -y \
+  && rm -rf /var/lib/apt/lists/*
+COPY --chown=bun:bun --from=builder /app/apps/server/server ./server
 
 EXPOSE 3000
 
-WORKDIR /app/apps/server
-CMD ["bun", "dist/index.mjs"]
+USER bun
+CMD ["./server"]
