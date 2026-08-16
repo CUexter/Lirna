@@ -18,8 +18,8 @@ if (scripts.check !== "biome check .") {
 if (scripts["check:fix"] !== "biome check --write .") {
   throw new Error("check:fix must be the explicitly mutating Biome command");
 }
-if (scripts["quality:ci"] !== "bun run check && bun run quality") {
-  throw new Error("quality:ci must run the read-only checks");
+if (scripts["quality:ci"] !== "bun run check && bun run quality && bun run test:coverage") {
+  throw new Error("quality:ci must run the read-only checks and coverage ratchet");
 }
 NODE
 
@@ -39,6 +39,8 @@ grep -Fq 'needs.build.result' "$workflow"
 grep -Fq 'noExcessiveCognitiveComplexity' "$root/biome.json"
 grep -Fq 'useMaxParams' "$root/biome.json"
 grep -Fq 'noExcessiveLinesPerFile' "$root/biome.json"
+grep -Fq 'bun run test:coverage' "$root/package.json"
+grep -Fq 'check-coverage.mjs' "$root/package.json"
 grep -Fq 'bun run quality:props' "$root/package.json"
 grep -Fq 'bun run quality:duplication' "$root/package.json"
 
