@@ -147,7 +147,7 @@ dependency-assessment verification.
 | `bun run check:semgrep` | Runs the blocking Semgrep rules | Automated in CI, but optional locally and absent from pre-commit. |
 | `bun run report:semgrep` | Runs non-blocking Semgrep rules | Automated in CI, but optional locally and absent from pre-commit. |
 | `Nix flake checks` | Builds/evaluates the server package, desktop package, NixOS module closure, and NixOS VM integration test | `.github/workflows/nix.yml` runs `nix flake check --print-build-logs` on relevant pull requests and pushes with pinned Nix installation and cache actions. |
-| `playwright.config.ts` | Defines one Firefox application-shell E2E test | Not wired to a current package script or CI workflow. The root manifest does not declare `@playwright/test`, although the generated Nix dependency file still contains it. |
+| `playwright.config.ts` | Starts the deterministic API substitute and web app, then runs Firefox desktop/mobile shell and API-status journeys with serious/critical axe assertions; CI retains traces, screenshots, and HTML reports | Automated in the `Quality` workflow through `bun run test:e2e:ci`. Browser automation proves the encoded journey and automated accessibility rules only; keyboard exploration, visual design, screen-reader behavior, and other human interaction review remain manual. |
 
 ## Not automated
 

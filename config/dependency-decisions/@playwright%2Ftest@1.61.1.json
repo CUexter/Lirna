@@ -1,0 +1,8 @@
+{
+  "package": "@playwright/test",
+  "version": "1.61.1",
+  "section": "devDependencies",
+  "integrity": "sha512-8nKv6+0RJSL9FE4jYOEGXnPeM/Hg12qZpmqzZjRh3qM0Y7c3z1mrOTfFLids72RDQYVh9WpLEfR5WdpNX4fkig==",
+  "reason": "Executes the deterministic Firefox desktop and mobile browser journeys.",
+  "assessmentDate": "2026-08-17"
+}
