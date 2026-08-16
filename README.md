@@ -21,6 +21,7 @@ a modern TypeScript stack combining React, TanStack Router, Hono, tRPC, and more
 - **Better Auth** - Authentication
 - **Biome** - Linting and formatting
 - **Husky** - Git hooks for code quality
+- **Trivy** - Container vulnerability and deployment configuration scanning
 - **PWA** - Progressive Web App support
 - **Tauri** - Native desktop application support
 - **Starlight** - Astro-powered documentation site
@@ -120,6 +121,8 @@ deployment example, and checks.
 
 - Initialize hooks: `bun run prepare`
 - Run checks: `bun run check`
+- Scan deployable configuration: `scripts/trivy-scan.sh config`
+- Scan Bun and Cargo lockfiles: `scripts/trivy-scan.sh dependencies`
 
 ## Project Structure
 
@@ -151,6 +154,8 @@ rewrite/
 - `bun run lint`: Run Vite+ lint checks
 - `bun run format`: Run Vite+ formatting
 - `bun run staged`: Run Vite+ checks against staged files
+- `scripts/trivy-scan.sh config`: Scan Docker and deployment configuration with Trivy
+- `scripts/trivy-scan.sh dependencies`: Scan Bun and Cargo lockfiles with Trivy
 - `cd apps/web && bun run generate-pwa-assets`: Generate PWA assets
 - `cd apps/web && bun run desktop:dev`: Start the Tauri desktop app in development
 - `cd apps/web && bun run desktop:build`: Build the Tauri desktop app
