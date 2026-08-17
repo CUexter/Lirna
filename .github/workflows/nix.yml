@@ -1,0 +1,135 @@
+name: Nix
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: nix-${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Classify Nix changes
+    runs-on: ubuntu-latest
+    outputs:
+      desktop: ${{ steps.classify.outputs.desktop }}
+      vm: ${{ steps.classify.outputs.vm }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+      - name: Verify Nix workflow policy
+        run: scripts/test-nix-verification.sh
+      - name: Classify affected Nix outputs
+        id: classify
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git diff --no-renames --name-only "$BASE_SHA...$HEAD_SHA" | node scripts/classify-nix-changes.mjs >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            git diff --no-renames --name-only "$BEFORE_SHA" "${{ github.sha }}" | node scripts/classify-nix-changes.mjs >> "$GITHUB_OUTPUT"
+          else
+            node scripts/classify-nix-changes.mjs --full </dev/null >> "$GITHUB_OUTPUT"
+          fi
+
+  desktop:
+    name: Desktop package
+    needs: changes
+    if: github.event_name != 'pull_request' && needs.changes.outputs.desktop == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@33c9ab3ef95cd57c164d9d6eb1f9a46338538d41 # main, 2026-07-15
+      - name: Configure Nix binary cache
+        uses: DeterminateSystems/magic-nix-cache-action@55718cd9ebf1737a061487d5ada21abf31e99a98 # main, 2026-07-15
+        with:
+          upstream-cache: https://cache.nixos.org
+      - name: Build desktop package
+        run: nix build .#checks.x86_64-linux.desktop --print-build-logs
+
+  vm:
+    name: Server, module, and VM
+    needs: changes
+    if: github.event_name != 'pull_request' && needs.changes.outputs.vm == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@33c9ab3ef95cd57c164d9d6eb1f9a46338538d41 # main, 2026-07-15
+      - name: Configure Nix binary cache
+        uses: DeterminateSystems/magic-nix-cache-action@55718cd9ebf1737a061487d5ada21abf31e99a98 # main, 2026-07-15
+        with:
+          upstream-cache: https://cache.nixos.org
+      - name: Build server, module, and verify VM behavior
+        run: >-
+          nix build
+          .#checks.x86_64-linux.server
+          .#checks.x86_64-linux.module
+          .#checks.x86_64-linux.nixos-test
+          --print-build-logs
+
+  evaluate:
+    name: Evaluate flake
+    needs: changes
+    if: >-
+      github.event_name == 'pull_request' &&
+      (needs.changes.outputs.desktop == 'true' || needs.changes.outputs.vm == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@33c9ab3ef95cd57c164d9d6eb1f9a46338538d41 # main, 2026-07-15
+      - name: Evaluate flake outputs
+        run: nix flake check --no-build --print-build-logs
+
+  check:
+    name: Flake checks
+    needs: [changes, desktop, vm, evaluate]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify targeted checks passed
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          DESKTOP_REQUIRED: ${{ needs.changes.outputs.desktop }}
+          DESKTOP_RESULT: ${{ needs.desktop.result }}
+          EVALUATE_RESULT: ${{ needs.evaluate.result }}
+          EVENT_NAME: ${{ github.event_name }}
+          VM_REQUIRED: ${{ needs.changes.outputs.vm }}
+          VM_RESULT: ${{ needs.vm.result }}
+        run: |
+          [[ "$CHANGES_RESULT" == "success" ]]
+          [[ "$DESKTOP_REQUIRED" == "true" || "$DESKTOP_REQUIRED" == "false" ]]
+          [[ "$VM_REQUIRED" == "true" || "$VM_REQUIRED" == "false" ]]
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            [[ "$DESKTOP_RESULT" == "skipped" ]]
+            [[ "$VM_RESULT" == "skipped" ]]
+            if [[ "$DESKTOP_REQUIRED" == "true" || "$VM_REQUIRED" == "true" ]]; then
+              [[ "$EVALUATE_RESULT" == "success" ]]
+            else
+              [[ "$EVALUATE_RESULT" == "skipped" ]]
+            fi
+          else
+            [[ "$EVALUATE_RESULT" == "skipped" ]]
+            [[ "$DESKTOP_RESULT" == "$([[ "$DESKTOP_REQUIRED" == "true" ]] && printf success || printf skipped)" ]]
+            [[ "$VM_RESULT" == "$([[ "$VM_REQUIRED" == "true" ]] && printf success || printf skipped)" ]]
+          fi

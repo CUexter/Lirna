@@ -20,17 +20,18 @@
         bun2nix = bun2nix.packages.${system}.default;
       };
       lirnaModule = import ./nix/module.nix { defaultPackage = lirna; };
+      nixosTest = import ./nix/test.nix {
+        inherit pkgs;
+        module = lirnaModule;
+        package = lirna;
+      };
     in
     {
       packages.${system} = {
         default = lirna;
         server = lirna;
         desktop = lirnaDesktop;
-        nixos-test = import ./nix/test.nix {
-          inherit pkgs;
-          module = lirnaModule;
-          package = lirna;
-        };
+        nixos-test = nixosTest;
       };
 
       apps.${system} = {
@@ -47,7 +48,7 @@
       nixosModules.default = lirnaModule;
 
       checks.${system} = {
-        package = lirna;
+        server = lirna;
         desktop = lirnaDesktop;
         module = (nixpkgs.lib.nixosSystem {
           inherit system;
@@ -64,6 +65,7 @@
             }
           ];
         }).config.system.build.toplevel;
+        nixos-test = nixosTest;
       };
 
       devShells.${system}.default = pkgs.mkShell {

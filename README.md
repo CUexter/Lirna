@@ -80,7 +80,7 @@ Run the shadcn CLI from the project root to add primitives to the shared UI
 package:
 
 ```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
+bunx --bun shadcn@latest add accordion dialog popover sheet table -c packages/ui
 ```
 
 Import shared components from the package:
@@ -126,6 +126,7 @@ deployment example, and checks.
 - Run read-only checks: `bun run check`
 - Apply automatic fixes: `bun run check:fix`
 - Scan repository history for secrets: `bun run secrets:check`
+- Verify changed direct dependencies against `bun.lock`: `bun run dependency:check`
 - Run blocking source security rules: `bun run check:semgrep`
 - Report lower-confidence source security findings: `bun run report:semgrep`
 - Scan deployable configuration: `scripts/trivy-scan.sh config`
@@ -153,7 +154,11 @@ lirna/
 - `bun run dev:web`: Start only the web application
 - `bun run dev:server`: Start only the server
 - `bun run check-types`: Check TypeScript types across all apps
-- `bun run quality:ci`: Run the read-only Biome and configured quality checks
+- `bun run test:e2e`: Run the deterministic Playwright browser suite locally
+- `bun run test:e2e:ci`: Run the Playwright suite with CI retries and diagnostics
+- `bun run test:db`: Verify migrations and database behavior in disposable PostgreSQL
+- `bun run quality:ci`: Run aggregate quality, bundle-build, and coverage checks
+- `bun run quality:bundle`: Build the web app and enforce its production asset budget
 - `bun run quality:policy`: Verify the quality workflow and command contracts
 - `bun run db:push`: Push schema changes to the database
 - `bun run db:generate`: Generate database client and types
@@ -165,6 +170,9 @@ lirna/
 - `bun run format`: Run Vite+ formatting
 - `bun run staged`: Run Vite+ checks against staged files
 - `bun run secrets:check`: Scan repository history for secrets
+- `bun run maintenance:test`: Exercise dependency and secret policy safe, violation, and tool-error fixtures
+- `bun run security:trivy:config`: Scan deployable configuration with Trivy
+- `bun run security:trivy:dependencies`: Scan Bun and Cargo lockfiles with Trivy
 - `bun run check:semgrep`: Run blocking security-focused Semgrep rules
 - `bun run report:semgrep`: Report non-blocking security-focused Semgrep rules
 - `scripts/trivy-scan.sh config`: Scan Docker and deployment configuration with Trivy

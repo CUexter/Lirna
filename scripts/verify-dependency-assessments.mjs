@@ -1,234 +1,163 @@
 #!/usr/bin/env node
-
 import { execFile } from "node:child_process";
-import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
 
-import { validateAssessmentClassification } from "./dependency-assessment-policy.mjs";
-import { decisionIdentity } from "./dependency-decisions.mjs";
-
 const exec = promisify(execFile);
-const projectRoot = process.env.LIRNA_DEPENDENCY_PROJECT_ROOT ?? process.cwd();
-const policy = JSON.parse(
-  await readFile(
-    new URL("../config/dependency-assessment-policy.json", import.meta.url),
-  ),
-);
-const directSections = [
+const sections = [
   "dependencies",
   "devDependencies",
   "optionalDependencies",
   "peerDependencies",
 ];
-
-process.chdir(projectRoot);
+const root = process.env.LIRNA_DEPENDENCY_PROJECT_ROOT ?? process.cwd();
 
 async function main() {
+  process.chdir(root);
   const [mode, ...args] = process.argv.slice(2);
   const revisions =
     mode === "--staged" ? { base: "HEAD", target: ":" } : range(args);
-  if (/^0+$/.test(revisions.base)) {
-    console.log(
-      "dependency assessment verification skipped: the comparison base is empty",
-    );
-    return;
-  }
-  const [baseManifest, targetManifest, baseLock, targetLock] =
+  if (/^0+$/.test(revisions.base)) return;
+  const [beforeManifest, afterManifest, beforeLock, afterLock] =
     await Promise.all([
       readJson(revisions.base, "package.json"),
       readJson(revisions.target, "package.json"),
-      readJson(revisions.base, "package-lock.json"),
-      readJson(revisions.target, "package-lock.json"),
+      readJson(revisions.base, "bun.lock"),
+      readJson(revisions.target, "bun.lock"),
     ]);
   const additions = directAdditions(
-    baseManifest,
-    targetManifest,
-    baseLock,
-    targetLock,
+    beforeManifest,
+    afterManifest,
+    beforeLock,
+    afterLock,
   );
-
   for (const dependency of additions) {
-    const assessment = await readJson(
+    const identity = encodeURIComponent(
+      `${dependency.name}@${dependency.version}`,
+    ).replaceAll("%40", "@");
+    const record = await readJson(
       revisions.target,
-      `config/dependency-decisions/${decisionIdentity(dependency.name, dependency.version)}.assessment.json`,
+      `config/dependency-decisions/${identity}.json`,
     );
-    if (!assessment) {
+    if (!record)
       throw new Error(
-        `unassessed direct dependency ${dependency.name}@${dependency.version}; use npm run dependency:add -- ${dependency.name}@${dependency.version}`,
+        `unassessed direct dependency ${dependency.name}@${dependency.version}; add a committed dependency decision`,
       );
-    }
-    validateAssessment(assessment, dependency);
-    if (process.env.LIRNA_VERIFY_DEPENDENCY_ARCHIVES === "1") {
-      await validateArchiveEvidence(assessment, dependency);
-    }
+    validateDecision(record, dependency);
   }
   console.log(
-    `dependency assessment verification passed (${additions.length} new direct dependencies)`,
+    `dependency assessment verification passed (${additions.length} changed direct dependencies)`,
   );
-}
-
-async function validateArchiveEvidence(record, dependency) {
-  let url;
-  try {
-    url = new URL(record.tarballUrl);
-    if (
-      url.protocol !== "https:" &&
-      !["127.0.0.1", "localhost"].includes(url.hostname)
-    ) {
-      throw new Error();
-    }
-  } catch {
-    throw new Error(
-      `assessment evidence for ${dependency.name}@${dependency.version} lacks a valid tarball URL`,
-    );
-  }
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(
-      `could not retrieve assessed archive for ${dependency.name}@${dependency.version}`,
-    );
-  }
-  const archive = Buffer.from(await response.arrayBuffer());
-  const digest = createHash("sha512").update(archive).digest("base64");
-  if (digest !== record.archiveSha512) {
-    throw new Error(
-      `assessed archive digest changed for ${dependency.name}@${dependency.version}`,
-    );
-  }
-  if (!archiveMatchesIntegrity(archive, record.integrity)) {
-    throw new Error(
-      `assessed archive does not match lockfile integrity for ${dependency.name}@${dependency.version}`,
-    );
-  }
-}
-
-function archiveMatchesIntegrity(archive, integrity) {
-  return String(integrity)
-    .split(/\s+/)
-    .map((value) => value.match(/^(sha512|sha384|sha256|sha1)-(.+)$/))
-    .filter(Boolean)
-    .some(([, algorithm, expectedBase64]) => {
-      const actual = createHash(algorithm).update(archive).digest("base64");
-      return actual === expectedBase64;
-    });
-}
-
-function range(args) {
-  if (args.length !== 2)
-    throw new Error(
-      "usage: verify-dependency-assessments.mjs --staged | --range BASE HEAD",
-    );
-  return { base: args[0], target: args[1] };
 }
 
 function directAdditions(
-  baseManifest = {},
-  targetManifest = {},
-  baseLock = {},
-  targetLock = {},
+  beforeManifest = {},
+  afterManifest = {},
+  beforeLock = {},
+  afterLock = {},
 ) {
-  const base = directDependencies(baseManifest, baseLock);
-  const target = directDependencies(targetManifest, targetLock);
-  return [...target].flatMap(([name, dependency]) => {
-    const installed = targetLock.packages?.[`node_modules/${name}`];
-    if (!installed?.version) {
+  const before = directDependencies(beforeManifest, beforeLock);
+  const after = directDependencies(afterManifest, afterLock);
+  return [...after].flatMap(([name, dependency]) => {
+    if (!dependency.version || !dependency.integrity)
       throw new Error(
-        `direct dependency ${name} is missing an exact lockfile package entry`,
+        `direct dependency ${name} is missing an exact Bun lockfile entry`,
       );
-    }
-    const previous = base.get(name);
-    const changed =
-      !previous ||
-      previous.section !== dependency.section ||
-      previous.spec !== dependency.spec ||
-      previous.version !== installed.version ||
-      previous.integrity !== installed.integrity;
-    return changed
-      ? [
-          {
-            integrity: installed.integrity,
-            name,
-            section: dependency.section,
-            version: installed.version,
-          },
-        ]
+    return !before.has(name) ||
+      JSON.stringify(before.get(name)) !== JSON.stringify(dependency)
+      ? [{ name, ...dependency }]
       : [];
   });
 }
 
 function directDependencies(manifest, lock) {
-  const root = lock.packages?.[""] ?? {};
+  const workspace = lock?.workspaces?.[""] ?? {};
   const result = new Map();
-  for (const section of directSections) {
-    for (const [name, spec] of Object.entries(manifest[section] ?? {})) {
-      const version = lock.packages?.[`node_modules/${name}`]?.version;
-      const integrity = lock.packages?.[`node_modules/${name}`]?.integrity;
-      result.set(name, { integrity, section, spec, version });
+  for (const section of sections) {
+    for (const [name, spec] of Object.entries(manifest?.[section] ?? {})) {
+      const entry = lockPackage(lock, name);
+      result.set(name, {
+        section,
+        spec,
+        version: entry.version,
+        integrity: entry.integrity,
+      });
     }
-    for (const [name, spec] of Object.entries(root[section] ?? {})) {
-      if (!result.has(name))
+    for (const [name, spec] of Object.entries(workspace[section] ?? {})) {
+      if (!result.has(name)) {
+        const entry = lockPackage(lock, name);
         result.set(name, {
-          integrity: lock.packages?.[`node_modules/${name}`]?.integrity,
           section,
           spec,
-          version: lock.packages?.[`node_modules/${name}`]?.version,
+          version: entry.version,
+          integrity: entry.integrity,
         });
+      }
     }
   }
   return result;
 }
 
-function validateAssessment(record, dependency) {
+function lockPackage(lock, name) {
+  const entry = lock?.packages?.[name];
+  if (!Array.isArray(entry) || typeof entry[0] !== "string") return {};
+  const prefix = `${name}@`;
+  return {
+    version: entry[0].startsWith(prefix)
+      ? entry[0].slice(prefix.length)
+      : undefined,
+    integrity: typeof entry.at(-1) === "string" ? entry.at(-1) : undefined,
+  };
+}
+
+function validateDecision(record, dependency) {
   if (
     record.package !== dependency.name ||
-    record.version !== dependency.version
-  ) {
+    record.version !== dependency.version ||
+    record.section !== dependency.section
+  )
     throw new Error(
-      `assessment evidence does not match exact package ${dependency.name}@${dependency.version}`,
+      `dependency decision does not match ${dependency.name}@${dependency.version}`,
     );
-  }
-  if (
-    typeof record.archiveSha512 !== "string" ||
-    typeof record.tarballUrl !== "string" ||
-    !/^[A-Za-z0-9+/]{86}==$/u.test(record.archiveSha512)
-  ) {
+  if (record.integrity !== dependency.integrity)
     throw new Error(
-      `assessment evidence for ${dependency.name}@${dependency.version} lacks verified archive evidence`,
+      `dependency decision does not match Bun lockfile integrity for ${dependency.name}`,
     );
+  if (typeof record.reason !== "string" || record.reason.trim().length < 10)
+    throw new Error("dependency decision requires a package-specific reason");
+  for (const field of ["maintenance", "provenance", "alternatives"]) {
+    if (typeof record[field] !== "string" || record[field].trim().length < 10)
+      throw new Error(`dependency decision requires ${field} review evidence`);
   }
-  if (record.integrity !== dependency.integrity) {
+  if (!Number.isFinite(new Date(record.assessmentDate).getTime()))
+    throw new Error("dependency decision has an invalid assessmentDate");
+}
+
+function range(args) {
+  if (args.length !== 2)
     throw new Error(
-      `assessment evidence does not match lockfile integrity for ${dependency.name}@${dependency.version}`,
+      "usage: bun run dependency:check -- --staged | --range BASE HEAD",
     );
-  }
-  if (record.section !== dependency.section) {
-    throw new Error(
-      `assessment evidence does not match dependency section for ${dependency.name}@${dependency.version}`,
-    );
-  }
-  if (!Number.isFinite(new Date(record.assessmentDate).getTime())) {
-    throw new Error(
-      `assessment evidence for ${dependency.name}@${dependency.version} is malformed`,
-    );
-  }
-  validateAssessmentClassification(record, policy);
+  return { base: args[0], target: args[1] };
 }
 
 async function readJson(revision, path) {
   try {
-    const target = revision === ":" ? `:${path}` : `${revision}:${path}`;
-    const { stdout } = await exec("git", ["show", target]);
-    return JSON.parse(stdout);
+    const { stdout } = await exec("git", [
+      "show",
+      revision === ":" ? `:${path}` : `${revision}:${path}`,
+    ]);
+    return JSON.parse(stdout.replace(/,\s*([}\]])/g, "$1"));
   } catch (error) {
-    if (error.code === 128) return undefined;
+    if (
+      error.code === 128 &&
+      String(error.stderr).includes(`path '${path}' does not exist`)
+    )
+      return undefined;
     throw error;
   }
 }
 
 main().catch((error) => {
-  console.error(
-    `Dependency assessment verification failed: ${error instanceof Error ? error.message : error}`,
-  );
+  console.error(`Dependency assessment verification failed: ${error.message}`);
   process.exitCode = 1;
 });

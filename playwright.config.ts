@@ -1,6 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = "http://localhost:3001";
+const baseURL = "http://127.0.0.1:3001";
+const apiPort = Number(process.env.E2E_API_PORT ?? 3102);
+const apiURL = `http://127.0.0.1:${apiPort}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -8,23 +10,38 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: "html",
+  reporter: [["html", { outputFolder: "playwright-report" }], ["line"]],
   use: {
     baseURL,
     trace: "on-first-retry",
+    screenshot: "only-on-failure",
   },
-  webServer: {
-    command: "bun run --cwd apps/web dev",
-    url: baseURL,
-    reuseExistingServer: !process.env.CI,
-    env: {
-      VITE_SERVER_URL: "http://127.0.0.1:3000",
+  webServer: [
+    {
+      command: "bun run e2e:api",
+      url: `${apiURL}/healthz`,
+      reuseExistingServer: false,
     },
-  },
+    {
+      command: "bun run --cwd apps/web dev --host 127.0.0.1",
+      url: baseURL,
+      reuseExistingServer: false,
+      env: {
+        VITE_SERVER_URL: apiURL,
+      },
+    },
+  ],
   projects: [
     {
-      name: "firefox",
+      name: "firefox-desktop",
       use: { ...devices["Desktop Firefox"] },
+    },
+    {
+      name: "firefox-mobile",
+      use: {
+        ...devices["Desktop Firefox"],
+        viewport: { width: 393, height: 851 },
+      },
     },
   ],
 });

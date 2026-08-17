@@ -7,22 +7,23 @@ an acceptable way to satisfy these standards.
 
 ## Required checks
 
-`npm run check:architecture` enforces these repository-wide constraints:
+`bun run quality:architecture` runs the executable policy in
+`scripts/check-architecture.mjs` across the current Bun workspaces under
+`apps/*` and `packages/*`. It enforces these repository-wide constraints:
 
-- TypeScript modules have a hard ceiling of 700 lines.
-- Existing larger modules have explicit non-growing caps in the check. The cap
-  must shrink or disappear when those modules are deepened.
-- Client modules cannot import server-owned implementation.
-- Server modules cannot import client-owned implementation.
-- Shared contract modules cannot depend on client or server implementation.
-- Client modules import shared contracts through `@shared/*`, not directory
-  traversal.
-- Files under `client/src/routes/` create TanStack Router routes. Feature
-  implementation and its tests live with the owning modules under
-  `client/src/components/`.
+- Workspace dependencies are declared, acyclic, and limited to the allowed
+  application-to-package and package-to-package direction.
+- Cross-workspace source imports use a declared package export; undeclared
+  package subpaths and relative workspace traversal fail.
+- Browser code may use `@lirna/env/web`, but never the server environment or
+  server-owned implementation.
+- TanStack Router route creators live under `apps/web/src/routes/`.
+- Native controls are implemented only by their designated primitives in
+  `packages/ui`; application code consumes those owned primitives.
 
-The check reports modules above 400 lines as advisory hotspots. A hotspot is a
-prompt to examine depth and locality, not an automatic instruction to split.
+Biome remains responsible for module size and complexity. The architecture
+policy deliberately does not duplicate a line-count ceiling or maintain legacy
+layout exceptions.
 
 ## Review questions
 

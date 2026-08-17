@@ -32,7 +32,6 @@
       "!scripts/assess-dependency.mjs",
       "!scripts/check-architecture.mjs",
       "!scripts/check-react-props.mjs",
-      "!scripts/check-ui-primitives.mjs",
       "!config/semgrep/fixtures"
     ]
   },

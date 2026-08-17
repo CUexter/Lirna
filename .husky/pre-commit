@@ -1,3 +1,4 @@
 bun run secrets:staged
+bun run dependency:check
 lint-staged
 bun run quality
