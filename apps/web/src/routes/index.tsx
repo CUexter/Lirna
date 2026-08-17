@@ -84,13 +84,13 @@ function RouteComponent() {
           Lirna
         </div>
         <nav aria-label="Workspace" className="flex flex-1 flex-col px-3">
-          <p className="px-3 pb-2 font-semibold text-[0.65rem] text-sidebar-foreground/50 uppercase tracking-[0.18em]">
+          <p className="px-3 pb-2 font-semibold text-[0.65rem] text-sidebar-foreground/70 uppercase tracking-[0.18em]">
             Work
           </p>
           {navigation.map(({ label, icon: Icon, active, ...item }) => (
             <div key={label}>
               {"section" in item ? (
-                <p className="px-3 pt-7 pb-2 font-semibold text-[0.65rem] text-sidebar-foreground/50 uppercase tracking-[0.18em]">
+                <p className="px-3 pt-7 pb-2 font-semibold text-[0.65rem] text-sidebar-foreground/70 uppercase tracking-[0.18em]">
                   {item.section}
                 </p>
               ) : null}
