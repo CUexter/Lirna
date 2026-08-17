@@ -47,7 +47,7 @@ jobs:
   desktop:
     name: Desktop package
     needs: changes
-    if: needs.changes.outputs.desktop == 'true'
+    if: github.event_name != 'pull_request' && needs.changes.outputs.desktop == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -65,7 +65,7 @@ jobs:
   vm:
     name: Server, module, and VM
     needs: changes
-    if: needs.changes.outputs.vm == 'true'
+    if: github.event_name != 'pull_request' && needs.changes.outputs.vm == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -85,9 +85,25 @@ jobs:
           .#checks.x86_64-linux.nixos-test
           --print-build-logs
 
+  evaluate:
+    name: Evaluate flake
+    needs: changes
+    if: >-
+      github.event_name == 'pull_request' &&
+      (needs.changes.outputs.desktop == 'true' || needs.changes.outputs.vm == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@33c9ab3ef95cd57c164d9d6eb1f9a46338538d41 # main, 2026-07-15
+      - name: Evaluate flake outputs
+        run: nix flake check --no-build --print-build-logs
+
   check:
     name: Flake checks
-    needs: [changes, desktop, vm]
+    needs: [changes, desktop, vm, evaluate]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -96,11 +112,24 @@ jobs:
           CHANGES_RESULT: ${{ needs.changes.result }}
           DESKTOP_REQUIRED: ${{ needs.changes.outputs.desktop }}
           DESKTOP_RESULT: ${{ needs.desktop.result }}
+          EVALUATE_RESULT: ${{ needs.evaluate.result }}
+          EVENT_NAME: ${{ github.event_name }}
           VM_REQUIRED: ${{ needs.changes.outputs.vm }}
           VM_RESULT: ${{ needs.vm.result }}
         run: |
           [[ "$CHANGES_RESULT" == "success" ]]
           [[ "$DESKTOP_REQUIRED" == "true" || "$DESKTOP_REQUIRED" == "false" ]]
           [[ "$VM_REQUIRED" == "true" || "$VM_REQUIRED" == "false" ]]
-          [[ "$DESKTOP_RESULT" == "$([[ "$DESKTOP_REQUIRED" == "true" ]] && printf success || printf skipped)" ]]
-          [[ "$VM_RESULT" == "$([[ "$VM_REQUIRED" == "true" ]] && printf success || printf skipped)" ]]
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            [[ "$DESKTOP_RESULT" == "skipped" ]]
+            [[ "$VM_RESULT" == "skipped" ]]
+            if [[ "$DESKTOP_REQUIRED" == "true" || "$VM_REQUIRED" == "true" ]]; then
+              [[ "$EVALUATE_RESULT" == "success" ]]
+            else
+              [[ "$EVALUATE_RESULT" == "skipped" ]]
+            fi
+          else
+            [[ "$EVALUATE_RESULT" == "skipped" ]]
+            [[ "$DESKTOP_RESULT" == "$([[ "$DESKTOP_REQUIRED" == "true" ]] && printf success || printf skipped)" ]]
+            [[ "$VM_RESULT" == "$([[ "$VM_REQUIRED" == "true" ]] && printf success || printf skipped)" ]]
+          fi
