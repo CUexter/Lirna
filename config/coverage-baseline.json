@@ -12,7 +12,7 @@
     "apps/web/src/components/theme-provider.tsx": "0fad5640f15392a1ec2b77f72c78452d49b2a4dea73fcca390b2cdaca70ec970",
     "apps/web/src/main.tsx": "ec36a1ad35feeff4a387b01c2d059c0767df84321f02a1b72014f92ed1ab2e04",
     "apps/web/src/routes/__root.tsx": "a1bff187101765d128662f7694859817085aa1f9bb28b1475709b80d36cf917c",
-    "apps/web/src/routes/index.tsx": "3531afc8e155dc63ef2f7537225c62172a8a8c9b35530eb49fcf318d4d545827",
+    "apps/web/src/routes/index.tsx": "5184a8ab54913573d984096f664cead0733281c8a859674ec6f3650f66022b05",
     "apps/web/src/utils/trpc.ts": "186e751858c4afb88f6f8fce33103d50efec67f4369c4269c4d25442a3b989dd",
     "packages/api/src/client.ts": "8b278fea05581d216cdc74bce8dbf3805166d89f19bf06e086f93469bec6da8b",
     "packages/env/src/web.ts": "cb94961b2b93dbaca3057c644340a61f9bbe5166550f4339cb68e84efd0391e0",
