@@ -26,6 +26,9 @@
     }
   },
   "type": "module",
+  "imports": {
+    "#path-safety": "./scripts/path-safety.mjs"
+  },
   "scripts": {
     "dev": "vp run -r dev",
     "build": "vp run -r build",

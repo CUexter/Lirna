@@ -16,6 +16,32 @@ let admin: Client | undefined;
 let database: ReturnType<typeof import("./index")["createDb"]>;
 let defaultDatabase: typeof import("./index")["db"];
 
+async function cleanupPostgresResources() {
+  const cleanupErrors: unknown[] = [];
+  const cleanupSteps = [
+    async () => database?.$client.end(),
+    async () => defaultDatabase?.$client.end(),
+    async () =>
+      admin?.query(`DROP DATABASE IF EXISTS "${databaseName}" WITH (FORCE)`),
+    async () => admin?.end(),
+  ];
+
+  for (const cleanup of cleanupSteps) {
+    try {
+      await cleanup();
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+  }
+
+  if (cleanupErrors.length > 0) {
+    throw new AggregateError(
+      cleanupErrors,
+      "Failed to fully clean up the PostgreSQL integration database",
+    );
+  }
+}
+
 describePostgres("PostgreSQL migrations and database repository", () => {
   beforeAll(async () => {
     if (!adminUrl) {
@@ -86,17 +112,7 @@ describePostgres("PostgreSQL migrations and database repository", () => {
     defaultDatabase = databaseModule.db;
   }, 30_000);
 
-  afterAll(async () => {
-    await database?.$client.end();
-    await defaultDatabase?.$client.end();
-
-    if (!admin) {
-      return;
-    }
-
-    await admin.query(`DROP DATABASE IF EXISTS "${databaseName}" WITH (FORCE)`);
-    await admin.end();
-  });
+  afterAll(cleanupPostgresResources);
 
   test("writes and reads a user through the exported database seam", async () => {
     await database.insert(user).values({

@@ -80,7 +80,11 @@ rules:
           - pattern: $CONTEXT.req.formData()
           - pattern: $CONTEXT.req.text()
     pattern-sanitizers:
-      - pattern: resolveInsideRoot($ROOT, $CANDIDATE)
+      - patterns:
+          - pattern-inside: |
+              import { resolveInsideRoot } from "#path-safety";
+              ...
+          - pattern: resolveInsideRoot($ROOT, $CANDIDATE)
     pattern-sinks:
       - pattern: readFile($PATH, ...)
       - pattern: readFileSync($PATH, ...)

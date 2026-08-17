@@ -32,6 +32,28 @@ never migrates the database named in `POSTGRES_ADMIN_URL`; it creates a unique
 child database and removes it after the run. Use only a local or otherwise
 disposable server, not production credentials.
 
+## Deployment Compatibility and Recovery
+
+`0000_initial_auth_schema.sql` is the clean baseline for the four Better Auth
+tables. It creates new tables, indexes, and foreign keys and does not alter or
+delete existing application data. Apply it before starting an application
+release that expects these tables.
+
+The baseline is not compatible with a database where any of those tables were
+created outside the committed migration history. Recreate a disposable database.
+For non-reconstructible data, stop deployment, take and verify a backup, and
+write a separately reviewed forward migration that reconciles the existing
+schema and preserves its rows; do not mark the baseline as applied manually.
+
+There is intentionally no automatic down migration. Prefer rolling the
+application back while leaving this additive schema in place, after confirming
+the previous release accepts the same auth-table contract. If the schema itself
+must be removed, stop all writers, take and test a restorable backup, then remove
+`account` and `session` before `user` because of their foreign keys;
+`verification` is independent. Dropping these tables destroys authentication
+and session data, so restore the backup rather than attempting schema rollback
+when that data must be retained.
+
 ## Failure Diagnosis
 
 - `Docker is required` means Docker is unavailable and no

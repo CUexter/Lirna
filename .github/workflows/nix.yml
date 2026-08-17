@@ -49,8 +49,5 @@ jobs:
           upstream-cache: https://cache.nixos.org
       - name: Verify Nix workflow policy
         run: scripts/test-nix-verification.sh
-      - name: Evaluate Nix packaging and checks
-        run: nix flake check --no-build
       - name: Build Nix packages and verify VM behavior
-        if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
         run: nix flake check --print-build-logs
