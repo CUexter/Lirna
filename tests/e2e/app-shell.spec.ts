@@ -1,19 +1,17 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-test("renders the application shell and confirms API status", async ({
-  page,
-}) => {
-  const apiResponse = page.waitForResponse((response) =>
-    response.url().includes("/trpc/healthCheck"),
-  );
+test("renders the Resume cockpit", async ({ page }) => {
   await page.goto("/");
 
-  expect((await apiResponse).ok()).toBe(true);
   await expect(page).toHaveTitle("Lirna");
-  await expect(page.getByRole("navigation")).toContainText("Home");
-  await expect(page.getByRole("heading", { name: "API Status" })).toBeVisible();
-  await expect(page.getByText("Connected")).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "Workspace" }),
+  ).toContainText("Now");
+  await expect(
+    page.getByRole("heading", { name: "Welcome back." }),
+  ).toBeVisible();
+  await expect(page.getByText("Resume your thought")).toBeVisible();
 
   const accessibility = await new AxeBuilder({ page }).analyze();
   const seriousViolations = accessibility.violations.filter((violation) =>
