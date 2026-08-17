@@ -1,0 +1,11 @@
+{
+  "package": "@playwright/test",
+  "version": "1.61.1",
+  "section": "devDependencies",
+  "integrity": "sha512-8nKv6+0RJSL9FE4jYOEGXnPeM/Hg12qZpmqzZjRh3qM0Y7c3z1mrOTfFLids72RDQYVh9WpLEfR5WdpNX4fkig==",
+  "reason": "Executes the deterministic Firefox desktop and mobile browser journeys.",
+  "maintenance": "The exact release is pinned to the Playwright driver in the locked Nixpkgs input; upgrades are reviewed and tested together.",
+  "provenance": "This is the official Microsoft Playwright test runner, resolved to the exact Bun lockfile artifact and integrity above.",
+  "alternatives": "The existing Bun test runner cannot drive real browsers; a local browser harness would duplicate Playwright's lifecycle, isolation, and diagnostics.",
+  "assessmentDate": "2026-08-17"
+}

@@ -5,8 +5,14 @@
     ".": {
       "default": "./src/index.ts"
     },
-    "./*": {
-      "default": "./src/*.ts"
+    "./client": {
+      "default": "./src/client.ts"
+    },
+    "./context": {
+      "default": "./src/context.ts"
+    },
+    "./routers/index": {
+      "default": "./src/routers/index.ts"
     }
   },
   "scripts": {},

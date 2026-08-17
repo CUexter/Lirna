@@ -18,6 +18,10 @@ language, and leave the code easier to understand or no harder to understand.
 Passing an automated check is necessary where one exists, but it is not evidence
 that the change is correct, secure, accessible, or well designed.
 
+Mechanical checks provide repeatable evidence for the narrow rules they encode.
+Human review remains responsible for judgment about behavior, domain meaning,
+privacy, accessibility, migrations, dependencies, and performance.
+
 ### Correctness and tests
 
 - Behavior must match the issue, acceptance criteria, or documented decision.
@@ -100,16 +104,19 @@ The active hook is `.husky/pre-commit`.
 | Formatting | lint-staged runs `biome format --write` | Staged JavaScript, TypeScript, JSX, TSX, JSON, and JSONC files; two-space indentation and double-quoted JavaScript. |
 | Cognitive complexity | `bun run quality` | `apps/` and `packages/`; maximum 15 per function. |
 | Function parameters | `bun run quality` | `apps/` and `packages/`; maximum 4. |
-| File size | `bun run quality` | `apps/` and `packages/`; maximum 300 non-blank lines. |
+| File size | `bun run quality` | `apps/` and `packages/`; maximum 300 non-blank lines through Biome. |
 | React component props | `bun run quality:props` | TSX under `apps/` and `packages/`; maximum 8 statically countable explicit props. |
 | Duplication growth | `bun run quality:duplication` | TypeScript and TSX under `apps/` and `packages/`; jscpd may not exceed the current 292 duplicated-line baseline. |
+| Documentation quality | `bun run quality:docs` | First-party Markdown links, root/workspace Bun commands, and code-form repository paths. |
+| Behavior tests and coverage | `bun run test:coverage` | Isolated Bun tests through public seams; line and function ratios may not decrease. Source absent from LCOV is allowed only when its exact content hash is in the reviewed legacy baseline, so new or changed uninstrumented source fails. |
 
 These checks do not run the build, TypeScript compiler, full Biome rule set,
 Semgrep, Trivy, unit tests, integration tests, or E2E tests.
 
 ### Automated in GitHub Actions
 
-All current workflows run on pushes and pull requests. Trivy also runs weekly.
+All current workflows run on pushes and pull requests. Trivy and Nix also run
+weekly.
 
 The `Quality` workflow exposes one stable aggregate job named `quality` (check
 name: `Quality / quality`). The
@@ -120,7 +127,8 @@ required status name.
 
 | Workflow | Blocking behavior | Scope |
 | --- | --- | --- |
-| Gitleaks | Fails on detected secrets | Full fetched Git history. |
+| Gitleaks | Fails on detected secrets | Full fetched Git history through the repository-owned `.gitleaks.toml`; local staged and outgoing-range scans use the same configuration. |
+| Dependency assessment verification | Fails when a changed direct dependency lacks a committed decision matching `package.json` and `bun.lock`, including maintenance, provenance, and alternatives evidence | `bun run dependency:check` in the active Husky pre-commit hook and `bun run maintenance:test` in Quality CI; human review judges the recorded evidence and license suitability. |
 | Semgrep blocking scan | Fails on findings or scanner errors | Repository-owned command injection, SQL injection, unsafe process spawn, path traversal, insecure cryptography, and XSS rules for JavaScript and TypeScript. |
 | Semgrep reporting scan | Reports findings but does not fail for a finding | Dynamic code execution and disabled TLS verification. Scanner or configuration errors still fail. |
 | Semgrep policy test | Fails when expected fixture findings, safe behavior, or workflow wiring regress | Local Semgrep rules and fixtures. |
@@ -128,11 +136,28 @@ required status name.
 | Trivy dependency scan | Fails on fixed high or critical vulnerabilities | Bun and Cargo lockfile dependencies, including development dependencies; unfixed vulnerabilities are ignored. |
 | Trivy image scan | Fails on fixed high or critical vulnerabilities | Freshly built server and web images; both OS and library packages. |
 | Trivy policy test | Fails when thresholds, exclusions, scanner failure propagation, pinning, or workflow wiring regress | Trivy wrapper and workflow policy. |
-| Quality gate policy test | Fails when the read-only commands, frozen install, or aggregate workflow wiring regress | `scripts/test-quality-gate.sh` in the `Quality` workflow. |
-| General quality gate | Fails on formatting/linting, configured complexity/size/props/duplication checks, workspace type errors, or production build errors | `.github/workflows/quality.yml`; aggregate status: `Quality / quality`. |
+| Architecture policy | `bun run quality:architecture` | Current workspace edges, package exports, browser/server boundary, route placement, and owned UI primitives. |
+| Documentation quality | `bun run quality:docs` | First-party Markdown links, root/workspace Bun commands, and code-form repository paths. Focused fixtures prove stale references fail. |
+| Quality gate policy test | Fails when the read-only commands, frozen install, architecture policy, or aggregate workflow wiring regress | `scripts/test-quality-gate.sh` in the `Quality` workflow. |
+| Web bundle budget | `bun run quality:bundle` | Builds `apps/web`, writes `apps/web/dist/bundle-size.json`, and enforces the reviewed aggregate raw-byte budgets in `config/web-bundle-budget.json`. |
+| PostgreSQL integration | `bun run test:db` | Applies every committed migration to an empty isolated database, compares the result to the TypeScript schema, checks migration history drift, and exercises success and constraint behavior through the exported database seam used by callers. |
+| General quality gate | Fails on formatting/linting, configured complexity/size/props/duplication checks, behavior tests, coverage ratchet, PostgreSQL migration/repository integration, workspace type errors, or production build errors | `.github/workflows/quality.yml`; aggregate status: `Quality / quality`. |
 
-The Quality workflow does not run tests, Nix flake checks, migrations, or
-dependency-assessment verification.
+The Quality workflow does not run Nix flake checks. Trivy owns
+dependency vulnerability scanning; dependency assessment verification only
+checks that direct dependency changes have matching committed evidence, avoiding
+duplicate vulnerability responsibility.
+
+### Maintenance policy inventory
+
+The maintenance cleanup intentionally leaves one enforcement path per concern:
+
+| Disposition | Scripts | Reason |
+| --- | --- | --- |
+| Retained | `scripts/verify-dependency-assessments.mjs`, `scripts/secret-scan.sh` | These are the active dependency-decision and Gitleaks enforcement entry points used by hooks and CI. |
+| Replaced | `test-dependency-verification.sh`, `test-secret-scanning.sh` | Their safe, violation, and tool-error contracts are consolidated in `scripts/test-maintenance-policy.sh`. |
+| Replaced | `check-ui-primitives.mjs` | UI ownership is now one rule within the broader `scripts/check-architecture.mjs` policy. |
+| Deleted | `assess-dependency.mjs`, `dependency-assessment-policy.mjs`, `dependency-decisions.mjs`, `run-dependency-scripts.mjs` | These former `scripts/` entries implemented an npm-era installer, scoring, and lifecycle-script machinery that duplicated package-manager behavior and was not an active Bun gate. Committed, exact-version review records plus the verifier retain the enforceable contract. |
 
 ### Available but manual
 
@@ -142,14 +167,14 @@ dependency-assessment verification.
 | `bun run build` | Builds workspaces that declare a build task | Automated in the Quality workflow; available locally. |
 | `bun run check` | Runs the full configured Biome formatter, linter, and assist checks without modifying files | Automated in the Quality workflow; read-only locally. |
 | `bun run check:fix` | Applies configured Biome formatting, lint, and assist fixes | Manual and mutating. |
-| `bun run quality:ci` | Runs read-only Biome checks and the existing complexity, parameter-count, file-size, React-prop, and duplication checks | Automated in the Quality workflow. |
+| `bun run quality:ci` | Runs Biome in check mode, architecture and maintainability checks, the bundle budget, documentation checks, and coverage-tested behavior; bundle and coverage artifacts are written locally | Automated in the Quality workflow. |
 | `bun run lint` | Runs Vite+'s workspace lint task | Available locally; not run by a hook or CI. |
 | `bun run check:semgrep` | Runs the blocking Semgrep rules | Automated in CI, but optional locally and absent from pre-commit. |
 | `bun run report:semgrep` | Runs non-blocking Semgrep rules | Automated in CI, but optional locally and absent from pre-commit. |
-| `Nix flake checks` | Builds/evaluates the server package, desktop package, NixOS module closure, and NixOS VM integration test | `.github/workflows/nix.yml` runs `nix flake check --print-build-logs` on relevant pull requests and pushes with pinned Nix installation and cache actions. |
-| `playwright.config.ts` | Defines one Firefox application-shell E2E test | Not wired to a current package script or CI workflow. The root manifest does not declare `@playwright/test`, although the generated Nix dependency file still contains it. |
+| `Nix flake checks` | Evaluates the flake on pull requests with classified Nix output impact; builds the server package, desktop package, NixOS module closure, and NixOS VM integration test after merge | `.github/workflows/nix.yml` uses pinned Nix installation and cache actions. Changes to inputs declared in `config/nix-output-paths.json` trigger whole-flake evaluation without realizing closures. Pushes to `main`, the weekly schedule, and manual runs perform the classified package and VM builds. |
+| `playwright.config.ts` | Starts the deterministic API substitute and web app, then runs Firefox desktop/mobile shell and API-status journeys with serious/critical axe assertions; CI retains traces, screenshots, and HTML reports | Automated in the `Quality` workflow through `bun run test:e2e:ci`. Browser automation proves the encoded journey and automated accessibility rules only; keyboard exploration, visual design, screen-reader behavior, and other human interaction review remain manual. |
 
-## Not automated
+## Human review responsibilities
 
 The following standards require human review today:
 
@@ -157,11 +182,11 @@ The following standards require human review today:
 - test adequacy, including negative cases and regression strength;
 - domain language, lifecycle consistency, and ADR requirements;
 - module depth, cohesion, interface quality, and abstraction judgment;
-- package boundary integrity and dependency-cycle prevention;
+- package boundary integrity and dependency-cycle prevention beyond the executable architecture policy;
 - authorization design, privacy classification, data minimization, and threat
   modeling beyond the narrow scanner rules;
 - accessibility, responsive behavior, visual quality, and complete UI states;
-- runtime performance, bundle budgets, database query behavior, concurrency,
+- runtime performance, database query behavior, concurrency,
   transaction boundaries, and operational failure handling;
 - API compatibility, persisted-data migrations, rollback safety, and deployment
   readiness;
@@ -172,30 +197,33 @@ The following standards require human review today:
 
 These are current repository gaps, not approved exceptions to the standard.
 
-1. The general CI quality workflow does not run tests, Nix flake checks,
-   migrations, or dependency-assessment verification.
-2. There are no unit or integration test files under `apps/` or `packages/`, no
-   test or coverage command in the root manifest, and no coverage threshold.
-3. The Playwright smoke test is incomplete as repository automation: the
-   documented `bun run test:e2e` command is absent, `@playwright/test` is absent
-   from `package.json`, and no workflow runs it.
-4. `docs/module-standards.md` says `npm run check:architecture` is required, but
-   the root manifest has no such script. `scripts/check-architecture.mjs` still
-   targets the removed `client/src`, `server`, and `shared` layout, so it does not
-   enforce the current `apps/` and `packages/` architecture.
-5. `scripts/check-ui-primitives.mjs` also targets the removed `client/src`
-   layout and is not wired to a hook, package command, or workflow.
-6. The Nix workflow intentionally runs only for changes that can affect the
-   server package, desktop package, NixOS module, or VM integration test. It is
-   separate from the fast quality and security workflows.
-7. Dependency-assessment and older secret-scanning scripts reference npm
-   `package-lock.json`, `.githooks`, `config/gitleaks.toml`, or a removed
-   `checks.yml` workflow. They are not active in the current Bun/Husky setup.
-8. Pre-commit quality checks run across `apps/` and `packages/`, but local hooks
-   can be bypassed and CI does not repeat them.
-9. No automated check verifies accessibility, workspace dependency direction,
-    public API compatibility, migration safety, documentation freshness, or
-    performance budgets.
+1. The general CI quality workflow does not run Nix flake checks; the separate
+   Nix workflow owns that platform-specific verification.
+2. The Bun behavior suite currently covers the server tRPC seam; broader domain
+   unit and integration coverage remains a future responsibility. The root
+   `test:coverage` command enforces the initial LCOV baseline of 196/208 lines
+   and 15/24 functions. Legacy source absent from LCOV is hash-pinned in
+   `config/coverage-baseline.json`; new or changed absent source fails until it
+   gains coverage or a reviewer explicitly runs `bun run coverage:baseline` and
+   accepts the resulting exception.
+3. Playwright coverage is intentionally limited to the application shell and
+   API-status journey. It does not replace human interaction review or broader
+   accessibility evaluation.
+4. The architecture policy does not replace human review of package boundary
+   design, dependency necessity, or domain-level server/browser contracts.
+5. The Nix workflow classifies changes by affected output to keep pull-request
+   feedback bounded. Classified pull requests evaluate the whole flake without
+   realizing package or VM closures;
+   full builds run after merge on `main`, weekly, and
+   manually. `config/nix-output-paths.json` is shared by Nix source filtering and
+   CI classification, so a new package input is declared once. The workflow is
+   separate from the fast quality and security gates.
+6. Pre-commit quality checks run across `apps/` and `packages/`, but local hooks
+    can be bypassed and CI does not repeat them.
+7. Playwright and axe-core automate serious and critical checks for the encoded
+   journeys, but no automated check proves complete accessibility, public API
+   compatibility, rollback migration safety, or runtime and user-perceived
+   performance. Bundle-size budgets are automated, but do not replace review.
 
 ## Required verification until gaps close
 
@@ -207,9 +235,11 @@ bun run check-types
 bun run quality
 ```
 
-Also run the relevant build, security scan, and test suite when the change can
-affect those concerns. Because no complete automated test command currently
-exists, the change description must state what behavior was exercised manually
+Also run the relevant build, security scan, integration suite, and E2E suite when
+the change can affect those concerns. `bun run quality:ci` is the aggregate local
+quality and coverage command; database, browser, Nix, and security verification
+remain separate because they require specialized services or tools. The change
+description must state which of those checks ran, what was exercised manually,
 and which checks could not be run.
 
 The reviewer must not infer coverage from a green security workflow. Review the

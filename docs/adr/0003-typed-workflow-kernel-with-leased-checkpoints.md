@@ -25,7 +25,7 @@ synthetic executor and no routing yet.
 
 ## Decision
 
-The workflow kernel is a new module (`server/workflows/`) backed by four
+The workflow kernel is a new module under `apps/server/src` backed by four
 PostgreSQL tables:
 
 - `workflow_definitions` — versioned, immutable typed workflow declarations.

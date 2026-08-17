@@ -79,6 +79,12 @@ rules:
           - pattern: $CONTEXT.req.parseBody()
           - pattern: $CONTEXT.req.formData()
           - pattern: $CONTEXT.req.text()
+    pattern-sanitizers:
+      - patterns:
+          - pattern-inside: |
+              import { resolveInsideRoot } from "#path-safety";
+              ...
+          - pattern: resolveInsideRoot($ROOT, $CANDIDATE)
     pattern-sinks:
       - pattern: readFile($PATH, ...)
       - pattern: readFileSync($PATH, ...)

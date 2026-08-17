@@ -1,0 +1,28 @@
+{
+  "server": [
+    "bun.lock",
+    "package.json",
+    "tsconfig.json",
+    "apps/server",
+    "packages/api",
+    "packages/auth",
+    "packages/config",
+    "packages/db",
+    "packages/env"
+  ],
+  "desktop": [
+    "bun.lock",
+    "package.json",
+    "tsconfig.json",
+    "apps/web",
+    "config/web-bundle-budget.json",
+    "packages/api",
+    "packages/auth",
+    "packages/config",
+    "packages/db",
+    "packages/env",
+    "packages/ui",
+    "scripts/check-web-bundle.mjs",
+    "scripts/path-safety.mjs"
+  ]
+}
