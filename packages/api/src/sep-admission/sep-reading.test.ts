@@ -76,6 +76,25 @@ describe("SEP Reading derivative", () => {
     expect(readSepReadingDerivative(result)).toEqual(result);
   });
 
+  test("keeps the left navigation while excluding SEP utility sections from reading", () => {
+    const result = derivative(
+      `<main><div id="main-text"><div id="toc"><ul><li><a href="#keep">Keep</a></li><li><a href="#Aca">Academic Tools</a></li><li><a href="#Oth">Other Internet Resources</a></li><li><a href="#Rel">Related Entries</a></li></ul></div><h2 id="keep">Keep</h2><p>Reading content.</p><div id="bibliography"><h2 id="Bib">Bibliography</h2><ul><li>Reference one.</li></ul></div><div id="academic-tools"><h2 id="Aca">Academic Tools</h2><p>Tool content.</p></div><div id="other-internet-resources"><h2 id="Oth">Other Internet Resources</h2><p>Other content.</p></div><div id="related-entries"><h2 id="Rel">Related Entries</h2><p>Related content.</p></div></div></main>`,
+    );
+
+    expect(result.toc).toEqual([
+      { id: "keep", title: "Keep", children: [] },
+      { id: "Aca", title: "Academic Tools", children: [] },
+      { id: "Oth", title: "Other Internet Resources", children: [] },
+      { id: "Rel", title: "Related Entries", children: [] },
+    ]);
+    expect(result.sections.map((section) => section.id)).toEqual(["keep"]);
+    expect(result.plainText).toContain("Reading content.");
+    expect(result.plainText).not.toContain("Tool content.");
+    expect(result.plainText).not.toContain("Other content.");
+    expect(result.plainText).not.toContain("Related content.");
+    expect(result.components[0]?.bibliography[0]?.title).toBe("Bibliography");
+  });
+
   test("retains typed SEP meaning instead of flattening notation and structure", () => {
     const result = derivative(
       `<main><h2 id="meaning">Meaning</h2><p><em>Emphasis</em> H<sub>2</sub>O x<sup>2</sup> <span data-tex="\\frac{x}{2}"></span> <span class="display" data-tex="\\unknown{x}"></span> <a href="https://example.com">safe</a> <a href="javascript:alert(1)">unsafe</a></p><dl><dt>Definition.</dt><dd>A labeled body.</dd></dl><blockquote>A quotation.</blockquote><ol><li>First</li><li>Second</li></ol><table><caption>Data</caption><tr><th>Term</th><th>Value</th></tr><tr><td>A</td><td>B</td></tr></table><table><tr><td>Layout</td><td>Only</td></tr></table><figure id="diagram">Diagram</figure></main>`,

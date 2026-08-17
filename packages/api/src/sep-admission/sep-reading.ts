@@ -402,6 +402,7 @@ export function createSepReadingDerivative(options: {
     article ?? document,
     options.main.identity,
     targets.ids,
+    readingArticleExclusions(article ?? document),
   );
   extraction.diagnostics.unshift(...targets.diagnostics);
   const captureDiagnostics = options.capture.diagnostics.map((diagnostic) => ({
@@ -479,11 +480,15 @@ function createReadingComponent(
   const article = findElement(document, "main");
   const targets = collectTargets(article ?? document, resource.identity);
   const bibliography = extractSepBibliography(document, resource.identity);
+  const excludedElements = new Set([
+    ...readingArticleExclusions(article ?? document),
+    ...bibliography.excludedElements,
+  ]);
   const extraction = extractArticle(
     article ?? document,
     resource.identity,
     targets.ids,
-    bibliography.excludedElements,
+    excludedElements,
   );
   extraction.diagnostics.unshift(...targets.diagnostics);
   resolveSepCitations(
@@ -837,6 +842,48 @@ function extractArticle(
   };
 }
 
+function readingArticleExclusions(root: HtmlNode | undefined) {
+  const excludedElements = new Set<HtmlElement>();
+  const toc = descendants(root).find(
+    (element) => elementId(element) === "toc" || hasClass(element, "toc"),
+  );
+  if (toc) excludedElements.add(toc);
+
+  const mainText = descendants(root).find(
+    (element) => elementId(element) === "main-text",
+  );
+  if (!mainText) return excludedElements;
+
+  const children = childElements(mainText);
+  const cutoff = children.findIndex(isAcademicToolsBoundary);
+  if (cutoff >= 0) {
+    for (const child of children.slice(cutoff)) excludedElements.add(child);
+  }
+  return excludedElements;
+}
+
+function isAcademicToolsBoundary(element: HtmlElement) {
+  if (elementId(element) === "academic-tools") return true;
+  if (isAcademicToolsHeading(element)) return true;
+  return descendants(element).some(
+    (child) => elementId(child) === "Aca" || isAcademicToolsHeading(child),
+  );
+}
+
+function isAcademicToolsHeading(element: HtmlElement) {
+  return (
+    /^h[2-6]$/.test(element.tagName) &&
+    normalizeHeading(textContent(element)) === "academic tools"
+  );
+}
+
+function normalizeHeading(value: string) {
+  return value
+    .replace(/[\s\u00a0]+/g, " ")
+    .trim()
+    .toLocaleLowerCase();
+}
+
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: This is the explicit allowlist for supported block structures.
 // biome-ignore lint/complexity/useMaxParams: The parser state is deliberately explicit at the recursive extraction boundary.
 function appendBlock(
@@ -1044,9 +1091,7 @@ function extractToc(
   sections: ReadingSection[],
 ): ReadingTocItem[] {
   const toc = descendants(root).find(
-    (element) =>
-      element.tagName === "nav" &&
-      (elementId(element) === "toc" || hasClass(element, "toc")),
+    (element) => elementId(element) === "toc" || hasClass(element, "toc"),
   );
   const list =
     toc &&
