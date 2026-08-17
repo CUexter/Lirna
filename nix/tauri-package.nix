@@ -16,7 +16,7 @@
 }:
 
 let
-  inherit (import ./source.nix { inherit lib; }) src;
+  src = (import ./source.nix { inherit lib; }).desktop;
 in
 rustPlatform.buildRustPackage {
   pname = "lirna-desktop";
