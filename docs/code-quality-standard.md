@@ -139,9 +139,10 @@ required status name.
 | Documentation quality | `bun run quality:docs` | First-party Markdown links, root/workspace Bun commands, and code-form repository paths. Focused fixtures prove stale references fail. |
 | Quality gate policy test | Fails when the read-only commands, frozen install, architecture policy, or aggregate workflow wiring regress | `scripts/test-quality-gate.sh` in the `Quality` workflow. |
 | Web bundle budget | `bun run quality:bundle` | Builds `apps/web`, writes `apps/web/dist/bundle-size.json`, and enforces the reviewed aggregate raw-byte budgets in `config/web-bundle-budget.json`. |
-| General quality gate | Fails on formatting/linting, configured complexity/size/props/duplication checks, behavior tests, coverage ratchet, workspace type errors, or production build errors | `.github/workflows/quality.yml`; aggregate status: `Quality / quality`. |
+| PostgreSQL integration | `bun run test:db` | Applies every committed migration to an empty isolated database, compares the result to the TypeScript schema, checks migration history drift, and exercises success and constraint behavior through the exported database seam used by callers. |
+| General quality gate | Fails on formatting/linting, configured complexity/size/props/duplication checks, behavior tests, coverage ratchet, PostgreSQL migration/repository integration, workspace type errors, or production build errors | `.github/workflows/quality.yml`; aggregate status: `Quality / quality`. |
 
-The Quality workflow does not run Nix flake checks or migrations. Trivy owns
+The Quality workflow does not run Nix flake checks. Trivy owns
 dependency vulnerability scanning; dependency assessment verification only
 checks that direct dependency changes have matching committed evidence, avoiding
 duplicate vulnerability responsibility.
@@ -184,8 +185,8 @@ The following standards require human review today:
 
 These are current repository gaps, not approved exceptions to the standard.
 
-1. The general CI quality workflow does not run unit/integration tests, Nix flake checks,
-   migrations, or dependency-assessment verification.
+1. The general CI quality workflow does not run Nix flake checks or
+   dependency-assessment verification.
 2. The Bun behavior suite currently covers the server tRPC seam; broader domain
    unit and integration coverage remains a future responsibility. The root
    `test:coverage` command enforces the initial LCOV baseline of 196/208 lines
@@ -200,9 +201,9 @@ These are current repository gaps, not approved exceptions to the standard.
    separate from the fast quality and security workflows.
 6. Pre-commit quality checks run across `apps/` and `packages/`, but local hooks
     can be bypassed and CI does not repeat them.
-7. No automated check verifies accessibility, public API compatibility, migration safety,
-    runtime and user-perceived performance. Bundle-size budgets are automated,
-   but do not replace that review.
+7. No automated check verifies accessibility, public API compatibility,
+   rollback migration safety, runtime and user-perceived performance.
+   Bundle-size budgets are automated, but do not replace that review.
 
 ## Required verification until gaps close
 
