@@ -14,7 +14,7 @@ import {
   InputGroupInput,
 } from "@lirna/ui/components/input-group";
 import { Separator } from "@lirna/ui/components/separator";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   AlertCircleIcon,
   ArrowRightIcon,
@@ -119,9 +119,13 @@ function RouteComponent() {
               Lirna
             </span>
             <QuestionComposer className="hidden max-w-xl sm:flex lg:mr-auto" />
-            <Button variant="outline" size="sm">
+            <Button
+              render={<Link to="/sources/admission" />}
+              variant="outline"
+              size="sm"
+            >
               <PlusIcon data-icon="inline-start" />
-              Add
+              Add Source
             </Button>
             <ModeToggle />
           </div>

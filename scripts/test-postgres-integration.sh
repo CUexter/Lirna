@@ -90,3 +90,6 @@ fi
 
 POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
   bun test "$db_dir/src/postgres.integration.test.ts" --timeout 30000
+
+POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
+  bun test "$root/packages/api/src/sep-admission/sep-admission.postgres.test.ts" --timeout 30000

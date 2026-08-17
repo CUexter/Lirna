@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = "http://127.0.0.1:3001";
+const webPort = Number(process.env.E2E_WEB_PORT ?? 3001);
+const baseURL = `http://127.0.0.1:${webPort}`;
 const apiPort = Number(process.env.E2E_API_PORT ?? 3102);
 const apiURL = `http://127.0.0.1:${apiPort}`;
 
@@ -23,7 +24,7 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
-      command: "bun run --cwd apps/web dev --host 127.0.0.1",
+      command: `bun run --cwd apps/web dev --host 127.0.0.1 --port ${webPort} --strictPort`,
       url: baseURL,
       reuseExistingServer: false,
       env: {

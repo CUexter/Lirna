@@ -1,6 +1,8 @@
 import { protectedProcedure, publicProcedure, router } from "../index";
+import { sepAdmissionRouter } from "./sep-admission";
 
 export const appRouter = router({
+  sepAdmission: sepAdmissionRouter,
   healthCheck: publicProcedure.query(() => {
     return "OK";
   }),

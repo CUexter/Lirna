@@ -1,18 +1,24 @@
 {
   "coverage": {
-    "functionsFound": 24,
-    "functionsHit": 15,
-    "linesFound": 208,
-    "linesHit": 196
+    "functionsFound": 330,
+    "functionsHit": 275,
+    "linesFound": 4039,
+    "linesHit": 3129
   },
   "absentSources": {
     "apps/docs/src/content.config.ts": "1f8b206b5f7c0afb44c3715a3fe79954b448885fe9e753ba372dddf1210ecfd5",
     "apps/web/src/components/loader.tsx": "e4301531df37972ae910e15317725de58d43bec2a95fe40ad67c6e8b7013d5bb",
     "apps/web/src/components/mode-toggle.tsx": "20b865eac643d9d6d3af883e5090618c163f5d7f8ad16d1e165d3a1932c95f0e",
+    "apps/web/src/components/sep-admission-decision.tsx": "c02539f8f630bfe32986706e8d6775556f99c418af08f50d96d26f84ea547c7d",
+    "apps/web/src/components/sep-admission-preview.tsx": "315c1f488c7a6f9c95aaf0b7c7f3c7af9da34dc07f13776f7199bb0f6b54d819",
+    "apps/web/src/components/sep-capture-details.tsx": "029b7dd161accb87e8b3cbf1f8af446f3f8a34d99227143d59b07b74749ee7a3",
+    "apps/web/src/components/sep-reading-workspace.tsx": "3a1483ff33b4297d79516db961dc6dcca32c6912bd3fa846c3d28de21accda7a",
     "apps/web/src/components/theme-provider.tsx": "0fad5640f15392a1ec2b77f72c78452d49b2a4dea73fcca390b2cdaca70ec970",
     "apps/web/src/main.tsx": "ec36a1ad35feeff4a387b01c2d059c0767df84321f02a1b72014f92ed1ab2e04",
     "apps/web/src/routes/__root.tsx": "a1bff187101765d128662f7694859817085aa1f9bb28b1475709b80d36cf917c",
-    "apps/web/src/routes/index.tsx": "5184a8ab54913573d984096f664cead0733281c8a859674ec6f3650f66022b05",
+    "apps/web/src/routes/index.tsx": "ab0c6d5e44bbec2d0a259ce3b2cd4a9fcf7ae1de3afa86c3c3e07b29845c3640",
+    "apps/web/src/routes/sources/$sourceId/$stateId.tsx": "db9a14c7f15a6a953609fd6840603259086111767a729a404606cf50bc694da9",
+    "apps/web/src/routes/sources/admission.tsx": "557cf83d45d5a7bb59a52836b609f5473a8ec8c805203fb2f2bf5a54082038c6",
     "apps/web/src/utils/trpc.ts": "186e751858c4afb88f6f8fce33103d50efec67f4369c4269c4d25442a3b989dd",
     "packages/api/src/client.ts": "8b278fea05581d216cdc74bce8dbf3805166d89f19bf06e086f93469bec6da8b",
     "packages/env/src/web.ts": "cb94961b2b93dbaca3057c644340a61f9bbe5166550f4339cb68e84efd0391e0",
@@ -30,6 +36,7 @@
     "packages/ui/src/components/marker.tsx": "f97654938c70ed93ddf0cda37358c79db9dca9f3ba6f9a55ddfe2b254d950dfe",
     "packages/ui/src/components/message-scroller.tsx": "ba202615049e292c669a71be5d6d2f9af111a0d994881008fb77247511640ab7",
     "packages/ui/src/components/message.tsx": "c0a4c1d775680a094e99a062b1e6ffb01a28ae8317991745f15f394e74b26f7d",
+    "packages/ui/src/components/native-select.tsx": "f2fd05f3d35004ccf3682ec697cbb791424627b2408fbce0fb41b753269c5e07",
     "packages/ui/src/components/separator.tsx": "b8dafefe1e306da399920150d99f7a08de19ec3a0809744dd3d1b0d2a33039e9",
     "packages/ui/src/components/skeleton.tsx": "aedffa09fb2c07169e386221ae3a6fd4b78c2c25c34021b450e58ad85a41f75d",
     "packages/ui/src/components/sonner.tsx": "651c77cbb2aed9c3b17a427bd5cc730ffedd1951ccefb05a95ba9d10eed2a7a9",

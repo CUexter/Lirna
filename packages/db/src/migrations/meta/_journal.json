@@ -8,6 +8,34 @@
       "when": 1786937838560,
       "tag": "0000_initial_auth_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786968686486,
+      "tag": "0001_nice_wild_child",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786978233515,
+      "tag": "0002_harsh_lenny_balinger",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786982305942,
+      "tag": "0003_closed_stranger",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786985732083,
+      "tag": "0004_classy_lizard",
+      "breakpoints": true
     }
   ]
 }
