@@ -397,12 +397,17 @@ export function createSepReadingDerivative(options: {
     ),
   );
   const article = findElement(document, "main");
-  const targets = collectTargets(article ?? document, options.main.identity);
+  const readingRoot =
+    article ??
+    findElementById(document, "aueditable") ??
+    findElementById(document, "article-content") ??
+    document;
+  const targets = collectTargets(readingRoot, options.main.identity);
   const extraction = extractArticle(
-    article ?? document,
+    readingRoot,
     options.main.identity,
     targets.ids,
-    readingArticleExclusions(article ?? document),
+    readingArticleExclusions(readingRoot),
   );
   extraction.diagnostics.unshift(...targets.diagnostics);
   const captureDiagnostics = options.capture.diagnostics.map((diagnostic) => ({
@@ -478,14 +483,19 @@ function createReadingComponent(
     ),
   );
   const article = findElement(document, "main");
-  const targets = collectTargets(article ?? document, resource.identity);
+  const readingRoot =
+    article ??
+    findElementById(document, "aueditable") ??
+    findElementById(document, "article-content") ??
+    document;
+  const targets = collectTargets(readingRoot, resource.identity);
   const bibliography = extractSepBibliography(document, resource.identity);
   const excludedElements = new Set([
-    ...readingArticleExclusions(article ?? document),
+    ...readingArticleExclusions(readingRoot),
     ...bibliography.excludedElements,
   ]);
   const extraction = extractArticle(
-    article ?? document,
+    readingRoot,
     resource.identity,
     targets.ids,
     excludedElements,
@@ -500,7 +510,7 @@ function createReadingComponent(
     ? resource.discoveryEdge.slice("authored:".length)
     : undefined;
   const figures = extractFigures({
-    root: article ?? document,
+    root: readingRoot,
     resource,
     resources,
     ids: targets.ids,
@@ -852,28 +862,41 @@ function readingArticleExclusions(root: HtmlNode | undefined) {
   const mainText = descendants(root).find(
     (element) => elementId(element) === "main-text",
   );
-  if (!mainText) return excludedElements;
-
-  const children = childElements(mainText);
-  const cutoff = children.findIndex(isAcademicToolsBoundary);
+  const articleContainer = mainText
+    ? [...(root && "tagName" in root ? [root] : []), ...descendants(root)].find(
+        (element) => childElements(element).includes(mainText),
+      )
+    : undefined;
+  const children = childElements(articleContainer ?? mainText ?? root);
+  const cutoff = children.findIndex(isReadingUtilityBoundary);
   if (cutoff >= 0) {
     for (const child of children.slice(cutoff)) excludedElements.add(child);
   }
   return excludedElements;
 }
 
-function isAcademicToolsBoundary(element: HtmlElement) {
-  if (elementId(element) === "academic-tools") return true;
-  if (isAcademicToolsHeading(element)) return true;
+function isReadingUtilityBoundary(element: HtmlElement) {
+  if (elementId(element) === "main-text") return false;
+  if (
+    ["academic-tools", "other-internet-resources", "related-entries"].includes(
+      elementId(element) ?? "",
+    )
+  )
+    return true;
+  if (isReadingUtilityHeading(element)) return true;
   return descendants(element).some(
-    (child) => elementId(child) === "Aca" || isAcademicToolsHeading(child),
+    (child) =>
+      ["Aca", "Oth", "Rel"].includes(elementId(child) ?? "") ||
+      isReadingUtilityHeading(child),
   );
 }
 
-function isAcademicToolsHeading(element: HtmlElement) {
+function isReadingUtilityHeading(element: HtmlElement) {
   return (
     /^h[2-6]$/.test(element.tagName) &&
-    normalizeHeading(textContent(element)) === "academic tools"
+    ["academic tools", "other internet resources", "related entries"].includes(
+      normalizeHeading(textContent(element)),
+    )
   );
 }
 
@@ -1248,6 +1271,9 @@ function elementId(element: HtmlElement): string | undefined {
     attribute(element, "id") ??
     (element.tagName === "a" ? attribute(element, "name") : undefined)
   );
+}
+function findElementById(root: HtmlNode, id: string): HtmlElement | undefined {
+  return descendants(root).find((element) => elementId(element) === id);
 }
 function nestedAnchorId(element: HtmlElement): string | undefined {
   const anchor = descendants(element).find(
