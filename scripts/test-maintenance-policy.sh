@@ -53,20 +53,20 @@ if PATH="$tmp/bin" /usr/bin/env bash "$root/scripts/secret-scan.sh" history >"$t
   exit 1
 fi
 
-mkdir "$tmp/repo"
-git init -q "$tmp/repo"
-cp "$root/.gitleaks.toml" "$tmp/repo/.gitleaks.toml"
-git -C "$tmp/repo" config user.email test@example.invalid
-git -C "$tmp/repo" config user.name maintenance-test
-printf '%s\n' safe > "$tmp/repo/safe.txt"
-git -C "$tmp/repo" add safe.txt
-git -C "$tmp/repo" commit -q -m safe
-(cd "$tmp/repo" && "$root/scripts/secret-scan.sh" commit "$(git rev-parse HEAD)") >/dev/null
-openssl genrsa 2048 > "$tmp/repo/violation.txt" 2>/dev/null
-git -C "$tmp/repo" add violation.txt
-if (cd "$tmp/repo" && "$root/scripts/secret-scan.sh" staged) >"$tmp/violation.log" 2>&1; then
-  printf '%s\n' 'secret scanner accepted a violating fixture' >&2
+cat > "$tmp/bin/gitleaks" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$GITLEAKS_TEST_LOG"
+exit "${GITLEAKS_TEST_EXIT:-0}"
+EOF
+chmod +x "$tmp/bin/gitleaks"
+GITLEAKS_TEST_LOG="$tmp/gitleaks.log" PATH="$tmp/bin" "$root/scripts/secret-scan.sh" history
+GITLEAKS_TEST_LOG="$tmp/gitleaks.log" PATH="$tmp/bin" "$root/scripts/secret-scan.sh" commit deadbeef
+if GITLEAKS_TEST_EXIT=23 GITLEAKS_TEST_LOG="$tmp/gitleaks.log" PATH="$tmp/bin" "$root/scripts/secret-scan.sh" staged; then
+  printf '%s\n' 'secret scanner did not propagate a blocking finding' >&2
   exit 1
 fi
+grep -Fq "git --log-opts=--all --redact --config $root/.gitleaks.toml" "$tmp/gitleaks.log"
+grep -Fq "git --log-opts=deadbeef^! --redact --config $root/.gitleaks.toml" "$tmp/gitleaks.log"
+grep -Fq "git --staged --redact --config $root/.gitleaks.toml" "$tmp/gitleaks.log"
 
 printf '%s\n' 'maintenance policy tests passed'

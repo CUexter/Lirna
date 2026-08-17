@@ -21,6 +21,9 @@ if (scripts["check:fix"] !== "biome check --write .") {
 if (scripts["quality:ci"] !== "bun run check && bun run quality && bun run test:coverage") {
   throw new Error("quality:ci must run the read-only checks and coverage ratchet");
 }
+if (scripts["quality:architecture"] !== "node scripts/check-architecture.mjs") {
+  throw new Error("quality:architecture must run the executable architecture policy");
+}
 NODE
 
 grep -Fq 'bun install --frozen-lockfile' "$workflow"
@@ -44,19 +47,20 @@ grep -Fq 'needs.database.result' "$workflow"
 grep -Fq 'noExcessiveCognitiveComplexity' "$root/biome.json"
 grep -Fq 'useMaxParams' "$root/biome.json"
 grep -Fq 'noExcessiveLinesPerFile' "$root/biome.json"
-grep -Fq 'bun run test:coverage' "$root/package.json"
-grep -Fq 'check-coverage.mjs' "$root/package.json"
 grep -Fq 'bun run quality:props' "$root/package.json"
 grep -Fq 'bun run quality:duplication' "$root/package.json"
-grep -Fq 'bun run quality:docs' "$root/package.json"
 grep -Fq 'bun run quality:bundle' "$root/package.json"
 grep -Fq 'check-web-bundle.mjs' "$root/apps/web/package.json"
 test -f "$root/config/web-bundle-budget.json"
 bun test "$root/scripts/web-bundle-budget.test.mjs"
+grep -Fq 'bun run quality:architecture' "$root/package.json"
+grep -Fq 'bun run quality:docs' "$root/package.json"
 grep -Fq 'quality:docs' "$root/package.json"
+grep -Fq 'check-architecture.mjs' "$root/package.json"
+grep -Fq 'bun run test:coverage' "$root/package.json"
+grep -Fq 'check-coverage.mjs' "$root/package.json"
 grep -Fq '"test:e2e": "playwright test"' "$root/package.json"
 grep -Fq '"test:e2e:ci": "CI=1 playwright test"' "$root/package.json"
-test -f "$root/scripts/e2e-api-substitute.mjs"
-test -f "$root/tests/e2e/app-shell.spec.ts"
+test ! -e "$root/scripts/check-ui-primitives.mjs"
 
 printf '%s\n' "Quality gate policy tests passed"

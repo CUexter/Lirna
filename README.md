@@ -169,10 +169,10 @@ lirna/
 - `bun run lint`: Run Vite+ lint checks
 - `bun run format`: Run Vite+ formatting
 - `bun run staged`: Run Vite+ checks against staged files
+- `bun run secrets:check`: Scan repository history for secrets
 - `bun run maintenance:test`: Exercise dependency and secret policy safe, violation, and tool-error fixtures
 - `bun run security:trivy:config`: Scan deployable configuration with Trivy
 - `bun run security:trivy:dependencies`: Scan Bun and Cargo lockfiles with Trivy
-- `bun run secrets:check`: Scan repository history for secrets
 - `bun run check:semgrep`: Run blocking security-focused Semgrep rules
 - `bun run report:semgrep`: Report non-blocking security-focused Semgrep rules
 - `scripts/trivy-scan.sh config`: Scan Docker and deployment configuration with Trivy
