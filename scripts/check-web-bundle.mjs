@@ -127,10 +127,23 @@ export function formatFailures(failures) {
     .join("\n");
 }
 
+function resolveInsideRoot(rootDirectory, candidate) {
+  const resolved = path.resolve(rootDirectory, candidate);
+  const relative = path.relative(rootDirectory, resolved);
+  if (
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  ) {
+    throw new Error(`Path must remain inside ${rootDirectory}: ${candidate}`);
+  }
+  return resolved;
+}
+
 async function main() {
   const root = path.resolve(import.meta.dirname, "..");
-  const directory = path.resolve(root, process.argv[2] ?? "apps/web/dist");
-  const policyPath = path.resolve(
+  const directory = resolveInsideRoot(root, process.argv[2] ?? "apps/web/dist");
+  const policyPath = resolveInsideRoot(
     root,
     process.argv[3] ?? "config/web-bundle-budget.json",
   );
