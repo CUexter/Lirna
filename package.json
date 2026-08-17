@@ -60,6 +60,7 @@
     "secrets:range": "scripts/secret-scan.sh range",
     "dependency:check": "node scripts/verify-dependency-assessments.mjs --staged",
     "maintenance:test": "scripts/test-maintenance-policy.sh",
+    "implement:sep": "bash scripts/herdr-implement-sep.sh",
     "security:trivy:config": "scripts/trivy-scan.sh config",
     "security:trivy:dependencies": "scripts/trivy-scan.sh dependencies",
     "dev:web": "vp run --filter web dev",

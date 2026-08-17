@@ -106,9 +106,9 @@ The active hook is `.husky/pre-commit`.
 | Function parameters | `bun run quality` | `apps/` and `packages/`; maximum 4. |
 | File size | `bun run quality` | `apps/` and `packages/`; maximum 300 non-blank lines through Biome. |
 | React component props | `bun run quality:props` | TSX under `apps/` and `packages/`; maximum 8 statically countable explicit props. |
-| Duplication growth | `bun run quality:duplication` | TypeScript and TSX under `apps/` and `packages/`; jscpd may not exceed the current 0 duplicated-line baseline. |
+| Duplication growth | `bun run quality:duplication` | Production TypeScript and TSX under `apps/` and `packages/`; jscpd may not exceed the current 0 duplicated-line baseline. Test files are excluded. The only reviewed production exception is the shared resource-column shape in `sources.ts` and `sep-admission.ts`: Source-state resources are durable evidence while preview resources are temporary admission evidence, so a shared persistence abstraction would incorrectly couple different lifecycles and migrations. |
 | Documentation quality | `bun run quality:docs` | First-party Markdown links, root/workspace Bun commands, and code-form repository paths. |
-| Behavior tests and coverage | `bun run test:coverage` | Isolated Bun tests through public seams; line and function ratios may not decrease. Source absent from LCOV is allowed only when its exact content hash is in the reviewed legacy baseline, so new or changed uninstrumented source fails. |
+| Behavior tests and coverage | `bun run test:coverage` and `bun run test:e2e:ci` | Isolated Bun tests through public seams and Playwright browser journeys. Bun LCOV excludes `apps/web/src`, which runs in the required browser-E2E job; other source absent from LCOV is allowed only when its exact content hash is in the reviewed legacy baseline, so new or changed uninstrumented non-browser source fails. |
 
 These checks do not run the build, TypeScript compiler, full Biome rule set,
 Semgrep, Trivy, unit tests, integration tests, or E2E tests.
@@ -203,12 +203,12 @@ These are current repository gaps, not approved exceptions to the standard.
    unit and integration coverage remains a future responsibility. The root
    `test:coverage` command enforces the initial LCOV baseline of 196/208 lines
    and 15/24 functions. Legacy source absent from LCOV is hash-pinned in
-   `config/coverage-baseline.json`; new or changed absent source fails until it
-   gains coverage or a reviewer explicitly runs `bun run coverage:baseline` and
-   accepts the resulting exception.
-3. Playwright coverage is intentionally limited to the application shell and
-   API-status journey. It does not replace human interaction review or broader
-   accessibility evaluation.
+    `config/coverage-baseline.json`; new or changed absent non-browser source
+    fails until it gains coverage or a reviewer explicitly runs
+    `bun run coverage:baseline` and accepts the resulting exception.
+3. Browser modules run through Playwright rather than Bun LCOV. The encoded
+    browser journeys do not replace human interaction review or broader
+    accessibility evaluation.
 4. The architecture policy does not replace human review of package boundary
    design, dependency necessity, or domain-level server/browser contracts.
 5. The Nix workflow classifies changes by affected output to keep pull-request

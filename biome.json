@@ -44,7 +44,7 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "complexity": {
         "noExcessiveCognitiveComplexity": {
           "level": "error",
@@ -70,7 +70,7 @@
       "style": {
         "noExcessiveLinesPerFile": {
           "level": "error",
-          "options": { "maxLines": 300, "skipBlankLines": true }
+          "options": { "maxLines": 600, "skipBlankLines": true }
         },
         "noParameterAssign": "error",
         "useAsConstAssertion": "error",

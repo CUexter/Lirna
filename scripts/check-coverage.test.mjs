@@ -6,9 +6,10 @@ import {
 } from "./check-coverage.mjs";
 
 describe("coverage source baseline", () => {
-  test("recognizes supported first-party source and excludes policy fixtures", () => {
-    expect(isEligibleSource("apps/web/src/runtime.mts")).toBe(true);
+  test("recognizes Bun-instrumented source and excludes browser and policy fixtures", () => {
+    expect(isEligibleSource("apps/server/src/runtime.mts")).toBe(true);
     expect(isEligibleSource("packages/api/src/runtime.cjs")).toBe(true);
+    expect(isEligibleSource("apps/web/src/components/loader.tsx")).toBe(false);
     expect(isEligibleSource("apps/web/src/config/fixture.ts")).toBe(false);
     expect(isEligibleSource("scripts/runtime.mjs")).toBe(false);
   });
@@ -62,5 +63,16 @@ describe("coverage source baseline", () => {
       "apps/covered/src/index.ts is covered but remains in the legacy baseline",
       "apps/deleted/src/index.ts is deleted but remains in the legacy baseline",
     ]);
+  });
+
+  test("retains existing browser baseline entries outside Bun LCOV", () => {
+    expect(
+      sourceBaselineViolations({
+        absentSources: { "apps/web/src/components/loader.tsx": "hash" },
+        coveredSources: new Set(),
+        eligibleSources: [],
+        hashes: {},
+      }),
+    ).toEqual([]);
   });
 });

@@ -40,6 +40,7 @@ function getServerUrl(url: string) {
 
   return `http://localhost:3000${normalized}`;
 }
+
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error, query) => {

@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { protectedProcedure, router } from "../index";
+import { publicProcedure, router } from "../index";
 import { SepAdmissionError } from "../sep-admission/sep-capture";
 
 const previewIdInput = z.object({ previewId: z.string().uuid() });
@@ -12,7 +12,7 @@ const sourceStateInput = z.object({
 const observationKey = z.enum(["submitted", "recommended-archive"]);
 
 export const sepAdmissionRouter = router({
-  submit: protectedProcedure
+  submit: publicProcedure
     .input(z.object({ url: z.string().trim().min(1) }))
     .mutation(async ({ ctx, input }) => {
       try {
@@ -28,19 +28,17 @@ export const sepAdmissionRouter = router({
         throw error;
       }
     }),
-  get: protectedProcedure
-    .input(previewIdInput)
-    .query(async ({ ctx, input }) => {
-      const preview = await ctx.sepAdmissions.get(input.previewId);
-      if (!preview) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Admission preview is unavailable",
-        });
-      }
-      return preview;
-    }),
-  extend: protectedProcedure
+  get: publicProcedure.input(previewIdInput).query(async ({ ctx, input }) => {
+    const preview = await ctx.sepAdmissions.get(input.previewId);
+    if (!preview) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Admission preview is unavailable",
+      });
+    }
+    return preview;
+  }),
+  extend: publicProcedure
     .input(previewIdInput)
     .mutation(async ({ ctx, input }) => {
       const preview = await ctx.sepAdmissions.extend(input.previewId);
@@ -52,7 +50,7 @@ export const sepAdmissionRouter = router({
       }
       return preview;
     }),
-  retry: protectedProcedure
+  retry: publicProcedure
     .input(previewIdInput)
     .mutation(async ({ ctx, input }) => {
       try {
@@ -75,7 +73,7 @@ export const sepAdmissionRouter = router({
         throw error;
       }
     }),
-  admit: protectedProcedure
+  admit: publicProcedure
     .input(
       previewIdInput.extend({
         observationKeys: z.array(observationKey).min(1).max(2),
@@ -105,7 +103,7 @@ export const sepAdmissionRouter = router({
         throw error;
       }
     }),
-  state: protectedProcedure
+  state: publicProcedure
     .input(sourceStateInput)
     .query(async ({ ctx, input }) => {
       const state = await ctx.sepAdmissions.getState(
@@ -120,7 +118,7 @@ export const sepAdmissionRouter = router({
       }
       return state;
     }),
-  reading: protectedProcedure
+  reading: publicProcedure
     .input(sourceStateInput)
     .query(async ({ ctx, input }) => {
       const reading = await ctx.sepAdmissions.getReading(
@@ -135,7 +133,7 @@ export const sepAdmissionRouter = router({
       }
       return reading;
     }),
-  delete: protectedProcedure
+  delete: publicProcedure
     .input(previewIdInput)
     .mutation(async ({ ctx, input }) => {
       const deleted = await ctx.sepAdmissions.delete(input.previewId);

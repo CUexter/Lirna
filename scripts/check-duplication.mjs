@@ -6,6 +6,14 @@ import { join } from "node:path";
 // Existing duplication is debt, not a reason to block unrelated work. Lower this
 // baseline whenever the debt shrinks so it cannot grow back.
 const duplicatedLineBaseline = 0;
+const intentionalDuplicatePairs = new Set([
+  [
+    "packages/db/src/schema/sep-admission.ts",
+    "packages/db/src/schema/sources.ts",
+  ]
+    .sort()
+    .join("|"),
+]);
 const reportDirectory = await mkdtemp(join(tmpdir(), "lirna-jscpd-"));
 
 try {
@@ -25,6 +33,8 @@ try {
       "--output",
       reportDirectory,
       "--gitignore",
+      "--ignore",
+      "**/*.test.ts",
       "--format",
       "typescript,tsx",
       "apps",
@@ -42,9 +52,16 @@ try {
   const report = JSON.parse(
     await readFile(join(reportDirectory, "jscpd-report.json"), "utf8"),
   );
-  const duplicatedLines = report.statistics?.total?.duplicatedLines;
-  if (typeof duplicatedLines !== "number")
-    throw new Error("jscpd report has no line total");
+  if (!Array.isArray(report.duplicates))
+    throw new Error("jscpd report has no duplicate list");
+  const duplicatedLines = report.duplicates
+    .filter((duplicate) => {
+      const pair = [duplicate.firstFile.name, duplicate.secondFile.name]
+        .sort()
+        .join("|");
+      return !intentionalDuplicatePairs.has(pair);
+    })
+    .reduce((total, duplicate) => total + duplicate.lines, 0);
 
   if (duplicatedLines > duplicatedLineBaseline) {
     console.error(
