@@ -106,7 +106,7 @@ The active hook is `.husky/pre-commit`.
 | Function parameters | `bun run quality` | `apps/` and `packages/`; maximum 4. |
 | File size | `bun run quality` | `apps/` and `packages/`; maximum 300 non-blank lines through Biome. |
 | React component props | `bun run quality:props` | TSX under `apps/` and `packages/`; maximum 8 statically countable explicit props. |
-| Duplication growth | `bun run quality:duplication` | TypeScript and TSX under `apps/` and `packages/`; jscpd may not exceed the current 292 duplicated-line baseline. |
+| Duplication growth | `bun run quality:duplication` | TypeScript and TSX under `apps/` and `packages/`; jscpd may not exceed the current 0 duplicated-line baseline. |
 | Documentation quality | `bun run quality:docs` | First-party Markdown links, root/workspace Bun commands, and code-form repository paths. |
 | Behavior tests and coverage | `bun run test:coverage` | Isolated Bun tests through public seams; line and function ratios may not decrease. Source absent from LCOV is allowed only when its exact content hash is in the reviewed legacy baseline, so new or changed uninstrumented source fails. |
 
