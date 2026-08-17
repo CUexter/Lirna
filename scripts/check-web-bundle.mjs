@@ -2,6 +2,8 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { gzipSync } from "node:zlib";
 
+import { resolveInsideRoot } from "#path-safety";
+
 const metricsFileName = "bundle-size.json";
 
 async function listFiles(directory, relativeDirectory = "") {
@@ -125,19 +127,6 @@ export function formatFailures(failures) {
         `${name} (${asset}): measured ${measured} bytes, budget ${budget} bytes; reduce by at least ${changeNeeded} bytes or update the reviewed baseline and budget`,
     )
     .join("\n");
-}
-
-function resolveInsideRoot(rootDirectory, candidate) {
-  const resolved = path.resolve(rootDirectory, candidate);
-  const relative = path.relative(rootDirectory, resolved);
-  if (
-    relative === ".." ||
-    relative.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relative)
-  ) {
-    throw new Error(`Path must remain inside ${rootDirectory}: ${candidate}`);
-  }
-  return resolved;
 }
 
 async function main() {

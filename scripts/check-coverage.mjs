@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
+import { resolveInsideRoot } from "#path-safety";
+
 const root = path.resolve(import.meta.dirname, "..");
 const coverageFile = resolveInsideRoot(
   root,
@@ -67,17 +69,4 @@ console.log(
 
 function number(record, key) {
   return Number(record.match(new RegExp(`^${key}:(\\d+)$`, "m"))?.[1] ?? 0);
-}
-
-function resolveInsideRoot(rootDirectory, candidate) {
-  const resolved = path.resolve(rootDirectory, candidate);
-  const relative = path.relative(rootDirectory, resolved);
-  if (
-    relative === ".." ||
-    relative.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relative)
-  ) {
-    throw new Error(`Path must remain inside ${rootDirectory}: ${candidate}`);
-  }
-  return resolved;
 }

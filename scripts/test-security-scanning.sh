@@ -27,6 +27,11 @@ grep -q 'lirna-typescript-path-traversal' "$tmp/semgrep.json"
 grep -q 'lirna-typescript-insecure-crypto' "$tmp/semgrep.json"
 grep -q 'lirna-typescript-xss-sink' "$tmp/semgrep.json"
 semgrep --disable-version-check --config "$root/config/semgrep/blocking.yml" --error --metrics=off "$root/config/semgrep/fixtures/safe.ts" >/dev/null
+if semgrep --disable-version-check --config "$root/config/semgrep/blocking.yml" --error --json --metrics=off "$root/config/semgrep/fixtures/unsafe-fake-path-sanitizer.ts" >"$tmp/semgrep-fake-sanitizer.json" 2>&1; then
+  printf '%s\n' "Semgrep trusted a name-only path sanitizer" >&2
+  exit 1
+fi
+grep -q 'lirna-typescript-path-traversal' "$tmp/semgrep-fake-sanitizer.json"
 if semgrep --disable-version-check --config "$root/config/semgrep/reporting.yml" --error --json --metrics=off "$root/config/semgrep/fixtures/unsafe-reporting.ts" >"$tmp/semgrep-reporting.json" 2>&1; then
   printf '%s\n' "Semgrep accepted synthetic reporting violations" >&2
   exit 1

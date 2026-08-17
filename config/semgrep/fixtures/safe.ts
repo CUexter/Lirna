@@ -1,6 +1,9 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { resolve, sep } from "node:path";
+
+import { resolveInsideRoot } from "#path-safety";
 
 declare const context: {
   req: { query(name: string): string };
@@ -19,3 +22,5 @@ if (!requestedPath.startsWith(`${root}${sep}`)) {
 
 createHash("sha256");
 document.body.textContent = context.req.query("message");
+
+await readFile(resolveInsideRoot(root, context.req.query("safe-path")));

@@ -159,7 +159,7 @@ duplicate vulnerability responsibility.
 | `bun run lint` | Runs Vite+'s workspace lint task | Available locally; not run by a hook or CI. |
 | `bun run check:semgrep` | Runs the blocking Semgrep rules | Automated in CI, but optional locally and absent from pre-commit. |
 | `bun run report:semgrep` | Runs non-blocking Semgrep rules | Automated in CI, but optional locally and absent from pre-commit. |
-| `Nix flake checks` | Evaluates and, on the main branch, builds the server package, desktop package, NixOS module closure, and NixOS VM integration test | `.github/workflows/nix.yml` uses pinned Nix installation and cache actions. Pull requests evaluate every check without realizing those builds; pushes to `main` and manual runs perform the full package and VM verification. |
+| `Nix flake checks` | Builds the server package, desktop package, NixOS module closure, and NixOS VM integration test | `.github/workflows/nix.yml` uses pinned Nix installation and cache actions. Pull requests and pushes to `main` perform the full package and VM verification for relevant changes. |
 | `playwright.config.ts` | Starts the deterministic API substitute and web app, then runs Firefox desktop/mobile shell and API-status journeys with serious/critical axe assertions; CI retains traces, screenshots, and HTML reports | Automated in the `Quality` workflow through `bun run test:e2e:ci`. Browser automation proves the encoded journey and automated accessibility rules only; keyboard exploration, visual design, screen-reader behavior, and other human interaction review remain manual. |
 
 ## Human review responsibilities
