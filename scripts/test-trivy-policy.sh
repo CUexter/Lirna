@@ -35,6 +35,8 @@ grep -Fq 'image --scanners vuln --pkg-types os,library --severity HIGH,CRITICAL 
 workflow="$root/.github/workflows/trivy.yml"
 grep -Fq 'aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514' "$workflow"
 grep -Fq 'version: v0.73.0' "$workflow"
+grep -Fq 'uses: oven-sh/setup-bun@v2' "$workflow"
+grep -Fq 'bun-version-file: package.json' "$workflow"
 grep -Fq 'dockerfile: apps/server/Dockerfile' "$workflow"
 grep -Fq 'dockerfile: apps/web/Dockerfile' "$workflow"
 grep -Fq 'run: scripts/test-trivy-policy.sh' "$workflow"
