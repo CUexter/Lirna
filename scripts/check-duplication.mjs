@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 // Existing duplication is debt, not a reason to block unrelated work. Lower this
 // baseline whenever the debt shrinks so it cannot grow back.
-const duplicatedLineBaseline = 292;
+const duplicatedLineBaseline = 0;
 const reportDirectory = await mkdtemp(join(tmpdir(), "lirna-jscpd-"));
 
 try {
