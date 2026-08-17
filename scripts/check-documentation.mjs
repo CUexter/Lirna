@@ -7,6 +7,7 @@ export const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const defaultDocumentationRoots = [
   "README.md",
   "docs",
+  "apps/docs/README.md",
   "apps/docs/src/content/docs",
 ];
 const ignoredFiles = new Set(["AGENTS.md", "CLAUDE.md"]);
@@ -15,6 +16,7 @@ const repositoryPath =
 const markdownLink = /!?\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
 const commandReference =
   /(?:(?:cd\s+([^`\n]+?)\s+&&)\s+)?\b(bun|npm) run ([A-Za-z0-9:_-]+)/g;
+const nonBunCommandLine = /^\s*(?:npx|npm(?!\s+run\b)(?:\s+exec)?)\s+[^\n]+$/gm;
 
 async function collectMarkdown(root, roots) {
   const files = [];
@@ -75,7 +77,12 @@ function fragmentExists(source, target) {
 }
 
 function pathCandidateExists(root, candidate) {
-  if (candidate.endsWith(".env") || candidate.includes("*")) return true;
+  if (
+    candidate.endsWith(".env") ||
+    candidate.includes("*") ||
+    candidate.includes("/dist/")
+  )
+    return true;
   const path = resolve(root, candidate.replace(/[.,:;]+$/, ""));
   return existsSync(path);
 }
@@ -102,13 +109,14 @@ async function checkLinks(root, file, source) {
   const violations = [];
   for (const match of source.matchAll(markdownLink)) {
     const target = match[1];
-    if (/^(?:[a-z]+:|\/\/|#)/i.test(target)) continue;
+    if (/^(?:[a-z]+:|\/\/)/i.test(target)) continue;
+    const targetName = target.split("#", 1)[0].split("?", 1)[0];
     const targetPath = resolve(
       dirname(resolve(root, file)),
-      decodeURIComponent(target.split("#", 1)[0].split("?", 1)[0]),
+      decodeURIComponent(targetName),
     );
     const targetSource =
-      targetPath === resolve(root, file)
+      !targetName || targetPath === resolve(root, file)
         ? source
         : extname(targetPath) === ".md" && existsSync(targetPath)
           ? await readFile(targetPath, "utf8")
@@ -128,9 +136,13 @@ function checkCommands(root, file, source, scripts) {
     const commandScripts = match[1]
       ? scriptsForDirectory(root, match[1].trim())
       : scripts;
-    if ((match[2] === "npm" && !match[1]) || !commandScripts.has(match[3]))
+    if (match[2] === "npm")
+      violations.push(`${file}: non-Bun command ${match[0]}`);
+    else if (!commandScripts.has(match[3]))
       violations.push(`${file}: missing root command ${match[0]}`);
   }
+  for (const match of source.matchAll(nonBunCommandLine))
+    violations.push(`${file}: non-Bun command ${match[0].trim()}`);
   return violations;
 }
 

@@ -23,7 +23,11 @@ const workspaces = [
     name: "@lirna/api",
     root: "packages/api",
     dependencies: new Set(["@lirna/env"]),
-    exports: { "./*": { default: "./src/*.ts" } },
+    exports: {
+      "./client": { default: "./src/client.ts" },
+      "./context": { default: "./src/context.ts" },
+      "./routers/index": { default: "./src/routers/index.ts" },
+    },
   },
   {
     name: "@lirna/auth",
@@ -54,7 +58,10 @@ describe("architecture policy fixtures", () => {
       },
       {
         path: "apps/web/src/main.tsx",
-        ...parseSource("main.tsx", 'import { env } from "@lirna/env/web";'),
+        ...parseSource(
+          "main.tsx",
+          'import type { AppRouter } from "@lirna/api/client"; import { env } from "@lirna/env/web";',
+        ),
       },
       {
         path: "packages/ui/src/components/input.tsx",
@@ -109,6 +116,30 @@ describe("architecture policy fixtures", () => {
       "apps/web/src/main.tsx imports the server environment surface",
       "apps/web/src/main.tsx crosses workspace boundary through relative import ../../../packages/api/src/index; use a package export",
       "apps/web/src/components/form.tsx uses native <select>; import an owned UI primitive instead",
+    ]);
+  });
+
+  test("rejects server-owned API implementation in browser code", () => {
+    const files = [
+      {
+        path: "apps/web/src/context.ts",
+        ...parseSource(
+          "context.ts",
+          'import { createContext } from "@lirna/api/context";',
+        ),
+      },
+      {
+        path: "apps/web/src/router.ts",
+        ...parseSource(
+          "router.ts",
+          'import type { AppRouter } from "@lirna/api/routers/index";',
+        ),
+      },
+    ];
+
+    expect(evaluatePolicy({ workspaces, files })).toEqual([
+      "apps/web/src/context.ts imports server-owned API implementation @lirna/api/context; use @lirna/api/client",
+      "apps/web/src/router.ts imports server-owned API implementation @lirna/api/routers/index; use @lirna/api/client",
     ]);
   });
 

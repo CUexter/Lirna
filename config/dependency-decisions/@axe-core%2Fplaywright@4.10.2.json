@@ -4,5 +4,8 @@
   "section": "devDependencies",
   "integrity": "sha512-6/b5BJjG6hDaRNtgzLIfKr5DfwyiLHO4+ByTLB0cJgWSM8Ll7KqtdblIS6bEkwSF642/Ex91vNqIl3GLXGlceg==",
   "reason": "Runs automated accessibility assertions in the Playwright application journey.",
+  "maintenance": "The package is version-pinned and reviewed alongside Playwright and axe-core updates before its accessibility assertions change.",
+  "provenance": "This is Deque's Playwright integration for axe-core, resolved to the exact Bun lockfile artifact and integrity above.",
+  "alternatives": "Playwright alone has no accessibility rules engine; a local implementation would duplicate axe-core and provide weaker evidence.",
   "assessmentDate": "2026-08-17"
 }

@@ -1,4 +1,4 @@
-import type { AppRouter } from "@lirna/api/routers/index";
+import type { AppRouter } from "@lirna/api/client";
 import { env } from "@lirna/env/web";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";

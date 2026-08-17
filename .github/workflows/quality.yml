@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -25,6 +27,11 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Test maintenance policy
         run: bun run maintenance:test
+      - name: Verify changed dependency decisions
+        if: github.event_name != 'workflow_dispatch'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: node scripts/verify-dependency-assessments.mjs --range "$BASE_SHA" "${{ github.sha }}"
 
   static:
     name: Static checks
@@ -99,7 +106,7 @@ jobs:
         run: bun run test:e2e:ci
       - name: Upload browser diagnostics
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-diagnostics
           path: |

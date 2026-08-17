@@ -35,7 +35,7 @@ fs.writeFileSync(`${root}/package.json`, `${JSON.stringify(manifest)}\n`);
 fs.writeFileSync(`${root}/bun.lock`, `${JSON.stringify(lock)}\n`);
 NODE
 mkdir -p "$tmp/dependency-repo/config/dependency-decisions"
-printf '%s\n' '{"package":"fixture","version":"2.0.0","section":"dependencies","integrity":"sha512-fixture-2","assessmentDate":"2026-08-17","reason":"Synthetic fixture exercises the committed decision path."}' > "$tmp/dependency-repo/config/dependency-decisions/fixture@2.0.0.json"
+printf '%s\n' '{"package":"fixture","version":"2.0.0","section":"dependencies","integrity":"sha512-fixture-2","assessmentDate":"2026-08-17","reason":"Synthetic fixture exercises the committed decision path.","maintenance":"Synthetic maintenance evidence for the safe fixture.","provenance":"Synthetic provenance evidence for the safe fixture.","alternatives":"Synthetic alternatives review for the safe fixture."}' > "$tmp/dependency-repo/config/dependency-decisions/fixture@2.0.0.json"
 git -C "$tmp/dependency-repo" add package.json bun.lock config
 LIRNA_DEPENDENCY_PROJECT_ROOT="$tmp/dependency-repo" node "$root/scripts/verify-dependency-assessments.mjs" --staged >/dev/null
 rm "$tmp/dependency-repo/config/dependency-decisions/fixture@2.0.0.json"
@@ -44,6 +44,21 @@ if LIRNA_DEPENDENCY_PROJECT_ROOT="$tmp/dependency-repo" node "$root/scripts/veri
   printf '%s\n' 'dependency verifier accepted an unassessed fixture' >&2
   exit 1
 fi
+
+mkdir "$tmp/dependency-bin"
+ln -s "$(command -v node)" "$tmp/dependency-bin/node"
+ln -s "$(command -v bash)" "$tmp/dependency-bin/bash"
+cat > "$tmp/dependency-bin/git" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' 'synthetic git failure' >&2
+exit 128
+EOF
+chmod +x "$tmp/dependency-bin/git"
+if PATH="$tmp/dependency-bin" LIRNA_DEPENDENCY_PROJECT_ROOT="$tmp/dependency-repo" node "$root/scripts/verify-dependency-assessments.mjs" --staged >"$tmp/dependency-tool-error.log" 2>&1; then
+  printf '%s\n' 'dependency verifier swallowed a git tool error' >&2
+  exit 1
+fi
+grep -Fq 'synthetic git failure' "$tmp/dependency-tool-error.log"
 
 mkdir -p "$tmp/bin"
 ln -s "$(command -v git)" "$tmp/bin/git"

@@ -186,6 +186,14 @@ export function evaluatePolicy({ workspaces, files }) {
           if (!(allowedEdges.get(owner.name) ?? new Set()).has(dependency.name)) violations.push(`${file.path} has forbidden workspace edge ${owner.name} -> ${dependency.name}`);
         }
         if (owner.name === "web" && specifier === "@lirna/env/server") violations.push(`${file.path} imports the server environment surface`);
+        if (
+          owner.name === "web" &&
+          dependency.name === "@lirna/api" &&
+          specifier !== "@lirna/api/client"
+        )
+          violations.push(
+            `${file.path} imports server-owned API implementation ${specifier}; use @lirna/api/client`,
+          );
         continue;
       }
       if (!specifier.startsWith(".")) continue;

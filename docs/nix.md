@@ -69,6 +69,11 @@ build output and development-only directories from the package source.
 `apps/web/dist`, then uses Nixpkgs' `cargo-tauri` hook and the Rust lockfile at
 `apps/web/src-tauri/Cargo.lock` to build and bundle the desktop application.
 
+`config/nix-output-paths.json` is the shared source manifest for package filtering
+and CI change classification. Add a path there when an input starts affecting the
+server or desktop output; `nix/source.nix` and the workflow classifier both read
+that manifest.
+
 Regenerate `nix/bun.nix` with bun2nix whenever `bun.lock` changes.
 
 ## NixOS module
@@ -149,3 +154,9 @@ nix build .#nixos-test
 
 The VM test provisions PostgreSQL, starts `lirna.service`, waits for port 3000,
 and verifies that the server root responds with `OK`.
+
+Pull requests with classified Nix output impact evaluate the whole flake without
+realizing package or VM closures. Pushes to `main`, the weekly schedule, and
+manual runs build the classified server, desktop, module, and VM checks. This
+keeps pull-request feedback bounded while ensuring the complete closures are
+built after merge and periodically.
