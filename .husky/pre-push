@@ -1,6 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-old=$(git rev-parse "$3" 2>/dev/null || printf '%s' 0000000000000000000000000000000000000000)
-new=$(git rev-parse "$2")
-bun run secrets:range -- "$old" "$new"
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  old=$(git rev-parse "$remote_sha" 2>/dev/null || printf '%s' 0000000000000000000000000000000000000000)
+  bun run secrets:range -- "$old" "$local_sha"
+done
