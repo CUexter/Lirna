@@ -115,7 +115,8 @@ Semgrep, Trivy, unit tests, integration tests, or E2E tests.
 
 ### Automated in GitHub Actions
 
-All current workflows run on pushes and pull requests. Trivy also runs weekly.
+All current workflows run on pushes and pull requests. Trivy and Nix also run
+weekly.
 
 The `Quality` workflow exposes one stable aggregate job named `quality` (check
 name: `Quality / quality`). The
@@ -159,7 +160,7 @@ duplicate vulnerability responsibility.
 | `bun run lint` | Runs Vite+'s workspace lint task | Available locally; not run by a hook or CI. |
 | `bun run check:semgrep` | Runs the blocking Semgrep rules | Automated in CI, but optional locally and absent from pre-commit. |
 | `bun run report:semgrep` | Runs non-blocking Semgrep rules | Automated in CI, but optional locally and absent from pre-commit. |
-| `Nix flake checks` | Builds the server package, desktop package, NixOS module closure, and NixOS VM integration test | `.github/workflows/nix.yml` uses pinned Nix installation and cache actions. Pull requests and pushes to `main` perform the full package and VM verification for relevant changes. |
+| `Nix flake checks` | Builds the server package, desktop package, NixOS module closure, and NixOS VM integration test | `.github/workflows/nix.yml` uses pinned Nix installation and cache actions. Dependency and Nix changes run the complete package and VM verification in parallel groups. Native desktop changes run the desktop package check. Ordinary application-source changes rely on the production-build gate instead of rebuilding Nix closures. A weekly schedule and manual runs provide complete non-blocking backstops. |
 | `playwright.config.ts` | Starts the deterministic API substitute and web app, then runs Firefox desktop/mobile shell and API-status journeys with serious/critical axe assertions; CI retains traces, screenshots, and HTML reports | Automated in the `Quality` workflow through `bun run test:e2e:ci`. Browser automation proves the encoded journey and automated accessibility rules only; keyboard exploration, visual design, screen-reader behavior, and other human interaction review remain manual. |
 
 ## Human review responsibilities
@@ -196,9 +197,13 @@ These are current repository gaps, not approved exceptions to the standard.
    accessibility evaluation.
 4. The architecture policy does not replace human review of package boundary
    design, dependency necessity, or domain-level server/browser contracts.
-5. The Nix workflow intentionally runs only for changes that can affect the
-   server package, desktop package, NixOS module, or VM integration test. It is
-   separate from the fast quality and security workflows.
+5. The Nix workflow classifies changes by affected output to keep pull-request
+   feedback bounded. The classifier is path-based, so reviewers must update it
+   when a new dependency, packaging, or native source path affects the server
+   package, desktop package, NixOS module, or VM integration test. A weekly
+   complete run can expose failures missed by a classification gap without
+   delaying every merge. The workflow is separate from the fast quality and
+   security gates.
 6. Pre-commit quality checks run across `apps/` and `packages/`, but local hooks
     can be bypassed and CI does not repeat them.
 7. No automated check verifies accessibility, public API compatibility,

@@ -6,7 +6,7 @@ in
 bun2nix.mkDerivation {
   pname = "lirna";
   version = "0.1.0";
-  inherit (source) src;
+  src = source.server;
 
   bunDeps = bun2nix.fetchBunDeps {
     bunNix = ./bun.nix;
