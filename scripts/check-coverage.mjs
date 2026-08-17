@@ -1,72 +1,203 @@
-import fs from "node:fs";
+import { createHash } from "node:crypto";
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
 import { resolveInsideRoot } from "#path-safety";
 
 const root = path.resolve(import.meta.dirname, "..");
-const coverageFile = resolveInsideRoot(
-  root,
-  process.argv[2] ?? "coverage/lcov.info",
-);
-const baseline = {
-  functionsHit: 15,
-  functionsFound: 24,
-  linesHit: 196,
-  linesFound: 208,
-};
 const sourcePattern = /^(apps|packages)\/[^/]+\/src\//;
 const excludedPattern = /(?:\.test\.|\.spec\.|\.gen\.|\/fixtures\/|\/config\/)/;
+const sourceExtensions = new Set([
+  ".cjs",
+  ".cts",
+  ".js",
+  ".jsx",
+  ".mjs",
+  ".mts",
+  ".ts",
+  ".tsx",
+]);
 
-const records = fs
-  .readFileSync(coverageFile, "utf8")
-  .split("end_of_record")
-  .map((record) => {
-    const source = record.match(/^SF:(.+)$/m)?.[1];
-    if (!source) return null;
-    return {
-      source,
-      functionsFound: number(record, "FNF"),
-      functionsHit: number(record, "FNH"),
-      linesFound: number(record, "LF"),
-      linesHit: number(record, "LH"),
-    };
-  })
-  .filter(
-    (record) =>
-      record &&
-      sourcePattern.test(record.source) &&
-      !excludedPattern.test(record.source),
+export function isEligibleSource(source) {
+  return (
+    sourcePattern.test(source) &&
+    !excludedPattern.test(source) &&
+    sourceExtensions.has(path.extname(source))
   );
-
-if (records.length === 0) {
-  throw new Error("Coverage report contains no first-party source files");
 }
 
-const totals = records.reduce(
-  (total, record) => ({
-    functionsFound: total.functionsFound + record.functionsFound,
-    functionsHit: total.functionsHit + record.functionsHit,
-    linesFound: total.linesFound + record.linesFound,
-    linesHit: total.linesHit + record.linesHit,
-  }),
-  { functionsFound: 0, functionsHit: 0, linesFound: 0, linesHit: 0 },
-);
+export function sourceBaselineViolations({
+  absentSources,
+  coveredSources,
+  eligibleSources,
+  hashes,
+}) {
+  const violations = [];
+  const eligible = new Set(eligibleSources);
 
-for (const metric of ["functions", "lines"]) {
-  const found = `${metric}Found`;
-  const hit = `${metric}Hit`;
-  if (totals[hit] * baseline[found] < baseline[hit] * totals[found]) {
-    throw new Error(
-      `${metric} coverage ${totals[hit]}/${totals[found]} is below the baseline ${baseline[hit]}/${baseline[found]}`,
-    );
+  for (const source of [...eligible].sort()) {
+    if (coveredSources.has(source)) continue;
+    if (!(source in absentSources)) {
+      violations.push(
+        `${source} is absent from LCOV and has no reviewed legacy baseline`,
+      );
+    } else if (absentSources[source] !== hashes[source]) {
+      violations.push(
+        `${source} changed while absent from LCOV; add coverage or explicitly update the baseline`,
+      );
+    }
   }
+
+  for (const source of Object.keys(absentSources).sort()) {
+    if (!eligible.has(source)) {
+      violations.push(
+        `${source} is deleted but remains in the legacy baseline`,
+      );
+    } else if (coveredSources.has(source)) {
+      violations.push(
+        `${source} is covered but remains in the legacy baseline`,
+      );
+    }
+  }
+
+  return violations;
 }
 
-console.log(
-  `Coverage ratchet passed: ${totals.linesHit}/${totals.linesFound} lines, ${totals.functionsHit}/${totals.functionsFound} functions`,
-);
+function collectEligibleSources() {
+  const sources = [];
+
+  function visit(directory) {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const entryPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        visit(entryPath);
+      } else if (
+        entry.isFile() &&
+        sourceExtensions.has(path.extname(entry.name))
+      ) {
+        const source = path.relative(root, entryPath).replaceAll(path.sep, "/");
+        if (isEligibleSource(source)) sources.push(source);
+      }
+    }
+  }
+
+  for (const workspaceRoot of ["apps", "packages"]) {
+    const directory = path.join(root, workspaceRoot);
+    if (existsSync(directory) && statSync(directory).isDirectory())
+      visit(directory);
+  }
+  return sources.sort();
+}
+
+function hashSources(sources) {
+  return Object.fromEntries(
+    sources.map((source) => [
+      source,
+      createHash("sha256")
+        .update(readFileSync(path.join(root, source)))
+        .digest("hex"),
+    ]),
+  );
+}
 
 function number(record, key) {
   return Number(record.match(new RegExp(`^${key}:(\\d+)$`, "m"))?.[1] ?? 0);
 }
+
+function main() {
+  const args = process.argv.slice(2);
+  const writeBaseline = args.includes("--write-baseline");
+  const coverageArgument = args.find((argument) => !argument.startsWith("--"));
+  const coverageFile = resolveInsideRoot(
+    root,
+    coverageArgument ?? "coverage/lcov.info",
+  );
+  const baselineFile = path.join(root, "config/coverage-baseline.json");
+  const records = readFileSync(coverageFile, "utf8")
+    .split("end_of_record")
+    .map((record) => {
+      const rawSource = record.match(/^SF:(.+)$/m)?.[1];
+      if (!rawSource) return null;
+      const source = path
+        .relative(root, path.resolve(root, rawSource))
+        .replaceAll(path.sep, "/");
+      return {
+        source,
+        functionsFound: number(record, "FNF"),
+        functionsHit: number(record, "FNH"),
+        linesFound: number(record, "LF"),
+        linesHit: number(record, "LH"),
+      };
+    })
+    .filter((record) => record && isEligibleSource(record.source));
+
+  if (records.length === 0)
+    throw new Error("Coverage report contains no first-party source files");
+
+  const totals = records.reduce(
+    (total, record) => ({
+      functionsFound: total.functionsFound + record.functionsFound,
+      functionsHit: total.functionsHit + record.functionsHit,
+      linesFound: total.linesFound + record.linesFound,
+      linesHit: total.linesHit + record.linesHit,
+    }),
+    { functionsFound: 0, functionsHit: 0, linesFound: 0, linesHit: 0 },
+  );
+  const coveredSources = new Set(records.map((record) => record.source));
+  const eligibleSources = collectEligibleSources();
+  const hashes = hashSources(eligibleSources);
+
+  if (writeBaseline) {
+    const absentSources = Object.fromEntries(
+      eligibleSources
+        .filter((source) => !coveredSources.has(source))
+        .map((source) => [source, hashes[source]]),
+    );
+    writeFileSync(
+      baselineFile,
+      `${JSON.stringify({ coverage: totals, absentSources }, null, 2)}\n`,
+    );
+    console.log(
+      `Coverage baseline updated with ${Object.keys(absentSources).length} reviewed legacy exclusions`,
+    );
+    return;
+  }
+
+  if (!existsSync(baselineFile))
+    throw new Error(
+      "Coverage baseline is missing; run bun run coverage:baseline and review the result",
+    );
+  const baseline = JSON.parse(readFileSync(baselineFile, "utf8"));
+  const sourceViolations = sourceBaselineViolations({
+    absentSources: baseline.absentSources ?? {},
+    coveredSources,
+    eligibleSources,
+    hashes,
+  });
+  if (sourceViolations.length > 0) throw new Error(sourceViolations.join("\n"));
+
+  for (const metric of ["functions", "lines"]) {
+    const found = `${metric}Found`;
+    const hit = `${metric}Hit`;
+    if (
+      totals[hit] * baseline.coverage[found] <
+      baseline.coverage[hit] * totals[found]
+    )
+      throw new Error(
+        `${metric} coverage ${totals[hit]}/${totals[found]} is below the baseline ${baseline.coverage[hit]}/${baseline.coverage[found]}`,
+      );
+  }
+
+  console.log(
+    `Coverage ratchet passed: ${totals.linesHit}/${totals.linesFound} lines, ${totals.functionsHit}/${totals.functionsFound} functions`,
+  );
+}
+
+if (import.meta.main) main();

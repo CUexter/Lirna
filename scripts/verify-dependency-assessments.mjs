@@ -124,6 +124,10 @@ function validateDecision(record, dependency) {
     );
   if (typeof record.reason !== "string" || record.reason.trim().length < 10)
     throw new Error("dependency decision requires a package-specific reason");
+  for (const field of ["maintenance", "provenance", "alternatives"]) {
+    if (typeof record[field] !== "string" || record[field].trim().length < 10)
+      throw new Error(`dependency decision requires ${field} review evidence`);
+  }
   if (!Number.isFinite(new Date(record.assessmentDate).getTime()))
     throw new Error("dependency decision has an invalid assessmentDate");
 }
@@ -144,7 +148,11 @@ async function readJson(revision, path) {
     ]);
     return JSON.parse(stdout.replace(/,\s*([}\]])/g, "$1"));
   } catch (error) {
-    if (error.code === 128) return undefined;
+    if (
+      error.code === 128 &&
+      String(error.stderr).includes(`path '${path}' does not exist`)
+    )
+      return undefined;
     throw error;
   }
 }

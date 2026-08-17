@@ -16,7 +16,9 @@ describe("documentation quality fixtures", () => {
     const violations = await checkDocumentation(`${fixtureRoot}invalid`);
     expect(violations).toEqual([
       "docs/guide.md: broken internal link ../missing.md",
+      "docs/guide.md: broken internal link #missing-section",
       "docs/guide.md: missing root command bun run missing",
+      "docs/guide.md: non-Bun command npx fixture-cli",
       "docs/guide.md: obsolete repository path client/src/routes",
     ]);
   });

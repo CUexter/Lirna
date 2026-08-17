@@ -5,11 +5,13 @@ root=$(git rev-parse --show-toplevel)
 flake="$root/flake.nix"
 workflow="$root/.github/workflows/nix.yml"
 classifier="$root/scripts/classify-nix-changes.mjs"
+output_paths="$root/config/nix-output-paths.json"
 report="$root/docs/code-quality-standard.md"
 
 test -f "$flake"
 test -f "$workflow"
 test -f "$classifier"
+test -f "$output_paths"
 
 grep -Fq 'checks.${system} = {' "$flake"
 grep -Fq 'server = lirna;' "$flake"
@@ -20,9 +22,12 @@ classify() {
   printf '%s\n' "$1" | node "$classifier"
 }
 
-test "$(classify 'apps/web/src/routes/index.tsx')" = $'desktop=false\nvm=false'
-test "$(classify 'apps/server/src/index.ts')" = $'desktop=false\nvm=false'
-test "$(classify 'packages/api/src/index.ts')" = $'desktop=false\nvm=false'
+test "$(classify 'apps/web/src/routes/index.tsx')" = $'desktop=true\nvm=false'
+test "$(classify 'apps/server/src/index.ts')" = $'desktop=false\nvm=true'
+test "$(classify 'packages/api/src/index.ts')" = $'desktop=true\nvm=true'
+test "$(classify 'config/web-bundle-budget.json')" = $'desktop=true\nvm=false'
+test "$(classify 'scripts/check-web-bundle.mjs')" = $'desktop=true\nvm=false'
+test "$(classify 'README.md')" = $'desktop=false\nvm=false'
 test "$(classify 'apps/web/src-tauri/src/main.rs')" = $'desktop=true\nvm=false'
 test "$(classify 'package.json')" = $'desktop=true\nvm=true'
 test "$(node "$classifier" --full </dev/null)" = $'desktop=true\nvm=true'
@@ -54,7 +59,7 @@ grep -Eq 'nix-installer-action@[0-9a-f]{40}' "$workflow"
 grep -Eq 'magic-nix-cache-action@[0-9a-f]{40}' "$workflow"
 grep -Fq 'Nix flake checks' "$report"
 grep -Fq 'server package, desktop package, NixOS module closure, and NixOS VM integration test' "$report"
-grep -Fq 'Dependency, Nix, and native desktop pull requests evaluate the affected flake outputs' "$report"
-grep -Fq 'Ordinary application-source changes rely on the production-build gate' "$report"
+grep -Fq 'Changes to inputs declared in `config/nix-output-paths.json` trigger whole-flake evaluation' "$report"
+grep -Fq 'Classified pull requests evaluate the whole flake without' "$report"
 
 printf '%s\n' "Nix verification policy tests passed"

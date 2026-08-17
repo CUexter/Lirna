@@ -2,5 +2,5 @@
 useDefault = true
 
 [allowlist]
-description = "Only repository-owned example files are excluded."
-paths = ['''(^|/)\.env\.example$''']
+description = "Only repository-owned examples and generated hash manifests are excluded."
+paths = ['''(^|/)\.env\.example$''', '''^config/coverage-baseline\.json$''']

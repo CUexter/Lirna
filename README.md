@@ -80,7 +80,7 @@ Run the shadcn CLI from the project root to add primitives to the shared UI
 package:
 
 ```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
+bunx --bun shadcn@latest add accordion dialog popover sheet table -c packages/ui
 ```
 
 Import shared components from the package:
@@ -157,7 +157,7 @@ lirna/
 - `bun run test:e2e`: Run the deterministic Playwright browser suite locally
 - `bun run test:e2e:ci`: Run the Playwright suite with CI retries and diagnostics
 - `bun run test:db`: Verify migrations and database behavior in disposable PostgreSQL
-- `bun run quality:ci`: Run the read-only Biome and configured quality checks
+- `bun run quality:ci`: Run aggregate quality, bundle-build, and coverage checks
 - `bun run quality:bundle`: Build the web app and enforce its production asset budget
 - `bun run quality:policy`: Verify the quality workflow and command contracts
 - `bun run db:push`: Push schema changes to the database
