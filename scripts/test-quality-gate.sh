@@ -5,6 +5,7 @@ root=$(git rev-parse --show-toplevel)
 workflow="$root/.github/workflows/quality.yml"
 
 test -f "$workflow"
+test "$(grep -Fc 'uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803' "$workflow")" -eq 6
 
 node - "$root/package.json" <<'NODE'
 const fs = require("node:fs");
