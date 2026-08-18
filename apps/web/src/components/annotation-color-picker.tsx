@@ -1,10 +1,7 @@
-import type { AppRouter } from "@lirna/api/client";
 import { Button } from "@lirna/ui/components/button";
-import type { inferRouterOutputs } from "@trpc/server";
 import { CheckIcon, Trash2Icon } from "lucide-react";
 
-type AnnotationColor =
-  inferRouterOutputs<AppRouter>["annotations"]["list"][number]["color"];
+import type { AnnotationColor } from "./annotation-dom-utils";
 
 interface AnnotationColorPickerProps {
   color: AnnotationColor;
