@@ -1,4 +1,3 @@
-import type { AppRouter } from "@lirna/api/client";
 import { Badge } from "@lirna/ui/components/badge";
 import { Button } from "@lirna/ui/components/button";
 import {
@@ -7,24 +6,23 @@ import {
   CardHeader,
   CardTitle,
 } from "@lirna/ui/components/card";
-import { Input } from "@lirna/ui/components/input";
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@lirna/ui/components/native-select";
 import { Link } from "@tanstack/react-router";
-import type { inferRouterOutputs } from "@trpc/server";
 import { ArrowLeftIcon } from "lucide-react";
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 import { ReadingAnnotations } from "./reading-annotations";
+import { Bibliography } from "./sep-bibliography";
+import {
+  Blocks,
+  CitationActions,
+  Diagnostic,
+  Figure,
+  ReadingSection,
+  type SepReadingData,
+} from "./sep-reading-content";
+import { SepReadingSidebar } from "./sep-reading-sidebar";
 
-export type SepReadingData =
-  inferRouterOutputs<AppRouter>["sepAdmission"]["reading"];
-
-const CitationActions = createContext<{
-  open: (entryId: string | undefined, mentionId: string) => void;
-} | null>(null);
+export type { SepReadingData };
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
@@ -71,6 +69,10 @@ export function SepReadingWorkspace({
   if (!component) return null;
   const saveLocation = () =>
     locations.current.set(component.identity, window.scrollY);
+  const handleComponentChange = (identity: string) => {
+    saveLocation();
+    onComponentChange(identity);
+  };
   const openBibliography = (entryId: string | undefined, mentionId: string) => {
     saveLocation();
     returnMention.current = mentionId;
@@ -109,65 +111,16 @@ export function SepReadingWorkspace({
         </div>
       </header>
       <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[15rem_minmax(0,1fr)] lg:px-10 lg:py-12">
-        <aside className="lg:sticky lg:top-6 lg:self-start">
-          <div className="flex flex-col gap-4 rounded-md border p-4">
-            <nav aria-label="Source components">
-              <h2 className="mb-3 font-medium">This Source</h2>
-              <NativeSelect
-                aria-label="Source component"
-                className="lg:hidden"
-                onChange={(event) => {
-                  saveLocation();
-                  onComponentChange(event.target.value);
-                }}
-                value={component.identity}
-              >
-                {reading.components.map((item) => (
-                  <NativeSelectOption key={item.identity} value={item.identity}>
-                    {item.label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-              <ol className="hidden space-y-1 text-sm lg:block">
-                {reading.components.map((item) => (
-                  <li key={item.identity}>
-                    <Button
-                      className="h-auto justify-start p-0 text-left text-muted-foreground"
-                      onClick={() => {
-                        saveLocation();
-                        onComponentChange(item.identity);
-                      }}
-                      type="button"
-                      variant="link"
-                    >
-                      {item.identity === component.identity ? (
-                        <strong>{item.label}</strong>
-                      ) : (
-                        item.label
-                      )}
-                    </Button>
-                  </li>
-                ))}
-              </ol>
-            </nav>
-            <nav aria-label="Component contents">
-              <h2 className="mb-3 font-medium">Contents</h2>
-              <Toc items={component.toc} />
-            </nav>
-            {component.bibliography.length ? (
-              <Button
-                onClick={() => {
-                  saveLocation();
-                  onViewChange("bibliography");
-                }}
-                type="button"
-                variant={view === "bibliography" ? "secondary" : "outline"}
-              >
-                Bibliography
-              </Button>
-            ) : null}
-          </div>
-        </aside>
+        <SepReadingSidebar
+          components={reading.components}
+          currentComponent={component}
+          onComponentChange={handleComponentChange}
+          onViewBibliography={() => {
+            saveLocation();
+            onViewChange("bibliography");
+          }}
+          view={view}
+        />
         <div className="flex min-w-0 flex-col gap-8">
           <header
             className="flex flex-col gap-3 border-b pb-8"
@@ -253,8 +206,7 @@ export function SepReadingWorkspace({
             <Button
               className="h-auto p-0"
               onClick={() => {
-                saveLocation();
-                onComponentChange(reading.mainComponent.identity);
+                handleComponentChange(reading.mainComponent.identity);
               }}
               type="button"
               variant="link"
@@ -267,8 +219,7 @@ export function SepReadingWorkspace({
                 <Button
                   className="h-auto p-0"
                   onClick={() => {
-                    saveLocation();
-                    onComponentChange(parent.identity);
+                    handleComponentChange(parent.identity);
                   }}
                   type="button"
                   variant="link"
@@ -316,8 +267,7 @@ export function SepReadingWorkspace({
             {previous ? (
               <Button
                 onClick={() => {
-                  saveLocation();
-                  onComponentChange(previous.identity);
+                  handleComponentChange(previous.identity);
                 }}
                 type="button"
                 variant="outline"
@@ -330,8 +280,7 @@ export function SepReadingWorkspace({
             {next ? (
               <Button
                 onClick={() => {
-                  saveLocation();
-                  onComponentChange(next.identity);
+                  handleComponentChange(next.identity);
                 }}
                 type="button"
                 variant="outline"
@@ -355,442 +304,4 @@ function WorkspaceAnnotations({
   return view === "article" ? (
     <ReadingAnnotations key={props.componentIdentity} {...props} />
   ) : null;
-}
-
-function Figure({
-  figure,
-}: {
-  figure: SepReadingData["components"][number]["figures"][number];
-}) {
-  return (
-    <figure className="rounded border p-4" id={figure.id}>
-      {figure.assetDataUrl ? (
-        <img
-          alt={inlinePlainText(figure.description.text)}
-          className="mb-3 h-auto max-w-full"
-          height={figure.dimensions.height}
-          src={figure.assetDataUrl}
-          width={figure.dimensions.width}
-        />
-      ) : null}
-      {figure.caption.length ? (
-        <figcaption className="font-medium">
-          <Inlines values={figure.caption} />
-        </figcaption>
-      ) : null}
-      {figure.description.text.length ? (
-        <p className="mt-2 text-base">
-          <Inlines values={figure.description.text} />
-        </p>
-      ) : null}
-      {figure.description.componentIdentity ? (
-        <p className="mt-2 text-muted-foreground text-sm">
-          Description: <code>{figure.description.componentIdentity}</code>
-        </p>
-      ) : null}
-      {figure.dimensions.width || figure.dimensions.height ? (
-        <p className="mt-2 text-muted-foreground text-sm">
-          Dimensions: {figure.dimensions.width ?? "?"} x{" "}
-          {figure.dimensions.height ?? "?"}
-        </p>
-      ) : null}
-      {figure.diagnostics.map((diagnostic) => (
-        <Diagnostic
-          diagnostic={diagnostic}
-          key={`${diagnostic.code}:${diagnostic.source.locator}`}
-        />
-      ))}
-    </figure>
-  );
-}
-
-function Toc({ items }: { items: SepReadingData["toc"] }) {
-  return (
-    <ol className="space-y-1 text-sm">
-      {items.map((item) => (
-        <li key={item.id}>
-          <a
-            className="text-muted-foreground underline-offset-4 hover:underline focus-visible:underline"
-            href={`#${item.id}`}
-          >
-            {item.title}
-          </a>
-          {item.children.length ? (
-            <div className="mt-1 ml-3 border-l pl-3">
-              <Toc items={item.children} />
-            </div>
-          ) : null}
-        </li>
-      ))}
-    </ol>
-  );
-}
-function ReadingSection({
-  section,
-}: {
-  section: SepReadingData["sections"][number];
-}) {
-  const Heading = `h${section.level}` as "h2" | "h3" | "h4" | "h5" | "h6";
-  return (
-    <section className="flex scroll-mt-6 flex-col gap-5" id={section.id}>
-      <Heading className="font-semibold font-serif text-2xl leading-tight tracking-tight sm:text-3xl">
-        <Inlines values={section.title} />
-      </Heading>
-      <Blocks blocks={section.blocks} />
-      {section.children.map((child) => (
-        <ReadingSection key={child.id} section={child} />
-      ))}
-    </section>
-  );
-}
-function Blocks({ blocks }: { blocks: SepReadingData["introductoryBlocks"] }) {
-  return (
-    <>
-      {blocks.map((block, index) => (
-        <Block block={block} key={`${block.kind}:${index}`} />
-      ))}
-    </>
-  );
-}
-
-function Block({
-  block,
-}: {
-  block: SepReadingData["introductoryBlocks"][number];
-}) {
-  if (block.kind === "paragraph")
-    return (
-      <p>
-        <Inlines values={block.children} />
-      </p>
-    );
-  if (block.kind === "quotation")
-    return (
-      <blockquote className="border-l-2 pl-5 italic">
-        <Inlines values={block.children} />
-      </blockquote>
-    );
-  if (block.kind === "statement")
-    return (
-      <dl className="rounded border p-4">
-        <dt className="font-semibold">
-          <Inlines values={block.label} />
-        </dt>
-        <dd>
-          <Inlines values={block.body} />
-        </dd>
-      </dl>
-    );
-  if (block.kind === "list") {
-    const List = block.ordered ? "ol" : "ul";
-    return (
-      <List className="list-outside pl-6 marker:text-muted-foreground">
-        {block.items.map((item, itemIndex) => (
-          <li key={itemIndex}>
-            <Inlines values={item} />
-          </li>
-        ))}
-      </List>
-    );
-  }
-  if (block.kind === "table")
-    return (
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-left text-base">
-          <caption className="mb-2 caption-top text-left font-medium">
-            <Inlines values={block.caption} />
-          </caption>
-          {block.head.length ? (
-            <thead>
-              {block.head.map((row, rowIndex) => (
-                <tr key={rowIndex}>
-                  {row.cells.map((cell, cellIndex) => (
-                    <th className="border p-2 font-semibold" key={cellIndex}>
-                      <Inlines values={cell} />
-                    </th>
-                  ))}
-                </tr>
-              ))}
-            </thead>
-          ) : null}
-          <tbody>
-            {block.body.map((row, rowIndex) => (
-              <tr key={rowIndex}>
-                {row.cells.map((cell, cellIndex) => (
-                  <td className="border p-2 align-top" key={cellIndex}>
-                    <Inlines values={cell} />
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  if (block.kind === "diagnostic")
-    return <Diagnostic diagnostic={block.diagnostic} />;
-  return null;
-}
-function Inlines({
-  values,
-}: {
-  values: SepReadingData["sections"][number]["title"];
-}) {
-  const citationActions = useContext(CitationActions);
-  return (
-    <>
-      {values.map((value, index) => (
-        <Inline
-          citationActions={citationActions}
-          key={`${value.kind}:${index}`}
-          value={value}
-        />
-      ))}
-    </>
-  );
-}
-
-function Inline({
-  value,
-  citationActions,
-}: {
-  value: SepReadingData["sections"][number]["title"][number];
-  citationActions: React.ContextType<typeof CitationActions>;
-}) {
-  if (value.kind === "text") return <span>{value.text}</span>;
-  if (value.kind === "tex")
-    return (
-      <code
-        className={
-          value.display
-            ? "my-3 block overflow-x-auto rounded bg-muted p-3 text-base"
-            : "rounded bg-muted px-1 font-sans text-base"
-        }
-        title="Original TeX source"
-      >
-        {value.source}
-      </code>
-    );
-  if (value.kind === "link")
-    return (
-      <a
-        href={value.href}
-        className="underline decoration-muted-foreground underline-offset-4 hover:decoration-foreground"
-      >
-        <Inlines values={value.children} />
-      </a>
-    );
-  if (value.kind === "citation")
-    return (
-      <span id={value.mentionId}>
-        <Button
-          aria-label={`Citation: ${value.label} (${value.state})`}
-          className="h-auto p-0 font-serif text-lg"
-          onClick={() => citationActions?.open(value.entryId, value.mentionId)}
-          type="button"
-          variant="link"
-        >
-          {value.label}
-        </Button>{" "}
-        <span className="font-sans text-muted-foreground text-sm">
-          {value.state}
-        </span>
-      </span>
-    );
-  const Element =
-    value.kind === "emphasis"
-      ? "em"
-      : value.kind === "subscript"
-        ? "sub"
-        : "sup";
-  return (
-    <Element>
-      <Inlines values={value.children} />
-    </Element>
-  );
-}
-
-function Bibliography({
-  component,
-  selectedEntry,
-  onReturn,
-}: {
-  component: SepReadingData["components"][number];
-  selectedEntry?: string;
-  onReturn: (mentionId: string) => void;
-}) {
-  const [query, setQuery] = useState("");
-  const mentions = citationMentions(component);
-  return (
-    <section
-      aria-labelledby="bibliography-heading"
-      className="flex flex-col gap-6"
-    >
-      <header className="border-b pb-6">
-        <p className="font-sans text-muted-foreground text-sm">
-          Scholarly apparatus
-        </p>
-        <h2 className="font-serif text-3xl" id="bibliography-heading">
-          Bibliography
-        </h2>
-        <label
-          className="mt-4 block font-sans text-sm"
-          htmlFor="bibliography-search"
-        >
-          Search bibliography
-        </label>
-        <Input
-          className="mt-1 w-full rounded border bg-background p-2 font-sans"
-          id="bibliography-search"
-          onChange={(event) => setQuery(event.target.value)}
-          value={query}
-        />
-      </header>
-      {component.bibliography.map((group) => (
-        <section key={group.id}>
-          <h3 className="font-serif text-2xl">{group.title}</h3>
-          <ol className="mt-4 flex list-none flex-col gap-4 p-0">
-            {group.entries
-              .filter((entry) =>
-                entry.text
-                  .toLocaleLowerCase()
-                  .includes(query.toLocaleLowerCase()),
-              )
-              .map((entry) => (
-                <li
-                  className={
-                    entry.id === selectedEntry
-                      ? "rounded border border-primary p-3"
-                      : "p-3"
-                  }
-                  id={entry.id}
-                  key={entry.id}
-                >
-                  <p>{entry.text}</p>
-                  {entry.links.map((link) => (
-                    <a
-                      className="mr-3 font-sans text-sm underline"
-                      href={link.href}
-                      key={link.href}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      {link.label} (online only)
-                    </a>
-                  ))}
-                  {mentions.get(entry.id)?.map((mentionId) => (
-                    <Button
-                      className="mt-2 mr-2"
-                      key={mentionId}
-                      onClick={() => onReturn(mentionId)}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      Back to citation
-                    </Button>
-                  ))}
-                </li>
-              ))}
-          </ol>
-        </section>
-      ))}
-    </section>
-  );
-}
-
-function citationMentions(component: SepReadingData["components"][number]) {
-  const mentions = new Map<string, string[]>();
-  const visit = (
-    values: SepReadingData["components"][number]["sections"][number]["title"],
-  ) => {
-    for (const value of values) {
-      if (value.kind === "citation" && value.entryId) {
-        mentions.set(value.entryId, [
-          ...(mentions.get(value.entryId) ?? []),
-          value.mentionId,
-        ]);
-      } else if ("children" in value) visit(value.children);
-    }
-  };
-  const visitBlocks = (
-    blocks: SepReadingData["components"][number]["introductoryBlocks"],
-  ) => {
-    for (const block of blocks) visitBlockInlines(block, visit);
-  };
-  const visitSections = (
-    sections: SepReadingData["components"][number]["sections"],
-  ) => {
-    for (const section of sections) {
-      visit(section.title);
-      visitBlocks(section.blocks);
-      visitSections(section.children);
-    }
-  };
-  visitBlocks(component.introductoryBlocks);
-  visitSections(component.sections);
-  return mentions;
-}
-
-function visitBlockInlines(
-  block: SepReadingData["components"][number]["introductoryBlocks"][number],
-  visit: (
-    values: SepReadingData["components"][number]["sections"][number]["title"],
-  ) => void,
-) {
-  if (block.kind === "statement") {
-    visit(block.label);
-    visit(block.body);
-    return;
-  }
-  if (block.kind === "list") {
-    for (const item of block.items) visit(item);
-    return;
-  }
-  if (block.kind === "table") {
-    visit(block.caption);
-    for (const row of [...block.head, ...block.body])
-      for (const cell of row.cells) visit(cell);
-    return;
-  }
-  if (block.kind !== "diagnostic") visit(block.children);
-}
-
-function Diagnostic({
-  diagnostic,
-}: {
-  diagnostic: SepReadingData["capture"]["diagnostics"][number];
-}) {
-  return (
-    <aside
-      className="rounded border border-amber-500/50 bg-amber-50 p-3 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100"
-      role="note"
-    >
-      <p className="font-medium">Rendering note: {diagnostic.code}</p>
-      <p>{diagnostic.message}</p>
-      <p className="text-sm">
-        Captured location: <code>{diagnostic.source.locator}</code>.{" "}
-        <Link className="underline" hash="source-information" to=".">
-          Review Source information
-        </Link>
-      </p>
-    </aside>
-  );
-}
-
-function inlinePlainText(
-  values: SepReadingData["components"][number]["figures"][number]["description"]["text"],
-): string {
-  return values
-    .map((value) =>
-      value.kind === "text"
-        ? value.text
-        : value.kind === "tex"
-          ? value.source
-          : value.kind === "citation"
-            ? value.label
-            : inlinePlainText(value.children),
-    )
-    .join("")
-    .trim();
 }
