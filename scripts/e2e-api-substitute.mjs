@@ -620,6 +620,14 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (
+    request.method === "GET" &&
+    request.url?.startsWith("/trpc/annotations.list")
+  ) {
+    sendJson(response, 200, [{ result: { data: [] } }]);
+    return;
+  }
+
   if (request.method === "POST" && request.url?.startsWith("/trpc/")) {
     await handleTrpcPost(request, response);
     return;
