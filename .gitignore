@@ -62,3 +62,5 @@ temp
 # Deferred legacy and Nix setup
 lirna-legacy/
 /.direnv
+result
+result-*

@@ -7,9 +7,13 @@
       url = "github:nix-community/bun2nix?ref=2.1.2";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    fallow = {
+      url = "github:CUexter/fallow-flake-nix/c264d05962b1b2c1407e6b5147ef19f0f3daea3f";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { nixpkgs, bun2nix, ... }:
+  outputs = { nixpkgs, bun2nix, fallow, ... }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
@@ -80,6 +84,7 @@
           rustc
           rustfmt
           clippy
+          fallow.packages.${system}.default
           pkg-config
           wrapGAppsHook4
           gtk3
