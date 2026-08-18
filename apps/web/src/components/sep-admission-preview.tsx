@@ -17,7 +17,7 @@ import { SepCaptureDetails } from "./sep-capture-details";
 export type SepAdmissionPreviewData =
   inferRouterOutputs<AppRouter>["sepAdmission"]["get"];
 
-interface SepAdmissionPreviewProps {
+export interface SepAdmissionPreviewProps {
   preview: SepAdmissionPreviewData;
   lifecycle: {
     extendPending: boolean;

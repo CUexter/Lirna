@@ -8,104 +8,28 @@ import {
 } from "@lirna/ui/components/card";
 import { Input } from "@lirna/ui/components/input";
 import { Label } from "@lirna/ui/components/label";
-import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeftIcon, SearchIcon } from "lucide-react";
-import { type FormEvent, useState } from "react";
 
-import {
-  SepAdmissionPreview,
-  type SepAdmissionPreviewData,
-} from "@/components/sep-admission-preview";
-import { trpc, trpcClient } from "@/utils/trpc";
+import { SepAdmissionPreview } from "@/components/sep-admission-preview";
+import { useSepAdmission } from "@/hooks/use-sep-admission";
 
 export const Route = createFileRoute("/sources/admission")({
   component: RouteComponent,
 });
 
-function validateSubmittedUrl(value: string) {
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:"
-      ? undefined
-      : "Enter an HTTPS Stanford Encyclopedia of Philosophy URL.";
-  } catch {
-    return "Enter a complete URL, including https://.";
-  }
-}
-
 function RouteComponent() {
-  const [url, setUrl] = useState("");
-  const [validationError, setValidationError] = useState<string>();
-  const [preview, setPreview] = useState<SepAdmissionPreviewData>();
-  const [actionError, setActionError] = useState<string>();
-  const submitPreview = useMutation({
-    ...trpc.sepAdmission.submit.mutationOptions(),
-    onSuccess(data) {
-      admitPreview.reset();
-      setPreview(data);
-      setActionError(undefined);
-    },
-  });
-  const extendPreview = useMutation({
-    ...trpc.sepAdmission.extend.mutationOptions(),
-    onSuccess(data) {
-      setPreview(data);
-      setActionError(undefined);
-    },
-    onError(error) {
-      setActionError(error.message);
-    },
-  });
-  const deletePreview = useMutation({
-    ...trpc.sepAdmission.delete.mutationOptions(),
-    onSuccess() {
-      admitPreview.reset();
-      setPreview(undefined);
-      setUrl("");
-      setActionError(undefined);
-      submitPreview.reset();
-    },
-    onError(error) {
-      setActionError(error.message);
-    },
-  });
-  const retryPreview = useMutation({
-    ...trpc.sepAdmission.retry.mutationOptions(),
-    onSuccess(data) {
-      admitPreview.reset();
-      setPreview(data);
-      setActionError(undefined);
-    },
-    async onError(error) {
-      setActionError(error.message);
-      if (!preview) return;
-      try {
-        const refreshed = await trpcClient.sepAdmission.get.query({
-          previewId: preview.id,
-        });
-        setPreview(refreshed);
-      } catch {
-        // Preserve the visible capture error when refreshing state also fails.
-      }
-    },
-  });
-  const admitPreview = useMutation({
-    ...trpc.sepAdmission.admit.mutationOptions(),
-    onSuccess() {
-      setActionError(undefined);
-    },
-  });
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const error = validateSubmittedUrl(url);
-    setValidationError(error);
-    if (error) {
-      return;
-    }
-    submitPreview.mutate({ url });
-  }
+  const {
+    url,
+    validationError,
+    submitPending,
+    submitErrorMessage,
+    onUrlChange,
+    onSubmit,
+    preview,
+    admission,
+    lifecycle,
+  } = useSepAdmission();
 
   return (
     <main className="min-h-full bg-background">
@@ -144,24 +68,20 @@ function RouteComponent() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+            <form className="flex flex-col gap-4" onSubmit={onSubmit}>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="sep-url">SEP URL</Label>
                 <Input
                   aria-describedby={
-                    validationError || submitPreview.error
+                    validationError || submitErrorMessage
                       ? "sep-url-error"
                       : "sep-url-description"
                   }
-                  aria-invalid={Boolean(validationError || submitPreview.error)}
-                  disabled={submitPreview.isPending}
+                  aria-invalid={Boolean(validationError || submitErrorMessage)}
+                  disabled={submitPending}
                   id="sep-url"
                   inputMode="url"
-                  onChange={(event) => {
-                    setUrl(event.target.value);
-                    setValidationError(undefined);
-                    submitPreview.reset();
-                  }}
+                  onChange={(event) => onUrlChange(event.target.value)}
                   placeholder="https://plato.stanford.edu/entries/.../"
                   type="text"
                   value={url}
@@ -173,25 +93,23 @@ function RouteComponent() {
                   Lirna validates every redirect and retains exact response
                   bytes locally for this temporary preview.
                 </p>
-                {validationError || submitPreview.error ? (
+                {validationError || submitErrorMessage ? (
                   <p
                     className="text-destructive text-sm"
                     id="sep-url-error"
                     role="alert"
                   >
-                    {validationError ?? submitPreview.error?.message}
+                    {validationError ?? submitErrorMessage}
                   </p>
                 ) : null}
               </div>
               <Button
                 className="self-start"
-                disabled={submitPreview.isPending}
+                disabled={submitPending}
                 type="submit"
               >
                 <SearchIcon data-icon="inline-start" />
-                {submitPreview.isPending
-                  ? "Creating preview…"
-                  : "Create preview"}
+                {submitPending ? "Creating preview…" : "Create preview"}
               </Button>
             </form>
           </CardContent>
@@ -199,22 +117,8 @@ function RouteComponent() {
 
         {preview ? (
           <SepAdmissionPreview
-            admission={{
-              pending: admitPreview.isPending,
-              result: admitPreview.data,
-              error: admitPreview.error?.message,
-              onAdmit: (observationKeys) =>
-                admitPreview.mutate({ previewId: preview.id, observationKeys }),
-            }}
-            lifecycle={{
-              extendPending: extendPreview.isPending,
-              deletePending: deletePreview.isPending,
-              retryPending: retryPreview.isPending,
-              error: actionError,
-              onExtend: () => extendPreview.mutate({ previewId: preview.id }),
-              onDelete: () => deletePreview.mutate({ previewId: preview.id }),
-              onRetry: () => retryPreview.mutate({ previewId: preview.id }),
-            }}
+            admission={admission}
+            lifecycle={lifecycle}
             preview={preview}
           />
         ) : null}
