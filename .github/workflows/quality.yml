@@ -51,6 +51,42 @@ jobs:
         run: bun run quality:policy
       - name: Run static checks
         run: bun run quality:ci
+      - name: Capture fallow metric
+        if: ${{ always() }}
+        run: bun run quality:fallow:metric
+      - name: Upload fallow metric
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: fallow-metric
+          path: .fallow/metrics/*.json
+          if-no-files-found: ignore
+      - name: Fallow metric summary
+        if: ${{ always() }}
+        run: |
+          {
+            echo "## Fallow metric"
+            echo
+            node -e '
+              const fs = require("node:fs");
+              const dir = ".fallow/metrics";
+              let files = [];
+              try { files = fs.readdirSync(dir).filter((f) => f.endsWith(".json")); } catch {}
+              if (files.length === 0) { console.log("_No fallow metric captured._"); return; }
+              const objs = files.map((f) => { try { return JSON.parse(fs.readFileSync(`${dir}/${f}`, "utf8")); } catch { return null; } }).filter(Boolean);
+              console.log("| SHA | Health | Dead-code | Dupes |");
+              console.log("| --- | --- | --- | --- |");
+              for (const m of objs) {
+                const sha = (m.git_sha ?? "").slice(0, 8) || "?";
+                const score = m.health_score ?? "?";
+                const grade = m.health_grade ?? "?";
+                const dc = m.dead_code?.total ?? "?";
+                const dg = m.dupes?.clone_groups ?? "?";
+                const dp = m.dupes?.duplication_percentage ?? "?";
+                console.log(`| ${sha} | ${score} (${grade}) | ${dc} | ${dg} (${dp}%) |`);
+              }
+            '
+          } >> "$GITHUB_STEP_SUMMARY"
 
   types:
     name: Type checks
