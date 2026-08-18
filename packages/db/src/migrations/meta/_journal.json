@@ -36,6 +36,13 @@
       "when": 1786985732083,
       "tag": "0004_classy_lizard",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787036004530,
+      "tag": "0005_opposite_living_mummy",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,3 @@
-// biome-ignore lint/style/noExcessiveLinesPerFile: The workspace renderers jointly exhaust the validated Reading derivative contract.
 import type { AppRouter } from "@lirna/api/client";
 import { Badge } from "@lirna/ui/components/badge";
 import { Button } from "@lirna/ui/components/button";
@@ -17,6 +16,8 @@ import { Link } from "@tanstack/react-router";
 import type { inferRouterOutputs } from "@trpc/server";
 import { ArrowLeftIcon } from "lucide-react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
+
+import { ReadingAnnotations } from "./reading-annotations";
 
 export type SepReadingData =
   inferRouterOutputs<AppRouter>["sepAdmission"]["reading"];
@@ -47,6 +48,7 @@ export function SepReadingWorkspace({
   onViewChange: (view: "article" | "bibliography", citation?: string) => void;
 }) {
   const { capture, source } = reading;
+  const articleRef = useRef<HTMLElement>(null);
   const locations = useRef(new Map<string, number>());
   const returnMention = useRef<string | undefined>(undefined);
   const component =
@@ -286,7 +288,10 @@ export function SepReadingWorkspace({
                 selectedEntry={selectedCitation}
               />
             ) : (
-              <article className="flex flex-col gap-8 font-serif text-lg leading-8">
+              <article
+                className="flex flex-col gap-8 font-serif text-lg leading-8"
+                ref={articleRef}
+              >
                 <Blocks blocks={component.introductoryBlocks} />
                 {component.sections.map((section) => (
                   <ReadingSection key={section.id} section={section} />
@@ -297,6 +302,13 @@ export function SepReadingWorkspace({
               </article>
             )}
           </CitationActions.Provider>
+          <WorkspaceAnnotations
+            articleRef={articleRef}
+            componentIdentity={component.identity}
+            sourceId={source.id}
+            stateId={source.stateId}
+            view={view}
+          />
           <nav
             aria-label="Component navigation"
             className="flex justify-between gap-3 border-t pt-6"
@@ -332,6 +344,17 @@ export function SepReadingWorkspace({
       </div>
     </main>
   );
+}
+
+function WorkspaceAnnotations({
+  view,
+  ...props
+}: React.ComponentProps<typeof ReadingAnnotations> & {
+  view: "article" | "bibliography";
+}) {
+  return view === "article" ? (
+    <ReadingAnnotations key={props.componentIdentity} {...props} />
+  ) : null;
 }
 
 function Figure({
