@@ -4,34 +4,27 @@ const sourceId = "10000000-0000-4000-8000-000000000000";
 const stateId = "20000000-0000-4000-8000-000000000000";
 const selectedText = "Visible typed paragraph.";
 
-const probe = (expected: string) => {
+const selectionSnapshot = () => {
   const sel = window.getSelection();
+  return { nativeText: sel?.toString() ?? "" };
+};
+
+const highlightCovers = (expected: string) => {
   const registry = (
     CSS as typeof CSS & {
       highlights?: Map<string, Iterable<Range>> | undefined;
     }
   ).highlights;
-  let highlightCovers = false;
-  if (registry) {
-    for (const highlight of registry.values()) {
-      try {
-        for (const range of highlight) {
-          if (range.toString() === expected) {
-            highlightCovers = true;
-            break;
-          }
-        }
-      } catch {
-        // Iterability varies across engines; keep scanning.
-      }
-      if (highlightCovers) break;
+  if (!registry) return false;
+  const ranges: AbstractRange[] = [];
+  for (const highlight of registry.values()) {
+    try {
+      for (const range of highlight) ranges.push(range);
+    } catch {
+      // Iterability varies across engines; keep scanning.
     }
   }
-  return {
-    nativeText: sel?.toString() ?? "",
-    hasNative: !!sel && !sel.isCollapsed,
-    highlightCovers,
-  };
+  return ranges.some((range) => range.toString() === expected);
 };
 
 test("preserves the visual selection while composing an annotation note", async ({
@@ -45,7 +38,7 @@ test("preserves the visual selection while composing an annotation note", async 
     page.getByRole("dialog", { name: "Create annotation" }),
   ).toBeVisible();
 
-  const before = await page.evaluate(probe, selectedText);
+  const before = await page.evaluate(selectionSnapshot);
   expect(before.nativeText).toBe(selectedText);
 
   // Open the side panel (compact hover -> side panel) and focus the note field.
@@ -66,9 +59,9 @@ test("preserves the visual selection while composing an annotation note", async 
     )
     .toBe("");
 
-  const after = await page.evaluate(probe, selectedText);
+  const after = await page.evaluate(highlightCovers, selectedText);
 
   // Bug: the visual selection disappears when the note field is focused.
   // Fix: paint the live selection as a custom highlight so it stays visible.
-  expect(after.highlightCovers).toBe(true);
+  expect(after).toBe(true);
 });

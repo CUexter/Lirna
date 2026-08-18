@@ -1,25 +1,16 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { type RefObject, useEffect, useRef, useState } from "react";
-
-import { queryClient, trpc } from "@/utils/trpc";
+import type { RefObject } from "react";
 import { AnnotationColorPicker } from "./annotation-color-picker";
 import {
-  type Annotation,
   type AnnotationColor,
   annotationStyleContent,
   colors,
-  type MenuPosition,
-  menuPosition,
-  paintAnnotations,
-  paintDraftSelection,
-  rangeOffsets,
-  type SelectionDraft,
-  selectionInside,
-  textOffsetAtPoint,
 } from "./annotation-dom-utils";
 import { AnnotationNoteForm } from "./annotation-note-form";
 import { AnnotationSelectionMenu } from "./annotation-selection-menu";
 import { AnnotationSidePanel } from "./annotation-side-panel";
+import { useAnnotationDomEffects } from "./use-annotation-dom-effects";
+import { useAnnotationQueries } from "./use-annotation-queries";
+import { useAnnotationSelection } from "./use-annotation-selection";
 
 export function ReadingAnnotations({
   articleRef,
@@ -32,227 +23,123 @@ export function ReadingAnnotations({
   stateId: string;
   componentIdentity: string;
 }) {
-  const input = { sourceId, stateId };
-  const annotationsQuery = useQuery(trpc.annotations.list.queryOptions(input));
-  const annotations = annotationsQuery.data ?? [];
-  const menuRef = useRef<HTMLDivElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const [selection, setSelection] = useState<SelectionDraft>();
-  const [editing, setEditing] = useState<Annotation>();
-  const [position, setPosition] = useState<MenuPosition>();
-  const [color, setColor] = useState<AnnotationColor>("yellow");
-  const [body, setBody] = useState("");
-  const [panelOpen, setPanelOpen] = useState(false);
-  const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const q = useAnnotationQueries({ sourceId, stateId });
+  const { state, dispatch, menuRef, panelRef } = useAnnotationSelection(
+    articleRef,
+    q.annotations,
+    componentIdentity,
+  );
+  useAnnotationDomEffects(
+    articleRef,
+    q.annotations,
+    state.selection,
+    componentIdentity,
+  );
 
-  const refresh = () =>
-    queryClient.invalidateQueries({
-      queryKey: trpc.annotations.list.queryOptions(input).queryKey,
-    });
-  const createAnnotation = useMutation({
-    ...trpc.annotations.create.mutationOptions(),
-    onSuccess: closeAndRefresh,
-  });
-  const updateAnnotation = useMutation({
-    ...trpc.annotations.update.mutationOptions(),
-    onSuccess: closeAndRefresh,
-  });
-  const deleteAnnotation = useMutation({
-    ...trpc.annotations.delete.mutationOptions(),
-    onSuccess: closeAndRefresh,
-  });
+  const handleSuccess = () => {
+    dispatch({ type: "SUCCESS" });
+    q.refresh();
+  };
 
-  function closeAndRefresh() {
-    closePanel();
-    void refresh();
-  }
-
-  function closeMenu() {
-    setSelection(undefined);
-    setEditing(undefined);
-    setPosition(undefined);
+  const closeMenu = () => {
+    dispatch({ type: "CLOSE_MENU" });
     window.getSelection()?.removeAllRanges();
-  }
+  };
+  const closePanel = () => {
+    dispatch({ type: "CLOSE_PANEL" });
+    window.getSelection()?.removeAllRanges();
+  };
+  const openPanel = () => dispatch({ type: "OPEN_PANEL" });
 
-  function closePanel() {
-    setPanelOpen(false);
-    closeMenu();
-  }
+  const setColor = (color: AnnotationColor) =>
+    dispatch({ type: "SET_COLOR", color });
+  const setBody = (body: string) => dispatch({ type: "SET_BODY", body });
+  const setColorPickerOpen = (open: boolean) =>
+    dispatch({ type: "TOGGLE_COLOR_PICKER", open });
 
-  function openPanel() {
-    setPanelOpen(true);
-    setPosition(undefined);
-  }
-
-  function quickHighlight(value: AnnotationColor) {
-    if (!selection) return;
+  const quickHighlight = (value: AnnotationColor) => {
+    if (!state.selection) return;
     setColorPickerOpen(false);
-    createAnnotation.mutate({
-      ...input,
-      componentIdentity,
-      ...selection,
-      color: value,
-      body: "",
-    });
-  }
+    q.create.mutate(
+      {
+        ...q.input,
+        componentIdentity,
+        ...state.selection,
+        color: value,
+        body: "",
+      },
+      { onSuccess: handleSuccess },
+    );
+  };
 
-  function saveAnnotation() {
-    if (editing) {
-      updateAnnotation.mutate({
-        ...input,
-        id: editing.id,
-        color,
-        body,
-      });
+  const saveAnnotation = () => {
+    if (state.editing) {
+      q.update.mutate(
+        {
+          ...q.input,
+          id: state.editing.id,
+          color: state.color,
+          body: state.body,
+        },
+        { onSuccess: handleSuccess },
+      );
       return;
     }
-    if (!selection) return;
-    createAnnotation.mutate({
-      ...input,
-      componentIdentity,
-      ...selection,
-      color,
-      body,
-    });
-  }
-
-  useEffect(() => {
-    const article = articleRef.current;
-    if (!article) return;
-    return paintAnnotations(
-      article,
-      annotations.filter(
-        (annotation) => annotation.componentIdentity === componentIdentity,
-      ),
+    if (!state.selection) return;
+    q.create.mutate(
+      {
+        ...q.input,
+        componentIdentity,
+        ...state.selection,
+        color: state.color,
+        body: state.body,
+      },
+      { onSuccess: handleSuccess },
     );
-  }, [annotations, articleRef, componentIdentity]);
+  };
 
-  useEffect(() => {
-    const article = articleRef.current;
-    if (!article || !selection) return;
-    return paintDraftSelection(article, selection);
-  }, [selection, articleRef]);
+  const deleteAnnotation = () => {
+    if (!state.editing) return;
+    q.remove.mutate(
+      { ...q.input, id: state.editing.id },
+      { onSuccess: handleSuccess },
+    );
+  };
 
-  useEffect(() => {
-    const handleSelection = () => {
-      if (menuRef.current?.contains(document.activeElement)) return;
-      if (panelRef.current?.contains(document.activeElement)) return;
-      const article = articleRef.current;
-      const selectedRange = article ? selectionInside(article) : undefined;
-      const exactText = selectedRange?.toString() ?? "";
-      if (!article || !selectedRange || !exactText.trim()) {
-        setSelection(undefined);
-        setEditing(undefined);
-        setPosition(undefined);
-        return;
-      }
-      const offsets = rangeOffsets(article, selectedRange);
-      setEditing(undefined);
-      setSelection({ ...offsets, exactText });
-      setColor("yellow");
-      setBody("");
-      setPosition(menuPosition(selectedRange.getBoundingClientRect()));
-    };
-    document.addEventListener("selectionchange", handleSelection);
-    return () =>
-      document.removeEventListener("selectionchange", handleSelection);
-  }, [articleRef]);
+  const styleContent = annotationStyleContent(state.color);
 
-  useEffect(() => {
-    if (!position) return;
-    const detach = (event: Event) => {
-      if (
-        event.target instanceof Node &&
-        menuRef.current?.contains(event.target)
-      ) {
-        return;
-      }
-      setSelection(undefined);
-      setEditing(undefined);
-      setPosition(undefined);
-    };
-    window.addEventListener("scroll", detach, true);
-    window.addEventListener("resize", detach);
-    return () => {
-      window.removeEventListener("scroll", detach, true);
-      window.removeEventListener("resize", detach);
-    };
-  }, [position]);
-
-  useEffect(() => {
-    const article = articleRef.current;
-    if (!article) return;
-    const openExisting = (event: PointerEvent) => {
-      if (!window.getSelection()?.isCollapsed) return;
-      if (
-        event.target instanceof HTMLElement &&
-        event.target.closest("a,button")
-      ) {
-        return;
-      }
-      const offset = textOffsetAtPoint(article, event.clientX, event.clientY);
-      const annotation = annotations.find(
-        (candidate) =>
-          candidate.componentIdentity === componentIdentity &&
-          candidate.startOffset <= offset &&
-          offset < candidate.endOffset,
-      );
-      if (!annotation) return;
-      setSelection(undefined);
-      setEditing(annotation);
-      setColor(annotation.color);
-      setBody(annotation.body ?? "");
-      setPosition(undefined);
-      setPanelOpen(true);
-    };
-    article.addEventListener("pointerup", openExisting);
-    return () => article.removeEventListener("pointerup", openExisting);
-  }, [annotations, articleRef, componentIdentity]);
-
-  const styleContent = annotationStyleContent(color);
-  const pending =
-    createAnnotation.isPending ||
-    updateAnnotation.isPending ||
-    deleteAnnotation.isPending;
-  const error =
-    createAnnotation.error ?? updateAnnotation.error ?? deleteAnnotation.error;
-
-  if (panelOpen) {
+  if (state.panelOpen) {
     return (
       <>
         <style>{styleContent}</style>
         <AnnotationSidePanel
-          editing={!!editing}
+          editing={!!state.editing}
           onClose={closePanel}
           panelRef={panelRef}
         >
           <AnnotationColorPicker
-            color={color}
+            color={state.color}
             colors={colors}
-            editing={!!editing}
+            editing={!!state.editing}
             onColorChange={setColor}
-            onDelete={
-              editing
-                ? () => deleteAnnotation.mutate({ ...input, id: editing.id })
-                : undefined
-            }
-            pending={pending}
+            onDelete={state.editing ? deleteAnnotation : undefined}
+            pending={q.pending}
           />
           <AnnotationNoteForm
-            body={body}
-            editing={!!editing}
-            error={error?.message}
+            body={state.body}
+            editing={!!state.editing}
+            error={q.error?.message}
             onBodyChange={setBody}
             onClose={closePanel}
             onSave={saveAnnotation}
-            pending={pending}
+            pending={q.pending}
           />
         </AnnotationSidePanel>
       </>
     );
   }
 
-  if (!selection || !position) {
+  if (!state.selection || !state.position) {
     return <style>{styleContent}</style>;
   }
 
@@ -260,14 +147,14 @@ export function ReadingAnnotations({
     <>
       <style>{styleContent}</style>
       <AnnotationSelectionMenu
-        colorPickerOpen={colorPickerOpen}
+        colorPickerOpen={state.colorPickerOpen}
         colors={colors}
         menuRef={menuRef}
         onClose={closeMenu}
         onColorPickerOpenChange={setColorPickerOpen}
         onOpenPanel={openPanel}
         onQuickHighlight={quickHighlight}
-        position={position}
+        position={state.position}
       />
     </>
   );
