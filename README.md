@@ -27,7 +27,6 @@ a modern TypeScript stack combining React, TanStack Router, Hono, tRPC, and more
 - **PWA** - Progressive Web App support
 - **Tauri** - Native desktop application support
 - **Starlight** - Astro-powered documentation site
-- **Vite+** - Unified Vite toolchain, workspace task runner, linting, and formatting
 
 ## Boundaries
 
