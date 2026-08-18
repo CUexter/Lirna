@@ -1,9 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import {
-  createSepReadingDerivative,
-  readSepReadingDerivative,
-} from "./sep-reading";
+import { createSepReadingDerivative } from "./sep-reading";
+import { readSepReadingDerivative } from "./sep-reading-contract";
 
 const source = {
   id: "10000000-0000-4000-8000-000000000000",

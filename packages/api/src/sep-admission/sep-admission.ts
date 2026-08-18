@@ -14,7 +14,7 @@ import {
   type SepDiagnostic,
   type SepObservationKey,
 } from "./sep-capture";
-import type { SepReadingContract } from "./sep-reading";
+import type { SepReadingContract } from "./sep-reading-contract";
 
 const previewLifetimeMilliseconds = 7 * 24 * 60 * 60 * 1000;
 const diagnosticSchema = z.object({

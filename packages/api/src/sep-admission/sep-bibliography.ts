@@ -1,14 +1,17 @@
-import type { DefaultTreeAdapterTypes } from "parse5";
-
 import type {
   ReadingBibliographyGroup,
   ReadingBlock,
   ReadingInline,
   ReadingSection,
-} from "./sep-reading";
-
-type HtmlElement = DefaultTreeAdapterTypes.Element;
-type HtmlNode = DefaultTreeAdapterTypes.Node;
+} from "./sep-reading-contract";
+import {
+  attribute,
+  descendants,
+  elementId,
+  type HtmlElement,
+  type HtmlNode,
+  textContent,
+} from "./sep-reading-dom";
 
 export interface ReadingBibliography {
   groups: ReadingBibliographyGroup[];
@@ -210,28 +213,4 @@ function inlineText(values: ReadingInline[]): string {
               : "",
     )
     .join("");
-}
-function attribute(element: HtmlElement, name: string) {
-  return element.attrs.find((attribute) => attribute.name === name)?.value;
-}
-function elementId(element: HtmlElement) {
-  return (
-    attribute(element, "id") ??
-    (element.tagName === "a" ? attribute(element, "name") : undefined)
-  );
-}
-function childElements(node: HtmlNode | undefined): HtmlElement[] {
-  return node && "childNodes" in node
-    ? node.childNodes.filter(
-        (child): child is HtmlElement => "tagName" in child,
-      )
-    : [];
-}
-function descendants(node: HtmlNode | undefined): HtmlElement[] {
-  return childElements(node).flatMap((child) => [child, ...descendants(child)]);
-}
-function textContent(node: HtmlNode): string {
-  if ("value" in node) return node.value.replace(/\s+/g, " ");
-  if (!("childNodes" in node)) return "";
-  return node.childNodes.map(textContent).join("").replace(/\s+/g, " ").trim();
 }

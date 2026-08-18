@@ -29,11 +29,11 @@ import {
   SepAdmissionError,
   type SepObservationKey,
 } from "./sep-capture";
+import { createSepReadingDerivative } from "./sep-reading";
 import {
-  createSepReadingDerivative,
   readSepReadingDerivative,
   sepReadingDerivativeKind,
-} from "./sep-reading";
+} from "./sep-reading-contract";
 
 export class DrizzleSepAdmissionStore implements SepAdmissionStore {
   constructor(private readonly database: typeof db = db) {}
@@ -147,22 +147,31 @@ export class DrizzleSepAdmissionStore implements SepAdmissionStore {
     });
   }
 
+  private async selectLivePreviewForUpdate(
+    tx: Parameters<Parameters<typeof this.database.transaction>[0]>[0],
+    id: string,
+    now: Date,
+  ) {
+    const [preview] = await tx
+      .select()
+      .from(sepAdmissionPreviews)
+      .where(
+        and(
+          eq(sepAdmissionPreviews.id, id),
+          gt(sepAdmissionPreviews.expiresAt, now),
+        ),
+      )
+      .for("update");
+    return preview;
+  }
+
   async replaceCapture(
     id: string,
     now: Date,
     record: Omit<SepAdmissionCreateRecord, "id" | "createdAt" | "expiresAt">,
   ): Promise<"updated" | "unavailable"> {
     return this.database.transaction(async (tx) => {
-      const [current] = await tx
-        .select()
-        .from(sepAdmissionPreviews)
-        .where(
-          and(
-            eq(sepAdmissionPreviews.id, id),
-            gt(sepAdmissionPreviews.expiresAt, now),
-          ),
-        )
-        .for("update");
+      const current = await this.selectLivePreviewForUpdate(tx, id, now);
       if (!current) {
         return "unavailable";
       }
@@ -194,16 +203,7 @@ export class DrizzleSepAdmissionStore implements SepAdmissionStore {
       (key) => observationKeys.includes(key),
     );
     const admitted = await this.database.transaction(async (tx) => {
-      const [preview] = await tx
-        .select()
-        .from(sepAdmissionPreviews)
-        .where(
-          and(
-            eq(sepAdmissionPreviews.id, id),
-            gt(sepAdmissionPreviews.expiresAt, now),
-          ),
-        )
-        .for("update");
+      const preview = await this.selectLivePreviewForUpdate(tx, id, now);
       if (!preview) return undefined;
 
       const existing = await tx
