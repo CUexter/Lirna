@@ -36,6 +36,7 @@
     "test": "bun test --isolate",
     "test:coverage": "bun test --isolate --coverage && node scripts/check-coverage.mjs",
     "coverage:baseline": "node scripts/check-coverage.mjs coverage/lcov.info --write-baseline",
+    "ui:add": "node scripts/ui-add.mjs",
     "test:e2e": "playwright test",
     "test:e2e:ci": "CI=1 playwright test",
     "test:db": "bash scripts/test-postgres-integration.sh",

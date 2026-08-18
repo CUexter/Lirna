@@ -16,6 +16,16 @@ All commit messages MUST follow [Conventional Commits](https://www.conventionalc
 Example: `feat(sep): split reading workspace by domain`. The
 `.husky/commit-msg` hook rejects anything else.
 
+## Shadcn components
+
+Add shadcn components with `bun run ui:add <component...>` (never raw
+`shadcn add`). The wrapper runs shadcn against `packages/ui`, formats the new
+files with Biome, and appends them to `config/coverage-baseline.json` so the
+coverage ratchet treats them as reviewed legacy exclusions; any later edit to a
+baselined file forces unit-test coverage (hash mismatch). To retroactively
+baseline files added without the wrapper, run
+`bun run ui:add -- --baseline-only <file...>`.
+
 ## Agent skills
 
 ### Issue tracker
