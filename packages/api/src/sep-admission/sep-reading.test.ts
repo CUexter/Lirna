@@ -78,15 +78,10 @@ describe("SEP Reading derivative", () => {
 
   test("keeps the left navigation while excluding SEP utility sections from reading", () => {
     const result = derivative(
-      `<div id="article-sidebar"><ul><li>Academic Tools</li></ul></div><div id="article-content"><div id="aueditable"><div id="preamble"><p>Preamble content.</p></div><div id="toc"><ul><li><a href="#keep">Keep</a></li><li><a href="#Aca">Academic Tools</a></li><li><a href="#Oth">Other Internet Resources</a></li><li><a href="#Rel">Related Entries</a></li></ul></div><div id="main-text"><h2 id="keep">Keep</h2><p>Reading content.</p></div><div id="bibliography"><h2 id="Bib">Bibliography</h2><ul><li>Reference one.</li></ul></div><div id="academic-tools"><h2 id="Aca">Academic Tools</h2><p>Tool content.</p></div><div id="other-internet-resources"><h2 id="Oth">Other Internet Resources</h2><p>Other content.</p></div><div id="related-entries"><h2 id="Rel">Related Entries</h2><p>Related content.</p></div></div></div>`,
+      `<div id="article-sidebar"><ul><li>Academic Tools</li></ul></div><div id="article-content"><div id="aueditable"><div id="preamble"><p>Preamble content.</p></div><div id="toc"><ul><li><a href="#keep">Keep</a></li><li><a href="#Bib">Bibliography</a></li><li><a href="#Aca">Academic Tools</a></li><li><a href="#Oth">Other Internet Resources</a></li><li><a href="#Rel">Related Entries</a></li></ul></div><div id="main-text"><h2 id="keep">Keep</h2><p>Reading content.</p></div><div id="bibliography"><h2 id="Bib">Bibliography</h2><ul><li>Reference one.</li></ul></div><div id="academic-tools"><h2 id="Aca">Academic Tools</h2><p>Tool content.</p></div><div id="other-internet-resources"><h2 id="Oth">Other Internet Resources</h2><p>Other content.</p></div><div id="related-entries"><h2 id="Rel">Related Entries</h2><p>Related content.</p></div></div></div>`,
     );
 
-    expect(result.toc).toEqual([
-      { id: "keep", title: "Keep", children: [] },
-      { id: "Aca", title: "Academic Tools", children: [] },
-      { id: "Oth", title: "Other Internet Resources", children: [] },
-      { id: "Rel", title: "Related Entries", children: [] },
-    ]);
+    expect(result.toc).toEqual([{ id: "keep", title: "Keep", children: [] }]);
     expect(result.sections.map((section) => section.id)).toEqual(["keep"]);
     expect(result.plainText).toContain("Reading content.");
     expect(result.plainText).not.toContain("Academic Tools");

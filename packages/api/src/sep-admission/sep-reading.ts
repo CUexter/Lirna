@@ -1141,10 +1141,21 @@ function tocItems(list: HtmlElement): ReadingTocItem[] {
       );
       const id = link && attribute(link, "href")?.slice(1);
       const title = link && textContent(link);
-      return id && title
+      return id && title && !isReadingUtilityTocItem(id, title)
         ? [{ id, title, children: nested ? tocItems(nested) : [] }]
         : [];
     });
+}
+function isReadingUtilityTocItem(id: string, title: string) {
+  return (
+    ["Bib", "Aca", "Oth", "Rel"].includes(id) ||
+    [
+      "bibliography",
+      "academic tools",
+      "other internet resources",
+      "related entries",
+    ].includes(normalizeHeading(title))
+  );
 }
 function toTocItem(section: ReadingSection): ReadingTocItem {
   return {
