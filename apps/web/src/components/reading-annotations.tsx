@@ -1,9 +1,13 @@
 import type { AppRouter } from "@lirna/api/client";
 import { Button } from "@lirna/ui/components/button";
-import { Textarea } from "@lirna/ui/components/textarea";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@lirna/ui/components/popover";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
-import { CheckIcon, Trash2Icon } from "lucide-react";
+import { PaletteIcon, StickyNoteIcon } from "lucide-react";
 import {
   type CSSProperties,
   type RefObject,
@@ -13,6 +17,9 @@ import {
 } from "react";
 
 import { queryClient, trpc } from "@/utils/trpc";
+import { AnnotationColorPicker } from "./annotation-color-picker";
+import { AnnotationNoteForm } from "./annotation-note-form";
+import { AnnotationSidePanel } from "./annotation-side-panel";
 
 type Annotation = inferRouterOutputs<AppRouter>["annotations"]["list"][number];
 type AnnotationColor = Annotation["color"];
@@ -25,6 +32,9 @@ const highlightStyles = colors
       `::highlight(lirna-annotation-${color}) { background-color: var(--annotation-${color}); }`,
   )
   .join("\n");
+const draftHighlightName = "lirna-annotation-draft";
+const draftHighlightStyle = (color: AnnotationColor) =>
+  `::highlight(${draftHighlightName}) { background-color: var(--annotation-${color}); }`;
 
 interface SelectionDraft {
   startOffset: number;
@@ -53,11 +63,14 @@ export function ReadingAnnotations({
   const annotationsQuery = useQuery(trpc.annotations.list.queryOptions(input));
   const annotations = annotationsQuery.data ?? [];
   const menuRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const [selection, setSelection] = useState<SelectionDraft>();
   const [editing, setEditing] = useState<Annotation>();
   const [position, setPosition] = useState<MenuPosition>();
   const [color, setColor] = useState<AnnotationColor>("yellow");
   const [body, setBody] = useState("");
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
 
   const refresh = () =>
     queryClient.invalidateQueries({
@@ -77,7 +90,7 @@ export function ReadingAnnotations({
   });
 
   function closeAndRefresh() {
-    closeMenu();
+    closePanel();
     void refresh();
   }
 
@@ -86,6 +99,48 @@ export function ReadingAnnotations({
     setEditing(undefined);
     setPosition(undefined);
     window.getSelection()?.removeAllRanges();
+  }
+
+  function closePanel() {
+    setPanelOpen(false);
+    closeMenu();
+  }
+
+  function openPanel() {
+    setPanelOpen(true);
+    setPosition(undefined);
+  }
+
+  function quickHighlight(value: AnnotationColor) {
+    if (!selection) return;
+    setColorPickerOpen(false);
+    createAnnotation.mutate({
+      ...input,
+      componentIdentity,
+      ...selection,
+      color: value,
+      body: "",
+    });
+  }
+
+  function saveAnnotation() {
+    if (editing) {
+      updateAnnotation.mutate({
+        ...input,
+        id: editing.id,
+        color,
+        body,
+      });
+      return;
+    }
+    if (!selection) return;
+    createAnnotation.mutate({
+      ...input,
+      componentIdentity,
+      ...selection,
+      color,
+      body,
+    });
   }
 
   useEffect(() => {
@@ -100,8 +155,27 @@ export function ReadingAnnotations({
   }, [annotations, articleRef, componentIdentity]);
 
   useEffect(() => {
+    const article = articleRef.current;
+    if (!article || !selection) return;
+    const registry = customHighlightRegistry();
+    const HighlightConstructor = customHighlightConstructor();
+    if (!registry || !HighlightConstructor) return;
+    const range = rangeFromOffsets(
+      article,
+      selection.startOffset,
+      selection.endOffset,
+    );
+    if (!range || range.toString() !== selection.exactText) return;
+    registry.set(draftHighlightName, new HighlightConstructor(range));
+    return () => {
+      registry.delete(draftHighlightName);
+    };
+  }, [selection, articleRef]);
+
+  useEffect(() => {
     const handleSelection = () => {
       if (menuRef.current?.contains(document.activeElement)) return;
+      if (panelRef.current?.contains(document.activeElement)) return;
       const article = articleRef.current;
       const selectedRange = article ? selectionInside(article) : undefined;
       const exactText = selectedRange?.toString() ?? "";
@@ -167,32 +241,60 @@ export function ReadingAnnotations({
       setEditing(annotation);
       setColor(annotation.color);
       setBody(annotation.body ?? "");
-      setPosition(
-        menuPosition({
-          left: event.clientX,
-          right: event.clientX,
-          top: event.clientY,
-          bottom: event.clientY,
-          width: 0,
-          height: 0,
-          x: event.clientX,
-          y: event.clientY,
-          toJSON: () => ({}),
-        }),
-      );
+      setPosition(undefined);
+      setPanelOpen(true);
     };
     article.addEventListener("pointerup", openExisting);
     return () => article.removeEventListener("pointerup", openExisting);
   }, [annotations, articleRef, componentIdentity]);
 
-  const active = selection ?? editing;
-  if (!active || !position) return <style>{highlightStyles}</style>;
+  const styleContent = `${highlightStyles}\n${draftHighlightStyle(color)}`;
   const pending =
     createAnnotation.isPending ||
     updateAnnotation.isPending ||
     deleteAnnotation.isPending;
   const error =
     createAnnotation.error ?? updateAnnotation.error ?? deleteAnnotation.error;
+
+  if (panelOpen) {
+    return (
+      <>
+        <style>{styleContent}</style>
+        <AnnotationSidePanel
+          editing={!!editing}
+          onClose={closePanel}
+          panelRef={panelRef}
+        >
+          <AnnotationColorPicker
+            color={color}
+            colors={colors}
+            editing={!!editing}
+            onColorChange={setColor}
+            onDelete={
+              editing
+                ? () => deleteAnnotation.mutate({ ...input, id: editing.id })
+                : undefined
+            }
+            pending={pending}
+          />
+          <AnnotationNoteForm
+            body={body}
+            editing={!!editing}
+            error={error?.message}
+            onBodyChange={setBody}
+            onClose={closePanel}
+            onSave={saveAnnotation}
+            pending={pending}
+          />
+        </AnnotationSidePanel>
+      </>
+    );
+  }
+
+  if (!selection || !position) {
+    return <style>{styleContent}</style>;
+  }
+
   const menuStyle = {
     left: position.left,
     top: position.top,
@@ -201,10 +303,10 @@ export function ReadingAnnotations({
 
   return (
     <>
-      <style>{highlightStyles}</style>
+      <style>{styleContent}</style>
       <div
-        aria-label={editing ? "Edit annotation" : "Create annotation"}
-        className="fixed flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-3 border bg-popover p-3 text-popover-foreground shadow-lg"
+        aria-label="Create annotation"
+        className="fixed flex items-center gap-1 border bg-popover p-1 text-popover-foreground shadow-lg"
         onKeyDown={(event) => {
           if (event.key === "Escape") closeMenu();
         }}
@@ -220,82 +322,41 @@ export function ReadingAnnotations({
         role="dialog"
         style={menuStyle}
       >
-        <fieldset className="flex items-center gap-2">
-          <legend className="sr-only">Color</legend>
-          {colors.map((value) => (
-            <Button
-              aria-label={`${value} highlight`}
-              aria-pressed={color === value}
-              className="rounded-full border-foreground/20"
-              key={value}
-              onClick={() => setColor(value)}
-              size="icon-sm"
-              style={{ backgroundColor: `var(--annotation-${value})` }}
-              type="button"
-              variant="outline"
-            >
-              {color === value ? <CheckIcon /> : null}
-            </Button>
-          ))}
-          {editing ? (
-            <Button
-              aria-label="Delete annotation"
-              className="ml-auto"
-              disabled={pending}
-              onClick={() =>
-                deleteAnnotation.mutate({ ...input, id: editing.id })
-              }
-              size="icon-sm"
-              type="button"
-              variant="destructive"
-            >
-              <Trash2Icon />
-            </Button>
-          ) : null}
-        </fieldset>
-        <Textarea
-          aria-label="Annotation note"
-          maxLength={20_000}
-          onChange={(event) => setBody(event.target.value)}
-          placeholder="Add a note (optional)"
-          value={body}
-        />
-        {error ? (
-          <p className="text-destructive text-xs" role="alert">
-            {error.message}
-          </p>
-        ) : null}
-        <div className="flex justify-end gap-2">
-          <Button onClick={closeMenu} size="sm" type="button" variant="ghost">
-            Cancel
-          </Button>
-          <Button
-            disabled={pending}
-            onClick={() => {
-              if (editing) {
-                updateAnnotation.mutate({
-                  ...input,
-                  id: editing.id,
-                  color,
-                  body,
-                });
-                return;
-              }
-              if (!selection) return;
-              createAnnotation.mutate({
-                ...input,
-                componentIdentity,
-                ...selection,
-                color,
-                body,
-              });
-            }}
-            size="sm"
-            type="button"
+        <Popover open={colorPickerOpen} onOpenChange={setColorPickerOpen}>
+          <PopoverTrigger
+            aria-label="Quick highlight"
+            render={<Button size="icon-sm" variant="ghost" />}
           >
-            {editing ? "Save" : "Highlight"}
-          </Button>
-        </div>
+            <PaletteIcon />
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-auto p-1.5">
+            <fieldset className="flex items-center gap-1.5">
+              <legend className="sr-only">Color</legend>
+              {colors.map((value) => (
+                <Button
+                  aria-label={`${value} highlight`}
+                  className="rounded-full border-foreground/20"
+                  key={value}
+                  onClick={() => quickHighlight(value)}
+                  onMouseDown={(event) => event.preventDefault()}
+                  size="icon-sm"
+                  style={{ backgroundColor: `var(--annotation-${value})` }}
+                  type="button"
+                  variant="outline"
+                />
+              ))}
+            </fieldset>
+          </PopoverContent>
+        </Popover>
+        <Button
+          aria-label="Add note"
+          onClick={openPanel}
+          size="icon-sm"
+          type="button"
+          variant="ghost"
+        >
+          <StickyNoteIcon />
+        </Button>
       </div>
     </>
   );

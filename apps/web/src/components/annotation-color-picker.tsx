@@ -1,0 +1,59 @@
+import type { AppRouter } from "@lirna/api/client";
+import { Button } from "@lirna/ui/components/button";
+import type { inferRouterOutputs } from "@trpc/server";
+import { CheckIcon, Trash2Icon } from "lucide-react";
+
+type AnnotationColor =
+  inferRouterOutputs<AppRouter>["annotations"]["list"][number]["color"];
+
+interface AnnotationColorPickerProps {
+  color: AnnotationColor;
+  onColorChange: (color: AnnotationColor) => void;
+  colors: readonly AnnotationColor[];
+  editing: boolean;
+  pending: boolean;
+  onDelete?: () => void;
+}
+
+export function AnnotationColorPicker({
+  color,
+  onColorChange,
+  colors,
+  editing,
+  pending,
+  onDelete,
+}: AnnotationColorPickerProps) {
+  return (
+    <fieldset className="flex items-center gap-2">
+      <legend className="sr-only">Color</legend>
+      {colors.map((value) => (
+        <Button
+          aria-label={`${value} highlight`}
+          aria-pressed={color === value}
+          className="rounded-full border-foreground/20"
+          key={value}
+          onClick={() => onColorChange(value)}
+          size="icon-sm"
+          style={{ backgroundColor: `var(--annotation-${value})` }}
+          type="button"
+          variant="outline"
+        >
+          {color === value ? <CheckIcon /> : null}
+        </Button>
+      ))}
+      {editing && onDelete ? (
+        <Button
+          aria-label="Delete annotation"
+          className="ml-auto"
+          disabled={pending}
+          onClick={onDelete}
+          size="icon-sm"
+          type="button"
+          variant="destructive"
+        >
+          <Trash2Icon />
+        </Button>
+      ) : null}
+    </fieldset>
+  );
+}
