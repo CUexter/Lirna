@@ -166,9 +166,6 @@ lirna/
 - `bun run db:studio`: Open the database studio UI
 - `bun run check`: Run the read-only configured Biome checks
 - `bun run check:fix`: Apply Biome formatting, lint, and assist fixes
-- `bun run lint`: Run Vite+ lint checks
-- `bun run format`: Run Vite+ formatting
-- `bun run staged`: Run Vite+ checks against staged files
 - `bun run secrets:check`: Scan repository history for secrets
 - `bun run maintenance:test`: Exercise dependency and secret policy safe, violation, and tool-error fixtures
 - `bun run security:trivy:config`: Scan deployable configuration with Trivy

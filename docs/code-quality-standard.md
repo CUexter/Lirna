@@ -168,7 +168,7 @@ The maintenance cleanup intentionally leaves one enforcement path per concern:
 | `bun run check` | Runs the full configured Biome formatter, linter, and assist checks without modifying files | Automated in the Quality workflow; read-only locally. |
 | `bun run check:fix` | Applies configured Biome formatting, lint, and assist fixes | Manual and mutating. |
 | `bun run quality:ci` | Runs Biome in check mode, architecture and maintainability checks, the bundle budget, documentation checks, and coverage-tested behavior; bundle and coverage artifacts are written locally | Automated in the Quality workflow. |
-| `bun run lint` | Runs Vite+'s workspace lint task | Available locally; not run by a hook or CI. |
+
 | `bun run check:semgrep` | Runs the blocking Semgrep rules | Automated in CI, but optional locally and absent from pre-commit. |
 | `bun run report:semgrep` | Runs non-blocking Semgrep rules | Automated in CI, but optional locally and absent from pre-commit. |
 | `Nix flake checks` | Evaluates the flake on pull requests with classified Nix output impact; builds the server package, desktop package, NixOS module closure, and NixOS VM integration test after merge | `.github/workflows/nix.yml` uses pinned Nix installation and cache actions. Changes to inputs declared in `config/nix-output-paths.json` trigger whole-flake evaluation without realizing closures. Pushes to `main`, the weekly schedule, and manual runs perform the classified package and VM builds. |

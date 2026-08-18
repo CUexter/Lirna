@@ -30,9 +30,9 @@
     "#path-safety": "./scripts/path-safety.mjs"
   },
   "scripts": {
-    "dev": "vp run -r dev",
-    "build": "vp run -r build",
-    "check-types": "vp run -r check-types",
+    "dev": "bun run --filter '*' --parallel dev",
+    "build": "bun run --filter '*' build",
+    "check-types": "bun run --filter '*' check-types",
     "test": "bun test --isolate --pass-with-no-tests --path-ignore-patterns=lirna-legacy/** --path-ignore-patterns=tests/e2e/** --path-ignore-patterns=**/dist/**",
     "test:coverage": "bun test --isolate --pass-with-no-tests --path-ignore-patterns=lirna-legacy/** --path-ignore-patterns=tests/e2e/** --path-ignore-patterns=**/dist/** --coverage --coverage-reporter=text --coverage-reporter=lcov --coverage-dir=coverage && node scripts/check-coverage.mjs",
     "coverage:baseline": "node scripts/check-coverage.mjs coverage/lcov.info --write-baseline",
@@ -41,15 +41,12 @@
     "test:db": "bash scripts/test-postgres-integration.sh",
     "check": "biome check .",
     "check:fix": "biome check --write .",
-    "lint": "vp lint",
-    "format": "vp fmt",
-    "staged": "vp staged",
     "quality": "biome lint --only=complexity/noExcessiveCognitiveComplexity --only=complexity/useMaxParams --only=style/noExcessiveLinesPerFile apps packages && bun run quality:architecture && bun run quality:props && bun run quality:duplication && bun run quality:bundle && bun run quality:docs",
     "quality:ci": "bun run check && bun run quality && bun run test:coverage",
     "quality:architecture": "node scripts/check-architecture.mjs",
     "quality:docs": "node scripts/check-documentation.mjs",
     "quality:policy": "scripts/test-quality-gate.sh",
-    "quality:bundle": "bun test scripts/web-bundle-budget.test.mjs && vp run --filter web build",
+    "quality:bundle": "bun test scripts/web-bundle-budget.test.mjs && bun run --filter web build",
     "quality:props": "node scripts/check-react-props.mjs",
     "quality:duplication": "node scripts/check-duplication.mjs",
     "e2e:api": "node scripts/e2e-api-substitute.mjs",
@@ -63,12 +60,12 @@
     "implement:sep": "bash scripts/herdr-implement-sep.sh",
     "security:trivy:config": "scripts/trivy-scan.sh config",
     "security:trivy:dependencies": "scripts/trivy-scan.sh dependencies",
-    "dev:web": "vp run --filter web dev",
-    "dev:server": "vp run --filter server dev",
-    "db:push": "vp run --filter @lirna/db db:push",
-    "db:studio": "vp run --filter @lirna/db db:studio",
-    "db:generate": "vp run --filter @lirna/db db:generate",
-    "db:migrate": "vp run --filter @lirna/db db:migrate",
+    "dev:web": "bun run --filter web dev",
+    "dev:server": "bun run --filter server dev",
+    "db:push": "bun run --filter @lirna/db db:push",
+    "db:studio": "bun run --filter @lirna/db db:studio",
+    "db:generate": "bun run --filter @lirna/db db:generate",
+    "db:migrate": "bun run --filter @lirna/db db:migrate",
     "db:start": "docker compose up -d postgres",
     "db:watch": "docker compose up postgres",
     "db:stop": "docker compose stop postgres",
@@ -92,12 +89,7 @@
     "@types/bun": "catalog:",
     "husky": "^9.1.7",
     "lint-staged": "^17.2.0",
-    "rolldown": "1.2.0",
-    "typescript": "catalog:",
-    "vite-plus": "0.2.6"
-  },
-  "overrides": {
-    "vite": "npm:@voidzero-dev/vite-plus-core@0.2.6"
+    "typescript": "catalog:"
   },
   "lint-staged": {
     "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}": [

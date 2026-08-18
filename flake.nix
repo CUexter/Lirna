@@ -72,6 +72,7 @@
         PLAYWRIGHT_BROWSERS_PATH = pkgs.playwright-driver.browsers;
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
         PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
+        NODE_USE_SYSTEM_CA = "1";
 
         packages = with pkgs; [
           bun
