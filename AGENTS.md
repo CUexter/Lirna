@@ -8,6 +8,14 @@ repository content. Never copy vault notes, journals, source documents, or other
 personal material into this repository. Reference paths and describe patterns
 only when planning requires it.
 
+## Commits
+
+All commit messages MUST follow [Conventional Commits](https://www.conventionalcommits.org/):
+`<type>[optional scope][!]: <description>` with type one of `feat`, `fix`,
+`docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`.
+Example: `feat(sep): split reading workspace by domain`. The
+`.husky/commit-msg` hook rejects anything else.
+
 ## Agent skills
 
 ### Issue tracker
