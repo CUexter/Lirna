@@ -1,9 +1,9 @@
 # Behavior Tests And Coverage
 
-Issue #100 establishes the repository-wide Bun behavior-test command:
+Issue #100 establishes the repository-wide Bun behavior-test commands:
 
 ```bash
-bun run test
+bun test
 bun run test:coverage
 ```
 

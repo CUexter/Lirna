@@ -1,0 +1,7 @@
+[test]
+# Keep browser E2E files and build output out of the Bun test suite.
+pathIgnorePatterns = ["tests/e2e/**", "**/dist/**"]
+
+# Keep coverage output consistent for local and CI runs.
+coverageReporter = ["text", "lcov"]
+coverageDir = "coverage"
