@@ -75,12 +75,23 @@ React web apps share shadcn/ui primitives through `packages/ui`.
 
 ### Add Shared Components
 
-Run the shadcn CLI from the project root to add primitives to the shared UI
-package:
+Use the `ui:add` wrapper from the project root to add primitives to the shared
+UI package. It runs shadcn against `packages/ui`, formats new files with Biome,
+and appends them to the coverage baseline so the ratchet treats them as
+reviewed legacy exclusions:
 
 ```bash
-bunx --bun shadcn@latest add accordion dialog popover sheet table -c packages/ui
+bun run ui:add accordion dialog popover sheet table
 ```
+
+To retroactively baseline files added without the wrapper:
+
+```bash
+bun run ui:add -- --baseline-only packages/ui/src/components/popover.tsx
+```
+
+Never call `shadcn add` directly; the wrapper is the only supported entry
+point.
 
 Import shared components from the package:
 
