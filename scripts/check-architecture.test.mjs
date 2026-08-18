@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import {
-  evaluatePolicy,
-  findCycles,
-  parseSource,
-} from "./check-architecture.mjs";
+import { evaluatePolicy, parseSource } from "./check-architecture.mjs";
 
 const workspaces = [
   {
@@ -75,26 +71,7 @@ describe("architecture policy fixtures", () => {
     expect(evaluatePolicy({ workspaces, files })).toEqual([]);
   });
 
-  test("rejects undeclared and forbidden workspace edges", () => {
-    const files = [
-      {
-        path: "apps/web/src/main.tsx",
-        ...parseSource("main.tsx", 'import { auth } from "@lirna/auth";'),
-      },
-      {
-        path: "apps/web/src/feature.ts",
-        ...parseSource("feature.ts", 'import { x } from "@lirna/ui/private";'),
-      },
-    ];
-
-    expect(evaluatePolicy({ workspaces, files })).toEqual([
-      "apps/web/src/main.tsx imports undeclared workspace dependency @lirna/auth",
-      "apps/web/src/main.tsx has forbidden workspace edge web -> @lirna/auth",
-      "apps/web/src/feature.ts imports undeclared @lirna/ui/private; @lirna/ui does not export ./private",
-    ]);
-  });
-
-  test("rejects relative workspace crossings, server environment imports, and native controls", () => {
+  test("rejects server environment imports and native controls", () => {
     const files = [
       {
         path: "apps/web/src/main.tsx",
@@ -114,7 +91,6 @@ describe("architecture policy fixtures", () => {
 
     expect(evaluatePolicy({ workspaces, files })).toEqual([
       "apps/web/src/main.tsx imports the server environment surface",
-      "apps/web/src/main.tsx crosses workspace boundary through relative import ../../../packages/api/src/index; use a package export",
       "apps/web/src/components/form.tsx uses native <select>; import an owned UI primitive instead",
     ]);
   });
@@ -157,13 +133,5 @@ describe("architecture policy fixtures", () => {
     expect(evaluatePolicy({ workspaces, files })).toEqual([
       "packages/ui/src/components/nested/input.tsx uses native <input>; import an owned UI primitive instead",
     ]);
-  });
-
-  test("finds dependency cycles", () => {
-    const cycle = [
-      { name: "a", dependencies: new Set(["b"]) },
-      { name: "b", dependencies: new Set(["a"]) },
-    ];
-    expect(findCycles(cycle)).toEqual([["a", "b", "a"]]);
   });
 });

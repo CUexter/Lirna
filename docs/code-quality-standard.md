@@ -1,6 +1,6 @@
 # Code quality standard and automation report
 
-Status: current repository state as of 2026-08-17.
+Status: current repository state as of 2026-08-19.
 
 This document defines the quality expected of Lirna code and records which parts
 of that standard the repository currently enforces. A rule is called automated
@@ -102,11 +102,12 @@ The active hook is `.husky/pre-commit`.
 | --- | --- | --- |
 | Staged secrets | `bun run secrets:staged` | Gitleaks scans the staged diff. `.gitleaksignore` supplies allowed fingerprints. |
 | Formatting | lint-staged runs `biome format --write` | Staged JavaScript, TypeScript, JSX, TSX, JSON, and JSONC files; two-space indentation and double-quoted JavaScript. |
-| Cognitive complexity | `bun run quality` | `apps/` and `packages/`; maximum 15 per function. |
+| Fallow health | `bun run quality:fallow` (`fallow health`) | `apps/` and `packages/`; cognitive complexity maximum 15 and cyclomatic maximum 20 per function, health score baselined against `.fallow/baselines/health.json`. Replaces the former Biome `noExcessiveCognitiveComplexity` rule. |
 | Function parameters | `bun run quality` | `apps/` and `packages/`; maximum 4. |
 | File size | `bun run quality` | `apps/` and `packages/`; maximum 300 non-blank lines through Biome. |
 | React component props | `bun run quality:props` | TSX under `apps/` and `packages/`; maximum 8 statically countable explicit props. |
-| Duplication growth | `bun run quality:duplication` | Production TypeScript and TSX under `apps/` and `packages/`; jscpd may not exceed the current 0 duplicated-line baseline. Test files are excluded. The only reviewed production exception is the shared resource-column shape in `sources.ts` and `sep-admission.ts`: Source-state resources are durable evidence while preview resources are temporary admission evidence, so a shared persistence abstraction would incorrectly couple different lifecycles and migrations. |
+| Fallow duplication | `bun run quality:fallow` (`fallow dupes`) | Production TypeScript and TSX under `apps/` and `packages/`; strict mode baselined against `.fallow/baselines/dupes.json`. Test files are excluded. The only reviewed production exception is the shared resource-column shape in `sources.ts` and `sep-admission.ts`: Source-state resources are durable evidence while preview resources are temporary admission evidence, so a shared persistence abstraction would incorrectly couple different lifecycles and migrations. |
+| Fallow dead code and architecture rules | `bun run quality:fallow` (`fallow dead-code`) | `apps/`, `packages/`, and scripts. Error-level rules always fail: circular dependencies, boundary violations (zone rules in `.fallowrc.json`), unlisted dependencies, unresolved imports, and duplicate exports. Warn-level rules are regression-baselined against `.fallow/baselines/dead-code.json`: unused files, exports, types, and dependencies. Replaces the former cycle detection, forbidden-edge, and undeclared-export checks in `check-architecture.mjs`. |
 | Documentation quality | `bun run quality:docs` | First-party Markdown links, root/workspace Bun commands, and code-form repository paths. |
 | Behavior tests and coverage | `bun run test:coverage` and `bun run test:e2e:ci` | Isolated Bun tests through public seams and Playwright browser journeys. Bun LCOV excludes `apps/web/src`, which runs in the required browser-E2E job; other source absent from LCOV is allowed only when its exact content hash is in the reviewed legacy baseline, so new or changed uninstrumented non-browser source fails. |
 
@@ -136,12 +137,12 @@ required status name.
 | Trivy dependency scan | Fails on fixed high or critical vulnerabilities | Bun and Cargo lockfile dependencies, including development dependencies; unfixed vulnerabilities are ignored. |
 | Trivy image scan | Fails on fixed high or critical vulnerabilities | Freshly built server and web images; both OS and library packages. |
 | Trivy policy test | Fails when thresholds, exclusions, scanner failure propagation, pinning, or workflow wiring regress | Trivy wrapper and workflow policy. |
-| Architecture policy | `bun run quality:architecture` | Current workspace edges, package exports, browser/server boundary, route placement, and owned UI primitives. |
+| Architecture policy | `bun run quality:architecture` and `bun run quality:fallow` | Route placement, owned UI primitives, and browser/server import boundary (`check-architecture.mjs`); workspace dependency cycles, forbidden zone edges, undeclared exports, and cross-workspace imports (`.fallowrc.json` boundary rules enforced by `fallow dead-code`). |
 | Documentation quality | `bun run quality:docs` | First-party Markdown links, root/workspace Bun commands, and code-form repository paths. Focused fixtures prove stale references fail. |
 | Quality gate policy test | Fails when the read-only commands, frozen install, architecture policy, or aggregate workflow wiring regress | `scripts/test-quality-gate.sh` in the `Quality` workflow. |
 | Web bundle budget | `bun run quality:bundle` | Builds `apps/web`, writes `apps/web/dist/bundle-size.json`, and enforces the reviewed aggregate raw-byte budgets in `config/web-bundle-budget.json`. |
 | PostgreSQL integration | `bun run test:db` | Applies every committed migration to an empty isolated database, compares the result to the TypeScript schema, checks migration history drift, and exercises success and constraint behavior through the exported database seam used by callers. |
-| General quality gate | Fails on formatting/linting, configured complexity/size/props/duplication checks, behavior tests, coverage ratchet, PostgreSQL migration/repository integration, workspace type errors, or production build errors | `.github/workflows/quality.yml`; aggregate status: `Quality / quality`. |
+| General quality gate | Fails on formatting/linting, configured size/props checks, Fallow health/duplication/dead-code, behavior tests, coverage ratchet, PostgreSQL migration/repository integration, workspace type errors, or production build errors | `.github/workflows/quality.yml`; aggregate status: `Quality / quality`. |
 
 The Quality workflow does not run Nix flake checks. Trivy owns
 dependency vulnerability scanning; dependency assessment verification only
@@ -157,6 +158,9 @@ The maintenance cleanup intentionally leaves one enforcement path per concern:
 | Retained | `scripts/verify-dependency-assessments.mjs`, `scripts/secret-scan.sh` | These are the active dependency-decision and Gitleaks enforcement entry points used by hooks and CI. |
 | Replaced | `test-dependency-verification.sh`, `test-secret-scanning.sh` | Their safe, violation, and tool-error contracts are consolidated in `scripts/test-maintenance-policy.sh`. |
 | Replaced | `check-ui-primitives.mjs` | UI ownership is now one rule within the broader `scripts/check-architecture.mjs` policy. |
+| Replaced | `check-duplication.mjs` | Duplication detection is now `fallow dupes` (strict mode, baselined against `.fallow/baselines/dupes.json`). |
+| Replaced | `check-architecture.mjs` cycle, edge, and export checks | Workspace dependency cycles, forbidden edges, undeclared exports, and cross-workspace relative imports are now Fallow's `circular-dependencies`, `boundary-violation`, `unlisted-dependencies`, `unresolved-imports`, and `duplicate-exports` rules in `.fallowrc.json`. `check-architecture.mjs` retains route placement, native-control ownership, and the browser/server import boundary. |
+| Replaced | Biome `noExcessiveCognitiveComplexity` | Cognitive complexity (maximum 15) is now `fallow health` (`.fallowrc.json` `maxCognitive: 15`). |
 | Deleted | `assess-dependency.mjs`, `dependency-assessment-policy.mjs`, `dependency-decisions.mjs`, `run-dependency-scripts.mjs` | These former `scripts/` entries implemented an npm-era installer, scoring, and lifecycle-script machinery that duplicated package-manager behavior and was not an active Bun gate. Committed, exact-version review records plus the verifier retain the enforceable contract. |
 
 ### Available but manual
@@ -167,7 +171,7 @@ The maintenance cleanup intentionally leaves one enforcement path per concern:
 | `bun run build` | Builds workspaces that declare a build task | Automated in the Quality workflow; available locally. |
 | `bun run check` | Runs the full configured Biome formatter, linter, and assist checks without modifying files | Automated in the Quality workflow; read-only locally. |
 | `bun run check:fix` | Applies configured Biome formatting, lint, and assist fixes | Manual and mutating. |
-| `bun run quality:ci` | Runs Biome in check mode, architecture and maintainability checks, the bundle budget, documentation checks, and coverage-tested behavior; bundle and coverage artifacts are written locally | Automated in the Quality workflow. |
+| `bun run quality:ci` | Runs Biome in check mode, Fallow health/duplication/dead-code, architecture policy, the bundle budget, documentation checks, and coverage-tested behavior; bundle and coverage artifacts are written locally | Automated in the Quality workflow. |
 
 | `bun run check:semgrep` | Runs the blocking Semgrep rules | Automated in CI, but optional locally and absent from pre-commit. |
 | `bun run report:semgrep` | Runs non-blocking Semgrep rules | Automated in CI, but optional locally and absent from pre-commit. |
