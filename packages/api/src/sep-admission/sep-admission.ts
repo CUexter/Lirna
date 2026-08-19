@@ -1,11 +1,10 @@
-// biome-ignore lint/style/noExcessiveLinesPerFile: Preview orchestration and exact-byte admission form one cohesive application boundary.
 import { randomUUID } from "node:crypto";
 import type {
   sepAdmissionPreviews,
   sepPreviewResources,
 } from "@lirna/db/schema/sep-admission";
-import { z } from "zod";
 
+import { toSepAdmissionPreview } from "./sep-admission-preview";
 import {
   type CapturedSepResource,
   SepAdmissionError,
@@ -17,44 +16,6 @@ import {
 import type { SepReadingContract } from "./sep-reading-contract";
 
 const previewLifetimeMilliseconds = 7 * 24 * 60 * 60 * 1000;
-const diagnosticSchema = z.object({
-  level: z.enum(["info", "warning"]),
-  code: z.string(),
-  message: z.string(),
-});
-const captureReportSchema = z.object({
-  budget: z.enum(["standard", "expanded"]),
-  completeness: z.enum(["complete", "partial", "stopped"]),
-  readingReadiness: z.enum(["ready", "degraded"]),
-  readinessReasons: z.array(z.string()),
-  unresolvedResources: z.array(
-    z.object({
-      url: z.string(),
-      parentIdentity: z.string(),
-      role: z.enum([
-        "supplement",
-        "notes",
-        "figure-description",
-        "unknown-component",
-        "semantic-asset",
-      ]),
-      depth: z.number().int().nonnegative(),
-      reason: z.string(),
-      limit: z.boolean(),
-    }),
-  ),
-  limits: z.object({
-    maxComponents: z.number().int().positive(),
-    maxAssets: z.number().int().positive(),
-    maxResourceBytes: z.number().int().positive(),
-    maxTotalBytes: z.number().int().positive(),
-    maxDepth: z.number().int().positive(),
-    maxRedirects: z.number().int().positive(),
-    timeoutMilliseconds: z.number().int().positive(),
-    maxConcurrency: z.number().int().positive(),
-  }),
-  retryUsed: z.boolean(),
-});
 
 export interface SepAdmissionPreview {
   id: string;
@@ -217,7 +178,7 @@ export function createSepAdmissionOperations(options: {
     const readAt = now();
     await options.store.deleteExpired(readAt);
     const stored = await options.store.getActive(id, readAt);
-    return stored ? toPreview(stored) : undefined;
+    return stored ? toSepAdmissionPreview(stored) : undefined;
   }
 
   return {
@@ -296,167 +257,4 @@ export function createSepAdmissionOperations(options: {
     getReading: (sourceId, stateId) =>
       options.store.getReading(sourceId, stateId),
   };
-}
-
-function toPreview({
-  preview,
-  resources,
-}: SepAdmissionStoredPreview): SepAdmissionPreview {
-  const authors = z.array(z.string()).parse(preview.authors);
-  const publicationHistory = z
-    .array(z.string())
-    .parse(preview.publicationHistory);
-  const diagnostics = z.array(diagnosticSchema).parse(preview.diagnostics);
-  const captureReport = captureReportSchema.parse(preview.captureDiagnostics);
-  const typedResources = resources.map((resource) => {
-    const role = z
-      .enum([
-        "main",
-        "citation-information",
-        "supplement",
-        "notes",
-        "figure-description",
-        "unknown-component",
-        "semantic-asset",
-      ])
-      .parse(resource.role);
-    return {
-      observationKey: z
-        .enum(["submitted", "recommended-archive"])
-        .parse(resource.observationKey),
-      identity: resource.identity,
-      role,
-      requestedUrl: resource.requestedUrl,
-      finalUrl: resource.finalUrl,
-      status: resource.status,
-      mediaType: resource.mediaType,
-      charset: resource.charset ?? undefined,
-      contentEncoding: resource.contentEncoding ?? undefined,
-      selectedHeaders: z
-        .record(z.string(), z.string())
-        .parse(resource.selectedHeaders),
-      requestCount: resource.requestCount,
-      downloadedBytes: resource.downloadedBytes,
-      retrievedAt: resource.retrievedAt.toISOString(),
-      byteLength: resource.byteLength,
-      sha256: resource.sha256,
-      discoveryEdge: resource.discoveryEdge,
-      depth: resource.depth,
-    };
-  });
-  if (!typedResources.some((resource) => resource.role === "main")) {
-    throw new Error(
-      `SEP Admission preview ${preview.id} is missing its main entry`,
-    );
-  }
-  if (
-    !typedResources.some((resource) => resource.role === "citation-information")
-  ) {
-    throw new Error(
-      `SEP Admission preview ${preview.id} is missing citation information`,
-    );
-  }
-  const activeResources = typedResources.filter(
-    (resource) => resource.observationKey === "submitted",
-  );
-  const archiveResources = typedResources.filter(
-    (resource) => resource.observationKey === "recommended-archive",
-  );
-  const observations: SepAdmissionPreview["observations"] = [
-    {
-      key: "submitted",
-      label: "Active",
-      canonicalUrl:
-        activeResources.find((resource) => resource.role === "main")
-          ?.requestedUrl ?? preview.submittedUrl,
-      resources: activeResources,
-    },
-    ...(archiveResources.length > 0
-      ? [
-          {
-            key: "recommended-archive" as const,
-            label: "Recommended archive" as const,
-            canonicalUrl:
-              archiveResources.find((resource) => resource.role === "main")
-                ?.requestedUrl ??
-              preview.recommendedArchiveUrl ??
-              "",
-            resources: archiveResources,
-          },
-        ]
-      : []),
-  ];
-  return {
-    id: preview.id,
-    title: preview.title,
-    authors,
-    publisher: preview.publisher,
-    publicationHistory,
-    submittedUrl: preview.submittedUrl,
-    recommendedArchiveUrl: preview.recommendedArchiveUrl ?? undefined,
-    policy: {
-      rightsBasis: "publicly-accessible",
-      sensitivityLevel: "ordinary-cloud",
-    },
-    metrics: {
-      requests: resources.reduce(
-        (total, resource) => total + resource.requestCount,
-        0,
-      ),
-      downloadedBytes: resources.reduce(
-        (total, resource) => total + resource.downloadedBytes,
-        0,
-      ),
-      retainedBytes: resources.reduce(
-        (total, resource) => total + resource.body.byteLength,
-        0,
-      ),
-      processingMilliseconds: preview.processingMilliseconds,
-    },
-    createdAt: preview.createdAt.toISOString(),
-    expiresAt: preview.expiresAt.toISOString(),
-    diagnostics,
-    capture: {
-      ...captureReport,
-      retryAvailable: !captureReport.retryUsed,
-    },
-    resources: typedResources,
-    observations,
-    comparison: compareObservations(activeResources, archiveResources),
-  };
-}
-
-function compareObservations(
-  active: SepAdmissionPreview["resources"],
-  archive: SepAdmissionPreview["resources"],
-): SepAdmissionPreview["comparison"] {
-  if (archive.length === 0) {
-    return {
-      result: "active-only",
-      message: "No recommended archived observation was available to compare.",
-    };
-  }
-  const manifest = (resources: SepAdmissionPreview["resources"]) =>
-    resources
-      .filter((resource) => resource.role !== "citation-information")
-      .map((resource) => ({
-        identity: resource.identity.slice(resource.identity.indexOf(":")),
-        role: resource.role,
-        byteLength: resource.byteLength,
-        sha256: resource.sha256,
-      }))
-      .sort((left, right) => left.identity.localeCompare(right.identity));
-  const equivalent =
-    JSON.stringify(manifest(active)) === JSON.stringify(manifest(archive));
-  return equivalent
-    ? {
-        result: "equivalent",
-        message:
-          "Active and recommended archive publication resources are byte-equivalent; their provenance remains separate.",
-      }
-    : {
-        result: "distinct",
-        message:
-          "Active and recommended archive publication resources are materially distinct.",
-      };
 }

@@ -23,6 +23,10 @@ export const sepResourceRoleSchema = z.enum([
   "semantic-asset",
 ]);
 
+export function parseStringList(value: unknown) {
+  return z.array(z.string()).parse(value);
+}
+
 export interface AdmissionPreviewFields {
   rightsBasis: string;
   sensitivityLevel: string;
@@ -164,11 +168,9 @@ export function buildReadingDerivative({
         id: source.id,
         stateId: state.id,
         title: preview.title,
-        authors: z.array(z.string()).parse(preview.authors),
+        authors: parseStringList(preview.authors),
         publisher: preview.publisher,
-        publicationHistory: z
-          .array(z.string())
-          .parse(preview.publicationHistory),
+        publicationHistory: parseStringList(preview.publicationHistory),
         canonicalUrl: main.requestedUrl,
         observation: sepObservationKeySchema.parse(state.observationKey),
         admittedAt: state.admittedAt.toISOString(),

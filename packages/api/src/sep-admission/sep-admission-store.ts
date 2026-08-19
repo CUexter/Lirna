@@ -12,7 +12,6 @@ import {
   sources,
 } from "@lirna/db/schema/sources";
 import { asc, eq, max } from "drizzle-orm";
-import { z } from "zod";
 
 import {
   createSepAdmissionOperations,
@@ -23,6 +22,7 @@ import {
 import {
   buildReadingDerivative,
   buildStateRecords,
+  parseStringList,
 } from "./sep-admission-builders";
 import { createSepAdmittedStateReader } from "./sep-admitted-state-reader";
 import {
@@ -133,10 +133,8 @@ export function createDrizzleSepAdmissionStore(
           now,
         });
         await tx.insert(sourceStates).values(stateRecords);
-        const authors = z.array(z.string()).parse(locked.authors);
-        const publicationHistory = z
-          .array(z.string())
-          .parse(locked.publicationHistory);
+        const authors = parseStringList(locked.authors);
+        const publicationHistory = parseStringList(locked.publicationHistory);
         await tx.insert(sepSourceStateMetadata).values(
           stateRecords.map((state) => ({
             sourceStateId: state.id,

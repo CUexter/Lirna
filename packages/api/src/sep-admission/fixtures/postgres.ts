@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import {
   sepAdmissionPreviews,
   sepPreviewResources,
@@ -6,6 +6,18 @@ import {
 import { createPostgresTestDatabase } from "@lirna/db/test-support/postgres-database";
 
 import type { SepAdmissionCreateRecord } from "../sep-admission";
+import {
+  type AdmissionObservationKey,
+  admissionCaptureLimits,
+  admissionPreviewDefaults,
+  previewResourcesForObservations,
+  recommendedArchiveUrl,
+} from "./admission-preview";
+
+export {
+  hash,
+  previewResource,
+} from "./admission-preview";
 
 export const sepAdmissionPostgresAdminUrl = process.env.POSTGRES_ADMIN_URL;
 
@@ -43,7 +55,7 @@ export async function insertPreview(
   {
     id = randomUUID(),
     stableKey,
-    title = "Admission integration",
+    title = admissionPreviewDefaults.title,
     observations,
     bodies,
     citationBody = Buffer.from("citation"),
@@ -53,8 +65,8 @@ export async function insertPreview(
     id?: string;
     stableKey: string;
     title?: string;
-    observations: Array<"submitted" | "recommended-archive">;
-    bodies?: Partial<Record<"submitted" | "recommended-archive", Buffer>>;
+    observations: AdmissionObservationKey[];
+    bodies?: Partial<Record<AdmissionObservationKey, Buffer>>;
     citationBody?: Buffer;
     charset?: string;
     now?: Date;
@@ -63,53 +75,32 @@ export async function insertPreview(
   await database.insert(sepAdmissionPreviews).values({
     id,
     stableKey,
-    submittedUrl: "https://plato.stanford.edu/entries/admission/",
-    recommendedArchiveUrl: observations.includes("recommended-archive")
-      ? "https://plato.stanford.edu/archives/sum2026/entries/admission/"
-      : null,
+    submittedUrl: admissionPreviewDefaults.submittedUrl,
+    recommendedArchiveUrl: recommendedArchiveUrl(observations) ?? null,
     title,
-    authors: ["Integration Author"],
-    publisher: "Metaphysics Research Lab, Stanford University",
-    publicationHistory: ["First published 2026"],
+    authors: [...admissionPreviewDefaults.authors],
+    publisher: admissionPreviewDefaults.publisher,
+    publicationHistory: [...admissionPreviewDefaults.publicationHistory],
     diagnostics: [],
     captureDiagnostics: {
-      completeness: "complete",
-      readingReadiness: "ready",
-      readinessReasons: [],
+      ...admissionPreviewDefaults.captureDiagnostics,
+      readinessReasons: [
+        ...admissionPreviewDefaults.captureDiagnostics.readinessReasons,
+      ],
     },
-    rightsBasis: "publicly-accessible",
-    sensitivityLevel: "ordinary-cloud",
+    rightsBasis: admissionPreviewDefaults.rightsBasis,
+    sensitivityLevel: admissionPreviewDefaults.sensitivityLevel,
     processingMilliseconds: 1,
     createdAt: now,
     expiresAt: new Date(now.getTime() + 60_000),
   });
   await database.insert(sepPreviewResources).values(
-    observations.flatMap((observation) => {
-      const body =
-        bodies?.[observation] ??
-        Buffer.from(
-          `<html><body><main><p>${observation}</p></main></body></html>`,
-        );
-      return [
-        previewResource({
-          previewId: id,
-          role: "main",
-          identity: observation === "submitted" ? "active:/" : "sum2026:/",
-          body,
-          observationKey: observation,
-          charset,
-        }),
-        ...(observation === "submitted"
-          ? [
-              previewResource({
-                previewId: id,
-                role: "citation-information",
-                identity: "citation-information:admission",
-                body: citationBody,
-              }),
-            ]
-          : []),
-      ];
+    previewResourcesForObservations({
+      previewId: id,
+      observations,
+      bodies,
+      citationBody,
+      charset,
     }),
   );
   return id;
@@ -118,7 +109,7 @@ export async function insertPreview(
 export function admissionCreateRecord({
   id = randomUUID(),
   stableKey,
-  title = "Admission integration",
+  title = admissionPreviewDefaults.title,
   now = new Date(),
   expiresAt = new Date(now.getTime() + 60_000),
   observations = ["submitted"],
@@ -129,119 +120,42 @@ export function admissionCreateRecord({
   title?: string;
   now?: Date;
   expiresAt?: Date;
-  observations?: Array<"submitted" | "recommended-archive">;
+  observations?: AdmissionObservationKey[];
   retryUsed?: boolean;
 }): SepAdmissionCreateRecord {
   return {
     id,
     stableKey,
-    submittedUrl: "https://plato.stanford.edu/entries/admission/",
-    recommendedArchiveUrl: observations.includes("recommended-archive")
-      ? "https://plato.stanford.edu/archives/sum2026/entries/admission/"
-      : undefined,
+    submittedUrl: admissionPreviewDefaults.submittedUrl,
+    recommendedArchiveUrl: recommendedArchiveUrl(observations),
     title,
-    authors: ["Integration Author"],
-    publisher: "Metaphysics Research Lab, Stanford University",
-    publicationHistory: ["First published 2026"],
+    authors: [...admissionPreviewDefaults.authors],
+    publisher: admissionPreviewDefaults.publisher,
+    publicationHistory: [...admissionPreviewDefaults.publicationHistory],
     diagnostics: [],
     captureReport: {
       budget: retryUsed ? "expanded" : "standard",
-      completeness: "complete",
-      readingReadiness: "ready",
-      readinessReasons: [],
+      ...admissionPreviewDefaults.captureDiagnostics,
+      readinessReasons: [
+        ...admissionPreviewDefaults.captureDiagnostics.readinessReasons,
+      ],
       unresolvedResources: [],
-      limits: {
-        maxComponents: 64,
-        maxAssets: 256,
-        maxResourceBytes: 50_000_000,
-        maxTotalBytes: 250_000_000,
-        maxDepth: 8,
-        maxRedirects: 5,
-        timeoutMilliseconds: 15_000,
-        maxConcurrency: 4,
-      },
+      limits: { ...admissionCaptureLimits },
       retryUsed,
     },
     processingMilliseconds: 1,
     createdAt: now,
     expiresAt,
-    resources: observations.flatMap((observation) => {
-      const main = previewResource({
-        previewId: id,
-        role: "main",
-        identity: observation === "submitted" ? "active:/" : "sum2026:/",
-        body: Buffer.from(
-          `<html><body><main><p>${observation}</p></main></body></html>`,
-        ),
-        observationKey: observation,
-      });
-      const citation =
-        observation === "submitted"
-          ? previewResource({
-              previewId: id,
-              role: "citation-information",
-              identity: "citation-information:admission",
-              body: Buffer.from("citation"),
-            })
-          : undefined;
-      return [
-        toCapturedResource(main),
-        ...(citation ? [toCapturedResource(citation)] : []),
-      ];
-    }),
+    resources: previewResourcesForObservations({
+      previewId: id,
+      observations,
+    }).map(toCapturedResource),
   };
 }
 
 function toCapturedResource(
-  row: ReturnType<typeof previewResource>,
+  row: ReturnType<typeof previewResourcesForObservations>[number],
 ): SepAdmissionCreateRecord["resources"][number] {
   const { id: _id, previewId: _previewId, ...resource } = row;
   return resource;
-}
-
-export function previewResource({
-  previewId,
-  role,
-  identity,
-  body,
-  observationKey = "submitted",
-  charset = "utf-8",
-}: {
-  previewId: string;
-  role: "main" | "citation-information";
-  identity: string;
-  body: Buffer;
-  observationKey?: "submitted" | "recommended-archive";
-  charset?: string;
-}) {
-  const url =
-    role === "main"
-      ? "https://plato.stanford.edu/entries/reading/"
-      : "https://plato.stanford.edu/cgi-bin/encyclopedia/archinfo.cgi?entry=reading";
-  return {
-    id: randomUUID(),
-    previewId,
-    observationKey,
-    identity,
-    role,
-    requestedUrl: url,
-    finalUrl: url,
-    status: 200,
-    mediaType: "text/html",
-    charset,
-    retrievedAt: new Date(),
-    selectedHeaders: { "content-type": "text/html; charset=utf-8" },
-    requestCount: 1,
-    downloadedBytes: body.byteLength,
-    byteLength: body.byteLength,
-    sha256: hash(body),
-    discoveryEdge:
-      role === "main" ? "submitted-entry" : "required-citation-information",
-    depth: 0,
-    body,
-  };
-}
-
-export function hash(body: Buffer) {
-  return createHash("sha256").update(body).digest("hex");
 }

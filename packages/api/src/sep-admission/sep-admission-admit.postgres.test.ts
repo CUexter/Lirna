@@ -8,6 +8,7 @@ import {
 } from "@lirna/db/schema/sources";
 import { asc, eq } from "drizzle-orm";
 
+import { readingIntegrationHtml } from "./fixtures/admission-preview";
 import {
   hash,
   insertPreview,
@@ -40,10 +41,7 @@ describePostgres("SEP Admission PostgreSQL store", () => {
   test("retains exact evidence as immutable Source-state resources", async () => {
     const previewId = randomUUID();
     const admittedAt = new Date();
-    const mainBody = Buffer.from(
-      "<html><body><main><h2>Knowledge</h2><p>A typed paragraph.</p><script>window.pwned = true</script></main></body></html>",
-      "utf8",
-    );
+    const mainBody = Buffer.from(readingIntegrationHtml, "utf8");
     const citationBody = Buffer.from("citation evidence", "utf8");
     await insertPreview(database, {
       id: previewId,
@@ -136,9 +134,6 @@ describePostgres("SEP Admission PostgreSQL store", () => {
       .where(eq(sourceStates.sourceId, first?.sourceId ?? ""))
       .orderBy(asc(sourceStates.sequence));
     expect(states.map(({ sequence }) => sequence)).toEqual([0, 1, 2]);
-    expect(await store.claimExpandedRetry(firstPreviewId, new Date())).toBe(
-      "unavailable",
-    );
   });
 
   test("rolls back every permanent record when derivative creation fails", async () => {

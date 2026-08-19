@@ -157,3 +157,24 @@ export function classifySepResourceUrl(
     kind,
   };
 }
+
+export function validateArchiveRecommendation(
+  recommendation: string | undefined,
+  citationUrl: string,
+  entry: string,
+): string | undefined {
+  if (!recommendation) {
+    return undefined;
+  }
+  const classified = classifySepUrl(new URL(recommendation, citationUrl).href);
+  if (
+    classified.kind !== "main" ||
+    !classified.archived ||
+    classified.entry !== entry
+  ) {
+    throw new SepAdmissionError(
+      "SEP recommended an invalid archive for this entry",
+    );
+  }
+  return classified.url.href;
+}

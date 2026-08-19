@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { createHash, randomUUID } from "node:crypto";
 
+import {
+  admissionPreviewFields,
+  previewResource,
+  previewResourcesForObservations,
+  readingIntegrationHtml,
+} from "./fixtures/admission-preview";
 import {
   buildReadingCaptureReport,
   buildReadingDerivative,
@@ -11,26 +16,15 @@ import {
 
 const admittedAt = new Date("2026-08-17T12:00:00.000Z");
 const sourceId = "11111111-1111-4111-8111-111111111111";
+const previewId = "preview";
 
 describe("SEP admission builders", () => {
   test("buildStateRecords sequences selected observations from the preview fixture", () => {
-    const preview = admissionPreview();
-    const previewResources = [
-      previewResource({
-        role: "main",
-        identity: "active:/",
-        observationKey: "submitted",
-      }),
-      previewResource({
-        role: "citation-information",
-        identity: "citation-information:admission",
-      }),
-      previewResource({
-        role: "main",
-        identity: "sum2026:/",
-        observationKey: "recommended-archive",
-      }),
-    ];
+    const preview = admissionPreviewFields({ now: admittedAt });
+    const previewResources = previewResourcesForObservations({
+      previewId,
+      observations: ["submitted", "recommended-archive"],
+    }).map((resource) => ({ ...resource, retrievedAt: admittedAt }));
 
     const records = buildStateRecords({
       preview,
@@ -70,11 +64,14 @@ describe("SEP admission builders", () => {
   test("buildStateRecords throws when a selected observation lost its main resource", () => {
     expect(() =>
       buildStateRecords({
-        preview: admissionPreview(),
+        preview: admissionPreviewFields({ now: admittedAt }),
         previewResources: [
           previewResource({
+            previewId,
             role: "citation-information",
             identity: "citation-information:admission",
+            body: Buffer.from("citation"),
+            retrievedAt: admittedAt,
           }),
         ],
         selectedKeys: ["submitted"],
@@ -86,7 +83,9 @@ describe("SEP admission builders", () => {
   });
 
   test("buildReadingCaptureReport reads the preview fixture capture diagnostics", () => {
-    expect(buildReadingCaptureReport(admissionPreview())).toEqual({
+    expect(
+      buildReadingCaptureReport(admissionPreviewFields({ now: admittedAt })),
+    ).toEqual({
       completeness: "complete",
       readingReadiness: "ready",
       readinessReasons: [],
@@ -107,23 +106,24 @@ describe("SEP admission builders", () => {
   });
 
   test("buildReadingDerivative keeps the fixture title and strips executable HTML", () => {
-    const preview = {
-      ...admissionPreview(),
+    const preview = admissionPreviewFields({
       title: "Reading integration",
-    };
-    const mainBody = Buffer.from(
-      "<html><body><main><h2>Knowledge</h2><p>A typed paragraph.</p><script>window.pwned = true</script></main></body></html>",
-      "utf8",
-    );
+      now: admittedAt,
+    });
+    const mainBody = Buffer.from(readingIntegrationHtml, "utf8");
     const main = previewResource({
+      previewId,
       role: "main",
       identity: "active:/",
       body: mainBody,
+      retrievedAt: admittedAt,
     });
     const citation = previewResource({
+      previewId,
       role: "citation-information",
       identity: "citation-information:admission",
       body: Buffer.from("citation evidence", "utf8"),
+      retrievedAt: admittedAt,
     });
     const state = {
       id: "22222222-2222-4222-8222-222222222222",
@@ -175,71 +175,3 @@ describe("SEP admission builders", () => {
 
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function admissionPreview() {
-  return {
-    id: randomUUID(),
-    stableKey: "sep:admission-fixture",
-    submittedUrl: "https://plato.stanford.edu/entries/admission/",
-    recommendedArchiveUrl:
-      "https://plato.stanford.edu/archives/sum2026/entries/admission/",
-    title: "Admission integration",
-    authors: ["Integration Author"],
-    publisher: "Metaphysics Research Lab, Stanford University",
-    publicationHistory: ["First published 2026"],
-    diagnostics: [],
-    captureDiagnostics: {
-      completeness: "complete",
-      readingReadiness: "ready",
-      readinessReasons: [],
-    },
-    rightsBasis: "publicly-accessible",
-    sensitivityLevel: "ordinary-cloud",
-    processingMilliseconds: 1,
-    createdAt: admittedAt,
-    expiresAt: new Date(admittedAt.getTime() + 60_000),
-  };
-}
-
-function previewResource({
-  role,
-  identity,
-  observationKey = "submitted",
-  charset = "utf-8",
-  body = Buffer.from(
-    `<html><body><main><p>${observationKey}</p></main></body></html>`,
-  ),
-}: {
-  role: "main" | "citation-information";
-  identity: string;
-  observationKey?: "submitted" | "recommended-archive";
-  charset?: string;
-  body?: Buffer;
-}) {
-  const url =
-    role === "main"
-      ? "https://plato.stanford.edu/entries/reading/"
-      : "https://plato.stanford.edu/cgi-bin/encyclopedia/archinfo.cgi?entry=reading";
-  return {
-    id: randomUUID(),
-    previewId: "preview",
-    observationKey,
-    identity,
-    role,
-    requestedUrl: url,
-    finalUrl: url,
-    status: 200,
-    mediaType: "text/html",
-    charset,
-    retrievedAt: admittedAt,
-    selectedHeaders: { "content-type": "text/html; charset=utf-8" },
-    requestCount: 1,
-    downloadedBytes: body.byteLength,
-    byteLength: body.byteLength,
-    sha256: createHash("sha256").update(body).digest("hex"),
-    discoveryEdge:
-      role === "main" ? "submitted-entry" : "required-citation-information",
-    depth: 0,
-    body,
-  };
-}

@@ -7,10 +7,10 @@ import {
   sourceStates,
 } from "@lirna/db/schema/sources";
 import { and, asc, desc, eq } from "drizzle-orm";
-import { z } from "zod";
 
 import type { SepAdmittedState, SepAdmittedStateReader } from "./sep-admission";
 import {
+  parseStringList,
   sepObservationKeySchema,
   sepResourceRoleSchema,
 } from "./sep-admission-builders";
@@ -56,11 +56,9 @@ export function createSepAdmittedStateReader(
         observationKey: sepObservationKeySchema.parse(row.state.observationKey),
         canonicalUrl: row.state.canonicalUrl ?? "",
         title: row.metadata.title,
-        authors: z.array(z.string()).parse(row.metadata.authors),
+        authors: parseStringList(row.metadata.authors),
         publisher: row.metadata.publisher,
-        publicationHistory: z
-          .array(z.string())
-          .parse(row.metadata.publicationHistory),
+        publicationHistory: parseStringList(row.metadata.publicationHistory),
         admittedAt: row.state.admittedAt.toISOString(),
         resources: resources.map((resource) => ({
           role: sepResourceRoleSchema.parse(resource.role),

@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { sourceStateDerivativeActivations } from "@lirna/db/schema/sources";
 import { eq } from "drizzle-orm";
 
+import { readingIntegrationHtml } from "./fixtures/admission-preview";
 import {
   insertPreview,
   openSepAdmissionPostgres,
@@ -34,10 +35,7 @@ describePostgres("SEP admitted-state PostgreSQL reader", () => {
   test("returns a safe typed Reading for an admitted state", async () => {
     const previewId = randomUUID();
     const admittedAt = new Date();
-    const mainBody = Buffer.from(
-      "<html><body><main><h2>Knowledge</h2><p>A typed paragraph.</p><script>window.pwned = true</script></main></body></html>",
-      "utf8",
-    );
+    const mainBody = Buffer.from(readingIntegrationHtml, "utf8");
     await insertPreview(database, {
       id: previewId,
       stableKey: `sep:reading-${previewId}`,

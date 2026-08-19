@@ -1,4 +1,3 @@
-// biome-ignore lint/style/noExcessiveLinesPerFile: The bounded capture workflow keeps its security checks and retry state machine together.
 import {
   expandedSepCaptureLimits,
   type SepCaptureLimits,
@@ -9,6 +8,11 @@ import {
   captureOptionalBundle,
   type OptionalCaptureResult,
 } from "./sep-bundle-capture";
+import {
+  buildCaptureReport,
+  compactLimits,
+  mergeOptionalResults,
+} from "./sep-capture-report";
 import {
   decodeCapturedHtml,
   parseCitationInformation,
@@ -23,6 +27,7 @@ import {
   classifySepUrl,
   publicationScope,
   SepAdmissionError,
+  validateArchiveRecommendation,
 } from "./sep-url";
 
 export { SepAdmissionError } from "./sep-url";
@@ -134,7 +139,6 @@ export function createSepCaptureClient(
   };
 
   return {
-    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: The capture transaction keeps its shared active/archive byte ledger explicit.
     async capture(value, budget = "standard") {
       const limits = limitsByBudget[budget];
       let processingMilliseconds = 0;
@@ -293,75 +297,4 @@ async function captureRequired(options: {
     depth: 0,
     retrievedAt: options.now(),
   });
-}
-
-function mergeOptionalResults(
-  active: OptionalCaptureResult,
-  archive: OptionalCaptureResult,
-): OptionalCaptureResult {
-  return {
-    resources: [...active.resources, ...archive.resources],
-    unresolved: [...active.unresolved, ...archive.unresolved],
-    unknownComponent: active.unknownComponent || archive.unknownComponent,
-    consumedBytes: archive.consumedBytes,
-  };
-}
-
-function buildCaptureReport(
-  budget: "standard" | "expanded",
-  limits: SepCaptureLimits,
-  optional: OptionalCaptureResult,
-): SepCaptureReport {
-  const stopped = optional.unresolved.some((item) => item.limit);
-  const readinessReasons = [
-    ...(optional.unresolved.some((item) => item.role !== "semantic-asset")
-      ? ["One or more authored reading components are unavailable"]
-      : []),
-    ...(optional.unknownComponent
-      ? ["An unknown component requires explicit reading support"]
-      : []),
-  ];
-  return {
-    budget,
-    completeness: stopped
-      ? "stopped"
-      : optional.unresolved.length
-        ? "partial"
-        : "complete",
-    readingReadiness: readinessReasons.length ? "degraded" : "ready",
-    readinessReasons,
-    unresolvedResources: optional.unresolved,
-    limits,
-    retryUsed: budget === "expanded",
-  };
-}
-
-function compactLimits(limits: SepCaptureLimits): SepCaptureLimits {
-  for (const value of Object.values(limits)) {
-    if (!Number.isSafeInteger(value) || value < 1) {
-      throw new Error("SEP capture limits must be positive safe integers");
-    }
-  }
-  return limits;
-}
-
-function validateArchiveRecommendation(
-  recommendation: string | undefined,
-  citationUrl: string,
-  entry: string,
-): string | undefined {
-  if (!recommendation) {
-    return undefined;
-  }
-  const classified = classifySepUrl(new URL(recommendation, citationUrl).href);
-  if (
-    classified.kind !== "main" ||
-    !classified.archived ||
-    classified.entry !== entry
-  ) {
-    throw new SepAdmissionError(
-      "SEP recommended an invalid archive for this entry",
-    );
-  }
-  return classified.url.href;
 }
