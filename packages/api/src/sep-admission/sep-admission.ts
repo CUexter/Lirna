@@ -158,7 +158,7 @@ export interface SepAdmissionCreateRecord {
   resources: CapturedSepResource[];
 }
 
-interface SepAdmittedStateReader {
+export interface SepAdmittedStateReader {
   getState(
     sourceId: string,
     stateId: string,
