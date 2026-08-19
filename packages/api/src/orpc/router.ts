@@ -5,7 +5,7 @@ import { sepAdmissionsRouter } from "./routers/sep-admission";
 
 export const orpcRouter = {
   annotations: annotationsRouter,
-  sepAdmissions: sepAdmissionsRouter,
+  sepAdmission: sepAdmissionsRouter,
   healthCheck: publicProcedure.handler(() => "OK"),
   privateData: protectedProcedure.handler(({ context }) => ({
     message: "This is private",

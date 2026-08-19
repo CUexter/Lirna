@@ -530,6 +530,23 @@ function trpcError(path, message) {
   ];
 }
 
+function orpcSuccess(data) {
+  return { json: data, meta: [] };
+}
+
+function orpcError(message, code = "BAD_REQUEST") {
+  return {
+    json: {
+      defined: false,
+      inferable: true,
+      code,
+      message,
+      data: {},
+    },
+    meta: [],
+  };
+}
+
 async function handleTrpcPost(request, response) {
   const path = request.url.slice("/trpc/".length).split("?")[0];
   const body = await readBody(request);
@@ -583,6 +600,78 @@ async function handleTrpcPost(request, response) {
   response.end("Not found");
 }
 
+async function handleOrpcPost(request, response) {
+  let path = request.url.slice("/orpc/".length).split("?")[0];
+  if (path.endsWith("/call")) {
+    path = path.slice(0, -"/call".length);
+  }
+  const body = await readBody(request);
+  await new Promise((resolve) => setTimeout(resolve, 80));
+
+  if (path === "sepAdmission/reading") {
+    sendJson(response, 200, orpcSuccess(reading));
+    return;
+  }
+  if (path === "annotations/list") {
+    sendJson(response, 200, orpcSuccess([]));
+    return;
+  }
+  if (path === "sepAdmission/get") {
+    sendJson(response, 200, orpcSuccess(preview));
+    return;
+  }
+  if (path === "healthCheck") {
+    sendJson(response, 200, orpcSuccess("OK"));
+    return;
+  }
+  if (path === "sepAdmission/submit") {
+    if (body.includes("rejected-entry")) {
+      sendJson(
+        response,
+        400,
+        orpcError("The SEP entry could not be captured."),
+      );
+      return;
+    }
+    const submittedPreview = body.includes("partial-entry")
+      ? partialPreview
+      : body.includes("stopped-entry")
+        ? stoppedPreview
+        : preview;
+    sendJson(response, 200, orpcSuccess(submittedPreview));
+    return;
+  }
+  if (path === "sepAdmission/extend") {
+    sendJson(
+      response,
+      200,
+      orpcSuccess({ ...preview, expiresAt: "2026-08-31T12:00:00.000Z" }),
+    );
+    return;
+  }
+  if (path === "sepAdmission/delete") {
+    sendJson(response, 200, orpcSuccess({ deleted: true }));
+    return;
+  }
+  if (path === "sepAdmission/retry") {
+    sendJson(response, 200, orpcSuccess(retriedPreview));
+    return;
+  }
+  if (path === "sepAdmission/admit") {
+    const selected = body.includes("recommended-archive")
+      ? admissionResult.states
+      : admissionResult.states.slice(0, 1);
+    sendJson(
+      response,
+      200,
+      orpcSuccess({ ...admissionResult, states: selected }),
+    );
+    return;
+  }
+  response.writeHead(404, corsHeaders);
+  response.end("Not found");
+}
+
 const server = createServer(async (request, response) => {
   if (request.method === "OPTIONS") {
     response.writeHead(204, {
@@ -597,6 +686,35 @@ const server = createServer(async (request, response) => {
   if (request.url === "/healthz") {
     response.writeHead(200, { "content-type": "text/plain" });
     response.end("OK");
+    return;
+  }
+
+  if (
+    request.method === "GET" &&
+    request.url?.startsWith("/orpc/healthCheck")
+  ) {
+    sendJson(response, 200, orpcSuccess("OK"));
+    return;
+  }
+
+  if (
+    request.method === "GET" &&
+    request.url?.startsWith("/orpc/annotations/list")
+  ) {
+    sendJson(response, 200, orpcSuccess([]));
+    return;
+  }
+
+  if (
+    request.method === "GET" &&
+    request.url?.startsWith("/orpc/sepAdmission/reading")
+  ) {
+    sendJson(response, 200, orpcSuccess(reading));
+    return;
+  }
+
+  if (request.method === "POST" && request.url?.startsWith("/orpc/")) {
+    await handleOrpcPost(request, response);
     return;
   }
 

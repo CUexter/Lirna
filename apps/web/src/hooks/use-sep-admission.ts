@@ -5,7 +5,7 @@ import type {
   SepAdmissionPreviewData,
   SepAdmissionPreviewProps,
 } from "@/components/sep-admission-preview";
-import { trpc, trpcClient } from "@/utils/trpc";
+import { inquiry } from "@/clients/inquiry";
 
 function validateSubmittedUrl(value: string) {
   try {
@@ -37,7 +37,7 @@ export function useSepAdmission(): UseSepAdmission {
   const [actionError, setActionError] = useState<string>();
 
   const submitPreview = useMutation({
-    ...trpc.sepAdmission.submit.mutationOptions(),
+    ...inquiry.sepAdmission.submit.mutationOptions(),
     onSuccess(data) {
       admitPreview.reset();
       setPreview(data);
@@ -45,7 +45,7 @@ export function useSepAdmission(): UseSepAdmission {
     },
   });
   const extendPreview = useMutation({
-    ...trpc.sepAdmission.extend.mutationOptions(),
+    ...inquiry.sepAdmission.extend.mutationOptions(),
     onSuccess(data) {
       setPreview(data);
       setActionError(undefined);
@@ -55,7 +55,7 @@ export function useSepAdmission(): UseSepAdmission {
     },
   });
   const deletePreview = useMutation({
-    ...trpc.sepAdmission.delete.mutationOptions(),
+    ...inquiry.sepAdmission.delete.mutationOptions(),
     onSuccess() {
       admitPreview.reset();
       setPreview(undefined);
@@ -68,7 +68,7 @@ export function useSepAdmission(): UseSepAdmission {
     },
   });
   const retryPreview = useMutation({
-    ...trpc.sepAdmission.retry.mutationOptions(),
+    ...inquiry.sepAdmission.retry.mutationOptions(),
     onSuccess(data) {
       admitPreview.reset();
       setPreview(data);
@@ -78,7 +78,7 @@ export function useSepAdmission(): UseSepAdmission {
       setActionError(error.message);
       if (!preview) return;
       try {
-        const refreshed = await trpcClient.sepAdmission.get.query({
+        const refreshed = await inquiry.sepAdmission.get.call({
           previewId: preview.id,
         });
         setPreview(refreshed);
@@ -88,7 +88,7 @@ export function useSepAdmission(): UseSepAdmission {
     },
   });
   const admitPreview = useMutation({
-    ...trpc.sepAdmission.admit.mutationOptions(),
+    ...inquiry.sepAdmission.admit.mutationOptions(),
     onSuccess() {
       setActionError(undefined);
     },

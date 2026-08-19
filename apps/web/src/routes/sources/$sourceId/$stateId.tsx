@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
+import { inquiry } from "@/clients/inquiry";
 import { SepReadingWorkspace } from "@/components/sep-reading-workspace";
-import { trpc } from "@/utils/trpc";
 
 export const Route = createFileRoute("/sources/$sourceId/$stateId")({
   validateSearch: z.object({
@@ -19,7 +19,7 @@ function RouteComponent() {
   const { component, view, citation } = Route.useSearch();
   const navigate = Route.useNavigate();
   const reading = useQuery(
-    trpc.sepAdmission.reading.queryOptions({ sourceId, stateId }),
+    inquiry.sepAdmission.reading.queryOptions({ input: { sourceId, stateId } }),
   );
 
   if (reading.isPending) {

@@ -1,4 +1,3 @@
-import type { AppRouter } from "@lirna/api/client";
 import { Badge } from "@lirna/ui/components/badge";
 import { Button } from "@lirna/ui/components/button";
 import {
@@ -12,14 +11,14 @@ import {
 import { Checkbox } from "@lirna/ui/components/checkbox";
 import { Label } from "@lirna/ui/components/label";
 import { Link } from "@tanstack/react-router";
-import type { inferRouterOutputs } from "@trpc/server";
+import type { InquiryOutputs } from "@/clients/inquiry";
 import { ArrowRightIcon, DatabaseIcon } from "lucide-react";
 import { useState } from "react";
 
 import type { SepAdmissionPreviewData } from "./sep-admission-preview";
 
 type ObservationKey = SepAdmissionPreviewData["observations"][number]["key"];
-type AdmissionResult = inferRouterOutputs<AppRouter>["sepAdmission"]["admit"];
+type AdmissionResult = InquiryOutputs["sepAdmission"]["admit"];
 
 interface SepAdmissionDecisionProps {
   preview: SepAdmissionPreviewData;

@@ -1,4 +1,3 @@
-import type { AppRouter } from "@lirna/api/client";
 import { Badge } from "@lirna/ui/components/badge";
 import { Button } from "@lirna/ui/components/button";
 import {
@@ -9,13 +8,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@lirna/ui/components/card";
-import type { inferRouterOutputs } from "@trpc/server";
+import type { InquiryOutputs } from "@/clients/inquiry";
 import { Clock3Icon, Trash2Icon } from "lucide-react";
 import { SepAdmissionDecision } from "./sep-admission-decision";
 import { SepCaptureDetails } from "./sep-capture-details";
 
-export type SepAdmissionPreviewData =
-  inferRouterOutputs<AppRouter>["sepAdmission"]["get"];
+export type SepAdmissionPreviewData = InquiryOutputs["sepAdmission"]["get"];
 
 export interface SepAdmissionPreviewProps {
   preview: SepAdmissionPreviewData;
@@ -30,7 +28,7 @@ export interface SepAdmissionPreviewProps {
   };
   admission: {
     pending: boolean;
-    result?: inferRouterOutputs<AppRouter>["sepAdmission"]["admit"];
+    result?: InquiryOutputs["sepAdmission"]["admit"];
     error?: string;
     onAdmit: (
       observationKeys: SepAdmissionPreviewData["observations"][number]["key"][],

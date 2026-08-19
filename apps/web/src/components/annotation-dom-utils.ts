@@ -1,8 +1,6 @@
-import type { AppRouter } from "@lirna/api/client";
-import type { inferRouterOutputs } from "@trpc/server";
+import type { LibraryOutputs } from "@/clients/library";
 
-export type Annotation =
-  inferRouterOutputs<AppRouter>["annotations"]["list"][number];
+export type Annotation = LibraryOutputs["annotations"]["list"][number];
 export type AnnotationColor = Annotation["color"];
 
 export const colors: AnnotationColor[] = ["yellow", "green", "blue", "pink"];

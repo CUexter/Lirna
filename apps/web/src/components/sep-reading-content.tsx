@@ -1,11 +1,9 @@
-import type { AppRouter } from "@lirna/api/client";
 import { Button } from "@lirna/ui/components/button";
 import { Link } from "@tanstack/react-router";
-import type { inferRouterOutputs } from "@trpc/server";
+import type { InquiryOutputs } from "@/clients/inquiry";
 import { createContext, useContext } from "react";
 
-export type SepReadingData =
-  inferRouterOutputs<AppRouter>["sepAdmission"]["reading"];
+export type SepReadingData = InquiryOutputs["sepAdmission"]["reading"];
 
 export const CitationActions = createContext<{
   open: (entryId: string | undefined, mentionId: string) => void;
