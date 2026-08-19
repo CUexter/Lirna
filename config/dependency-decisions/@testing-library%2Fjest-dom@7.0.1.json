@@ -1,0 +1,11 @@
+{
+  "package": "@testing-library/jest-dom",
+  "version": "7.0.1",
+  "section": "devDependencies",
+  "integrity": "sha512-oMDTC3oA+6CXSO2JZnvOI7CA6oVub6kij5ggk9ohwye5slmkwxYDXcPOVxgMw/RQlticjtO0C1RZkR97HgrWMw==",
+  "reason": "Adds DOM matchers such as toBeInTheDocument for Bun frontend unit assertions.",
+  "maintenance": "Official Testing Library matcher package; pinned to 7.0.1 alongside the React renderer.",
+  "provenance": "Official Testing Library package, resolved to the exact Bun lockfile artifact and integrity above.",
+  "alternatives": "Hand-written DOM assertions would reimplement matcher edge cases already covered here.",
+  "assessmentDate": "2026-08-19"
+}

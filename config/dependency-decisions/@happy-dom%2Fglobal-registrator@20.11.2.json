@@ -1,0 +1,11 @@
+{
+  "package": "@happy-dom/global-registrator",
+  "version": "20.11.2",
+  "section": "devDependencies",
+  "integrity": "sha512-7fkpoXZWzyxaBkzRtlD0wRU5ckxbNT4j6BywzpSYh+SFPsGxEVmNR9KHaMwM2xkHB0pADQLl4Z8DSrztECJ7Ww==",
+  "reason": "Registers happy-dom Window globals onto globalThis for Bun unit tests that render React.",
+  "maintenance": "Pinned with happy-dom 20.11.2 as the official companion registrator; upgrades stay paired with that runtime.",
+  "provenance": "Published by the happy-dom maintainers and resolved to the exact Bun lockfile artifact and integrity above.",
+  "alternatives": "A hand-rolled Window polyfill would miss layout, events, and observer APIs that components already assume.",
+  "assessmentDate": "2026-08-19"
+}
