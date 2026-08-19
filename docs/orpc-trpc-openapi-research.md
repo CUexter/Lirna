@@ -61,7 +61,9 @@ production contract without snapshot/validation tests.
   cover the health check and the unauthenticated 401 shape for `privateData`
   (`apps/server/src/index.test.ts`).
 - The static web app imports only the router type, uses `httpBatchLink` with
-  cookies, and creates TanStack Query options (`apps/web/src/utils/trpc.ts`).
+  cookies, and creates TanStack Query options. The migration replaces the
+  former tRPC utils file with per-module oRPC clients under
+  `apps/web/src/clients/`.
   The Source-admission and Reading routes consume the public `sepAdmission`
   procedures (`apps/web/src/routes/sources/admission.tsx`;
   `apps/web/src/routes/sources/$sourceId/$stateId.tsx`). This is the singleton
