@@ -1,2 +1,1 @@
-export type { AppRouter } from "./routers/index";
-export type { OrpcRouter, OrpcContext } from "./orpc/router";
+export type { OrpcContext, OrpcRouter } from "./orpc/router";

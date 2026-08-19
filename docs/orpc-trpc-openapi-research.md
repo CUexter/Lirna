@@ -2,6 +2,11 @@
 
 Research date: 2026-08-17
 
+> **Status note (2026-08-19):** The oRPC v2 migration (issues #131–#136) has
+> since been completed. tRPC has been removed; the tRPC init module and routers
+> directory formerly under packages/api/src/ have been deleted. This note is
+> retained as a research record, not a description of the current implementation.
+
 ## Research recommendation, not an accepted architecture decision
 
 Lirna currently uses tRPC 11.18.0. Its ten implemented procedures are
@@ -52,10 +57,10 @@ production contract without snapshot/validation tests.
 - `@lirna/api` defines the public `healthCheck` query, the authenticated
   `privateData` query, and eight public `sepAdmission` procedures: `submit`,
   `get`, `extend`, `retry`, `admit`, `state`, `reading`, and `delete`
-  (`packages/api/src/routers/index.ts`; `packages/api/src/routers/sep-admission.ts`).
+  (formerly in the deleted tRPC init module and routers under packages/api/src/).
   Authentication is reusable tRPC middleware over a per-request Better Auth
   session and currently protects `privateData`
-  (`packages/api/src/index.ts`; `packages/api/src/context.ts`).
+  (formerly in the deleted tRPC init module; `packages/api/src/context.ts`).
 - Hono mounts that router at `/trpc/*` through `@hono/trpc-server`, alongside
   Better Auth and CORS (`apps/server/src/index.ts`). Existing server HTTP tests
   cover the health check and the unauthenticated 401 shape for `privateData`

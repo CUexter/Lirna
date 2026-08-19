@@ -8,8 +8,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@lirna/ui/components/card";
-import type { InquiryOutputs } from "@/clients/inquiry";
 import { Clock3Icon, Trash2Icon } from "lucide-react";
+import type { InquiryOutputs } from "@/clients/inquiry";
 import { SepAdmissionDecision } from "./sep-admission-decision";
 import { SepCaptureDetails } from "./sep-capture-details";
 

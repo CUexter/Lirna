@@ -22,7 +22,7 @@ const workspaces = [
     exports: {
       "./client": { default: "./src/client.ts" },
       "./context": { default: "./src/context.ts" },
-      "./routers/index": { default: "./src/routers/index.ts" },
+      "./orpc": { default: "./src/orpc/index.ts" },
     },
   },
   {
@@ -56,7 +56,7 @@ describe("architecture policy fixtures", () => {
         path: "apps/web/src/main.tsx",
         ...parseSource(
           "main.tsx",
-          'import type { AppRouter } from "@lirna/api/client"; import { env } from "@lirna/env/web";',
+          'import type { OrpcRouter } from "@lirna/api/client"; import { env } from "@lirna/env/web";',
         ),
       },
       {
@@ -108,14 +108,14 @@ describe("architecture policy fixtures", () => {
         path: "apps/web/src/router.ts",
         ...parseSource(
           "router.ts",
-          'import type { AppRouter } from "@lirna/api/routers/index";',
+          'import type { OrpcRouter } from "@lirna/api/orpc";',
         ),
       },
     ];
 
     expect(evaluatePolicy({ workspaces, files })).toEqual([
       "apps/web/src/context.ts imports server-owned API implementation @lirna/api/context; use @lirna/api/client",
-      "apps/web/src/router.ts imports server-owned API implementation @lirna/api/routers/index; use @lirna/api/client",
+      "apps/web/src/router.ts imports server-owned API implementation @lirna/api/orpc; use @lirna/api/client",
     ]);
   });
 

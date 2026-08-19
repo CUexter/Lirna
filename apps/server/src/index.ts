@@ -1,14 +1,14 @@
-import { trpcServer } from "@hono/trpc-server";
 import { createContext } from "@lirna/api/context";
+import { generateOpenApiDocument } from "@lirna/api/openapi";
 import { orpcRouter } from "@lirna/api/orpc";
-import { appRouter } from "@lirna/api/routers/index";
 import { auth } from "@lirna/auth";
 import { env } from "@lirna/env/server";
 import { onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { GetMethodCsrfProtectionHandlerPlugin } from "@orpc/server/plugins";
 import { RPC_DEFAULT_ALLOW_METHODS } from "@orpc/server/standard";
-import { Hono } from "hono";
+import { Scalar } from "@scalar/hono-api-reference";
+import { Hono, type MiddlewareHandler } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 
@@ -49,14 +49,27 @@ app.use("/orpc/*", async (c, next) => {
   await next();
 });
 
-app.use(
-  "/trpc/*",
-  trpcServer({
-    router: appRouter,
-    createContext: (_opts, context) => {
-      return createContext({ context });
-    },
-  }),
+const openApiSpec = generateOpenApiDocument();
+
+const requireSession: MiddlewareHandler = async (c, next) => {
+  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  if (!session) {
+    return c.json(
+      { code: "UNAUTHORIZED", message: "Authentication required" },
+      401,
+    );
+  }
+  await next();
+};
+
+app.get("/openapi.json", requireSession, async (c) => {
+  return c.json(await openApiSpec);
+});
+
+app.get(
+  "/docs",
+  requireSession,
+  Scalar({ spec: { url: "/openapi.json" }, title: "Lirna API" }),
 );
 
 app.get("/", (c) => {

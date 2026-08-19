@@ -1,0 +1,11 @@
+{
+  "package": "@orpc/openapi",
+  "version": "2.0.0-beta.28",
+  "section": "dependencies",
+  "integrity": "sha512-mpCeXJfdDtjt8JiPvDagkxNCIrWEBnxqyubi8tyMDWETHULFXN6/qaeHJV4+2+DuD39lYHr+VYSGuw6UmeGzKA==",
+  "reason": "Generates an OpenAPI 3.1 document from the live oRPC router for the Scalar interactive docs route.",
+  "maintenance": "Part of the @orpc/* v2 beta family already adopted for the RPC layer; tracks the same beta.28 release as @orpc/server and @orpc/client.",
+  "provenance": "Official @orpc/openapi package, resolved to the exact Bun lockfile artifact and integrity above.",
+  "alternatives": "Hand-writing the OpenAPI spec would duplicate router metadata and drift; @orpc/openapi derives the spec from the live router so contract changes propagate automatically.",
+  "assessmentDate": "2026-08-19"
+}

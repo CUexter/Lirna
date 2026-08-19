@@ -1,11 +1,10 @@
 import { useMutation } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
-
+import { inquiry } from "@/clients/inquiry";
 import type {
   SepAdmissionPreviewData,
   SepAdmissionPreviewProps,
 } from "@/components/sep-admission-preview";
-import { inquiry } from "@/clients/inquiry";
 
 function validateSubmittedUrl(value: string) {
   try {

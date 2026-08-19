@@ -518,18 +518,6 @@ async function readBody(request) {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-function trpcError(path, message) {
-  return [
-    {
-      error: {
-        message,
-        code: -32600,
-        data: { code: "BAD_REQUEST", httpStatus: 400, path },
-      },
-    },
-  ];
-}
-
 function orpcSuccess(data) {
   return { json: data, meta: [] };
 }
@@ -545,59 +533,6 @@ function orpcError(message, code = "BAD_REQUEST") {
     },
     meta: [],
   };
-}
-
-async function handleTrpcPost(request, response) {
-  const path = request.url.slice("/trpc/".length).split("?")[0];
-  const body = await readBody(request);
-  await new Promise((resolve) => setTimeout(resolve, 80));
-
-  if (path === "sepAdmission.submit") {
-    if (body.includes("rejected-entry")) {
-      sendJson(
-        response,
-        400,
-        trpcError(path, "The SEP entry could not be captured."),
-      );
-      return;
-    }
-    const submittedPreview = body.includes("partial-entry")
-      ? partialPreview
-      : body.includes("stopped-entry")
-        ? stoppedPreview
-        : preview;
-    sendJson(response, 200, [{ result: { data: submittedPreview } }]);
-    return;
-  }
-  if (path === "sepAdmission.extend") {
-    sendJson(response, 200, [
-      {
-        result: {
-          data: { ...preview, expiresAt: "2026-08-31T12:00:00.000Z" },
-        },
-      },
-    ]);
-    return;
-  }
-  if (path === "sepAdmission.delete") {
-    sendJson(response, 200, [{ result: { data: { deleted: true } } }]);
-    return;
-  }
-  if (path === "sepAdmission.retry") {
-    sendJson(response, 200, [{ result: { data: retriedPreview } }]);
-    return;
-  }
-  if (path === "sepAdmission.admit") {
-    const selected = body.includes("recommended-archive")
-      ? admissionResult.states
-      : admissionResult.states.slice(0, 1);
-    sendJson(response, 200, [
-      { result: { data: { ...admissionResult, states: selected } } },
-    ]);
-    return;
-  }
-  response.writeHead(404, corsHeaders);
-  response.end("Not found");
 }
 
 async function handleOrpcPost(request, response) {
@@ -715,39 +650,6 @@ const server = createServer(async (request, response) => {
 
   if (request.method === "POST" && request.url?.startsWith("/orpc/")) {
     await handleOrpcPost(request, response);
-    return;
-  }
-
-  if (
-    request.method === "GET" &&
-    request.url?.startsWith("/trpc/healthCheck")
-  ) {
-    response.writeHead(200, {
-      ...corsHeaders,
-      "content-type": "application/json",
-    });
-    response.end(JSON.stringify([{ result: { data: "OK" } }]));
-    return;
-  }
-
-  if (
-    request.method === "GET" &&
-    request.url?.startsWith("/trpc/sepAdmission.reading")
-  ) {
-    sendJson(response, 200, [{ result: { data: reading } }]);
-    return;
-  }
-
-  if (
-    request.method === "GET" &&
-    request.url?.startsWith("/trpc/annotations.list")
-  ) {
-    sendJson(response, 200, [{ result: { data: [] } }]);
-    return;
-  }
-
-  if (request.method === "POST" && request.url?.startsWith("/trpc/")) {
-    await handleTrpcPost(request, response);
     return;
   }
 

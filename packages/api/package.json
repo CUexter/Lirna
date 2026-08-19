@@ -3,7 +3,7 @@
   "type": "module",
   "exports": {
     ".": {
-      "default": "./src/index.ts"
+      "default": "./src/orpc/index.ts"
     },
     "./client": {
       "default": "./src/client.ts"
@@ -14,8 +14,8 @@
     "./orpc": {
       "default": "./src/orpc/index.ts"
     },
-    "./routers/index": {
-      "default": "./src/routers/index.ts"
+    "./openapi": {
+      "default": "./src/orpc/openapi.ts"
     }
   },
   "scripts": {},
@@ -24,8 +24,8 @@
     "@lirna/db": "workspace:*",
     "@lirna/env": "workspace:*",
     "@orpc/server": "catalog:",
-    "@trpc/client": "catalog:",
-    "@trpc/server": "catalog:",
+    "@orpc/openapi": "catalog:",
+    "@orpc/zod": "catalog:",
     "dotenv": "catalog:",
     "drizzle-orm": "^0.45.2",
     "parse5": "^7.3.0",

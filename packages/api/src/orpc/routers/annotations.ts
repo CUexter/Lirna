@@ -1,3 +1,4 @@
+import { openapi } from "@orpc/openapi";
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
@@ -15,6 +16,15 @@ const body = z.string().trim().max(20_000).optional();
 export const annotationsRouter = {
   list: publicProcedure
     .input(sourceStateInput)
+    .meta(
+      openapi({
+        method: "GET",
+        path: "/annotations",
+        operationId: "annotations.list",
+        summary: "List annotations for a source state",
+        tags: ["Annotations"],
+      }),
+    )
     .handler(({ context, input }) =>
       context.annotations.list(input.sourceId, input.stateId),
     ),
@@ -43,6 +53,15 @@ export const annotationsRouter = {
           },
         ),
     )
+    .meta(
+      openapi({
+        method: "POST",
+        path: "/annotations",
+        operationId: "annotations.create",
+        summary: "Create an annotation",
+        tags: ["Annotations"],
+      }),
+    )
     .handler(async ({ context, input }) => {
       const annotation = await context.annotations.create(input);
       if (!annotation) throw notFound();
@@ -51,6 +70,15 @@ export const annotationsRouter = {
 
   update: publicProcedure
     .input(sourceStateInput.extend({ id: z.string().uuid(), color, body }))
+    .meta(
+      openapi({
+        method: "PATCH",
+        path: "/annotations/{id}",
+        operationId: "annotations.update",
+        summary: "Update an annotation",
+        tags: ["Annotations"],
+      }),
+    )
     .handler(async ({ context, input }) => {
       const annotation = await context.annotations.update(input);
       if (!annotation) throw notFound();
@@ -59,6 +87,15 @@ export const annotationsRouter = {
 
   delete: publicProcedure
     .input(sourceStateInput.extend({ id: z.string().uuid() }))
+    .meta(
+      openapi({
+        method: "DELETE",
+        path: "/annotations/{id}",
+        operationId: "annotations.delete",
+        summary: "Delete an annotation",
+        tags: ["Annotations"],
+      }),
+    )
     .handler(async ({ context, input }) => {
       const deleted = await context.annotations.delete(
         input.sourceId,

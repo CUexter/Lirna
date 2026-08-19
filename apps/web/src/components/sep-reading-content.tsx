@@ -1,7 +1,7 @@
 import { Button } from "@lirna/ui/components/button";
 import { Link } from "@tanstack/react-router";
-import type { InquiryOutputs } from "@/clients/inquiry";
 import { createContext, useContext } from "react";
+import type { InquiryOutputs } from "@/clients/inquiry";
 
 export type SepReadingData = InquiryOutputs["sepAdmission"]["reading"];
 

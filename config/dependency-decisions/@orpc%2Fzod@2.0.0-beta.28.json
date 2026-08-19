@@ -1,0 +1,11 @@
+{
+  "package": "@orpc/zod",
+  "version": "2.0.0-beta.28",
+  "section": "dependencies",
+  "integrity": "sha512-sAu7oVOLzaqSzKbBFUUSDfPMfZA6qsT0DHx2e4/I4hSudevRiWrrqujkoGblHARoQ++2TF+ApqcAua/TSvhbZw==",
+  "reason": "Converts Zod input schemas to JSON Schema for the OpenAPI generator, so request and response bodies are documented from the same Zod types the router validates against.",
+  "maintenance": "Part of the @orpc/* v2 beta family already adopted; tracks the same beta.28 release.",
+  "provenance": "Official @orpc/zod package, resolved to the exact Bun lockfile artifact and integrity above.",
+  "alternatives": "No smaller existing dependency provides Zod-to-JSON-Schema conversion compatible with @orpc/openapi's converter interface.",
+  "assessmentDate": "2026-08-19"
+}

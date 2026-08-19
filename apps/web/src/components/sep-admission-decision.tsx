@@ -11,9 +11,9 @@ import {
 import { Checkbox } from "@lirna/ui/components/checkbox";
 import { Label } from "@lirna/ui/components/label";
 import { Link } from "@tanstack/react-router";
-import type { InquiryOutputs } from "@/clients/inquiry";
 import { ArrowRightIcon, DatabaseIcon } from "lucide-react";
 import { useState } from "react";
+import type { InquiryOutputs } from "@/clients/inquiry";
 
 import type { SepAdmissionPreviewData } from "./sep-admission-preview";
 

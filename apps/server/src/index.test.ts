@@ -9,22 +9,6 @@ process.env.NODE_ENV = "test";
 const { app } = await import("./index");
 
 describe("server HTTP API", () => {
-  test("returns the public health-check result through tRPC", async () => {
-    const response = await app.request("/trpc/healthCheck");
-
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ result: { data: "OK" } });
-  });
-
-  test("rejects protected data without a session", async () => {
-    const response = await app.request("/trpc/privateData");
-
-    expect(response.status).toBe(401);
-    expect(await response.json()).toMatchObject({
-      error: { code: -32001, data: { code: "UNAUTHORIZED" } },
-    });
-  });
-
   test("returns the public health-check result through oRPC", async () => {
     const response = await app.request("/orpc/healthCheck");
 
@@ -42,5 +26,17 @@ describe("server HTTP API", () => {
         message: "Authentication required",
       },
     });
+  });
+
+  test("rejects /docs without a session", async () => {
+    const response = await app.request("/docs");
+
+    expect(response.status).toBe(401);
+  });
+
+  test("rejects /openapi.json without a session", async () => {
+    const response = await app.request("/openapi.json");
+
+    expect(response.status).toBe(401);
   });
 });
