@@ -5,6 +5,8 @@ import {
 } from "@lirna/db/schema/sep-admission";
 import { createPostgresTestDatabase } from "@lirna/db/test-support/postgres-database";
 
+import type { SepAdmissionCreateRecord } from "../sep-admission";
+
 export const sepAdmissionPostgresAdminUrl = process.env.POSTGRES_ADMIN_URL;
 
 export async function openSepAdmissionPostgres(label: string) {
@@ -111,6 +113,90 @@ export async function insertPreview(
     }),
   );
   return id;
+}
+
+export function admissionCreateRecord({
+  id = randomUUID(),
+  stableKey,
+  title = "Admission integration",
+  now = new Date(),
+  expiresAt = new Date(now.getTime() + 60_000),
+  observations = ["submitted"],
+  retryUsed = false,
+}: {
+  id?: string;
+  stableKey: string;
+  title?: string;
+  now?: Date;
+  expiresAt?: Date;
+  observations?: Array<"submitted" | "recommended-archive">;
+  retryUsed?: boolean;
+}): SepAdmissionCreateRecord {
+  return {
+    id,
+    stableKey,
+    submittedUrl: "https://plato.stanford.edu/entries/admission/",
+    recommendedArchiveUrl: observations.includes("recommended-archive")
+      ? "https://plato.stanford.edu/archives/sum2026/entries/admission/"
+      : undefined,
+    title,
+    authors: ["Integration Author"],
+    publisher: "Metaphysics Research Lab, Stanford University",
+    publicationHistory: ["First published 2026"],
+    diagnostics: [],
+    captureReport: {
+      budget: retryUsed ? "expanded" : "standard",
+      completeness: "complete",
+      readingReadiness: "ready",
+      readinessReasons: [],
+      unresolvedResources: [],
+      limits: {
+        maxComponents: 64,
+        maxAssets: 256,
+        maxResourceBytes: 50_000_000,
+        maxTotalBytes: 250_000_000,
+        maxDepth: 8,
+        maxRedirects: 5,
+        timeoutMilliseconds: 15_000,
+        maxConcurrency: 4,
+      },
+      retryUsed,
+    },
+    processingMilliseconds: 1,
+    createdAt: now,
+    expiresAt,
+    resources: observations.flatMap((observation) => {
+      const main = previewResource({
+        previewId: id,
+        role: "main",
+        identity: observation === "submitted" ? "active:/" : "sum2026:/",
+        body: Buffer.from(
+          `<html><body><main><p>${observation}</p></main></body></html>`,
+        ),
+        observationKey: observation,
+      });
+      const citation =
+        observation === "submitted"
+          ? previewResource({
+              previewId: id,
+              role: "citation-information",
+              identity: "citation-information:admission",
+              body: Buffer.from("citation"),
+            })
+          : undefined;
+      return [
+        toCapturedResource(main),
+        ...(citation ? [toCapturedResource(citation)] : []),
+      ];
+    }),
+  };
+}
+
+function toCapturedResource(
+  row: ReturnType<typeof previewResource>,
+): SepAdmissionCreateRecord["resources"][number] {
+  const { id: _id, previewId: _previewId, ...resource } = row;
+  return resource;
 }
 
 export function previewResource({

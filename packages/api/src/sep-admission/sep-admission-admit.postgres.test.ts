@@ -166,4 +166,31 @@ describePostgres("SEP Admission PostgreSQL store", () => {
         .where(eq(sepSourceStateMetadata.admissionPreviewId, previewId)),
     ).toEqual([]);
   });
+
+  test("rejects a different observation selection after admission", async () => {
+    const previewId = await insertPreview(database, {
+      stableKey: `sep:mismatch-${randomUUID()}`,
+      observations: ["submitted", "recommended-archive"],
+    });
+    await store.admit(previewId, ["submitted"], new Date());
+
+    await expect(
+      store.admit(previewId, ["submitted", "recommended-archive"], new Date()),
+    ).rejects.toThrow(
+      "This preview was already admitted with a different observation selection",
+    );
+  });
+
+  test("rejects a missing observation", async () => {
+    const previewId = await insertPreview(database, {
+      stableKey: `sep:missing-${randomUUID()}`,
+      observations: ["submitted"],
+    });
+
+    await expect(
+      store.admit(previewId, ["recommended-archive"], new Date()),
+    ).rejects.toThrow(
+      "Recommended archive observation is unavailable for admission",
+    );
+  });
 });

@@ -81,4 +81,26 @@ describePostgres("SEP admitted-state PostgreSQL reader", () => {
       .where(eq(sourceStateDerivativeActivations.sourceStateId, stateId ?? ""));
     expect(activations).toHaveLength(1);
   });
+
+  test("returns the admitted Source state", async () => {
+    const previewId = randomUUID();
+    const admittedAt = new Date();
+    await insertPreview(database, {
+      id: previewId,
+      stableKey: `sep:state-${previewId}`,
+      title: "Reading integration",
+      observations: ["submitted"],
+      now: admittedAt,
+    });
+
+    const admitted = await store.admit(previewId, ["submitted"], admittedAt);
+    const state = admitted?.states[0];
+    expect(state).toBeDefined();
+    expect(
+      await store.getState(admitted?.sourceId ?? "", state?.id ?? ""),
+    ).toEqual(state);
+    expect(
+      await store.getState(admitted?.sourceId ?? "", randomUUID()),
+    ).toBeUndefined();
+  });
 });

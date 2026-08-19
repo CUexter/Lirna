@@ -92,7 +92,11 @@ POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
   bun test "$db_dir/src/postgres.integration.test.ts" --timeout 30000
 
 POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
-  bun test "$root/packages/api/src/sep-admission/sep-admission.postgres.test.ts" --timeout 30000
+  bun test \
+    "$root/packages/api/src/sep-admission/sep-preview-store.postgres.test.ts" \
+    "$root/packages/api/src/sep-admission/sep-admission-admit.postgres.test.ts" \
+    "$root/packages/api/src/sep-admission/sep-admitted-state-reader.postgres.test.ts" \
+    --timeout 30000
 
 POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
   bun test "$root/packages/api/src/annotations/annotation-store.postgres.test.ts" --timeout 30000
