@@ -6,11 +6,15 @@ import {
 } from "./check-coverage.mjs";
 
 describe("coverage source baseline", () => {
-  test("recognizes Bun-instrumented source and excludes browser and policy fixtures", () => {
+  test("recognizes Bun-instrumented source and excludes policy fixtures", () => {
     expect(isEligibleSource("apps/server/src/runtime.mts")).toBe(true);
     expect(isEligibleSource("packages/api/src/runtime.cjs")).toBe(true);
-    expect(isEligibleSource("apps/web/src/components/loader.tsx")).toBe(false);
+    expect(isEligibleSource("apps/web/src/components/loader.tsx")).toBe(true);
     expect(isEligibleSource("apps/web/src/config/fixture.ts")).toBe(false);
+    expect(isEligibleSource("packages/ui/src/components/button.tsx")).toBe(
+      true,
+    );
+    expect(isEligibleSource("packages/ui/src/lib/utils.ts")).toBe(true);
     expect(isEligibleSource("scripts/runtime.mjs")).toBe(false);
   });
 
@@ -65,14 +69,18 @@ describe("coverage source baseline", () => {
     ]);
   });
 
-  test("retains existing browser baseline entries outside Bun LCOV", () => {
+  test("rejects stale exclusions for shadcn components absent from LCOV", () => {
     expect(
       sourceBaselineViolations({
-        absentSources: { "apps/web/src/components/loader.tsx": "hash" },
+        absentSources: {
+          "packages/ui/src/components/button.tsx": "shadcn-hash",
+        },
         coveredSources: new Set(),
         eligibleSources: [],
         hashes: {},
       }),
-    ).toEqual([]);
+    ).toEqual([
+      "packages/ui/src/components/button.tsx is deleted but remains in the legacy baseline",
+    ]);
   });
 });

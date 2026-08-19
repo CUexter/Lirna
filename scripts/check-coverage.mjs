@@ -25,14 +25,9 @@ const sourceExtensions = new Set([
   ".tsx",
 ]);
 
-function isBrowserSource(source) {
-  return /^apps\/web\/src\//.test(source);
-}
-
 export function isEligibleSource(source) {
   return (
     sourcePattern.test(source) &&
-    !isBrowserSource(source) &&
     !excludedPattern.test(source) &&
     sourceExtensions.has(path.extname(source))
   );
@@ -61,8 +56,6 @@ export function sourceBaselineViolations({
   }
 
   for (const source of Object.keys(absentSources).sort()) {
-    // Browser modules run in the Playwright quality job, not Bun's LCOV runtime.
-    if (isBrowserSource(source)) continue;
     if (!eligible.has(source)) {
       violations.push(
         `${source} is deleted but remains in the legacy baseline`,
