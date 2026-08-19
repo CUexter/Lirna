@@ -101,6 +101,7 @@ The active hook is `.husky/pre-commit`.
 | Concern | Enforcement | Scope and threshold |
 | --- | --- | --- |
 | Staged secrets | `bun run secrets:staged` | Gitleaks scans the staged diff. `.gitleaksignore` supplies allowed fingerprints. |
+| Dependency lockfile consistency | `bun run dependency:check` | Staged direct-dependency changes must resolve to an exact version and integrity entry in `bun.lock`; catches hallucinated or never-installed versions before commit. |
 | Formatting | lint-staged runs `biome format --write` | Staged JavaScript, TypeScript, JSX, TSX, JSON, and JSONC files; two-space indentation and double-quoted JavaScript. |
 | Fallow health | `bun run quality:fallow` (`fallow health`) | `apps/` and `packages/`; cognitive complexity maximum 15 and cyclomatic maximum 20 per function, health score baselined against `.fallow/baselines/health.json`. Replaces the former Biome `noExcessiveCognitiveComplexity` rule. |
 | Function parameters | `bun run quality` | `apps/` and `packages/`; maximum 4. |
@@ -129,7 +130,8 @@ required status name.
 | Workflow | Blocking behavior | Scope |
 | --- | --- | --- |
 | Gitleaks | Fails on detected secrets | Full fetched Git history through the repository-owned `.gitleaks.toml`; local staged and outgoing-range scans use the same configuration. |
-| Dependency assessment verification | Fails when a changed direct dependency lacks a committed decision matching `package.json` and `bun.lock`, including maintenance, provenance, and alternatives evidence | `bun run dependency:check` in the active Husky pre-commit hook and `bun run maintenance:test` in Quality CI; human review judges the recorded evidence and license suitability. |
+| Dependency lockfile verification | Fails when a changed direct dependency does not resolve to an exact version and integrity entry in `bun.lock` | `bun run dependency:check` in the active Husky pre-commit hook, the range check in Quality CI against the push base, and `bun run maintenance:test` fixtures in Quality CI. |
+| Dependency confidence scoring | Warns without failing when a changed direct dependency scores below `minimumScore` in `config/dependency-score-policy.json` | `scripts/score-dependencies.mjs` in Quality CI scores registry-verified archive integrity, lifecycle scripts, native build files, provenance, OSV (advisory), downloads, repository activity, and similar names; per-dependency decision records are retired. |
 | Semgrep blocking scan | Fails on findings or scanner errors | Repository-owned command injection, SQL injection, unsafe process spawn, path traversal, insecure cryptography, and XSS rules for JavaScript and TypeScript. |
 | Semgrep reporting scan | Reports findings but does not fail for a finding | Dynamic code execution and disabled TLS verification. Scanner or configuration errors still fail. |
 | Semgrep policy test | Fails when expected fixture findings, safe behavior, or workflow wiring regress | Local Semgrep rules and fixtures. |
@@ -145,9 +147,9 @@ required status name.
 | General quality gate | Fails on formatting/linting, configured size/props checks, Fallow health/duplication/dead-code, behavior tests, coverage ratchet, PostgreSQL migration/repository integration, workspace type errors, or production build errors | `.github/workflows/quality.yml`; aggregate status: `Quality / quality`. |
 
 The Quality workflow does not run Nix flake checks. Trivy owns
-dependency vulnerability scanning; dependency assessment verification only
-checks that direct dependency changes have matching committed evidence, avoiding
-duplicate vulnerability responsibility.
+dependency vulnerability scanning; dependency confidence scoring treats OSV
+data as one advisory input, so its non-blocking warnings never duplicate or
+override Trivy's blocking vulnerability decisions.
 
 ### Maintenance policy inventory
 
@@ -155,13 +157,13 @@ The maintenance cleanup intentionally leaves one enforcement path per concern:
 
 | Disposition | Scripts | Reason |
 | --- | --- | --- |
-| Retained | `scripts/verify-dependency-assessments.mjs`, `scripts/secret-scan.sh` | These are the active dependency-decision and Gitleaks enforcement entry points used by hooks and CI. |
+| Retained | `scripts/verify-dependency-assessments.mjs`, `scripts/secret-scan.sh` | These are the active dependency lockfile and Gitleaks enforcement entry points used by hooks and CI. |
 | Replaced | `test-dependency-verification.sh`, `test-secret-scanning.sh` | Their safe, violation, and tool-error contracts are consolidated in `scripts/test-maintenance-policy.sh`. |
 | Replaced | `check-ui-primitives.mjs` | UI ownership is now one rule within the broader `scripts/check-architecture.mjs` policy. |
 | Replaced | `check-duplication.mjs` | Duplication detection is now `fallow dupes` (strict mode, baselined against `.fallow/baselines/dupes.json`). |
 | Replaced | `check-architecture.mjs` cycle, edge, and export checks | Workspace dependency cycles, forbidden edges, undeclared exports, and cross-workspace relative imports are now Fallow's `circular-dependencies`, `boundary-violation`, `unlisted-dependencies`, `unresolved-imports`, and `duplicate-exports` rules in `.fallowrc.json`. `check-architecture.mjs` retains route placement, native-control ownership, and the browser/server import boundary. |
 | Replaced | Biome `noExcessiveCognitiveComplexity` | Cognitive complexity (maximum 15) is now `fallow health` (`.fallowrc.json` `maxCognitive: 15`). |
-| Deleted | `assess-dependency.mjs`, `dependency-assessment-policy.mjs`, `dependency-decisions.mjs`, `run-dependency-scripts.mjs` | These former `scripts/` entries implemented an npm-era installer, scoring, and lifecycle-script machinery that duplicated package-manager behavior and was not an active Bun gate. Committed, exact-version review records plus the verifier retain the enforceable contract. |
+| Deleted | `assess-dependency.mjs`, `dependency-assessment-policy.mjs`, `dependency-decisions.mjs`, `run-dependency-scripts.mjs` | These former `scripts/` entries implemented an npm-era installer and per-dependency decision records that duplicated package-manager behavior. Registry-signal confidence scoring now lives in `scripts/dependency-score-policy.mjs` and `scripts/score-dependencies.mjs` as a warn-only CI gate. |
 
 ### Available but manual
 

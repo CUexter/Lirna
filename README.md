@@ -137,6 +137,7 @@ deployment example, and checks.
 - Apply automatic fixes: `bun run check:fix`
 - Scan repository history for secrets: `bun run secrets:check`
 - Verify changed direct dependencies against `bun.lock`: `bun run dependency:check`
+- Score changed direct dependencies for supply-chain confidence (advisory): `bun run dependency:score`
 - Run blocking source security rules: `bun run check:semgrep`
 - Report lower-confidence source security findings: `bun run report:semgrep`
 - Scan deployable configuration: `scripts/trivy-scan.sh config`

@@ -22,6 +22,7 @@
     "scripts/check-architecture.test.mjs",
     "scripts/check-coverage.test.mjs",
     "scripts/check-documentation.test.mjs",
+    "scripts/dependency-score.test.mjs",
     "scripts/web-bundle-budget.test.mjs",
     "apps/web/pwa-assets.config.ts",
     "config/semgrep/fixtures/**"

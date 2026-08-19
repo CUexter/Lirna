@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { execFile } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 const exec = promisify(execFile);
@@ -17,6 +18,13 @@ async function main() {
   const revisions =
     mode === "--staged" ? { base: "HEAD", target: ":" } : range(args);
   if (/^0+$/.test(revisions.base)) return;
+  const additions = await changedDirectDependencies(revisions);
+  console.log(
+    `dependency lockfile verification passed (${additions.length} changed direct dependencies)`,
+  );
+}
+
+export async function changedDirectDependencies(revisions) {
   const [beforeManifest, afterManifest, beforeLock, afterLock] =
     await Promise.all([
       readJson(revisions.base, "package.json"),
@@ -24,32 +32,10 @@ async function main() {
       readJson(revisions.base, "bun.lock"),
       readJson(revisions.target, "bun.lock"),
     ]);
-  const additions = directAdditions(
-    beforeManifest,
-    afterManifest,
-    beforeLock,
-    afterLock,
-  );
-  for (const dependency of additions) {
-    const identity = encodeURIComponent(
-      `${dependency.name}@${dependency.version}`,
-    ).replaceAll("%40", "@");
-    const record = await readJson(
-      revisions.target,
-      `config/dependency-decisions/${identity}.json`,
-    );
-    if (!record)
-      throw new Error(
-        `unassessed direct dependency ${dependency.name}@${dependency.version}; add a committed dependency decision`,
-      );
-    validateDecision(record, dependency);
-  }
-  console.log(
-    `dependency assessment verification passed (${additions.length} changed direct dependencies)`,
-  );
+  return directAdditions(beforeManifest, afterManifest, beforeLock, afterLock);
 }
 
-function directAdditions(
+export function directAdditions(
   beforeManifest = {},
   afterManifest = {},
   beforeLock = {},
@@ -109,30 +95,7 @@ function lockPackage(lock, name) {
   };
 }
 
-function validateDecision(record, dependency) {
-  if (
-    record.package !== dependency.name ||
-    record.version !== dependency.version ||
-    record.section !== dependency.section
-  )
-    throw new Error(
-      `dependency decision does not match ${dependency.name}@${dependency.version}`,
-    );
-  if (record.integrity !== dependency.integrity)
-    throw new Error(
-      `dependency decision does not match Bun lockfile integrity for ${dependency.name}`,
-    );
-  if (typeof record.reason !== "string" || record.reason.trim().length < 10)
-    throw new Error("dependency decision requires a package-specific reason");
-  for (const field of ["maintenance", "provenance", "alternatives"]) {
-    if (typeof record[field] !== "string" || record[field].trim().length < 10)
-      throw new Error(`dependency decision requires ${field} review evidence`);
-  }
-  if (!Number.isFinite(new Date(record.assessmentDate).getTime()))
-    throw new Error("dependency decision has an invalid assessmentDate");
-}
-
-function range(args) {
+export function range(args) {
   if (args.length !== 2)
     throw new Error(
       "usage: bun run dependency:check -- --staged | --range BASE HEAD",
@@ -157,7 +120,9 @@ async function readJson(revision, path) {
   }
 }
 
-main().catch((error) => {
-  console.error(`Dependency assessment verification failed: ${error.message}`);
-  process.exitCode = 1;
-});
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(`Dependency lockfile verification failed: ${error.message}`);
+    process.exitCode = 1;
+  });
+}

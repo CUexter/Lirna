@@ -11,6 +11,7 @@ test -f "$root/.husky/pre-commit"
 test -f "$root/.gitleaks.toml"
 grep -Fq 'bun run secrets:staged' "$root/.husky/pre-commit"
 grep -Fq 'run: bun run maintenance:test' "$root/.github/workflows/quality.yml"
+test ! -e "$root/config/dependency-decisions"
 
 mkdir "$tmp/dependency-repo"
 git init -q "$tmp/dependency-repo"
@@ -34,16 +35,21 @@ const lock = { lockfileVersion: 1, workspaces: { "": { dependencies: manifest.de
 fs.writeFileSync(`${root}/package.json`, `${JSON.stringify(manifest)}\n`);
 fs.writeFileSync(`${root}/bun.lock`, `${JSON.stringify(lock)}\n`);
 NODE
-mkdir -p "$tmp/dependency-repo/config/dependency-decisions"
-printf '%s\n' '{"package":"fixture","version":"2.0.0","section":"dependencies","integrity":"sha512-fixture-2","assessmentDate":"2026-08-17","reason":"Synthetic fixture exercises the committed decision path.","maintenance":"Synthetic maintenance evidence for the safe fixture.","provenance":"Synthetic provenance evidence for the safe fixture.","alternatives":"Synthetic alternatives review for the safe fixture."}' > "$tmp/dependency-repo/config/dependency-decisions/fixture@2.0.0.json"
-git -C "$tmp/dependency-repo" add package.json bun.lock config
+git -C "$tmp/dependency-repo" add package.json bun.lock
 LIRNA_DEPENDENCY_PROJECT_ROOT="$tmp/dependency-repo" node "$root/scripts/verify-dependency-assessments.mjs" --staged >/dev/null
-rm "$tmp/dependency-repo/config/dependency-decisions/fixture@2.0.0.json"
-git -C "$tmp/dependency-repo" add config
+node - "$tmp/dependency-repo" <<'NODE'
+const fs = require("node:fs");
+const root = process.argv[2];
+const manifest = JSON.parse(fs.readFileSync(`${root}/package.json`, "utf8"));
+manifest.dependencies.ghost = "3.0.0";
+fs.writeFileSync(`${root}/package.json`, `${JSON.stringify(manifest)}\n`);
+NODE
+git -C "$tmp/dependency-repo" add package.json
 if LIRNA_DEPENDENCY_PROJECT_ROOT="$tmp/dependency-repo" node "$root/scripts/verify-dependency-assessments.mjs" --staged >"$tmp/dependency-violation.log" 2>&1; then
-  printf '%s\n' 'dependency verifier accepted an unassessed fixture' >&2
+  printf '%s\n' 'dependency verifier accepted a hallucinated fixture' >&2
   exit 1
 fi
+grep -Fq 'missing an exact Bun lockfile entry' "$tmp/dependency-violation.log"
 
 mkdir "$tmp/dependency-bin"
 ln -s "$(command -v node)" "$tmp/dependency-bin/node"

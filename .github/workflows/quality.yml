@@ -27,11 +27,18 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Test maintenance policy
         run: bun run maintenance:test
-      - name: Verify changed dependency decisions
+      - name: Verify changed dependency lockfiles
         if: github.event_name != 'workflow_dispatch'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: node scripts/verify-dependency-assessments.mjs --range "$BASE_SHA" "${{ github.sha }}"
+      - name: Score changed dependency confidence
+        if: github.event_name != 'workflow_dispatch'
+        continue-on-error: true
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/score-dependencies.mjs --range "$BASE_SHA" "${{ github.sha }}"
 
   static:
     name: Static checks

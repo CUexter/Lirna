@@ -65,6 +65,7 @@
     "secrets:staged": "scripts/secret-scan.sh staged",
     "secrets:range": "scripts/secret-scan.sh range",
     "dependency:check": "node scripts/verify-dependency-assessments.mjs --staged",
+    "dependency:score": "node scripts/score-dependencies.mjs",
     "maintenance:test": "scripts/test-maintenance-policy.sh",
     "security:trivy:config": "scripts/trivy-scan.sh config",
     "security:trivy:dependencies": "scripts/trivy-scan.sh dependencies",
