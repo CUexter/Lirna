@@ -24,4 +24,23 @@ describe("server HTTP API", () => {
       error: { code: -32001, data: { code: "UNAUTHORIZED" } },
     });
   });
+
+  test("returns the public health-check result through oRPC", async () => {
+    const response = await app.request("/orpc/healthCheck");
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ json: "OK" });
+  });
+
+  test("rejects protected oRPC data without a session", async () => {
+    const response = await app.request("/orpc/privateData");
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({
+      json: {
+        code: "UNAUTHORIZED",
+        message: "Authentication required",
+      },
+    });
+  });
 });

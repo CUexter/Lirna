@@ -15,6 +15,7 @@
     "@lirna/auth": "workspace:*",
     "@lirna/db": "workspace:*",
     "@lirna/env": "workspace:*",
+    "@orpc/server": "catalog:",
     "@trpc/server": "catalog:",
     "better-auth": "catalog:",
     "dotenv": "catalog:",

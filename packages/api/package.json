@@ -11,6 +11,9 @@
     "./context": {
       "default": "./src/context.ts"
     },
+    "./orpc": {
+      "default": "./src/orpc/index.ts"
+    },
     "./routers/index": {
       "default": "./src/routers/index.ts"
     }
@@ -20,6 +23,7 @@
     "@lirna/auth": "workspace:*",
     "@lirna/db": "workspace:*",
     "@lirna/env": "workspace:*",
+    "@orpc/server": "catalog:",
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
     "dotenv": "catalog:",
