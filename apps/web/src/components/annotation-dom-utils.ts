@@ -57,6 +57,14 @@ export function rangeFromOffsets(
   startOffset: number,
   endOffset: number,
 ) {
+  if (
+    !Number.isInteger(startOffset) ||
+    !Number.isInteger(endOffset) ||
+    startOffset < 0 ||
+    endOffset <= startOffset
+  ) {
+    return undefined;
+  }
   const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT);
   const range = document.createRange();
   let offset = 0;
@@ -167,9 +175,13 @@ export function textOffsetAtPoint(article: HTMLElement, x: number, y: number) {
   const offset = modern?.offset ?? legacy?.startOffset;
   if (!node || offset === undefined || !article.contains(node)) return -1;
   const prefix = document.createRange();
-  prefix.selectNodeContents(article);
-  prefix.setEnd(node, offset);
-  return prefix.toString().length;
+  try {
+    prefix.selectNodeContents(article);
+    prefix.setEnd(node, offset);
+    return prefix.toString().length;
+  } catch {
+    return -1;
+  }
 }
 
 export function menuPosition(rect: DOMRect): MenuPosition {
