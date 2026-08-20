@@ -59,6 +59,7 @@ export function SepReadingWorkspace({
       <header className="border-b px-4 sm:px-6 lg:px-10">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center">
           <Button
+            nativeButton={false}
             render={<Link hash="source-information" to="." />}
             size="sm"
             variant="ghost"

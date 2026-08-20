@@ -171,6 +171,7 @@ export function SepAdmissionPreview({
       />
 
       <SepAdmissionDecision
+        disabled={actionsDisabled}
         error={admission.error}
         key={`${preview.id}:${preview.capture.budget}`}
         onAdmit={admission.onAdmit}

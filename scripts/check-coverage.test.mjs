@@ -12,6 +12,24 @@ describe("coverage source baseline", () => {
     expect(isEligibleSource("packages/api/src/runtime.cjs")).toBe(true);
     expect(isEligibleSource("apps/web/src/components/loader.tsx")).toBe(true);
     expect(isEligibleSource("apps/web/src/config/fixture.ts")).toBe(false);
+    expect(
+      isEligibleSource(
+        "apps/web/src/routes/sources/-admission-test-fixtures.ts",
+      ),
+    ).toBe(false);
+    expect(
+      isEligibleSource(
+        "apps/web/src/routes/sources/-admission-test-harness.tsx",
+      ),
+    ).toBe(false);
+    expect(
+      isEligibleSource(
+        "apps/web/src/components/reading-annotations-test-support.ts",
+      ),
+    ).toBe(false);
+    expect(
+      isEligibleSource("apps/web/src/test-support/mutation-options.ts"),
+    ).toBe(false);
     expect(isEligibleSource("packages/ui/src/components/button.tsx")).toBe(
       true,
     );
@@ -205,7 +223,9 @@ describe("coverage source baseline", () => {
     expect(promotion.baseline.absentSources).toEqual({
       "packages/legacy/src/index.ts": "old-hash",
     });
-    expect(promotion.sourceViolations).toEqual([]);
+    expect(promotion.sourceViolations).toEqual([
+      "packages/legacy/src/index.ts changed while absent from LCOV; add coverage or explicitly update the baseline",
+    ]);
   });
 
   test("rejects scoped sources that are not covered legacy sources", () => {

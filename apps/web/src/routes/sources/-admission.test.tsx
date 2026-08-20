@@ -1,126 +1,19 @@
-import { expect, mock, test } from "bun:test";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  createMemoryHistory,
-  createRootRoute,
-  createRoute,
-  createRouter,
-  RouterProvider,
-} from "@tanstack/react-router";
-import { render, waitFor, within } from "@testing-library/react";
+import { expect, test } from "bun:test";
+import { waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
 import {
   admittedFixture,
   previewFixture,
   previewId,
 } from "./-admission-test-fixtures";
-
-const calls = {
-  admit: [] as unknown[],
-  delete: [] as unknown[],
-  extend: [] as unknown[],
-  get: [] as unknown[],
-  retry: [] as unknown[],
-  submit: [] as unknown[],
-};
-
-let submit: (input: unknown) => Promise<unknown> = async () => previewFixture();
-let extend: (input: unknown) => Promise<unknown> = async () => undefined;
-let remove: (input: unknown) => Promise<unknown> = async () => undefined;
-let retry: (input: unknown) => Promise<unknown> = async () =>
-  previewFixture({
-    capture: {
-      ...previewFixture().capture,
-      retryUsed: true,
-      retryAvailable: false,
-    },
-  });
-let admit: (input: unknown) => Promise<unknown> = async () => admittedFixture();
-let get: (input: unknown) => Promise<unknown> = async () => previewFixture();
-
-function mutationOptions<TInput>(
-  getAction: () => (input: TInput) => Promise<unknown>,
-) {
-  return { mutationFn: (input: TInput) => getAction()(input) };
-}
-
-await mock.module("@/clients/inquiry", () => ({
-  inquiry: {
-    sepAdmission: {
-      submit: { mutationOptions: () => mutationOptions(() => submit) },
-      extend: { mutationOptions: () => mutationOptions(() => extend) },
-      delete: { mutationOptions: () => mutationOptions(() => remove) },
-      retry: { mutationOptions: () => mutationOptions(() => retry) },
-      admit: { mutationOptions: () => mutationOptions(() => admit) },
-      get: { call: (input: unknown) => get(input) },
-    },
-  },
-}));
-
-const { Route } = await import("./admission");
-
-function view() {
-  return within(document.body);
-}
-
-async function renderAdmission() {
-  const rootRoute = createRootRoute();
-  const admissionRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/sources/admission",
-    component: Route.options.component,
-  });
-  const router = createRouter({
-    history: createMemoryHistory({ initialEntries: ["/sources/admission"] }),
-    routeTree: rootRoute.addChildren([admissionRoute]),
-  });
-  await router.load();
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  render(
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>,
-  );
-}
-
-function resetActions() {
-  for (const values of Object.values(calls)) values.length = 0;
-  submit = async (input) => {
-    calls.submit.push(input);
-    return previewFixture();
-  };
-  extend = async (input) => {
-    calls.extend.push(input);
-    return previewFixture();
-  };
-  remove = async (input) => {
-    calls.delete.push(input);
-  };
-  retry = async (input) => {
-    calls.retry.push(input);
-    return previewFixture();
-  };
-  admit = async (input) => {
-    calls.admit.push(input);
-    return admittedFixture();
-  };
-  get = async (input) => {
-    calls.get.push(input);
-    return previewFixture();
-  };
-}
-
-async function submitPreview(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(
-    view().getByLabelText("SEP URL"),
-    "https://plato.stanford.edu/entries/test/",
-  );
-  await user.click(view().getByRole("button", { name: "Create preview" }));
-  await waitFor(() => view().getByText("Synthetic SEP entry"));
-}
+import {
+  actions,
+  calls,
+  deferred,
+  renderAdmission,
+  resetActions,
+  view,
+} from "./-admission-test-harness";
 
 test("validates, resets, submits, and renders a synthetic preview", async () => {
   resetActions();
@@ -160,19 +53,44 @@ test("validates, resets, submits, and renders a synthetic preview", async () => 
   expect(view().getAllByText("Recommended archive")).toHaveLength(2);
 });
 
-test("runs lifecycle controls and disables controls while retrying", async () => {
+test("runs lifecycle controls and exposes each pending operation", async () => {
   resetActions();
   const user = userEvent.setup();
-  let resolveRetry: (value: unknown) => void = () => undefined;
-  retry = (input) => {
-    calls.retry.push(input);
-    return new Promise((resolve) => {
-      resolveRetry = resolve;
-    });
+
+  const submitRequest = deferred<unknown>();
+  actions.submit = (input) => {
+    calls.submit.push(input);
+    return submitRequest.promise;
   };
   await renderAdmission();
-  await submitPreview(user);
+  await user.type(
+    view().getByLabelText("SEP URL"),
+    "https://plato.stanford.edu/entries/test/",
+  );
+  await user.click(view().getByRole("button", { name: "Create preview" }));
+  await waitFor(() =>
+    view().getByRole("button", { name: "Creating preview…" }),
+  );
+  expect(view().getByLabelText("SEP URL")).toHaveProperty("disabled", true);
+  submitRequest.resolve(previewFixture());
+  await waitFor(() => view().getByText("Synthetic SEP entry"));
+  await user.click(
+    view().getByRole("checkbox", { name: /Recommended archive/ }),
+  );
+  await user.click(
+    view().getByRole("checkbox", {
+      name: /Create one immutable Source state for each selected observation/,
+    }),
+  );
+  expect(
+    view().getByRole("button", { name: "Admit active and archive" }),
+  ).toHaveProperty("disabled", false);
 
+  const retryRequest = deferred<unknown>();
+  actions.retry = (input) => {
+    calls.retry.push(input);
+    return retryRequest.promise;
+  };
   await user.click(
     view().getByRole("button", { name: "Use larger capture limits" }),
   );
@@ -182,7 +100,10 @@ test("runs lifecycle controls and disables controls while retrying", async () =>
   expect(
     view().getByRole("button", { name: "Extend seven days" }),
   ).toHaveProperty("disabled", true);
-  resolveRetry(
+  expect(
+    view().getByRole("button", { name: "Admit active and archive" }),
+  ).toHaveProperty("disabled", true);
+  retryRequest.resolve(
     previewFixture({
       capture: {
         ...previewFixture().capture,
@@ -196,26 +117,71 @@ test("runs lifecycle controls and disables controls while retrying", async () =>
   );
   expect(calls.retry).toEqual([{ previewId }]);
 
+  const extendRequest = deferred<unknown>();
+  actions.extend = (input) => {
+    calls.extend.push(input);
+    return extendRequest.promise;
+  };
   await user.click(view().getByRole("button", { name: "Extend seven days" }));
+  await waitFor(() => view().getByRole("button", { name: "Extending…" }));
+  expect(view().getByRole("button", { name: "Delete preview" })).toHaveProperty(
+    "disabled",
+    true,
+  );
+  expect(
+    view().getByRole("button", { name: "Admit active and archive" }),
+  ).toHaveProperty("disabled", true);
+  extendRequest.resolve(previewFixture());
+  await waitFor(() =>
+    view().getByRole("button", { name: "Extend seven days" }),
+  );
   expect(calls.extend).toEqual([{ previewId }]);
+
+  const admissionRequest = deferred<unknown>();
+  actions.admit = (input) => {
+    calls.admit.push(input);
+    return admissionRequest.promise;
+  };
   await user.click(
-    view().getByRole("checkbox", {
-      name: /Create one immutable Source state for each selected observation/,
-    }),
+    view().getByRole("button", { name: "Admit active and archive" }),
   );
-  await user.click(
-    view().getByRole("button", { name: "Admit active observation" }),
+  await waitFor(() =>
+    view().getByRole("button", { name: "Admitting Source…" }),
   );
+  expect(view().getByRole("button", { name: "Delete preview" })).toHaveProperty(
+    "disabled",
+    true,
+  );
+  admissionRequest.resolve(admittedFixture());
   await waitFor(() => view().getByText("Source admitted"));
-  expect(calls.admit).toEqual([{ previewId, observationKeys: ["submitted"] }]);
+  expect(calls.admit).toEqual([
+    {
+      previewId,
+      observationKeys: ["submitted", "recommended-archive"],
+    },
+  ]);
+
+  const deleteRequest = deferred<unknown>();
+  actions.remove = (input) => {
+    calls.delete.push(input);
+    return deleteRequest.promise;
+  };
   await user.click(view().getByRole("button", { name: "Delete preview" }));
+  await waitFor(() => view().getByRole("button", { name: "Deleting…" }));
+  expect(
+    view().getByRole("button", { name: "Extend seven days" }),
+  ).toHaveProperty("disabled", true);
+  deleteRequest.resolve(undefined);
+  await waitFor(() =>
+    expect(view().queryByRole("button", { name: "Delete preview" })).toBeNull(),
+  );
   expect(calls.delete).toEqual([{ previewId }]);
 });
 
-test("shows submit and retry failures while retaining refreshed capture state", async () => {
+test("shows submission and lifecycle failures while retaining preview state", async () => {
   resetActions();
   const user = userEvent.setup();
-  submit = async () => {
+  actions.submit = async () => {
     throw new Error("Preview service unavailable");
   };
   await renderAdmission();
@@ -230,17 +196,17 @@ test("shows submit and retry failures while retaining refreshed capture state", 
     ),
   );
 
-  submit = async (input) => {
+  actions.submit = async (input) => {
     calls.submit.push(input);
     return previewFixture();
   };
   await user.type(view().getByLabelText("SEP URL"), "x");
   await user.click(view().getByRole("button", { name: "Create preview" }));
   await waitFor(() => view().getByText("Synthetic SEP entry"));
-  retry = async () => {
+  actions.retry = async () => {
     throw new Error("Retry capture failed");
   };
-  get = async (input) => {
+  actions.get = async (input) => {
     calls.get.push(input);
     return previewFixture({ title: "Refreshed synthetic SEP entry" });
   };
@@ -253,7 +219,7 @@ test("shows submit and retry failures while retaining refreshed capture state", 
   );
   expect(calls.get).toEqual([{ previewId }]);
 
-  get = async () => {
+  actions.get = async () => {
     throw new Error("Refresh failed");
   };
   await user.click(
@@ -265,7 +231,25 @@ test("shows submit and retry failures while retaining refreshed capture state", 
     ),
   );
 
-  admit = async () => {
+  actions.extend = async () => {
+    throw new Error("Extension failed");
+  };
+  await user.click(view().getByRole("button", { name: "Extend seven days" }));
+  await waitFor(() =>
+    expect(view().getByRole("alert").textContent).toContain("Extension failed"),
+  );
+  expect(view().getByText("Refreshed synthetic SEP entry")).toBeTruthy();
+
+  actions.remove = async () => {
+    throw new Error("Deletion failed");
+  };
+  await user.click(view().getByRole("button", { name: "Delete preview" }));
+  await waitFor(() =>
+    expect(view().getByRole("alert").textContent).toContain("Deletion failed"),
+  );
+  expect(view().getByText("Refreshed synthetic SEP entry")).toBeTruthy();
+
+  actions.admit = async () => {
     throw new Error("Admission failed");
   };
   await user.click(

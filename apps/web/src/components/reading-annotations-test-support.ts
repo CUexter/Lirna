@@ -29,12 +29,6 @@ export const actions: {
 
 let annotations: Annotation[] = [];
 
-export function mutationOptions<TInput>(
-  getAction: () => (input: TInput) => Promise<unknown>,
-) {
-  return { mutationFn: (input: TInput) => getAction()(input) };
-}
-
 export function annotation(overrides: Partial<Annotation> = {}): Annotation {
   return {
     id: "annotation-1",
@@ -102,9 +96,11 @@ export async function selectExactText() {
   range.setStart(article.firstChild as Text, 2);
   range.setEnd(article.firstChild as Text, 11);
   const selection = window.getSelection();
-  selection?.removeAllRanges();
-  selection?.addRange(range);
-  await act(async () => document.dispatchEvent(new Event("selectionchange")));
+  await act(async () => {
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    document.dispatchEvent(new Event("selectionchange"));
+  });
   await waitFor(() =>
     within(document.body).getByRole("dialog", { name: "Create annotation" }),
   );

@@ -35,7 +35,12 @@ function RouteComponent() {
     <main className="min-h-full bg-background">
       <header className="border-b px-4 sm:px-6 lg:px-10">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-3">
-          <Button render={<Link to="/" />} size="sm" variant="ghost">
+          <Button
+            nativeButton={false}
+            render={<Link to="/" />}
+            size="sm"
+            variant="ghost"
+          >
             <ArrowLeftIcon data-icon="inline-start" />
             Back
           </Button>

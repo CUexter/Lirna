@@ -120,6 +120,7 @@ function RouteComponent() {
             </span>
             <QuestionComposer className="hidden max-w-xl sm:flex lg:mr-auto" />
             <Button
+              nativeButton={false}
               render={<Link to="/sources/admission" />}
               variant="outline"
               size="sm"

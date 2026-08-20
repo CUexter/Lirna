@@ -13,7 +13,8 @@ import { resolveInsideRoot } from "#path-safety";
 
 const root = path.resolve(import.meta.dirname, "..");
 const sourcePattern = /^(apps|packages)\/[^/]+\/src\//;
-const excludedPattern = /(?:\.test\.|\.spec\.|\.gen\.|\/fixtures\/|\/config\/)/;
+const excludedPattern =
+  /(?:\.test\.|\.spec\.|\.gen\.|-test-(?:fixtures|harness|support)\.|\/(?:config|fixtures|test-support)\/)/;
 const sourceExtensions = new Set([
   ".cjs",
   ".cts",
@@ -108,6 +109,12 @@ export function promoteCoveredSources({
         return [];
       })
     : [];
+  const baselineViolations = sourceBaselineViolations({
+    absentSources: remainingAbsentSources,
+    coveredSources,
+    eligibleSources,
+    hashes,
+  });
 
   return {
     baseline: {
@@ -115,14 +122,9 @@ export function promoteCoveredSources({
       absentSources: remainingAbsentSources,
     },
     promotedSources,
-    sourceViolations: requestedSources
-      ? requestedSourceViolations
-      : sourceBaselineViolations({
-          absentSources: remainingAbsentSources,
-          coveredSources,
-          eligibleSources,
-          hashes,
-        }),
+    sourceViolations: [
+      ...new Set([...requestedSourceViolations, ...baselineViolations]),
+    ],
   };
 }
 

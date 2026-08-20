@@ -1,14 +1,6 @@
-import { expect, mock, test } from "bun:test";
-import { QueryClientProvider } from "@tanstack/react-query";
-import {
-  act,
-  fireEvent,
-  render,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { expect, test } from "bun:test";
+import { waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useRef } from "react";
 
 import {
   actions,
@@ -16,81 +8,15 @@ import {
   annotationInput,
   calls,
   componentIdentity,
-  installCaretAt,
   installHighlightApi,
-  mutationOptions,
+  openExistingAnnotation,
+  queryClient,
+  renderAnnotations,
   resetActions,
   selectExactText,
   setAnnotations,
-  sourceId,
-  stateId,
-} from "./reading-annotations-test-support";
-
-await mock.module("@/clients/library", () => ({
-  library: {
-    annotations: {
-      list: {
-        key: ({ input }: { input: typeof annotationInput }) => [
-          "annotations",
-          input,
-        ],
-        queryOptions: ({ input }: { input: typeof annotationInput }) => ({
-          queryKey: ["annotations", input],
-          queryFn: () => actions.list(input),
-        }),
-      },
-      create: { mutationOptions: () => mutationOptions(() => actions.create) },
-      update: { mutationOptions: () => mutationOptions(() => actions.update) },
-      delete: { mutationOptions: () => mutationOptions(() => actions.remove) },
-    },
-  },
-}));
-
-const { ReadingAnnotations } = await import("./reading-annotations");
-const { queryClient } = await import("@/utils/query-client");
-
-function view() {
-  return within(document.body);
-}
-
-function AnnotationSurface() {
-  const articleRef = useRef<HTMLElement>(null);
-  return (
-    <>
-      <article ref={articleRef}>A synthetic Source state passage.</article>
-      <ReadingAnnotations
-        articleRef={articleRef}
-        componentIdentity={componentIdentity}
-        sourceId={sourceId}
-        stateId={stateId}
-      />
-    </>
-  );
-}
-
-async function renderAnnotations() {
-  render(
-    <QueryClientProvider client={queryClient}>
-      <AnnotationSurface />
-    </QueryClientProvider>,
-  );
-  await waitFor(() => expect(calls.list).toEqual([annotationInput]));
-}
-
-async function openExistingAnnotation() {
-  const article = view().getByText("A synthetic Source state passage.");
-  const restoreCaret = installCaretAt(article.firstChild as Text);
-  window.getSelection()?.removeAllRanges();
-  await act(async () => {
-    fireEvent.pointerUp(article);
-  });
-  await waitFor(() =>
-    expect(
-      view().getByRole("complementary", { name: "Edit annotation" }),
-    ).toBeTruthy(),
-  );
-  restoreCaret();
-}
+  view,
+} from "./reading-annotations-test-harness";
 
 test("creates bodyless and noted Annotations through exact-text controls", async () => {
   resetActions(queryClient);
@@ -129,7 +55,7 @@ test("creates bodyless and noted Annotations through exact-text controls", async
 
 test("scopes active component annotations, ignores stale text, updates, and deletes", async () => {
   resetActions(queryClient);
-  setAnnotations([
+  const existingAnnotations = [
     annotation({
       id: "other-component",
       componentIdentity: "supplement",
@@ -142,7 +68,18 @@ test("scopes active component annotations, ignores stale text, updates, and dele
       endOffset: 18,
       exactText: "stale",
     }),
-  ]);
+  ];
+  setAnnotations(existingAnnotations);
+  actions.update = async (input) => {
+    calls.update.push(input);
+    setAnnotations(
+      existingAnnotations.map((existing) =>
+        existing.id === "annotation-1"
+          ? annotation({ color: "green", body: "Revised note." })
+          : existing,
+      ),
+    );
+  };
   const highlights = installHighlightApi();
   const user = userEvent.setup();
   await renderAnnotations();
@@ -174,8 +111,23 @@ test("scopes active component annotations, ignores stale text, updates, and dele
       },
     ]),
   );
+  await waitFor(() => expect(calls.list).toHaveLength(2));
+  await waitFor(() =>
+    expect(
+      highlights.registry.get("lirna-annotation-green")?.ranges,
+    ).toHaveLength(1),
+  );
 
   await openExistingAnnotation();
+  expect(
+    view()
+      .getByRole("button", { name: "green highlight" })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
+  expect(view().getByLabelText("Annotation note")).toHaveProperty(
+    "value",
+    "Revised note.",
+  );
   await user.click(view().getByRole("button", { name: "Delete annotation" }));
   await waitFor(() =>
     expect(calls.delete).toEqual([{ ...annotationInput, id: "annotation-1" }]),
@@ -212,6 +164,60 @@ test("keeps visible selection and editing state when list and mutations fail", a
   expect(view().getByLabelText("Annotation note")).toHaveProperty(
     "value",
     "Keep this draft.",
+  );
+});
+
+test("keeps the annotation editor open when an update fails", async () => {
+  resetActions(queryClient);
+  setAnnotations([annotation({ body: "Original note." })]);
+  actions.update = async (input) => {
+    calls.update.push(input);
+    throw new Error("Could not update annotation");
+  };
+  const user = userEvent.setup();
+  await renderAnnotations();
+  await openExistingAnnotation();
+  await user.clear(view().getByLabelText("Annotation note"));
+  await user.type(view().getByLabelText("Annotation note"), "Keep this edit.");
+  await user.click(view().getByRole("button", { name: "Save" }));
+
+  await waitFor(() =>
+    expect(view().getByRole("alert").textContent).toContain(
+      "Could not update annotation",
+    ),
+  );
+  expect(
+    view().getByRole("complementary", { name: "Edit annotation" }),
+  ).toBeTruthy();
+  expect(view().getByLabelText("Annotation note")).toHaveProperty(
+    "value",
+    "Keep this edit.",
+  );
+});
+
+test("keeps the annotation editor open when deletion fails", async () => {
+  resetActions(queryClient);
+  setAnnotations([annotation({ body: "Keep this annotation." })]);
+  actions.remove = async (input) => {
+    calls.delete.push(input);
+    throw new Error("Could not delete annotation");
+  };
+  const user = userEvent.setup();
+  await renderAnnotations();
+  await openExistingAnnotation();
+  await user.click(view().getByRole("button", { name: "Delete annotation" }));
+
+  await waitFor(() =>
+    expect(view().getByRole("alert").textContent).toContain(
+      "Could not delete annotation",
+    ),
+  );
+  expect(
+    view().getByRole("complementary", { name: "Edit annotation" }),
+  ).toBeTruthy();
+  expect(view().getByLabelText("Annotation note")).toHaveProperty(
+    "value",
+    "Keep this annotation.",
   );
 });
 

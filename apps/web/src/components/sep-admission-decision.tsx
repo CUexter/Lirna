@@ -23,6 +23,7 @@ type AdmissionResult = InquiryOutputs["sepAdmission"]["admit"];
 interface SepAdmissionDecisionProps {
   preview: SepAdmissionPreviewData;
   pending: boolean;
+  disabled: boolean;
   result?: AdmissionResult;
   error?: string;
   onAdmit: (observationKeys: ObservationKey[]) => void;
@@ -31,6 +32,7 @@ interface SepAdmissionDecisionProps {
 export function SepAdmissionDecision({
   preview,
   pending,
+  disabled,
   result,
   error,
   onAdmit,
@@ -65,6 +67,7 @@ export function SepAdmissionDecision({
             <Button
               className="justify-between"
               key={state.id}
+              nativeButton={false}
               render={
                 <Link
                   params={{ sourceId: result.sourceId, stateId: state.id }}
@@ -111,6 +114,7 @@ export function SepAdmissionDecision({
               >
                 <Checkbox
                   checked={checked}
+                  disabled={disabled}
                   id={id}
                   onCheckedChange={(value) => toggle(observation.key, value)}
                 />
@@ -133,6 +137,7 @@ export function SepAdmissionDecision({
         <div className="flex items-start gap-3 rounded-md bg-muted/50 p-4">
           <Checkbox
             checked={confirmed}
+            disabled={disabled}
             id="confirm-admission"
             onCheckedChange={setConfirmed}
           />
@@ -155,7 +160,7 @@ export function SepAdmissionDecision({
       </CardContent>
       <CardFooter>
         <Button
-          disabled={pending || !confirmed || selected.length === 0}
+          disabled={disabled || !confirmed || selected.length === 0}
           onClick={() => onAdmit(selected)}
         >
           <DatabaseIcon data-icon="inline-start" />
