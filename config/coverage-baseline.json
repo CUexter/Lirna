@@ -3,17 +3,12 @@
     "functionsFound": 393,
     "functionsHit": 348,
     "linesFound": 4552,
-    "linesHit": 3846
+    "linesHit": 3840
   },
   "absentSources": {
     "apps/docs/src/content.config.ts": "1f8b206b5f7c0afb44c3715a3fe79954b448885fe9e753ba372dddf1210ecfd5",
-    "apps/web/src/clients/experience.ts": "14c97390855b4d513efdebeace3f5a71836ca52215693384a8139a8c0f101708",
     "apps/web/src/clients/inquiry.ts": "5f9fea43c143234738b6770559aa85b4d41c246b71f67fa13a38d0e99ecced5b",
-    "apps/web/src/clients/learning.ts": "368e69b99e1d8cc0730cd072c28e6b62016b19342921fde045ad2b5b535bef2f",
     "apps/web/src/clients/library.ts": "e1ba66647766b9ece0d96e4c973145d4a0bf913828e7a7bc25ea37f710a3ea95",
-    "apps/web/src/clients/synchronization.ts": "e4743ce66500863d545f332d2b8e5187e12851f859e6634c27d96898c6cfa194",
-    "apps/web/src/clients/visualization.ts": "5594308f26c2efa7e7fa244950deefd71f4f2931c05e0840269dd718315f3360",
-    "apps/web/src/clients/workflow.ts": "5056a55f0640bd91864b4e802b669de41eb9b2dc2afaf938df215dcb846482bf",
     "apps/web/src/components/annotation-color-picker.tsx": "54260cc5a54a18ea80d87eefd7e114e9114d020170eab1bea64c634386dca203",
     "apps/web/src/components/annotation-dom-utils.ts": "a6039af178cae3ab13b55be11c07a7db050c2ed86641f596519e58c5df55e84b",
     "apps/web/src/components/annotation-note-form.tsx": "14051d9c49cb4dc4a02adbdb7a0ecc259ec0101601a51a351030c9dd586ce3a0",
