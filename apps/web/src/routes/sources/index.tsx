@@ -18,9 +18,7 @@ export const Route = createFileRoute("/sources/")({
 });
 
 function RouteComponent() {
-  const sources = useQuery(
-    library.sepAdmission.listSources.queryOptions({ input: {} }),
-  );
+  const sources = useQuery(library.sources.list.queryOptions({ input: {} }));
 
   if (sources.isPending) {
     return <main className="p-6 text-muted-foreground">Loading Sources…</main>;

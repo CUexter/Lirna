@@ -5,6 +5,7 @@ import type {
 } from "@lirna/db/schema/sep-admission";
 
 import { toSepAdmissionPreview } from "./sep-admission-preview";
+import type { SepAdmittedState } from "./sep-admitted-state";
 import {
   type CapturedSepResource,
   SepAdmissionError,
@@ -13,7 +14,6 @@ import {
   type SepDiagnostic,
   type SepObservationKey,
 } from "./sep-capture";
-import type { SepReadingContract } from "./sep-reading-contract";
 
 const previewLifetimeMilliseconds = 7 * 24 * 60 * 60 * 1000;
 
@@ -70,28 +70,6 @@ export interface SepAdmissionPreview {
   };
 }
 
-export interface SepAdmittedState {
-  id: string;
-  sourceId: string;
-  sequence: number;
-  observationKey: SepObservationKey;
-  canonicalUrl: string;
-  title: string;
-  authors: string[];
-  publisher: string;
-  publicationHistory: string[];
-  admittedAt: string;
-  resources: Array<{
-    role: CapturedSepResource["role"];
-    requestedUrl: string;
-    finalUrl: string;
-    mediaType: string;
-    byteLength: number;
-    sha256: string;
-    discoveryEdge: string;
-  }>;
-}
-
 export interface SepAdmissionResult {
   sourceId: string;
   states: SepAdmittedState[];
@@ -119,31 +97,7 @@ export interface SepAdmissionCreateRecord {
   resources: CapturedSepResource[];
 }
 
-export interface SepAdmittedStateReader {
-  listSources(): Promise<SepLibrarySource[]>;
-  getState(
-    sourceId: string,
-    stateId: string,
-  ): Promise<SepAdmittedState | undefined>;
-  getReading(
-    sourceId: string,
-    stateId: string,
-  ): Promise<SepReadingContract | undefined>;
-}
-
-export interface SepLibrarySource {
-  id: string;
-  title: string;
-  admittedAt: string;
-  states: Array<
-    Pick<
-      SepAdmittedState,
-      "id" | "sequence" | "observationKey" | "canonicalUrl" | "admittedAt"
-    >
-  >;
-}
-
-export interface SepAdmissionStore extends SepAdmittedStateReader {
+export interface SepAdmissionStore {
   create(record: SepAdmissionCreateRecord): Promise<void>;
   getActive(
     id: string,
@@ -168,7 +122,7 @@ export interface SepAdmissionStore extends SepAdmittedStateReader {
   ): Promise<SepAdmissionResult | undefined>;
 }
 
-export interface SepAdmissionOperations extends SepAdmittedStateReader {
+export interface SepAdmissionOperations {
   submit(url: string): Promise<SepAdmissionPreview>;
   get(id: string): Promise<SepAdmissionPreview | undefined>;
   extend(id: string): Promise<SepAdmissionPreview | undefined>;
@@ -195,7 +149,6 @@ export function createSepAdmissionOperations(options: {
   }
 
   return {
-    listSources: () => options.store.listSources(),
     async submit(url) {
       const createdAt = now();
       await options.store.deleteExpired(createdAt);
@@ -267,8 +220,5 @@ export function createSepAdmissionOperations(options: {
       await options.store.deleteExpired(admittedAt);
       return options.store.admit(id, observationKeys, admittedAt);
     },
-    getState: (sourceId, stateId) => options.store.getState(sourceId, stateId),
-    getReading: (sourceId, stateId) =>
-      options.store.getReading(sourceId, stateId),
   };
 }

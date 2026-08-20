@@ -4,10 +4,12 @@ import type { Context } from "../context";
 import { publicProcedure } from "./init";
 import { annotationsRouter } from "./routers/annotations";
 import { sepAdmissionsRouter } from "./routers/sep-admission";
+import { sourcesRouter } from "./routers/sources";
 
 export const orpcRouter = {
   annotations: annotationsRouter,
   sepAdmission: sepAdmissionsRouter,
+  sources: sourcesRouter,
   healthCheck: publicProcedure
     .meta(
       openapi({
@@ -54,6 +56,6 @@ export const orpcRouter = {
 };
 
 export type OrpcRouter = typeof orpcRouter;
-export type LibraryRouter = Pick<OrpcRouter, "annotations" | "sepAdmission">;
-export type InquiryRouter = Pick<OrpcRouter, "sepAdmission">;
+export type LibraryRouter = Pick<OrpcRouter, "annotations" | "sources">;
+export type InquiryRouter = Pick<OrpcRouter, "sepAdmission" | "sources">;
 export type OrpcContext = Context;

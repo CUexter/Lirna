@@ -17,13 +17,13 @@ import {
   createSepAdmissionOperations,
   type SepAdmissionResult,
   type SepAdmissionStore,
-  type SepAdmittedState,
 } from "./sep-admission";
 import {
   buildReadingDerivative,
   buildStateRecords,
   parseStringList,
 } from "./sep-admission-builders";
+import type { SepAdmittedState } from "./sep-admitted-state";
 import { createSepAdmittedStateReader } from "./sep-admitted-state-reader";
 import {
   createSepCaptureClient,
@@ -43,7 +43,6 @@ export function createDrizzleSepAdmissionStore(
 
   return {
     ...preview,
-    ...reader,
     async admit(
       id: string,
       observationKeys: SepObservationKey[],

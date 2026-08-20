@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { createContext, useContext } from "react";
 import type { InquiryOutputs } from "@/clients/inquiry";
 
-export type SepReadingData = InquiryOutputs["sepAdmission"]["reading"];
+export type SepReadingData = InquiryOutputs["sources"]["reading"];
 
 export const CitationActions = createContext<{
   open: (entryId: string | undefined, mentionId: string) => void;

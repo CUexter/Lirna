@@ -12,7 +12,7 @@ let getReading: (input: unknown) => Promise<unknown> = async () =>
 
 await mock.module("@/clients/inquiry", () => ({
   inquiry: {
-    sepAdmission: {
+    sources: {
       reading: {
         queryOptions: ({ input }: { input: unknown }) => ({
           queryKey: ["reading", input],

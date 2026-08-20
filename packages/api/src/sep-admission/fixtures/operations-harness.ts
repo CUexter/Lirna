@@ -19,26 +19,6 @@ export function createHarness(
   let admittedSelection: string[] | undefined;
   let admittedResult: Awaited<ReturnType<SepAdmissionStore["admit"]>>;
   const store: SepAdmissionStore = {
-    async listSources() {
-      return admittedResult?.states.length
-        ? [
-            {
-              id: admittedResult.sourceId,
-              title: admittedResult.states[0]?.title ?? "",
-              admittedAt: admittedResult.states[0]?.admittedAt ?? "",
-              states: [...admittedResult.states]
-                .sort((left, right) => right.sequence - left.sequence)
-                .map((state) => ({
-                  id: state.id,
-                  sequence: state.sequence,
-                  observationKey: state.observationKey,
-                  canonicalUrl: state.canonicalUrl,
-                  admittedAt: state.admittedAt,
-                })),
-            },
-          ]
-        : [];
-    },
     async create(value) {
       record = structuredClone(value);
     },
@@ -132,14 +112,6 @@ export function createHarness(
         })),
       };
       return admittedResult;
-    },
-    async getState(sourceId, stateId) {
-      return admittedResult?.states.find(
-        (state) => state.sourceId === sourceId && state.id === stateId,
-      );
-    },
-    async getReading() {
-      return undefined;
     },
   };
   const capture: SepCaptureClient = {

@@ -9,11 +9,8 @@ import {
   operationsStub,
   previewFixture,
   previewId,
-  readingFixture,
   resultFixture,
   sourceId,
-  stateFixture,
-  stateId,
 } from "./sep-admission.test-fixtures";
 
 describe("SEP admission oRPC router", () => {
@@ -197,94 +194,6 @@ describe("SEP admission oRPC router", () => {
     expect(result).toMatchObject({ sourceId });
   });
 
-  test("state returns not found when the state is missing", async () => {
-    await expect(
-      invoke("state", { sourceId, stateId }, operationsStub()),
-    ).rejects.toMatchObject({
-      code: "NOT_FOUND",
-      message: "SEP Source state is unavailable",
-    });
-  });
-
-  test("state forwards an admitted state", async () => {
-    const operations = operationsStub({
-      async getState(sid, stid) {
-        return stateFixture({ id: stid, sourceId: sid });
-      },
-    });
-
-    await expect(
-      invoke("state", { sourceId, stateId }, operations),
-    ).resolves.toMatchObject({
-      id: stateId,
-      sourceId,
-    });
-  });
-
-  test("reading returns not found when the reading derivative is missing", async () => {
-    await expect(
-      invoke("reading", { sourceId, stateId }, operationsStub()),
-    ).rejects.toMatchObject({
-      code: "NOT_FOUND",
-      message: "SEP Reading derivative is unavailable",
-    });
-  });
-
-  test("reading forwards a reading derivative", async () => {
-    const operations = operationsStub({
-      async getReading() {
-        return readingFixture();
-      },
-    });
-
-    await expect(
-      invoke("reading", { sourceId, stateId }, operations),
-    ).resolves.toBeDefined();
-  });
-
-  test("listSources forwards admitted Sources", async () => {
-    const sources = [
-      {
-        id: sourceId,
-        title: "Synthetic SEP entry",
-        admittedAt: "2026-08-18T12:01:00.000Z",
-        states: [
-          {
-            id: stateId,
-            sequence: 1,
-            observationKey: "submitted",
-            canonicalUrl: "https://plato.stanford.edu/entries/test/",
-            admittedAt: "2026-08-18T12:01:00.000Z",
-          },
-        ],
-      },
-    ];
-
-    await expect(
-      invoke(
-        "listSources",
-        {},
-        operationsStub({
-          async listSources() {
-            return sources;
-          },
-        }),
-      ),
-    ).resolves.toEqual(sources);
-  });
-
-  test("listSources does not require authentication", async () => {
-    await expect(
-      call(
-        sepAdmissionsRouter.listSources,
-        {},
-        {
-          context: { ...context(operationsStub()), session: null },
-        },
-      ),
-    ).resolves.toEqual([]);
-  });
-
   test("delete returns not found when the preview is missing", async () => {
     await expect(
       invoke("delete", { previewId }, operationsStub()),
@@ -326,5 +235,6 @@ function context(sepAdmissions: SepAdmissionOperations): Context {
     session: {} as NonNullable<Context["session"]>,
     annotations: {} as Context["annotations"],
     sepAdmissions,
+    admittedSourceStates: {} as Context["admittedSourceStates"],
   };
 }

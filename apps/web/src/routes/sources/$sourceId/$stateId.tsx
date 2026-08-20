@@ -19,7 +19,7 @@ function RouteComponent() {
   const { component, view, citation } = Route.useSearch();
   const navigate = Route.useNavigate();
   const reading = useQuery(
-    inquiry.sepAdmission.reading.queryOptions({ input: { sourceId, stateId } }),
+    inquiry.sources.reading.queryOptions({ input: { sourceId, stateId } }),
   );
 
   if (reading.isPending) {

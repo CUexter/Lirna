@@ -2,8 +2,11 @@ import type {
   SepAdmissionOperations,
   SepAdmissionPreview,
   SepAdmissionResult,
-  SepAdmittedState,
 } from "../../sep-admission/sep-admission";
+import type {
+  SepAdmittedState,
+  SepAdmittedStateOperations,
+} from "../../sep-admission/sep-admitted-state";
 import type { SepReadingContract } from "../../sep-admission/sep-reading-contract";
 
 export const previewId = "10000000-0000-4000-8000-000000000000";
@@ -32,11 +35,19 @@ export function operationsStub(
     async admit() {
       return undefined;
     },
-    async getState() {
-      return undefined;
-    },
+    ...overrides,
+  };
+}
+
+export function admittedSourceStatesStub(
+  overrides: Partial<SepAdmittedStateOperations> = {},
+): SepAdmittedStateOperations {
+  return {
     async listSources() {
       return [];
+    },
+    async getState() {
+      return undefined;
     },
     async getReading() {
       return undefined;

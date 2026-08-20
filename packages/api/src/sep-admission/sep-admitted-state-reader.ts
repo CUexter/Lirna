@@ -8,17 +8,16 @@ import {
   sources,
 } from "@lirna/db/schema/sources";
 import { and, asc, desc, eq } from "drizzle-orm";
-
-import type {
-  SepAdmittedState,
-  SepAdmittedStateReader,
-  SepLibrarySource,
-} from "./sep-admission";
 import {
   parseStringList,
   sepObservationKeySchema,
   sepResourceRoleSchema,
 } from "./sep-admission-builders";
+import type {
+  SepAdmittedState,
+  SepAdmittedStateOperations,
+  SepLibrarySource,
+} from "./sep-admitted-state";
 import {
   readSepReadingDerivative,
   sepReadingDerivativeKind,
@@ -26,7 +25,7 @@ import {
 
 export function createSepAdmittedStateReader(
   database: typeof db = db,
-): SepAdmittedStateReader {
+): SepAdmittedStateOperations {
   return {
     async listSources(): Promise<SepLibrarySource[]> {
       const rows = await database
@@ -134,3 +133,5 @@ export function createSepAdmittedStateReader(
     },
   };
 }
+
+export const sepAdmittedStateOperations = createSepAdmittedStateReader();

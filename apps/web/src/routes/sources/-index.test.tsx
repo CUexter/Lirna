@@ -10,8 +10,8 @@ let getSources: () => Promise<unknown> = async () => [];
 
 await mock.module("@/clients/library", () => ({
   library: {
-    sepAdmission: {
-      listSources: {
+    sources: {
+      list: {
         queryOptions: () => ({
           queryKey: ["sources"],
           queryFn: getSources,

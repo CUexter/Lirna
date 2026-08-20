@@ -3,7 +3,7 @@ import type { InquiryOutputs } from "@/clients/inquiry";
 export const sourceId = "10000000-0000-4000-8000-000000000000";
 export const stateId = "20000000-0000-4000-8000-000000000000";
 
-type Reading = InquiryOutputs["sepAdmission"]["reading"];
+type Reading = InquiryOutputs["sources"]["reading"];
 type Component = Reading["components"][number];
 
 const capturedAt = "2026-08-20T00:00:00.000Z";

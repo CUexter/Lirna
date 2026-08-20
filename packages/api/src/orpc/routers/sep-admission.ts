@@ -4,34 +4,13 @@ import { z } from "zod";
 
 import { sepObservationKeySchema } from "../../sep-admission/sep-admission-builders";
 import { SepAdmissionError } from "../../sep-admission/sep-capture";
-import { sepReadingContractSchema } from "../../sep-admission/sep-reading-contract";
 import { publicProcedure } from "../init";
 import {
   sepAdmissionPreviewSchema,
   sepAdmissionResultSchema,
-  sepAdmittedStateSchema,
 } from "./sep-admission-schemas";
 
-const sepLibrarySourceSchema = z.object({
-  id: z.string().uuid(),
-  title: z.string(),
-  admittedAt: z.string().datetime(),
-  states: z.array(
-    z.object({
-      id: z.string().uuid(),
-      sequence: z.number().int().nonnegative(),
-      observationKey: sepObservationKeySchema,
-      canonicalUrl: z.string(),
-      admittedAt: z.string().datetime(),
-    }),
-  ),
-});
-
 const previewIdInput = z.object({ previewId: z.string().uuid() });
-const sourceStateInput = z.object({
-  sourceId: z.string().uuid(),
-  stateId: z.string().uuid(),
-});
 const badRequestError = { BAD_REQUEST: {} };
 const notFoundError = { NOT_FOUND: {} };
 const badRequestAndNotFoundErrors = { BAD_REQUEST: {}, NOT_FOUND: {} };
@@ -47,20 +26,6 @@ function rethrowSepAdmissionError(error: unknown): never {
 }
 
 export const sepAdmissionsRouter = {
-  listSources: publicProcedure
-    .input(z.object({}))
-    .output(z.array(sepLibrarySourceSchema))
-    .meta(
-      openapi({
-        method: "GET",
-        path: "/sources",
-        operationId: "sources.list",
-        summary: "List admitted Sources",
-        tags: ["Sources"],
-      }),
-    )
-    .handler(({ context }) => context.sepAdmissions.listSources()),
-
   submit: publicProcedure
     .input(z.object({ url: z.string().trim().min(1) }))
     .output(sepAdmissionPreviewSchema)
@@ -175,50 +140,6 @@ export const sepAdmissionsRouter = {
       } catch (error) {
         rethrowSepAdmissionError(error);
       }
-    }),
-
-  state: publicProcedure
-    .input(sourceStateInput)
-    .output(sepAdmittedStateSchema)
-    .errors(notFoundError)
-    .meta(
-      openapi({
-        method: "GET",
-        path: "/sep-admission/state",
-        operationId: "sepAdmission.state",
-        summary: "Get SEP source state",
-        tags: ["SEP Admission"],
-      }),
-    )
-    .handler(async ({ context, input }) => {
-      const state = await context.sepAdmissions.getState(
-        input.sourceId,
-        input.stateId,
-      );
-      if (!state) throw notFound("SEP Source state is unavailable");
-      return state;
-    }),
-
-  reading: publicProcedure
-    .input(sourceStateInput)
-    .output(sepReadingContractSchema)
-    .errors(notFoundError)
-    .meta(
-      openapi({
-        method: "GET",
-        path: "/sep-admission/reading",
-        operationId: "sepAdmission.reading",
-        summary: "Get SEP reading derivative",
-        tags: ["SEP Admission"],
-      }),
-    )
-    .handler(async ({ context, input }) => {
-      const reading = await context.sepAdmissions.getReading(
-        input.sourceId,
-        input.stateId,
-      );
-      if (!reading) throw notFound("SEP Reading derivative is unavailable");
-      return reading;
     }),
 
   delete: publicProcedure

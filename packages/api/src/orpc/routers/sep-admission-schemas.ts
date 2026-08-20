@@ -110,7 +110,7 @@ const admittedResource = z.object({
 export const sepAdmittedStateSchema = z.object({
   id: z.string().uuid(),
   sourceId: z.string().uuid(),
-  sequence: z.number().int().positive(),
+  sequence: z.number().int().nonnegative(),
   observationKey: sepObservationKeySchema,
   canonicalUrl: z.string(),
   title: z.string(),

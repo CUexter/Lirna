@@ -162,6 +162,7 @@ function context(annotations: AnnotationOperations): Context {
     session: {} as NonNullable<Context["session"]>,
     annotations,
     sepAdmissions: {} as Context["sepAdmissions"],
+    admittedSourceStates: {} as Context["admittedSourceStates"],
   };
 }
 
