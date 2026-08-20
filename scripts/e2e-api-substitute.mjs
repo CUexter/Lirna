@@ -535,6 +535,34 @@ function orpcError(message, code = "BAD_REQUEST") {
   };
 }
 
+const orpcPostRoutes = {
+  "sepAdmission/reading": () => orpcSuccess(reading),
+  "annotations/list": () => orpcSuccess([]),
+  "sepAdmission/get": () => orpcSuccess(preview),
+  healthCheck: () => orpcSuccess("OK"),
+  "sepAdmission/submit": (body) =>
+    body.includes("rejected-entry")
+      ? orpcError("The SEP entry could not be captured.")
+      : orpcSuccess(
+          body.includes("partial-entry")
+            ? partialPreview
+            : body.includes("stopped-entry")
+              ? stoppedPreview
+              : preview,
+        ),
+  "sepAdmission/extend": () =>
+    orpcSuccess({ ...preview, expiresAt: "2026-08-31T12:00:00.000Z" }),
+  "sepAdmission/delete": () => orpcSuccess({ deleted: true }),
+  "sepAdmission/retry": () => orpcSuccess(retriedPreview),
+  "sepAdmission/admit": (body) =>
+    orpcSuccess({
+      ...admissionResult,
+      states: body.includes("recommended-archive")
+        ? admissionResult.states
+        : admissionResult.states.slice(0, 1),
+    }),
+};
+
 async function handleOrpcPost(request, response) {
   let path = request.url.slice("/orpc/".length).split("?")[0];
   if (path.endsWith("/call")) {
@@ -543,68 +571,16 @@ async function handleOrpcPost(request, response) {
   const body = await readBody(request);
   await new Promise((resolve) => setTimeout(resolve, 80));
 
-  if (path === "sepAdmission/reading") {
-    sendJson(response, 200, orpcSuccess(reading));
+  const handler = orpcPostRoutes[path];
+  if (!handler) {
+    response.writeHead(404, corsHeaders);
+    response.end("Not found");
     return;
   }
-  if (path === "annotations/list") {
-    sendJson(response, 200, orpcSuccess([]));
-    return;
-  }
-  if (path === "sepAdmission/get") {
-    sendJson(response, 200, orpcSuccess(preview));
-    return;
-  }
-  if (path === "healthCheck") {
-    sendJson(response, 200, orpcSuccess("OK"));
-    return;
-  }
-  if (path === "sepAdmission/submit") {
-    if (body.includes("rejected-entry")) {
-      sendJson(
-        response,
-        400,
-        orpcError("The SEP entry could not be captured."),
-      );
-      return;
-    }
-    const submittedPreview = body.includes("partial-entry")
-      ? partialPreview
-      : body.includes("stopped-entry")
-        ? stoppedPreview
-        : preview;
-    sendJson(response, 200, orpcSuccess(submittedPreview));
-    return;
-  }
-  if (path === "sepAdmission/extend") {
-    sendJson(
-      response,
-      200,
-      orpcSuccess({ ...preview, expiresAt: "2026-08-31T12:00:00.000Z" }),
-    );
-    return;
-  }
-  if (path === "sepAdmission/delete") {
-    sendJson(response, 200, orpcSuccess({ deleted: true }));
-    return;
-  }
-  if (path === "sepAdmission/retry") {
-    sendJson(response, 200, orpcSuccess(retriedPreview));
-    return;
-  }
-  if (path === "sepAdmission/admit") {
-    const selected = body.includes("recommended-archive")
-      ? admissionResult.states
-      : admissionResult.states.slice(0, 1);
-    sendJson(
-      response,
-      200,
-      orpcSuccess({ ...admissionResult, states: selected }),
-    );
-    return;
-  }
-  response.writeHead(404, corsHeaders);
-  response.end("Not found");
+
+  const result = handler(body);
+  const status = result.json?.defined === false ? 400 : 200;
+  sendJson(response, status, result);
 }
 
 const server = createServer(async (request, response) => {
