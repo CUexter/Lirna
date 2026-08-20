@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   isEligibleSource,
+  promoteCoveredSources,
   sourceBaselineViolations,
 } from "./check-coverage.mjs";
 
@@ -82,5 +83,85 @@ describe("coverage source baseline", () => {
     ).toEqual([
       "packages/ui/src/components/button.tsx is deleted but remains in the legacy baseline",
     ]);
+  });
+
+  test("promotes only covered eligible sources without changing floors or unrelated hashes", () => {
+    const coverage = {
+      functionsFound: 20,
+      functionsHit: 18,
+      linesFound: 100,
+      linesHit: 90,
+    };
+    const promotion = promoteCoveredSources({
+      baseline: {
+        coverage,
+        absentSources: {
+          "apps/covered/src/index.ts": "covered-hash",
+          "packages/legacy/src/index.ts": "legacy-hash",
+        },
+      },
+      coveredSources: new Set(["apps/covered/src/index.ts"]),
+      eligibleSources: [
+        "apps/covered/src/index.ts",
+        "packages/legacy/src/index.ts",
+      ],
+      hashes: { "packages/legacy/src/index.ts": "legacy-hash" },
+    });
+
+    expect(promotion.promotedSources).toEqual(["apps/covered/src/index.ts"]);
+    expect(promotion.baseline.coverage).toEqual(coverage);
+    expect(promotion.baseline.absentSources).toEqual({
+      "packages/legacy/src/index.ts": "legacy-hash",
+    });
+    expect(promotion.sourceViolations).toEqual([]);
+  });
+
+  test("rejects unrelated absent-source changes during promotion", () => {
+    const promotion = promoteCoveredSources({
+      baseline: {
+        coverage: {},
+        absentSources: {
+          "apps/covered/src/index.ts": "covered-hash",
+          "packages/legacy/src/index.ts": "old-hash",
+        },
+      },
+      coveredSources: new Set(["apps/covered/src/index.ts"]),
+      eligibleSources: [
+        "apps/covered/src/index.ts",
+        "packages/legacy/src/index.ts",
+        "packages/new/src/index.ts",
+      ],
+      hashes: {
+        "packages/legacy/src/index.ts": "changed-hash",
+        "packages/new/src/index.ts": "new-hash",
+      },
+    });
+
+    expect(promotion.sourceViolations).toEqual([
+      "packages/legacy/src/index.ts changed while absent from LCOV; add coverage or explicitly update the baseline",
+      "packages/new/src/index.ts is absent from LCOV and has no reviewed legacy baseline",
+    ]);
+  });
+
+  test("does not alter a baseline when no covered legacy sources are eligible", () => {
+    const baseline = {
+      coverage: {
+        functionsFound: 20,
+        functionsHit: 18,
+        linesFound: 100,
+        linesHit: 90,
+      },
+      absentSources: { "packages/legacy/src/index.ts": "legacy-hash" },
+    };
+    const promotion = promoteCoveredSources({
+      baseline,
+      coveredSources: new Set(),
+      eligibleSources: ["packages/legacy/src/index.ts"],
+      hashes: { "packages/legacy/src/index.ts": "legacy-hash" },
+    });
+
+    expect(promotion.promotedSources).toEqual([]);
+    expect(promotion.baseline).toEqual(baseline);
+    expect(promotion.sourceViolations).toEqual([]);
   });
 });

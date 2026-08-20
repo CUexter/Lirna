@@ -70,6 +70,37 @@ export function sourceBaselineViolations({
   return violations;
 }
 
+export function promoteCoveredSources({
+  baseline,
+  coveredSources,
+  eligibleSources,
+  hashes,
+}) {
+  const eligible = new Set(eligibleSources);
+  const absentSources = baseline.absentSources ?? {};
+  const promotedSources = Object.keys(absentSources)
+    .filter((source) => eligible.has(source) && coveredSources.has(source))
+    .sort();
+  const promoted = new Set(promotedSources);
+  const remainingAbsentSources = Object.fromEntries(
+    Object.entries(absentSources).filter(([source]) => !promoted.has(source)),
+  );
+
+  return {
+    baseline: {
+      coverage: baseline.coverage,
+      absentSources: remainingAbsentSources,
+    },
+    promotedSources,
+    sourceViolations: sourceBaselineViolations({
+      absentSources: remainingAbsentSources,
+      coveredSources,
+      eligibleSources,
+      hashes,
+    }),
+  };
+}
+
 function collectEligibleSources() {
   const sources = [];
 
@@ -111,9 +142,44 @@ function number(record, key) {
   return Number(record.match(new RegExp(`^${key}:(\\d+)$`, "m"))?.[1] ?? 0);
 }
 
+function validateCoverageTotals({ baseline, totals }) {
+  for (const metric of ["functions", "lines"]) {
+    const found = `${metric}Found`;
+    const hit = `${metric}Hit`;
+    if (
+      totals[hit] * baseline.coverage[found] <
+      baseline.coverage[hit] * totals[found]
+    )
+      throw new Error(
+        `${metric} coverage ${totals[hit]}/${totals[found]} is below the baseline ${baseline.coverage[hit]}/${baseline.coverage[found]}`,
+      );
+  }
+}
+
+function writePromotion({ baselineFile, promotion }) {
+  if (!promotion) return false;
+  if (promotion.promotedSources.length === 0) {
+    console.log("No covered legacy sources to promote");
+    return true;
+  }
+  writeFileSync(
+    baselineFile,
+    `${JSON.stringify(promotion.baseline, null, 2)}\n`,
+  );
+  console.log(
+    `Promoted ${promotion.promotedSources.length} covered legacy source${promotion.promotedSources.length === 1 ? "" : "s"}`,
+  );
+  return true;
+}
+
 function main() {
   const args = process.argv.slice(2);
   const writeBaseline = args.includes("--write-baseline");
+  const promoteCovered = args.includes("--promote-covered-sources");
+  if (writeBaseline && promoteCovered)
+    throw new Error(
+      "Choose either --write-baseline or --promote-covered-sources, not both",
+    );
   const coverageArgument = args.find((argument) => !argument.startsWith("--"));
   const coverageFile = resolveInsideRoot(
     root,
@@ -175,25 +241,26 @@ function main() {
       "Coverage baseline is missing; run bun run coverage:baseline and review the result",
     );
   const baseline = JSON.parse(readFileSync(baselineFile, "utf8"));
-  const sourceViolations = sourceBaselineViolations({
-    absentSources: baseline.absentSources ?? {},
-    coveredSources,
-    eligibleSources,
-    hashes,
-  });
+  const promotion = promoteCovered
+    ? promoteCoveredSources({
+        baseline,
+        coveredSources,
+        eligibleSources,
+        hashes,
+      })
+    : null;
+  const sourceViolations =
+    promotion?.sourceViolations ??
+    sourceBaselineViolations({
+      absentSources: baseline.absentSources ?? {},
+      coveredSources,
+      eligibleSources,
+      hashes,
+    });
   if (sourceViolations.length > 0) throw new Error(sourceViolations.join("\n"));
 
-  for (const metric of ["functions", "lines"]) {
-    const found = `${metric}Found`;
-    const hit = `${metric}Hit`;
-    if (
-      totals[hit] * baseline.coverage[found] <
-      baseline.coverage[hit] * totals[found]
-    )
-      throw new Error(
-        `${metric} coverage ${totals[hit]}/${totals[found]} is below the baseline ${baseline.coverage[hit]}/${baseline.coverage[found]}`,
-      );
-  }
+  validateCoverageTotals({ baseline, totals });
+  if (writePromotion({ baselineFile, promotion })) return;
 
   console.log(
     `Coverage ratchet passed: ${totals.linesHit}/${totals.linesFound} lines, ${totals.functionsHit}/${totals.functionsFound} functions`,

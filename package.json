@@ -41,6 +41,7 @@
     "test:coverage": "bun test --isolate --coverage --preload ./happydom.ts && node scripts/check-coverage.mjs",
     "test:web": "bun test --preload ./happydom.ts apps/web packages/ui",
     "coverage:baseline": "node scripts/check-coverage.mjs coverage/lcov.info --write-baseline",
+    "coverage:promote": "node scripts/check-coverage.mjs coverage/lcov.info --promote-covered-sources",
     "ui:add": "node scripts/ui-add.mjs",
     "test:e2e": "playwright test",
     "test:e2e:ci": "CI=1 playwright test",

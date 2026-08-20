@@ -35,8 +35,10 @@ primitives are excluded by `scripts/check-coverage.mjs`. Source absent from
 LCOV is accepted only when its exact content hash is recorded in
 `config/coverage-baseline.json`; new or changed non-excluded source fails. Run
 `bun run coverage:baseline` only to explicitly review and accept a legacy
-exception. `bun run test:coverage` also fails if either coverage ratio
-decreases.
+exception. After a focused coverage batch, run `bun run coverage:promote` to
+remove only legacy exclusions now present in LCOV; it preserves the aggregate
+floors and validates every unrelated absent source before writing. `bun run
+test:coverage` also fails if either coverage ratio decreases.
 
 `bun run quality:ci` runs the coverage command after Biome check mode and the
 configured quality checks. It writes coverage and bundle-build artifacts, and
