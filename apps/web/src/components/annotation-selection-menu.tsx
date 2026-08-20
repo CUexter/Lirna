@@ -12,10 +12,13 @@ import type { AnnotationColor, MenuPosition } from "./annotation-dom-utils";
 interface AnnotationSelectionMenuProps {
   menuRef: RefObject<HTMLDivElement | null>;
   position: MenuPosition;
-  colorPickerOpen: boolean;
-  onColorPickerOpenChange: (open: boolean) => void;
-  colors: readonly AnnotationColor[];
-  onQuickHighlight: (color: AnnotationColor) => void;
+  colorPicker: {
+    colors: readonly AnnotationColor[];
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    onQuickHighlight: (color: AnnotationColor) => void;
+  };
+  pending: boolean;
   onClose: () => void;
   onOpenPanel: () => void;
 }
@@ -23,10 +26,8 @@ interface AnnotationSelectionMenuProps {
 export function AnnotationSelectionMenu({
   menuRef,
   position,
-  colorPickerOpen,
-  onColorPickerOpenChange,
-  colors,
-  onQuickHighlight,
+  colorPicker,
+  pending,
   onClose,
   onOpenPanel,
 }: AnnotationSelectionMenuProps) {
@@ -55,22 +56,23 @@ export function AnnotationSelectionMenu({
       role="dialog"
       style={menuStyle}
     >
-      <Popover open={colorPickerOpen} onOpenChange={onColorPickerOpenChange}>
+      <Popover open={colorPicker.open} onOpenChange={colorPicker.onOpenChange}>
         <PopoverTrigger
           aria-label="Quick highlight"
-          render={<Button size="icon-sm" variant="ghost" />}
+          render={<Button disabled={pending} size="icon-sm" variant="ghost" />}
         >
           <PaletteIcon />
         </PopoverTrigger>
         <PopoverContent align="start" className="w-auto p-1.5">
           <fieldset className="flex items-center gap-1.5">
             <legend className="sr-only">Color</legend>
-            {colors.map((value) => (
+            {colorPicker.colors.map((value) => (
               <Button
                 aria-label={`${value} highlight`}
                 className="rounded-full border-foreground/20"
+                disabled={pending}
                 key={value}
-                onClick={() => onQuickHighlight(value)}
+                onClick={() => colorPicker.onQuickHighlight(value)}
                 onMouseDown={(event) => event.preventDefault()}
                 size="icon-sm"
                 style={{ backgroundColor: `var(--annotation-${value})` }}
@@ -83,6 +85,7 @@ export function AnnotationSelectionMenu({
       </Popover>
       <Button
         aria-label="Add note"
+        disabled={pending}
         onClick={onOpenPanel}
         size="icon-sm"
         type="button"

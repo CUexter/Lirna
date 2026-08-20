@@ -25,6 +25,7 @@ export function AnnotationNoteForm({
       <Textarea
         aria-label="Annotation note"
         className="flex-1"
+        disabled={pending}
         maxLength={20_000}
         onChange={(event) => onBodyChange(event.target.value)}
         placeholder="Add a note (optional)"
@@ -36,7 +37,13 @@ export function AnnotationNoteForm({
         </p>
       ) : null}
       <div className="flex justify-end gap-2">
-        <Button onClick={onClose} size="sm" type="button" variant="ghost">
+        <Button
+          disabled={pending}
+          onClick={onClose}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
           Cancel
         </Button>
         <Button disabled={pending} onClick={onSave} size="sm" type="button">

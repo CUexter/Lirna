@@ -28,6 +28,7 @@ export function AnnotationColorPicker({
           aria-label={`${value} highlight`}
           aria-pressed={color === value}
           className="rounded-full border-foreground/20"
+          disabled={pending}
           key={value}
           onClick={() => onColorChange(value)}
           size="icon-sm"

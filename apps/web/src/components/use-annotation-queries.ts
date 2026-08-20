@@ -26,7 +26,8 @@ export function useAnnotationQueries({ sourceId, stateId }: AnnotationInput) {
   const remove = useMutation(library.annotations.delete.mutationOptions());
 
   const pending = create.isPending || update.isPending || remove.isPending;
-  const error = create.error ?? update.error ?? remove.error;
+  const error =
+    create.error ?? update.error ?? remove.error ?? annotationsQuery.error;
 
   return {
     annotations,

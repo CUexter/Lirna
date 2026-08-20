@@ -107,6 +107,11 @@ export function ReadingAnnotations({
   };
 
   const styleContent = annotationStyleContent(state.color);
+  const error = q.error ? (
+    <p className="text-destructive text-xs" role="alert">
+      {q.error.message}
+    </p>
+  ) : null;
 
   if (state.panelOpen) {
     return (
@@ -140,20 +145,29 @@ export function ReadingAnnotations({
   }
 
   if (!state.selection || !state.position) {
-    return <style>{styleContent}</style>;
+    return (
+      <>
+        <style>{styleContent}</style>
+        {error}
+      </>
+    );
   }
 
   return (
     <>
       <style>{styleContent}</style>
+      {error}
       <AnnotationSelectionMenu
-        colorPickerOpen={state.colorPickerOpen}
-        colors={colors}
+        colorPicker={{
+          colors,
+          onOpenChange: setColorPickerOpen,
+          onQuickHighlight: quickHighlight,
+          open: state.colorPickerOpen,
+        }}
         menuRef={menuRef}
         onClose={closeMenu}
-        onColorPickerOpenChange={setColorPickerOpen}
         onOpenPanel={openPanel}
-        onQuickHighlight={quickHighlight}
+        pending={q.pending}
         position={state.position}
       />
     </>
