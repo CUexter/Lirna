@@ -5,17 +5,23 @@ const base = os.$context<Context>();
 
 export const publicProcedure = base;
 
-export const protectedProcedure = base.use(async ({ context, next }) => {
-  if (!context.session) {
-    throw new ORPCError("UNAUTHORIZED", {
+export const protectedProcedure = base
+  .errors({
+    UNAUTHORIZED: {
       message: "Authentication required",
-      cause: "No session",
-    });
-  }
-  return next({
-    context: {
-      ...context,
-      session: context.session,
     },
+  })
+  .use(async ({ context, next }) => {
+    if (!context.session) {
+      throw new ORPCError("UNAUTHORIZED", {
+        message: "Authentication required",
+        cause: "No session",
+      });
+    }
+    return next({
+      context: {
+        ...context,
+        session: context.session,
+      },
+    });
   });
-});

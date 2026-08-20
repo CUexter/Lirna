@@ -30,6 +30,21 @@ describe("OpenAPI documentation routes (authenticated)", () => {
     expect(body.info.title).toBe("Lirna API");
     expect(body.paths["/health"]).toBeDefined();
     expect(body.paths["/annotations"]).toBeDefined();
+    expect(body.components.securitySchemes.sessionCookie.name).toBe(
+      "better-auth.session_token",
+    );
+    expect(body.components.securitySchemes.secureSessionCookie.name).toBe(
+      "__Secure-better-auth.session_token",
+    );
+    expect(body.paths["/health"].get.security).toEqual([]);
+    expect(
+      body.paths["/health"].get.responses["200"].content["application/json"]
+        .schema,
+    ).toBeDefined();
+    expect(body.paths["/annotations"].get.responses["401"]).toBeDefined();
+    expect(
+      body.paths["/annotations/{id}"].patch.responses["404"],
+    ).toBeDefined();
   });
 
   test("serves /docs as HTML with a valid session", async () => {
@@ -38,5 +53,22 @@ describe("OpenAPI documentation routes (authenticated)", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/html");
+  });
+});
+
+describe("OpenAPI REST routes", () => {
+  test("serves the public health endpoint", async () => {
+    mockSession = null;
+    const response = await app.request("/health");
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toBe("OK");
+  });
+
+  test("rejects unauthenticated annotation requests", async () => {
+    mockSession = null;
+    const response = await app.request("/annotations");
+
+    expect(response.status).toBe(401);
   });
 });

@@ -2,19 +2,40 @@ import { openapi } from "@orpc/openapi";
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
+import { sepObservationKeySchema } from "../../sep-admission/sep-admission-builders";
 import { SepAdmissionError } from "../../sep-admission/sep-capture";
-import { publicProcedure } from "../init";
+import { sepReadingContractSchema } from "../../sep-admission/sep-reading-contract";
+import { protectedProcedure } from "../init";
+import {
+  sepAdmissionPreviewSchema,
+  sepAdmissionResultSchema,
+  sepAdmittedStateSchema,
+} from "./sep-admission-schemas";
 
 const previewIdInput = z.object({ previewId: z.string().uuid() });
 const sourceStateInput = z.object({
   sourceId: z.string().uuid(),
   stateId: z.string().uuid(),
 });
-const observationKey = z.enum(["submitted", "recommended-archive"]);
+const badRequestError = { BAD_REQUEST: {} };
+const notFoundError = { NOT_FOUND: {} };
+const badRequestAndNotFoundErrors = { BAD_REQUEST: {}, NOT_FOUND: {} };
+
+function rethrowSepAdmissionError(error: unknown): never {
+  if (error instanceof SepAdmissionError) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: error.message,
+      cause: error,
+    });
+  }
+  throw error;
+}
 
 export const sepAdmissionsRouter = {
-  submit: publicProcedure
+  submit: protectedProcedure
     .input(z.object({ url: z.string().trim().min(1) }))
+    .output(sepAdmissionPreviewSchema)
+    .errors(badRequestError)
     .meta(
       openapi({
         method: "POST",
@@ -28,18 +49,14 @@ export const sepAdmissionsRouter = {
       try {
         return await context.sepAdmissions.submit(input.url);
       } catch (error) {
-        if (error instanceof SepAdmissionError) {
-          throw new ORPCError("BAD_REQUEST", {
-            message: error.message,
-            cause: error,
-          });
-        }
-        throw error;
+        rethrowSepAdmissionError(error);
       }
     }),
 
-  get: publicProcedure
+  get: protectedProcedure
     .input(previewIdInput)
+    .output(sepAdmissionPreviewSchema)
+    .errors(notFoundError)
     .meta(
       openapi({
         method: "GET",
@@ -55,8 +72,10 @@ export const sepAdmissionsRouter = {
       return preview;
     }),
 
-  extend: publicProcedure
+  extend: protectedProcedure
     .input(previewIdInput)
+    .output(sepAdmissionPreviewSchema)
+    .errors(badRequestAndNotFoundErrors)
     .meta(
       openapi({
         method: "POST",
@@ -67,13 +86,19 @@ export const sepAdmissionsRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      const preview = await context.sepAdmissions.extend(input.previewId);
-      if (!preview) throw notFound("Admission preview is unavailable");
-      return preview;
+      try {
+        const preview = await context.sepAdmissions.extend(input.previewId);
+        if (!preview) throw notFound("Admission preview is unavailable");
+        return preview;
+      } catch (error) {
+        rethrowSepAdmissionError(error);
+      }
     }),
 
-  retry: publicProcedure
+  retry: protectedProcedure
     .input(previewIdInput)
+    .output(sepAdmissionPreviewSchema)
+    .errors(badRequestAndNotFoundErrors)
     .meta(
       openapi({
         method: "POST",
@@ -89,22 +114,18 @@ export const sepAdmissionsRouter = {
         if (!preview) throw notFound("Admission preview is unavailable");
         return preview;
       } catch (error) {
-        if (error instanceof SepAdmissionError) {
-          throw new ORPCError("BAD_REQUEST", {
-            message: error.message,
-            cause: error,
-          });
-        }
-        throw error;
+        rethrowSepAdmissionError(error);
       }
     }),
 
-  admit: publicProcedure
+  admit: protectedProcedure
     .input(
       previewIdInput.extend({
-        observationKeys: z.array(observationKey).min(1).max(2),
+        observationKeys: z.array(sepObservationKeySchema).min(1).max(2),
       }),
     )
+    .output(sepAdmissionResultSchema)
+    .errors(badRequestAndNotFoundErrors)
     .meta(
       openapi({
         method: "POST",
@@ -123,18 +144,14 @@ export const sepAdmissionsRouter = {
         if (!result) throw notFound("Admission preview is unavailable");
         return result;
       } catch (error) {
-        if (error instanceof SepAdmissionError) {
-          throw new ORPCError("BAD_REQUEST", {
-            message: error.message,
-            cause: error,
-          });
-        }
-        throw error;
+        rethrowSepAdmissionError(error);
       }
     }),
 
-  state: publicProcedure
+  state: protectedProcedure
     .input(sourceStateInput)
+    .output(sepAdmittedStateSchema)
+    .errors(notFoundError)
     .meta(
       openapi({
         method: "GET",
@@ -153,8 +170,10 @@ export const sepAdmissionsRouter = {
       return state;
     }),
 
-  reading: publicProcedure
+  reading: protectedProcedure
     .input(sourceStateInput)
+    .output(sepReadingContractSchema)
+    .errors(notFoundError)
     .meta(
       openapi({
         method: "GET",
@@ -173,8 +192,10 @@ export const sepAdmissionsRouter = {
       return reading;
     }),
 
-  delete: publicProcedure
+  delete: protectedProcedure
     .input(previewIdInput)
+    .output(z.object({ deleted: z.literal(true) }))
+    .errors(notFoundError)
     .meta(
       openapi({
         method: "DELETE",

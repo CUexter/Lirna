@@ -32,6 +32,7 @@
       "!scripts/assess-dependency.mjs",
       "!scripts/check-architecture.mjs",
       "!scripts/check-react-props.mjs",
+      "!config/openapi.json",
       "!config/semgrep/fixtures"
     ]
   },

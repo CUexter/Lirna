@@ -2,19 +2,19 @@ import { describe, expect, test } from "bun:test";
 import { call } from "@orpc/server";
 
 import type { Context } from "../../context";
-import type {
-  SepAdmissionOperations,
-  SepAdmissionPreview,
-  SepAdmissionResult,
-  SepAdmittedState,
-} from "../../sep-admission/sep-admission";
+import type { SepAdmissionOperations } from "../../sep-admission/sep-admission";
 import { SepAdmissionError } from "../../sep-admission/sep-capture";
-import type { SepReadingContract } from "../../sep-admission/sep-reading-contract";
 import { sepAdmissionsRouter } from "./sep-admission";
-
-const previewId = "10000000-0000-4000-8000-000000000000";
-const sourceId = "20000000-0000-4000-8000-000000000000";
-const stateId = "30000000-0000-4000-8000-000000000000";
+import {
+  operationsStub,
+  previewFixture,
+  previewId,
+  readingFixture,
+  resultFixture,
+  sourceId,
+  stateFixture,
+  stateId,
+} from "./sep-admission.test-fixtures";
 
 describe("SEP admission oRPC router", () => {
   test("submit maps a SepAdmissionError to a bad-request error", async () => {
@@ -97,6 +97,23 @@ describe("SEP admission oRPC router", () => {
     ).rejects.toMatchObject({
       code: "NOT_FOUND",
       message: "Admission preview is unavailable",
+    });
+  });
+
+  test("extend maps a SepAdmissionError to a bad-request error", async () => {
+    await expect(
+      invoke(
+        "extend",
+        { previewId },
+        operationsStub({
+          async extend() {
+            throw new SepAdmissionError("Preview cannot be extended");
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "Preview cannot be extended",
     });
   });
 
@@ -263,66 +280,8 @@ function invoke(
 function context(sepAdmissions: SepAdmissionOperations): Context {
   return {
     auth: null,
-    session: null,
+    session: {} as NonNullable<Context["session"]>,
     annotations: {} as Context["annotations"],
     sepAdmissions,
   };
-}
-
-function operationsStub(
-  overrides: Partial<SepAdmissionOperations> = {},
-): SepAdmissionOperations {
-  return {
-    async submit() {
-      return previewFixture();
-    },
-    async get() {
-      return undefined;
-    },
-    async extend() {
-      return undefined;
-    },
-    async delete() {
-      return false;
-    },
-    async retry() {
-      return undefined;
-    },
-    async admit() {
-      return undefined;
-    },
-    async getState() {
-      return undefined;
-    },
-    async getReading() {
-      return undefined;
-    },
-    ...overrides,
-  };
-}
-
-function previewFixture(
-  overrides: Partial<SepAdmissionPreview> = {},
-): SepAdmissionPreview {
-  return { id: previewId, ...overrides } as unknown as SepAdmissionPreview;
-}
-
-function resultFixture(
-  overrides: Partial<SepAdmissionResult> = {},
-): SepAdmissionResult {
-  return {
-    sourceId,
-    states: [],
-    ...overrides,
-  } as unknown as SepAdmissionResult;
-}
-
-function stateFixture(
-  overrides: Partial<SepAdmittedState> = {},
-): SepAdmittedState {
-  return { id: stateId, sourceId, ...overrides } as unknown as SepAdmittedState;
-}
-
-function readingFixture(): SepReadingContract {
-  return { sourceId, stateId } as unknown as SepReadingContract;
 }

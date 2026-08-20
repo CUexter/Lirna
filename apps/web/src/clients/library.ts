@@ -1,4 +1,4 @@
-import type { OrpcRouter } from "@lirna/api/client";
+import type { LibraryRouter } from "@lirna/api/client";
 import type { InferClientOutputs } from "@orpc/client";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
@@ -15,7 +15,7 @@ const link = new RPCLink({
   },
 });
 
-const client = createORPCClient<RouterClient<OrpcRouter>>(link);
+const client = createORPCClient<RouterClient<LibraryRouter>>(link);
 
 export const library = createTanstackQueryUtils(client);
 

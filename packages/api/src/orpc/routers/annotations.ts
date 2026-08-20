@@ -3,7 +3,7 @@ import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
 import { annotationColors } from "../../annotations/annotation-contract";
-import { publicProcedure } from "../init";
+import { protectedProcedure } from "../init";
 
 const sourceStateInput = z.object({
   sourceId: z.string().uuid(),
@@ -12,10 +12,24 @@ const sourceStateInput = z.object({
 
 const color = z.enum(annotationColors);
 const body = z.string().trim().max(20_000).optional();
+const annotation = z.object({
+  id: z.string().uuid(),
+  sourceStateId: z.string().uuid(),
+  componentIdentity: z.string(),
+  startOffset: z.number().int().nonnegative(),
+  endOffset: z.number().int().positive(),
+  exactText: z.string(),
+  color,
+  body: z.string().nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+const notFoundError = { NOT_FOUND: {} };
 
 export const annotationsRouter = {
-  list: publicProcedure
+  list: protectedProcedure
     .input(sourceStateInput)
+    .output(z.array(annotation))
     .meta(
       openapi({
         method: "GET",
@@ -29,7 +43,7 @@ export const annotationsRouter = {
       context.annotations.list(input.sourceId, input.stateId),
     ),
 
-  create: publicProcedure
+  create: protectedProcedure
     .input(
       sourceStateInput
         .extend({
@@ -53,6 +67,8 @@ export const annotationsRouter = {
           },
         ),
     )
+    .output(annotation)
+    .errors(notFoundError)
     .meta(
       openapi({
         method: "POST",
@@ -68,8 +84,10 @@ export const annotationsRouter = {
       return annotation;
     }),
 
-  update: publicProcedure
+  update: protectedProcedure
     .input(sourceStateInput.extend({ id: z.string().uuid(), color, body }))
+    .output(annotation)
+    .errors(notFoundError)
     .meta(
       openapi({
         method: "PATCH",
@@ -85,8 +103,10 @@ export const annotationsRouter = {
       return annotation;
     }),
 
-  delete: publicProcedure
+  delete: protectedProcedure
     .input(sourceStateInput.extend({ id: z.string().uuid() }))
+    .output(z.object({ deleted: z.literal(true) }))
+    .errors(notFoundError)
     .meta(
       openapi({
         method: "DELETE",

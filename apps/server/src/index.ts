@@ -3,6 +3,7 @@ import { generateOpenApiDocument } from "@lirna/api/openapi";
 import { orpcRouter } from "@lirna/api/orpc";
 import { auth } from "@lirna/auth";
 import { env } from "@lirna/env/server";
+import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { GetMethodCsrfProtectionHandlerPlugin } from "@orpc/server/plugins";
@@ -19,7 +20,7 @@ app.use(
   "/*",
   cors({
     origin: env.CORS_ORIGIN,
-    allowMethods: ["GET", "POST", "OPTIONS"],
+    allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   }),
@@ -37,11 +38,29 @@ const orpcHandler = new RPCHandler(orpcRouter, {
   ],
 });
 
+const openApiHandler = new OpenAPIHandler(orpcRouter, {
+  interceptors: [
+    onError((error) => {
+      console.error(error);
+    }),
+  ],
+});
+
 app.use("/orpc/*", async (c, next) => {
   const context = createContext({ context: c });
   const { matched, response } = await orpcHandler.handle(c.req.raw, {
     prefix: "/orpc",
     context: await context,
+  });
+  if (matched) {
+    return c.newResponse(response.body, response);
+  }
+  await next();
+});
+
+app.use("/*", async (c, next) => {
+  const { matched, response } = await openApiHandler.handle(c.req.raw, {
+    context: await createContext({ context: c }),
   });
   if (matched) {
     return c.newResponse(response.body, response);
