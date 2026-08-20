@@ -9,6 +9,7 @@ import type { HTMLAttributes, ReactNode } from "react";
 
 import Loader from "./components/loader";
 import { ThemeProvider } from "./components/theme-provider";
+import { queryClient } from "./utils/query-client";
 
 function Primitive({ children, ...props }: HTMLAttributes<HTMLDivElement>) {
   return <div {...props}>{children}</div>;
@@ -70,6 +71,7 @@ test("loads the focused web seams used by browser-owned surfaces", async () => {
   expect(libraryClient.library).toBeDefined();
 
   const router = createRouter({
+    context: { queryClient },
     history: createMemoryHistory({ initialEntries: ["/"] }),
     routeTree,
   });
