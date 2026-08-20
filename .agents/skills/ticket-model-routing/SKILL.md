@@ -1,123 +1,71 @@
 ---
 name: ticket-model-routing
-description: Ticket model routing for GPT-5.6 Sol, Terra, and Luna. Use when assigning tickets to models, choosing a model for an issue, or reducing agent cost across a backlog.
+description: Route tickets to GPT-5.6 Sol, Terra, or Luna. Use when assigning issues to models or cutting backlog agent cost.
 ---
 
 # Ticket Model Routing
 
-Route each ticket to the cheapest GPT-5.6 model that can complete it reliably.
-The **capability floor** is the lowest tier whose expected retries, review, and
-failure risk preserve the saving.
+Pick cheapest model that still do job well. Count retry, review, and failure cost.
 
-## Process
+## Do
 
-1. Read [`openai-codex-model-research.md`](../../../docs/openai-codex-model-research.md)
-   for current model capabilities, prices, and evidence limits. This step is
-   complete when the current Sol, Terra, and Luna positioning and cost order are
-   known from the source document.
+1. Read [`openai-codex-model-research.md`](../../../docs/openai-codex-model-research.md). Know current model ability, evidence limits, and cost order.
+2. Get all ticket facts. For GitHub, run `gh issue view <number> --comments`. Read acceptance, blockers, dependencies, linked decisions, repo work, and checks. Mark missing facts.
+3. Pick floor with gates below. Ticket title not enough. Give one concrete escalation trigger.
+4. Try downshift on each Sol or Terra ticket: clarify, decide first, or split. Keep work together when coordination cost bigger than model saving.
+5. For GitHub, append or replace exact routing block below. Preserve all other body text. For other inputs, only report.
+6. Return every ticket once in output table. Claims must point to ticket or research note.
 
-2. Collect the complete ticket set. For a GitHub issue number, run
-   `gh issue view <number> --comments`; for a backlog, fetch every ticket in the
-   requested scope. Include acceptance criteria, blockers, dependencies, and
-   linked decisions. This step is complete when every requested ticket has
-   enough evidence to assess scope, ambiguity, consequence, and verification,
-   or is explicitly marked underspecified.
-
-3. Establish each ticket's capability floor using the gates below. Judge the
-   work the model must actually perform, including repository discovery and
-   integration, rather than the title alone. This step is complete when every
-   ticket passes one tier's full gate and has one concrete escalation trigger.
-
-4. Look for **downshift** opportunities. Recommend sharpening acceptance
-   criteria, resolving a decision first, or splitting a mixed ticket when that
-   moves executable work to a cheaper tier. Keep tightly coupled work together
-   when splitting would add more coordination cost than it saves. This step is
-   complete when every Terra or Sol ticket has been checked for a safe downshift.
-
-5. Persist each GitHub ticket's recommendation in its issue body using the
-   routing block below. Replace an existing routing block in place so reruns are
-   idempotent, and preserve the rest of the issue body exactly. For non-GitHub
-   inputs, report the recommendation without inventing tracker metadata. This
-   step is complete when every GitHub ticket has one current routing block.
-
-6. Report the routing table and portfolio summary using the output contract.
-   Assignments remain recommendations even when persisted. This step is
-   complete when every input ticket appears exactly once and all claims are
-   traceable to ticket evidence or the research note.
-
-## Capability gates
+## Gates
 
 ### Luna
 
-Assign `gpt-5.6-luna` only when all are true:
+Use `gpt-5.6-luna` only when all true:
 
-- The requested outcome and boundaries are explicit.
-- The implementation follows an established repository pattern or is a
-  mechanical extraction, classification, transformation, or focused edit.
-- The blast radius is local and rollback is straightforward.
-- Acceptance is objectively verifiable with specified tests or deterministic
-  checks.
-- Failure has low consequence and does not threaten security, privacy, data
-  integrity, or an irreversible migration.
-- No unresolved product, domain, or architecture decision is embedded in the
-  work.
+- Goal and bounds clear.
+- Known repo pattern, mechanical work, or focused edit.
+- Local blast radius. Easy rollback.
+- Objective tests or deterministic checks.
+- Failure cheap. No security, privacy, data, or migration danger.
+- No open product, domain, or architecture choice.
 
 ### Sol
 
-Assign `gpt-5.6-sol` when any are true:
+Use `gpt-5.6-sol` when any true:
 
-- The ticket requires product, domain, or architectural judgment before its
-  implementation can be known.
-- Requirements conflict, remain materially incomplete, or admit several
-  high-consequence interpretations.
-- The change is cross-cutting, difficult to reverse, or has a large and poorly
-  bounded blast radius.
-- Correctness depends on security, privacy, data integrity, concurrency, or a
-  production migration where subtle failure is costly.
-- Diagnosis starts from an unknown root cause with weak reproduction or weak
-  observability.
-- The work is novel research or needs unusually high polish and independent
-  judgment.
+- Product, domain, or architecture judgment needed.
+- Requirements conflict, important facts missing, or several costly meanings possible.
+- Cross-cutting, hard to undo, or blast radius unclear.
+- Security, privacy, data integrity, concurrency, or production migration risk.
+- Bug root cause unknown and reproduction or observability weak.
+- Novel research, exceptional polish, or strong independent judgment needed.
+
+Missing spec means provisional Sol. Name fact that would permit downshift.
 
 ### Terra
 
-Assign `gpt-5.6-terra` when the ticket fails Luna's full gate but triggers none
-of Sol's gates. This is the default for ordinary production features,
-multi-file maintenance, reproducible debugging, test construction, and code
-review that require strong reasoning and tool use within known boundaries.
+Use `gpt-5.6-terra` when Luna fails and Sol does not fire. Normal home for production features, multi-file work, reproducible bugs, tests, and review inside known bounds.
 
-An underspecified ticket is a provisional Sol assignment, not proof that its
-implementation is intrinsically difficult. State the missing information that
-would permit a downshift.
+## Effort
 
-## Reasoning effort
+- `low`: deterministic Luna, strong checks.
+- `medium`: normal Luna or Terra.
+- `high`: Terra near Sol, or consequential Sol.
+- `xhigh` or `max`: only exceptional ambiguity or consequence shown by evidence.
 
-Recommend the lowest effort consistent with the capability floor:
+Effort tune model. Effort not make Luna or Terra become Sol.
 
-- `low` for deterministic Luna work with strong verification.
-- `medium` for ordinary Luna or Terra work.
-- `high` for Terra work near the Sol boundary or consequential Sol work.
-- `xhigh` or `max` only when the ticket evidence establishes exceptional
-  ambiguity or consequence.
-
-Reasoning effort refines a model assignment; it does not turn Luna or Terra into
-Sol.
-
-## Output contract
-
-Return one row per ticket:
+## Output
 
 | Ticket | Model | Effort | Confidence | Evidence | Escalate when |
 | --- | --- | --- | --- | --- | --- |
 
-- **Model:** canonical OpenAI model ID, without assuming a direct OpenAI or
-  OpenCode Zen billing route.
-- **Confidence:** `high`, `medium`, or `low`, based on ticket completeness and
-  repository evidence.
-- **Evidence:** the shortest concrete reason that sets the capability floor.
-- **Escalate when:** one observable condition that requires the next tier.
+- Model: canonical OpenAI model ID. Assume no billing route.
+- Confidence: `high`, `medium`, or `low` from ticket and repo evidence.
+- Evidence: shortest concrete fact that sets floor.
+- Escalate when: one observable reason to move up.
 
-For each GitHub ticket, append or replace this exact section in the issue body:
+GitHub body block:
 
 ```markdown
 ## Model routing
@@ -129,13 +77,6 @@ For each GitHub ticket, append or replace this exact section in the issue body:
 - Escalate when: One observable condition that requires the next tier.
 ```
 
-Write the ticket's actual values. Keep the heading and field labels stable so
-orchestrators can resume from the issue body without rerunning model selection.
+Use real values. Keep heading and labels exact.
 
-After the table, report:
-
-- Count of tickets per model.
-- Safe downshift opportunities and the exact ticket change each requires.
-- Cost estimates only when token or message-volume assumptions are available;
-  show those assumptions and arithmetic. Otherwise report relative cost order
-  without inventing savings.
+After table, give model counts and safe downshifts with exact ticket changes. Give cost estimate only with token or message assumptions and arithmetic. Else give relative cost order.
