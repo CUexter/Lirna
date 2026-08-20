@@ -1,25 +1,31 @@
 import { env } from "@lirna/env/web";
 
-function getServerUrl(url: string) {
-  const processEnv = (
-    globalThis as {
-      process?: { env?: Record<string, string | undefined> };
-    }
-  ).process?.env;
-  if (typeof window === "undefined" && processEnv?.SERVER_URL) {
-    return processEnv.SERVER_URL.endsWith("/")
-      ? processEnv.SERVER_URL.slice(0, -1)
-      : processEnv.SERVER_URL;
+type ServerUrlRuntime = {
+  process?: { env?: Record<string, string | undefined> };
+  window?: { location: { origin: string } };
+};
+
+function withoutTrailingSlash(value: string) {
+  return value.endsWith("/") ? value.slice(0, -1) : value;
+}
+
+export function createServerUrl(
+  url: string,
+  runtime: ServerUrlRuntime = globalThis,
+) {
+  const processEnv = runtime.process?.env;
+  if (!runtime.window && processEnv?.SERVER_URL) {
+    return withoutTrailingSlash(processEnv.SERVER_URL);
   }
 
-  const normalized = url.endsWith("/") ? url.slice(0, -1) : url;
+  const normalized = withoutTrailingSlash(url);
 
   if (!normalized.startsWith("/")) {
     return normalized;
   }
 
-  if (typeof window !== "undefined") {
-    return `${window.location.origin}${normalized}`;
+  if (runtime.window) {
+    return `${runtime.window.location.origin}${normalized}`;
   }
 
   const vercelUrl =
@@ -27,13 +33,13 @@ function getServerUrl(url: string) {
       ? (processEnv?.VERCEL_PROJECT_PRODUCTION_URL ?? processEnv?.VERCEL_URL)
       : (processEnv?.VERCEL_URL ?? processEnv?.VERCEL_PROJECT_PRODUCTION_URL);
   if (vercelUrl) {
-    const origin = vercelUrl.startsWith("http")
-      ? vercelUrl
-      : `https://${vercelUrl}`;
+    const origin = withoutTrailingSlash(
+      vercelUrl.startsWith("http") ? vercelUrl : `https://${vercelUrl}`,
+    );
     return `${origin}${normalized}`;
   }
 
   return `http://localhost:3000${normalized}`;
 }
 
-export const serverUrl = getServerUrl(env.VITE_SERVER_URL);
+export const serverUrl = createServerUrl(env.VITE_SERVER_URL);

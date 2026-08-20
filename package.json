@@ -39,7 +39,7 @@
     "check-types": "bun run --filter '*' check-types",
     "test": "bun test --isolate --preload ./happydom.ts",
     "test:coverage": "bun test --isolate --coverage --preload ./happydom.ts && node scripts/check-coverage.mjs",
-    "test:web": "bun test --preload ./happydom.ts apps/web packages/ui",
+    "test:web": "VITE_SERVER_URL=http://127.0.0.1:3000 bun test --isolate --no-env-file --preload ./happydom.ts apps/web packages/ui",
     "coverage:baseline": "node scripts/check-coverage.mjs coverage/lcov.info --write-baseline",
     "coverage:promote": "node scripts/check-coverage.mjs coverage/lcov.info --promote-covered-sources",
     "ui:add": "node scripts/ui-add.mjs",
