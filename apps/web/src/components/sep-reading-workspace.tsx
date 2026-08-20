@@ -4,6 +4,7 @@ import { ArrowLeftIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { ReadingAnnotations } from "./reading-annotations";
+import { ReadingResearchAssistant } from "./reading-research-assistant";
 import { Bibliography } from "./sep-bibliography";
 import { SepReadingBreadcrumb } from "./sep-reading-breadcrumb";
 import { SepReadingCaptureStatus } from "./sep-reading-capture-status";
@@ -124,6 +125,13 @@ export function SepReadingWorkspace({
             sourceId={source.id}
             stateId={source.stateId}
             view={view}
+          />
+          <ReadingResearchAssistant
+            componentIdentity={component.identity}
+            componentLabel={component.label}
+            sourceId={source.id}
+            stateId={source.stateId}
+            sourceTitle={source.title}
           />
           <SepReadingComponentNav
             next={next}

@@ -13,6 +13,13 @@ let getReading: (input: unknown) => Promise<unknown> = async () =>
 await mock.module("@/clients/inquiry", () => ({
   inquiry: {
     sources: {
+      assistant: {
+        ask: {
+          mutationOptions: () => ({
+            mutationFn: async () => ({ answer: "Synthetic answer." }),
+          }),
+        },
+      },
       reading: {
         queryOptions: ({ input }: { input: unknown }) => ({
           queryKey: ["reading", input],

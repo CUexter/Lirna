@@ -85,6 +85,48 @@ export const sourcesRouter = {
       if (!reading) throw notFound("SEP Reading Derivative is unavailable");
       return reading;
     }),
+  assistant: {
+    ask: publicProcedure
+      .input(
+        sourceStateInput.extend({
+          componentIdentity: z.string().trim().min(1).max(2_000),
+          question: z.string().trim().min(1).max(4_000),
+        }),
+      )
+      .output(z.object({ answer: z.string().min(1) }))
+      .errors(notFoundError)
+      .meta(
+        openapi({
+          method: "POST",
+          path: "/sources/assistant",
+          operationId: "sources.assistant.ask",
+          summary: "Ask a question about an admitted Source state",
+          tags: ["Sources"],
+        }),
+      )
+      .handler(async ({ context, input }) => {
+        const reading = await context.admittedSourceStates.getReading(
+          input.sourceId,
+          input.stateId,
+        );
+        if (!reading) throw notFound("SEP Reading Derivative is unavailable");
+        const component = reading.components.find(
+          ({ identity }) => identity === input.componentIdentity,
+        );
+        if (!component) throw notFound("SEP Reading component is unavailable");
+        if (!context.researchAssistant) {
+          throw new ORPCError("INTERNAL_SERVER_ERROR", {
+            message: "Research assistant is not configured",
+          });
+        }
+        return context.researchAssistant.answer({
+          question: input.question,
+          sourceTitle: reading.source.title,
+          componentLabel: component.label,
+          sourceText: component.plainText,
+        });
+      }),
+  },
 };
 
 function notFound(message: string) {
