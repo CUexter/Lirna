@@ -173,6 +173,20 @@ _Avoid_: lock, ticket
 One numbered lease of one step of one run. A step may have several attempts when leases expire or workers are lost; exactly one committed attempt is the checkpoint.
 _Avoid_: retry, try
 
+### Observability
+
+**Request observation**:
+An operational record of how Lirna handled one inbound request, including its route, timing, outcome, and correlation identity without content-bearing request or response data. A Request observation diagnoses transport and service behavior but is not a durable account of Nathan's work.
+_Avoid_: action, audit event, request log
+
+**Operation observation**:
+An operational record of one application operation's execution and outcome, correlated with the Request observation or Workflow run that caused it. An Operation observation supports diagnosis and performance analysis but does not replace the durable domain record created or changed by the operation.
+_Avoid_: action, domain event, audit event
+
+**Audit event**:
+A security-oriented record of consequential activity attributable to Nathan, a Client installation, a Service identity, or an unauthenticated requester. An Audit event records who attempted what and the outcome without becoming the authoritative history of the affected domain object.
+_Avoid_: action, domain event, activity log
+
 **Human gate**:
 A declared step in a typed workflow that requires Nathan's explicit decision before the run may advance. A gate is durable and inspectable; approve advances the run and reject fails it. A gate is a Review and does not create Acceptance.
 _Avoid_: approval step, sign-off
