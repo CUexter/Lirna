@@ -3,7 +3,7 @@ import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
 import { annotationColors } from "../../annotations/annotation-contract";
-import { protectedProcedure } from "../init";
+import { publicProcedure } from "../init";
 
 const sourceStateInput = z.object({
   sourceId: z.string().uuid(),
@@ -27,7 +27,7 @@ const annotation = z.object({
 const notFoundError = { NOT_FOUND: {} };
 
 export const annotationsRouter = {
-  list: protectedProcedure
+  list: publicProcedure
     .input(sourceStateInput)
     .output(z.array(annotation))
     .meta(
@@ -43,7 +43,7 @@ export const annotationsRouter = {
       context.annotations.list(input.sourceId, input.stateId),
     ),
 
-  create: protectedProcedure
+  create: publicProcedure
     .input(
       sourceStateInput
         .extend({
@@ -84,7 +84,7 @@ export const annotationsRouter = {
       return annotation;
     }),
 
-  update: protectedProcedure
+  update: publicProcedure
     .input(sourceStateInput.extend({ id: z.string().uuid(), color, body }))
     .output(annotation)
     .errors(notFoundError)
@@ -103,7 +103,7 @@ export const annotationsRouter = {
       return annotation;
     }),
 
-  delete: protectedProcedure
+  delete: publicProcedure
     .input(sourceStateInput.extend({ id: z.string().uuid() }))
     .output(z.object({ deleted: z.literal(true) }))
     .errors(notFoundError)

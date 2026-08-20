@@ -1,7 +1,7 @@
 import { openapi } from "@orpc/openapi";
 import { z } from "zod";
 import type { Context } from "../context";
-import { protectedProcedure, publicProcedure } from "./init";
+import { publicProcedure } from "./init";
 import { annotationsRouter } from "./routers/annotations";
 import { sepAdmissionsRouter } from "./routers/sep-admission";
 
@@ -21,7 +21,7 @@ export const orpcRouter = {
     )
     .output(z.literal("OK"))
     .handler(() => "OK"),
-  privateData: protectedProcedure
+  privateData: publicProcedure
     .meta(
       openapi({
         method: "GET",
@@ -34,20 +34,22 @@ export const orpcRouter = {
     .output(
       z.object({
         message: z.literal("This is private"),
-        user: z.object({
-          id: z.string(),
-          name: z.string(),
-          email: z.string(),
-          emailVerified: z.boolean(),
-          image: z.string().nullable().optional(),
-          createdAt: z.date(),
-          updatedAt: z.date(),
-        }),
+        user: z
+          .object({
+            id: z.string(),
+            name: z.string(),
+            email: z.string(),
+            emailVerified: z.boolean(),
+            image: z.string().nullable().optional(),
+            createdAt: z.date(),
+            updatedAt: z.date(),
+          })
+          .nullable(),
       }),
     )
     .handler(({ context }) => ({
       message: "This is private",
-      user: context.session.user,
+      user: context.session?.user ?? null,
     })),
 };
 

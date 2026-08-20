@@ -48,34 +48,6 @@
           "message"
         ]
       },
-      "Unauthorized": {
-        "type": "object",
-        "properties": {
-          "defined": {
-            "const": true
-          },
-          "inferable": {
-            "type": "boolean"
-          },
-          "code": {
-            "const": "UNAUTHORIZED"
-          },
-          "status": {
-            "const": 401
-          },
-          "message": {
-            "type": "string"
-          },
-          "data": {}
-        },
-        "required": [
-          "defined",
-          "inferable",
-          "code",
-          "status",
-          "message"
-        ]
-      },
       "NotFound": {
         "type": "object",
         "properties": {
@@ -749,23 +721,6 @@
                 }
               }
             }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/Unauthorized"
-                    },
-                    {
-                      "$ref": "#/components/schemas/UndefinedError"
-                    }
-                  ]
-                }
-              }
-            }
           }
         }
       },
@@ -916,23 +871,6 @@
                     "updatedAt"
                   ],
                   "additionalProperties": false
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/Unauthorized"
-                    },
-                    {
-                      "$ref": "#/components/schemas/UndefinedError"
-                    }
-                  ]
                 }
               }
             }
@@ -1097,23 +1035,6 @@
               }
             }
           },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/Unauthorized"
-                    },
-                    {
-                      "$ref": "#/components/schemas/UndefinedError"
-                    }
-                  ]
-                }
-              }
-            }
-          },
           "404": {
             "description": "404",
             "content": {
@@ -1194,23 +1115,6 @@
                     "deleted"
                   ],
                   "additionalProperties": false
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/Unauthorized"
-                    },
-                    {
-                      "$ref": "#/components/schemas/UndefinedError"
-                    }
-                  ]
                 }
               }
             }
@@ -1931,23 +1835,6 @@
                 }
               }
             }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/Unauthorized"
-                    },
-                    {
-                      "$ref": "#/components/schemas/UndefinedError"
-                    }
-                  ]
-                }
-              }
-            }
           }
         }
       }
@@ -2538,23 +2425,6 @@
               }
             }
           },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/Unauthorized"
-                    },
-                    {
-                      "$ref": "#/components/schemas/UndefinedError"
-                    }
-                  ]
-                }
-              }
-            }
-          },
           "404": {
             "description": "404",
             "content": {
@@ -2619,23 +2489,6 @@
                     "deleted"
                   ],
                   "additionalProperties": false
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/Unauthorized"
-                    },
-                    {
-                      "$ref": "#/components/schemas/UndefinedError"
-                    }
-                  ]
                 }
               }
             }
@@ -3264,23 +3117,6 @@
                   "oneOf": [
                     {
                       "$ref": "#/components/schemas/BadRequest"
-                    },
-                    {
-                      "$ref": "#/components/schemas/UndefinedError"
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/Unauthorized"
                     },
                     {
                       "$ref": "#/components/schemas/UndefinedError"
@@ -3923,23 +3759,6 @@
               }
             }
           },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/Unauthorized"
-                    },
-                    {
-                      "$ref": "#/components/schemas/UndefinedError"
-                    }
-                  ]
-                }
-              }
-            }
-          },
           "404": {
             "description": "404",
             "content": {
@@ -4166,23 +3985,6 @@
               }
             }
           },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/Unauthorized"
-                    },
-                    {
-                      "$ref": "#/components/schemas/UndefinedError"
-                    }
-                  ]
-                }
-              }
-            }
-          },
           "404": {
             "description": "404",
             "content": {
@@ -4357,23 +4159,6 @@
                     "resources"
                   ],
                   "additionalProperties": false
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/Unauthorized"
-                    },
-                    {
-                      "$ref": "#/components/schemas/UndefinedError"
-                    }
-                  ]
                 }
               }
             }
@@ -5494,23 +5279,6 @@
               }
             }
           },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/Unauthorized"
-                    },
-                    {
-                      "$ref": "#/components/schemas/UndefinedError"
-                    }
-                  ]
-                }
-              }
-            }
-          },
           "404": {
             "description": "404",
             "content": {
@@ -5574,50 +5342,57 @@
                       "const": "This is private"
                     },
                     "user": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "email": {
-                          "type": "string"
-                        },
-                        "emailVerified": {
-                          "type": "boolean"
-                        },
-                        "image": {
-                          "anyOf": [
-                            {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
                               "type": "string"
                             },
-                            {
-                              "type": "null"
+                            "name": {
+                              "type": "string"
+                            },
+                            "email": {
+                              "type": "string"
+                            },
+                            "emailVerified": {
+                              "type": "boolean"
+                            },
+                            "image": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "x-native-type": "date"
+                            },
+                            "updatedAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "x-native-type": "date"
                             }
-                          ]
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "email",
+                            "emailVerified",
+                            "createdAt",
+                            "updatedAt"
+                          ],
+                          "additionalProperties": false
                         },
-                        "createdAt": {
-                          "type": "string",
-                          "format": "date-time",
-                          "x-native-type": "date"
-                        },
-                        "updatedAt": {
-                          "type": "string",
-                          "format": "date-time",
-                          "x-native-type": "date"
+                        {
+                          "type": "null"
                         }
-                      },
-                      "required": [
-                        "id",
-                        "name",
-                        "email",
-                        "emailVerified",
-                        "createdAt",
-                        "updatedAt"
-                      ],
-                      "additionalProperties": false
+                      ]
                     }
                   },
                   "required": [
@@ -5625,23 +5400,6 @@
                     "user"
                   ],
                   "additionalProperties": false
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/Unauthorized"
-                    },
-                    {
-                      "$ref": "#/components/schemas/UndefinedError"
-                    }
-                  ]
                 }
               }
             }

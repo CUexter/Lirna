@@ -5,7 +5,7 @@ import { z } from "zod";
 import { sepObservationKeySchema } from "../../sep-admission/sep-admission-builders";
 import { SepAdmissionError } from "../../sep-admission/sep-capture";
 import { sepReadingContractSchema } from "../../sep-admission/sep-reading-contract";
-import { protectedProcedure, publicProcedure } from "../init";
+import { publicProcedure } from "../init";
 import {
   sepAdmissionPreviewSchema,
   sepAdmissionResultSchema,
@@ -61,7 +61,7 @@ export const sepAdmissionsRouter = {
     )
     .handler(({ context }) => context.sepAdmissions.listSources()),
 
-  submit: protectedProcedure
+  submit: publicProcedure
     .input(z.object({ url: z.string().trim().min(1) }))
     .output(sepAdmissionPreviewSchema)
     .errors(badRequestError)
@@ -82,7 +82,7 @@ export const sepAdmissionsRouter = {
       }
     }),
 
-  get: protectedProcedure
+  get: publicProcedure
     .input(previewIdInput)
     .output(sepAdmissionPreviewSchema)
     .errors(notFoundError)
@@ -101,7 +101,7 @@ export const sepAdmissionsRouter = {
       return preview;
     }),
 
-  extend: protectedProcedure
+  extend: publicProcedure
     .input(previewIdInput)
     .output(sepAdmissionPreviewSchema)
     .errors(badRequestAndNotFoundErrors)
@@ -124,7 +124,7 @@ export const sepAdmissionsRouter = {
       }
     }),
 
-  retry: protectedProcedure
+  retry: publicProcedure
     .input(previewIdInput)
     .output(sepAdmissionPreviewSchema)
     .errors(badRequestAndNotFoundErrors)
@@ -147,7 +147,7 @@ export const sepAdmissionsRouter = {
       }
     }),
 
-  admit: protectedProcedure
+  admit: publicProcedure
     .input(
       previewIdInput.extend({
         observationKeys: z.array(sepObservationKeySchema).min(1).max(2),
@@ -177,7 +177,7 @@ export const sepAdmissionsRouter = {
       }
     }),
 
-  state: protectedProcedure
+  state: publicProcedure
     .input(sourceStateInput)
     .output(sepAdmittedStateSchema)
     .errors(notFoundError)
@@ -199,7 +199,7 @@ export const sepAdmissionsRouter = {
       return state;
     }),
 
-  reading: protectedProcedure
+  reading: publicProcedure
     .input(sourceStateInput)
     .output(sepReadingContractSchema)
     .errors(notFoundError)
@@ -221,7 +221,7 @@ export const sepAdmissionsRouter = {
       return reading;
     }),
 
-  delete: protectedProcedure
+  delete: publicProcedure
     .input(previewIdInput)
     .output(z.object({ deleted: z.literal(true) }))
     .errors(notFoundError)

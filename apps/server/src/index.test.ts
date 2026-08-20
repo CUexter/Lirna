@@ -16,16 +16,11 @@ describe("server HTTP API", () => {
     expect(await response.json()).toEqual({ json: "OK" });
   });
 
-  test("rejects protected oRPC data without a session", async () => {
+  test("returns oRPC data without a session", async () => {
     const response = await app.request("/orpc/privateData");
 
-    expect(response.status).toBe(401);
-    expect(await response.json()).toMatchObject({
-      json: {
-        code: "UNAUTHORIZED",
-        message: "Authentication required",
-      },
-    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ json: { user: null } });
   });
 
   test("rejects /docs without a session", async () => {
