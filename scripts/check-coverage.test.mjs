@@ -116,6 +116,21 @@ describe("coverage source baseline", () => {
     ).toEqual([]);
   });
 
+  test("rejects changed covered shadcn primitives", () => {
+    expect(
+      sourceBaselineViolations({
+        absentSources: {
+          "packages/ui/src/components/button.tsx": "old-shadcn-hash",
+        },
+        coveredSources: new Set(["packages/ui/src/components/button.tsx"]),
+        eligibleSources: ["packages/ui/src/components/button.tsx"],
+        hashes: { "packages/ui/src/components/button.tsx": "new-shadcn-hash" },
+      }),
+    ).toEqual([
+      "packages/ui/src/components/button.tsx changed while covered; explicitly update the reviewed shadcn baseline",
+    ]);
+  });
+
   test("promotes only covered eligible sources without changing floors or unrelated hashes", () => {
     const coverage = {
       functionsFound: 20,

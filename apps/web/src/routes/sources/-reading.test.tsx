@@ -213,7 +213,7 @@ test("restores a component location through its parent breadcrumb", async () => 
   }
 });
 
-test("filters publisher bibliography and returns from a Citation in context", async () => {
+test("filters publisher bibliography and preserves component search when returning from a Citation", async () => {
   resetActions();
   const user = userEvent.setup();
   const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
@@ -222,7 +222,7 @@ test("filters publisher bibliography and returns from a Citation in context", as
     returnedTo = this.id;
   };
   try {
-    const router = await renderReading();
+    const router = await renderReading("?component=article");
     await waitFor(() =>
       expect(
         view().getByRole("button", { name: "Citation: [1] (resolved)" }),
@@ -233,6 +233,7 @@ test("filters publisher bibliography and returns from a Citation in context", as
     );
     await waitFor(() => view().getByRole("heading", { name: "Bibliography" }));
     expect(router.state.location.search).toEqual({
+      component: "article",
       view: "bibliography",
       citation: "entry-one",
     });
@@ -260,7 +261,40 @@ test("filters publisher bibliography and returns from a Citation in context", as
         view().getByRole("button", { name: "Citation: [1] (resolved)" }),
       ).toBeTruthy(),
     );
-    expect(router.state.location.search).toEqual({});
+    expect(router.state.location.search).toEqual({ component: "article" });
+    expect(returnedTo).toBe("citation-one");
+  } finally {
+    HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+  }
+});
+
+test("restores bibliography and Citation context from route search", async () => {
+  resetActions();
+  const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+  let returnedTo: string | undefined;
+  HTMLElement.prototype.scrollIntoView = function () {
+    returnedTo = this.id;
+  };
+  try {
+    const user = userEvent.setup();
+    const router = await renderReading(
+      "?component=article&view=bibliography&citation=entry-one",
+    );
+    await waitFor(() => view().getByRole("heading", { name: "Bibliography" }));
+    expect(router.state.location.search).toEqual({
+      component: "article",
+      view: "bibliography",
+      citation: "entry-one",
+    });
+    expect(
+      view().getByText("Ada Lovelace. Synthetic publisher entry."),
+    ).toBeTruthy();
+
+    await user.click(view().getByRole("button", { name: "Back to citation" }));
+    await waitFor(() =>
+      view().getByRole("button", { name: "Citation: [1] (resolved)" }),
+    );
+    expect(router.state.location.search).toEqual({ component: "article" });
     expect(returnedTo).toBe("citation-one");
   } finally {
     HTMLElement.prototype.scrollIntoView = originalScrollIntoView;

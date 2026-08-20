@@ -220,6 +220,7 @@ test("shows submission and lifecycle failures while retaining preview state", as
   expect(calls.get).toEqual([{ previewId }]);
 
   actions.get = async () => {
+    calls.get.push({ previewId });
     throw new Error("Refresh failed");
   };
   await user.click(
@@ -230,6 +231,7 @@ test("shows submission and lifecycle failures while retaining preview state", as
       "Retry capture failed",
     ),
   );
+  expect(calls.get).toHaveLength(2);
 
   actions.extend = async () => {
     throw new Error("Extension failed");
