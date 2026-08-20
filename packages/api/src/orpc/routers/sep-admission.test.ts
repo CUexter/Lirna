@@ -273,6 +273,18 @@ describe("SEP admission oRPC router", () => {
     ).resolves.toEqual(sources);
   });
 
+  test("listSources does not require authentication", async () => {
+    await expect(
+      call(
+        sepAdmissionsRouter.listSources,
+        {},
+        {
+          context: { ...context(operationsStub()), session: null },
+        },
+      ),
+    ).resolves.toEqual([]);
+  });
+
   test("delete returns not found when the preview is missing", async () => {
     await expect(
       invoke("delete", { previewId }, operationsStub()),

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { sepObservationKeySchema } from "../../sep-admission/sep-admission-builders";
 import { SepAdmissionError } from "../../sep-admission/sep-capture";
 import { sepReadingContractSchema } from "../../sep-admission/sep-reading-contract";
-import { protectedProcedure } from "../init";
+import { protectedProcedure, publicProcedure } from "../init";
 import {
   sepAdmissionPreviewSchema,
   sepAdmissionResultSchema,
@@ -47,7 +47,7 @@ function rethrowSepAdmissionError(error: unknown): never {
 }
 
 export const sepAdmissionsRouter = {
-  listSources: protectedProcedure
+  listSources: publicProcedure
     .input(z.object({}))
     .output(z.array(sepLibrarySourceSchema))
     .meta(
