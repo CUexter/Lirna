@@ -5,10 +5,15 @@ import {
   sourceStateDerivatives,
   sourceStateResources,
   sourceStates,
+  sources,
 } from "@lirna/db/schema/sources";
 import { and, asc, desc, eq } from "drizzle-orm";
 
-import type { SepAdmittedState, SepAdmittedStateReader } from "./sep-admission";
+import type {
+  SepAdmittedState,
+  SepAdmittedStateReader,
+  SepLibrarySource,
+} from "./sep-admission";
 import {
   parseStringList,
   sepObservationKeySchema,
@@ -23,6 +28,35 @@ export function createSepAdmittedStateReader(
   database: typeof db = db,
 ): SepAdmittedStateReader {
   return {
+    async listSources(): Promise<SepLibrarySource[]> {
+      const rows = await database
+        .select({ source: sources, state: sourceStates })
+        .from(sources)
+        .innerJoin(sourceStates, eq(sourceStates.sourceId, sources.id))
+        .where(eq(sourceStates.adapterId, "sep"))
+        .orderBy(desc(sources.admittedAt), desc(sourceStates.sequence));
+      const grouped = new Map<string, SepLibrarySource>();
+      for (const row of rows) {
+        const source = grouped.get(row.source.id) ?? {
+          id: row.source.id,
+          title: row.source.title,
+          admittedAt: row.source.admittedAt.toISOString(),
+          states: [],
+        };
+        source.states.push({
+          id: row.state.id,
+          sequence: row.state.sequence,
+          observationKey: sepObservationKeySchema.parse(
+            row.state.observationKey,
+          ),
+          canonicalUrl: row.state.canonicalUrl ?? "",
+          admittedAt: row.state.admittedAt.toISOString(),
+        });
+        grouped.set(row.source.id, source);
+      }
+      return [...grouped.values()];
+    },
+
     async getState(
       sourceId: string,
       stateId: string,

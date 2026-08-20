@@ -120,6 +120,7 @@ export interface SepAdmissionCreateRecord {
 }
 
 export interface SepAdmittedStateReader {
+  listSources(): Promise<SepLibrarySource[]>;
   getState(
     sourceId: string,
     stateId: string,
@@ -128,6 +129,18 @@ export interface SepAdmittedStateReader {
     sourceId: string,
     stateId: string,
   ): Promise<SepReadingContract | undefined>;
+}
+
+export interface SepLibrarySource {
+  id: string;
+  title: string;
+  admittedAt: string;
+  states: Array<
+    Pick<
+      SepAdmittedState,
+      "id" | "sequence" | "observationKey" | "canonicalUrl" | "admittedAt"
+    >
+  >;
 }
 
 export interface SepAdmissionStore extends SepAdmittedStateReader {
@@ -182,6 +195,7 @@ export function createSepAdmissionOperations(options: {
   }
 
   return {
+    listSources: () => options.store.listSources(),
     async submit(url) {
       const createdAt = now();
       await options.store.deleteExpired(createdAt);

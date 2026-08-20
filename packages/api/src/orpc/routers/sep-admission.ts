@@ -12,6 +12,21 @@ import {
   sepAdmittedStateSchema,
 } from "./sep-admission-schemas";
 
+const sepLibrarySourceSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  admittedAt: z.string().datetime(),
+  states: z.array(
+    z.object({
+      id: z.string().uuid(),
+      sequence: z.number().int().nonnegative(),
+      observationKey: sepObservationKeySchema,
+      canonicalUrl: z.string(),
+      admittedAt: z.string().datetime(),
+    }),
+  ),
+});
+
 const previewIdInput = z.object({ previewId: z.string().uuid() });
 const sourceStateInput = z.object({
   sourceId: z.string().uuid(),
@@ -32,6 +47,20 @@ function rethrowSepAdmissionError(error: unknown): never {
 }
 
 export const sepAdmissionsRouter = {
+  listSources: protectedProcedure
+    .input(z.object({}))
+    .output(z.array(sepLibrarySourceSchema))
+    .meta(
+      openapi({
+        method: "GET",
+        path: "/sources",
+        operationId: "sources.list",
+        summary: "List admitted Sources",
+        tags: ["Sources"],
+      }),
+    )
+    .handler(({ context }) => context.sepAdmissions.listSources()),
+
   submit: protectedProcedure
     .input(z.object({ url: z.string().trim().min(1) }))
     .output(sepAdmissionPreviewSchema)

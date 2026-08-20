@@ -52,6 +52,6 @@ export const orpcRouter = {
 };
 
 export type OrpcRouter = typeof orpcRouter;
-export type LibraryRouter = Pick<OrpcRouter, "annotations">;
+export type LibraryRouter = Pick<OrpcRouter, "annotations" | "sepAdmission">;
 export type InquiryRouter = Pick<OrpcRouter, "sepAdmission">;
 export type OrpcContext = Context;

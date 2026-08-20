@@ -25,7 +25,6 @@ import {
   FileTextIcon,
   LibraryIcon,
   MessageSquareTextIcon,
-  MoreHorizontalIcon,
   PlusIcon,
   SearchIcon,
   SparklesIcon,
@@ -47,14 +46,12 @@ const navigation = [
     icon: LibraryIcon,
     active: false,
     section: "Knowledge",
+    to: "/sources",
   },
   { label: "Notes", icon: FileTextIcon, active: false },
 ] as const;
 
-const mobileNavigation = [
-  ...navigation.slice(0, 4),
-  { label: "More", icon: MoreHorizontalIcon, active: false },
-] as const;
+const mobileNavigation = [...navigation.slice(0, 4), navigation[4]] as const;
 
 function QuestionComposer({ className }: { className: string }) {
   return (
@@ -94,15 +91,26 @@ function RouteComponent() {
                   {item.section}
                 </p>
               ) : null}
-              <Button
-                type="button"
-                variant="ghost"
-                aria-current={active ? "page" : undefined}
-                className="flex w-full justify-start gap-3 rounded-none border-transparent border-l-2 px-3 py-2.5 text-left font-medium text-sidebar-foreground/70 text-sm transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground aria-[current=page]:border-l-sidebar-primary aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-sidebar-accent-foreground"
-              >
-                <Icon aria-hidden="true" />
-                {label}
-              </Button>
+              {"to" in item ? (
+                <Link
+                  to={item.to}
+                  aria-current={active ? "page" : undefined}
+                  className="flex w-full justify-start gap-3 rounded-none border-transparent border-l-2 px-3 py-2.5 text-left font-medium text-sidebar-foreground/70 text-sm transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground aria-[current=page]:border-l-sidebar-primary aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-sidebar-accent-foreground"
+                >
+                  <Icon aria-hidden="true" />
+                  {label}
+                </Link>
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  aria-current={active ? "page" : undefined}
+                  className="flex w-full justify-start gap-3 rounded-none border-transparent border-l-2 px-3 py-2.5 text-left font-medium text-sidebar-foreground/70 text-sm transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground aria-[current=page]:border-l-sidebar-primary aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-sidebar-accent-foreground"
+                >
+                  <Icon aria-hidden="true" />
+                  {label}
+                </Button>
+              )}
             </div>
           ))}
         </nav>
@@ -268,18 +276,30 @@ function RouteComponent() {
         aria-label="Mobile workspace"
         className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t bg-background lg:hidden"
       >
-        {mobileNavigation.map(({ label, icon: Icon, active }) => (
-          <Button
-            key={label}
-            type="button"
-            variant="ghost"
-            aria-current={active ? "page" : undefined}
-            className="flex h-16 flex-col items-center justify-center gap-1 font-medium text-[0.65rem] text-muted-foreground aria-[current=page]:text-primary"
-          >
-            <Icon aria-hidden="true" />
-            {label}
-          </Button>
-        ))}
+        {mobileNavigation.map(({ label, icon: Icon, active, ...item }) =>
+          "to" in item ? (
+            <Link
+              key={label}
+              to={item.to}
+              aria-current={active ? "page" : undefined}
+              className="flex h-16 flex-col items-center justify-center gap-1 font-medium text-[0.65rem] text-muted-foreground aria-[current=page]:text-primary"
+            >
+              <Icon aria-hidden="true" />
+              {label}
+            </Link>
+          ) : (
+            <Button
+              key={label}
+              type="button"
+              variant="ghost"
+              aria-current={active ? "page" : undefined}
+              className="flex h-16 flex-col items-center justify-center gap-1 font-medium text-[0.65rem] text-muted-foreground aria-[current=page]:text-primary"
+            >
+              <Icon aria-hidden="true" />
+              {label}
+            </Button>
+          ),
+        )}
       </nav>
     </main>
   );

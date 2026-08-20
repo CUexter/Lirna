@@ -35,6 +35,9 @@ export function operationsStub(
     async getState() {
       return undefined;
     },
+    async listSources() {
+      return [];
+    },
     async getReading() {
       return undefined;
     },

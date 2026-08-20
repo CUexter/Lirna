@@ -242,6 +242,37 @@ describe("SEP admission oRPC router", () => {
     ).resolves.toBeDefined();
   });
 
+  test("listSources forwards admitted Sources", async () => {
+    const sources = [
+      {
+        id: sourceId,
+        title: "Synthetic SEP entry",
+        admittedAt: "2026-08-18T12:01:00.000Z",
+        states: [
+          {
+            id: stateId,
+            sequence: 1,
+            observationKey: "submitted",
+            canonicalUrl: "https://plato.stanford.edu/entries/test/",
+            admittedAt: "2026-08-18T12:01:00.000Z",
+          },
+        ],
+      },
+    ];
+
+    await expect(
+      invoke(
+        "listSources",
+        {},
+        operationsStub({
+          async listSources() {
+            return sources;
+          },
+        }),
+      ),
+    ).resolves.toEqual(sources);
+  });
+
   test("delete returns not found when the preview is missing", async () => {
     await expect(
       invoke("delete", { previewId }, operationsStub()),
