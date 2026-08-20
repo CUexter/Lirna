@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "mutate": ["scripts/dependency-score-policy.mjs"],
+  "testRunner": "command",
+  "commandRunner": {
+    "command": "bun test --isolate scripts/dependency-score.test.mjs"
+  },
+  "coverageAnalysis": "off",
+  "concurrency": 4,
+  "reporters": ["clear-text", "progress"],
+  "ignorePatterns": [
+    ".agents/**",
+    ".claude/**",
+    ".codegraph/**",
+    ".direnv/**",
+    ".stryker-tmp/**",
+    "coverage/**",
+    "prototype/**",
+    "result",
+    "result-*/**"
+  ]
+}

@@ -30,6 +30,7 @@
   "devDependencies": {
     "@lirna/config": "workspace:*",
     "@tailwindcss/postcss": "^4.3.3",
+    "@types/bun": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "tailwindcss": "catalog:",

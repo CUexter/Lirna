@@ -174,6 +174,7 @@ The maintenance cleanup intentionally leaves one enforcement path per concern:
 | `bun run check` | Runs the full configured Biome formatter, linter, and assist checks without modifying files | Automated in the Quality workflow; read-only locally. |
 | `bun run check:fix` | Applies configured Biome formatting, lint, and assist fixes | Manual and mutating. |
 | `bun run quality:ci` | Runs Biome in check mode, Fallow health/duplication/dead-code, architecture policy, the bundle budget, documentation checks, and coverage-tested behavior; bundle and coverage artifacts are written locally | Automated in the Quality workflow. |
+| `bun run test:mutation` | Runs focused Stryker campaigns through canonical Bun tests; see `docs/testing-and-coverage.md` | Manual and non-blocking while target runtimes and survivor-review practices stabilize. |
 
 | `bun run check:semgrep` | Runs the blocking Semgrep rules | Automated in CI, but optional locally and absent from pre-commit. |
 | `bun run report:semgrep` | Runs non-blocking Semgrep rules | Automated in CI, but optional locally and absent from pre-commit. |
