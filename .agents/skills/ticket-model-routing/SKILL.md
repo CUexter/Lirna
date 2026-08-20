@@ -34,11 +34,16 @@ failure risk preserve the saving.
    when splitting would add more coordination cost than it saves. This step is
    complete when every Terra or Sol ticket has been checked for a safe downshift.
 
-5. Report the routing table and portfolio summary using the output contract.
-   Treat assignments as recommendations; modify issue bodies, labels, or
-   metadata only when the user explicitly requests it. This step is complete
-   when every input ticket appears exactly once and all claims are traceable to
-   ticket evidence or the research note.
+5. Persist each GitHub ticket's recommendation in its issue body using the
+   routing block below. Replace an existing routing block in place so reruns are
+   idempotent, and preserve the rest of the issue body exactly. For non-GitHub
+   inputs, report the recommendation without inventing tracker metadata. This
+   step is complete when every GitHub ticket has one current routing block.
+
+6. Report the routing table and portfolio summary using the output contract.
+   Assignments remain recommendations even when persisted. This step is
+   complete when every input ticket appears exactly once and all claims are
+   traceable to ticket evidence or the research note.
 
 ## Capability gates
 
@@ -111,6 +116,21 @@ Return one row per ticket:
   repository evidence.
 - **Evidence:** the shortest concrete reason that sets the capability floor.
 - **Escalate when:** one observable condition that requires the next tier.
+
+For each GitHub ticket, append or replace this exact section in the issue body:
+
+```markdown
+## Model routing
+
+- Model: `gpt-5.6-terra`
+- Effort: `medium`
+- Confidence: `high`
+- Evidence: The shortest concrete reason that sets the capability floor.
+- Escalate when: One observable condition that requires the next tier.
+```
+
+Write the ticket's actual values. Keep the heading and field labels stable so
+orchestrators can resume from the issue body without rerunning model selection.
 
 After the table, report:
 
