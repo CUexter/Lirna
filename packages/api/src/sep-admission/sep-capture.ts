@@ -98,8 +98,15 @@ export interface SepCaptureClient {
   capture(
     url: string,
     budget?: "standard" | "expanded",
+    onStage?: (stage: SepCaptureStage) => void,
   ): Promise<SepCaptureResult>;
 }
+
+export type SepCaptureStage =
+  | "validation"
+  | "mandatory_download"
+  | "metadata_parsing"
+  | "optional_bundle_capture";
 
 interface CaptureOptions {
   fetch?: typeof globalThis.fetch;
@@ -139,11 +146,14 @@ export function createSepCaptureClient(
   };
 
   return {
-    async capture(value, budget = "standard") {
-      const limits = limitsByBudget[budget];
+    async capture(value, budget, onStage) {
+      const captureBudget = budget ?? "standard";
+      const limits = limitsByBudget[captureBudget];
       let processingMilliseconds = 0;
       const startedAt = performanceNow();
+      onStage?.("validation");
       const submitted = classifySepUrl(value);
+      onStage?.("mandatory_download");
       const [main, citation] = await captureRequiredResources({
         submitted,
         limits,
@@ -159,6 +169,7 @@ export function createSepCaptureClient(
       const mainClassification = classifySepUrl(main.finalUrl);
       const scope = publicationScope(mainClassification);
       main.identity = `${scope.archive ?? "active"}:/`;
+      onStage?.("metadata_parsing");
       const title = parseTitle(
         decodeCapturedHtml(main.body, main.charset, main.role),
       );
@@ -180,6 +191,7 @@ export function createSepCaptureClient(
       let archiveMain: CapturedSepResource | undefined;
       let archiveScope: ReturnType<typeof publicationScope> | undefined;
       if (recommendedArchiveUrl) {
+        onStage?.("mandatory_download");
         const archiveTarget = classifySepUrl(recommendedArchiveUrl);
         archiveMain = await captureRequired({
           target: archiveTarget,
@@ -199,6 +211,7 @@ export function createSepCaptureClient(
         }
       }
       const observationBytes = mandatoryBytes + (archiveMain?.byteLength ?? 0);
+      onStage?.("optional_bundle_capture");
       const optional = await captureOptionalBundle({
         main,
         scope,
@@ -229,7 +242,7 @@ export function createSepCaptureClient(
         publicationHistory: metadata.publicationHistory,
         diagnostics: metadata.diagnostics,
         captureReport: buildCaptureReport(
-          budget,
+          captureBudget,
           limits,
           archiveOptional
             ? mergeOptionalResults(optional, archiveOptional)

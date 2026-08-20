@@ -4,6 +4,11 @@ import type {
   sepPreviewResources,
 } from "@lirna/db/schema/sep-admission";
 
+import {
+  observeDegradedCapture,
+  observeOperation,
+  type SepAdmissionObservation,
+} from "./sep-admission-observation";
 import { toSepAdmissionPreview } from "./sep-admission-preview";
 import type { SepAdmittedState } from "./sep-admitted-state";
 import {
@@ -119,18 +124,28 @@ export interface SepAdmissionStore {
     id: string,
     observationKeys: SepObservationKey[],
     now: Date,
+    onStage?: (
+      stage: "database_persistence" | "reading_derivative_parsing",
+    ) => void,
   ): Promise<SepAdmissionResult | undefined>;
 }
 
 export interface SepAdmissionOperations {
-  submit(url: string): Promise<SepAdmissionPreview>;
+  submit(
+    url: string,
+    observation?: SepAdmissionObservation,
+  ): Promise<SepAdmissionPreview>;
   get(id: string): Promise<SepAdmissionPreview | undefined>;
   extend(id: string): Promise<SepAdmissionPreview | undefined>;
   delete(id: string): Promise<boolean>;
-  retry(id: string): Promise<SepAdmissionPreview | undefined>;
+  retry(
+    id: string,
+    observation?: SepAdmissionObservation,
+  ): Promise<SepAdmissionPreview | undefined>;
   admit(
     id: string,
     observationKeys: SepObservationKey[],
+    observation?: SepAdmissionObservation,
   ): Promise<SepAdmissionResult | undefined>;
 }
 
@@ -149,24 +164,43 @@ export function createSepAdmissionOperations(options: {
   }
 
   return {
-    async submit(url) {
-      const createdAt = now();
-      await options.store.deleteExpired(createdAt);
-      const captured = await options.capture.capture(url);
-      const id = randomUUID();
-      await options.store.create({
-        id,
-        ...captured,
-        createdAt,
-        expiresAt: new Date(createdAt.getTime() + previewLifetimeMilliseconds),
-      });
-      const preview = await read(id);
-      if (!preview) {
-        throw new Error(
-          `SEP Admission preview ${id} vanished after persistence`,
-        );
-      }
-      return preview;
+    async submit(url, observation) {
+      return observeOperation(
+        "submit",
+        observation,
+        async (stage, operationId) => {
+          const createdAt = now();
+          await options.store.deleteExpired(createdAt);
+          const captured = await options.capture.capture(
+            url,
+            "standard",
+            stage,
+          );
+          observeDegradedCapture(
+            observation,
+            captured.captureReport,
+            "submit",
+            operationId,
+          );
+          stage("preview_persistence");
+          const id = randomUUID();
+          await options.store.create({
+            id,
+            ...captured,
+            createdAt,
+            expiresAt: new Date(
+              createdAt.getTime() + previewLifetimeMilliseconds,
+            ),
+          });
+          const preview = await read(id);
+          if (!preview) {
+            throw new Error(
+              `SEP Admission preview ${id} vanished after persistence`,
+            );
+          }
+          return preview;
+        },
+      );
     },
     get: read,
     async extend(id) {
@@ -180,45 +214,62 @@ export function createSepAdmissionOperations(options: {
       return updated ? read(id) : undefined;
     },
     delete: (id) => options.store.delete(id),
-    async retry(id) {
-      const retriedAt = now();
-      await options.store.deleteExpired(retriedAt);
-      const claim = await options.store.claimExpandedRetry(id, retriedAt);
-      if (claim === "unavailable") {
-        return undefined;
-      }
-      if (claim === "already-used") {
-        throw new SepAdmissionError(
-          "The expanded capture budget has already been used for this preview",
-        );
-      }
-      const existing = await options.store.getActive(id, retriedAt);
-      if (!existing) {
-        return undefined;
-      }
-      const captured = await options.capture.capture(
-        existing.preview.submittedUrl,
-        "expanded",
+    async retry(id, observation) {
+      return observeOperation(
+        "retry",
+        observation,
+        async (stage, operationId) => {
+          stage("validation");
+          const retriedAt = now();
+          await options.store.deleteExpired(retriedAt);
+          const claim = await options.store.claimExpandedRetry(id, retriedAt);
+          if (claim === "unavailable") return undefined;
+          if (claim === "already-used") {
+            throw new SepAdmissionError(
+              "The expanded capture budget has already been used for this preview",
+            );
+          }
+          const existing = await options.store.getActive(id, retriedAt);
+          if (!existing) return undefined;
+          const captured = await options.capture.capture(
+            existing.preview.submittedUrl,
+            "expanded",
+            stage,
+          );
+          observeDegradedCapture(
+            observation,
+            captured.captureReport,
+            "retry",
+            operationId,
+          );
+          stage("preview_persistence");
+          const result = await options.store.replaceCapture(
+            id,
+            retriedAt,
+            captured,
+          );
+          return result === "updated" ? read(id) : undefined;
+        },
       );
-      const result = await options.store.replaceCapture(
-        id,
-        retriedAt,
-        captured,
-      );
-      return result === "updated" ? read(id) : undefined;
     },
-    async admit(id, observationKeys) {
-      if (observationKeys.length === 0) {
-        throw new SepAdmissionError("Select at least one observation to admit");
-      }
-      if (new Set(observationKeys).size !== observationKeys.length) {
-        throw new SepAdmissionError(
-          "Each observation may be selected only once",
-        );
-      }
-      const admittedAt = now();
-      await options.store.deleteExpired(admittedAt);
-      return options.store.admit(id, observationKeys, admittedAt);
+    async admit(id, observationKeys, observation) {
+      return observeOperation("admit", observation, async (stage) => {
+        stage("validation");
+        if (observationKeys.length === 0) {
+          throw new SepAdmissionError(
+            "Select at least one observation to admit",
+          );
+        }
+        if (new Set(observationKeys).size !== observationKeys.length) {
+          throw new SepAdmissionError(
+            "Each observation may be selected only once",
+          );
+        }
+        const admittedAt = now();
+        await options.store.deleteExpired(admittedAt);
+        stage("database_persistence");
+        return options.store.admit(id, observationKeys, admittedAt, stage);
+      });
     },
   };
 }

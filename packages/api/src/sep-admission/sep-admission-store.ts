@@ -47,6 +47,9 @@ export function createDrizzleSepAdmissionStore(
       id: string,
       observationKeys: SepObservationKey[],
       now: Date,
+      onStage?: (
+        stage: "database_persistence" | "reading_derivative_parsing",
+      ) => void,
     ): Promise<SepAdmissionResult | undefined> {
       const selectedKeys = (
         ["submitted", "recommended-archive"] as const
@@ -174,6 +177,7 @@ export function createDrizzleSepAdmissionStore(
             })),
           ),
         );
+        onStage?.("reading_derivative_parsing");
         const derivatives = stateResources.map(({ state, resources }) => {
           const main = resources.find((resource) => resource.role === "main");
           if (!main)
@@ -186,6 +190,7 @@ export function createDrizzleSepAdmissionStore(
             preview: locked,
           });
         });
+        onStage?.("database_persistence");
         await tx.insert(sourceStateDerivatives).values(derivatives);
         await tx.insert(sourceStateDerivativeActivations).values(
           derivatives.map((derivative) => ({

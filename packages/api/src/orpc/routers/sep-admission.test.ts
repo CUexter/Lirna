@@ -28,14 +28,17 @@ describe("SEP admission oRPC router", () => {
     ).rejects.toMatchObject({
       code: "BAD_REQUEST",
       message: "Enter a valid SEP URL",
+      data: { requestId: "req-test" },
     });
   });
 
   test("submit forwards a captured preview and trims the url", async () => {
     let submittedUrl: string | undefined;
+    let observedRequestId: string | undefined;
     const operations = operationsStub({
-      async submit(url) {
+      async submit(url, observation) {
         submittedUrl = url;
+        observedRequestId = observation?.requestId;
         return previewFixture();
       },
     });
@@ -47,6 +50,7 @@ describe("SEP admission oRPC router", () => {
     );
 
     expect(submittedUrl).toBe("https://example.com/sep");
+    expect(observedRequestId).toBe("req-test");
     expect(result).toMatchObject({ id: previewId });
   });
 
@@ -65,12 +69,48 @@ describe("SEP admission oRPC router", () => {
     expect(submitCalls).toBe(0);
   });
 
+  test("submit maps unexpected failures to a referenced internal error", async () => {
+    await expect(
+      invoke(
+        "submit",
+        { url: "https://example.com/sep" },
+        operationsStub({
+          async submit() {
+            throw new Error("database connection detail");
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Internal Server Error",
+      data: { requestId: "req-test" },
+    });
+  });
+
   test("get returns not found when the preview is missing", async () => {
     await expect(
       invoke("get", { previewId }, operationsStub()),
     ).rejects.toMatchObject({
       code: "NOT_FOUND",
       message: "Admission preview is unavailable",
+    });
+  });
+
+  test("get maps unexpected failures to a referenced internal error", async () => {
+    await expect(
+      invoke(
+        "get",
+        { previewId },
+        operationsStub({
+          async get() {
+            throw new Error("database connection detail");
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Internal Server Error",
+      data: { requestId: "req-test" },
     });
   });
 
@@ -236,5 +276,9 @@ function context(sepAdmissions: SepAdmissionOperations): Context {
     annotations: {} as Context["annotations"],
     sepAdmissions,
     admittedSourceStates: {} as Context["admittedSourceStates"],
+    observation: {
+      requestId: "req-test",
+      emit() {},
+    },
   };
 }

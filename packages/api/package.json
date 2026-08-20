@@ -16,6 +16,9 @@
     },
     "./openapi": {
       "default": "./src/orpc/openapi.ts"
+    },
+    "./observation": {
+      "default": "./src/observation.ts"
     }
   },
   "scripts": {},

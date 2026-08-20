@@ -1,6 +1,21 @@
 import { describe, expect, test } from "bun:test";
 
 import { createHarness } from "./fixtures/operations-harness";
+import { observeOperation } from "./sep-admission-observation";
+import { SepAdmissionError } from "./sep-capture";
+
+function observationRecords() {
+  const records: Array<{ level: string; record: Record<string, unknown> }> = [];
+  return {
+    observation: {
+      requestId: "req-test",
+      emit(level: "info" | "warn" | "error", record: Record<string, unknown>) {
+        records.push({ level, record });
+      },
+    },
+    records,
+  };
+}
 
 describe("SEP Admission lifecycle", () => {
   test("persists a seven-day preview and derives metrics from retained resources", async () => {
@@ -164,5 +179,146 @@ describe("SEP Admission lifecycle", () => {
     );
 
     expect(preview.comparison).toMatchObject({ result: "distinct" });
+  });
+
+  test("observes submission stages and one safe degraded summary", async () => {
+    const harness = createHarness({ degradedCapture: true });
+    const observed = observationRecords();
+
+    await harness.operations.submit(
+      "https://plato.stanford.edu/entries/logic/",
+      observed.observation,
+    );
+
+    expect(observed.records.map(({ record }) => record.event)).toEqual([
+      "sep_admission.started",
+      "sep_admission.stage_changed",
+      "sep_admission.stage_changed",
+      "sep_admission.stage_changed",
+      "sep_admission.stage_changed",
+      "sep_admission.capture_degraded",
+      "sep_admission.stage_changed",
+      "sep_admission.completed",
+    ]);
+    expect(
+      observed.records.find(
+        ({ record }) => record.event === "sep_admission.capture_degraded",
+      ),
+    ).toMatchObject({
+      level: "warn",
+      record: {
+        completeness: "partial",
+        readingReadiness: "degraded",
+        unresolvedResourceCount: 1,
+        reasonCodes: ["component_unavailable"],
+      },
+    });
+    expect(JSON.stringify(observed.records)).not.toContain("private-value");
+    expect(JSON.stringify(observed.records)).not.toContain("private failure");
+  });
+
+  test("observes admission persistence and Reading parsing separately", async () => {
+    const harness = createHarness();
+    const preview = await harness.operations.submit(
+      "https://plato.stanford.edu/entries/logic/",
+    );
+    const observed = observationRecords();
+
+    await harness.operations.admit(
+      preview.id,
+      ["submitted"],
+      observed.observation,
+    );
+
+    expect(
+      observed.records
+        .filter(({ record }) => record.event === "sep_admission.stage_changed")
+        .map(({ record }) => record.stage),
+    ).toEqual([
+      "validation",
+      "database_persistence",
+      "reading_derivative_parsing",
+      "database_persistence",
+    ]);
+  });
+
+  test("observes an unavailable admission as failed", async () => {
+    const harness = createHarness();
+    const observed = observationRecords();
+
+    expect(
+      await harness.operations.admit(
+        "missing",
+        ["submitted"],
+        observed.observation,
+      ),
+    ).toBeUndefined();
+
+    expect(observed.records.at(-1)).toMatchObject({
+      level: "error",
+      record: {
+        event: "sep_admission.failed",
+        outcome: "failure",
+        errorName: "SepAdmissionUnavailable",
+      },
+    });
+  });
+
+  test("omits stacks for expected failures and includes them for unexpected failures", async () => {
+    const expectedHarness = createHarness();
+    const expected = observationRecords();
+    await expect(
+      expectedHarness.operations.admit("missing", [], expected.observation),
+    ).rejects.toThrow("Select at least one observation");
+    expect(expected.records.at(-1)?.record).not.toHaveProperty("errorStack");
+
+    const unexpectedHarness = createHarness({ failExpandedCapture: true });
+    const preview = await unexpectedHarness.operations.submit(
+      "https://plato.stanford.edu/entries/logic/",
+    );
+    const unexpected = observationRecords();
+    await expect(
+      unexpectedHarness.operations.retry(preview.id, unexpected.observation),
+    ).rejects.toThrow("controlled expanded capture failure");
+    expect(unexpected.records.at(-1)?.record).toMatchObject({
+      event: "sep_admission.failed",
+      stage: "mandatory_download",
+      errorName: "Error",
+    });
+    expect(unexpected.records.at(-1)?.record.errorStack).toBeString();
+  });
+
+  test("redacts URLs from unexpected failure details", async () => {
+    const observed = observationRecords();
+
+    await expect(
+      observeOperation("submit", observed.observation, async () => {
+        throw new Error("failed for https://example.com/private?token=secret");
+      }),
+    ).rejects.toThrow();
+
+    const serialized = JSON.stringify(observed.records);
+    expect(serialized).not.toContain("example.com");
+    expect(serialized).not.toContain("token=secret");
+    expect(observed.records.at(-1)?.record).toMatchObject({
+      errorMessage: "Unexpected SEP Admission failure",
+    });
+  });
+
+  test("omits nested network details from expected failure messages", async () => {
+    const observed = observationRecords();
+
+    await expect(
+      observeOperation("submit", observed.observation, async () => {
+        throw new SepAdmissionError(
+          "SEP main capture failed: https://example.com/private?token=secret",
+        );
+      }),
+    ).rejects.toThrow();
+
+    expect(observed.records.at(-1)?.record).toMatchObject({
+      errorMessage: "SEP main capture failed",
+    });
+    expect(JSON.stringify(observed.records)).not.toContain("token=secret");
   });
 });

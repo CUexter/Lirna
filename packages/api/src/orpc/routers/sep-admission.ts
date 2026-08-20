@@ -11,18 +11,35 @@ import {
 } from "./sep-admission-schemas";
 
 const previewIdInput = z.object({ previewId: z.string().uuid() });
-const badRequestError = { BAD_REQUEST: {} };
-const notFoundError = { NOT_FOUND: {} };
-const badRequestAndNotFoundErrors = { BAD_REQUEST: {}, NOT_FOUND: {} };
+const errorReference = { data: z.object({ requestId: z.string() }) };
+const badRequestError = {
+  BAD_REQUEST: errorReference,
+  INTERNAL_SERVER_ERROR: errorReference,
+};
+const notFoundError = {
+  NOT_FOUND: errorReference,
+  INTERNAL_SERVER_ERROR: errorReference,
+};
+const badRequestAndNotFoundErrors = {
+  BAD_REQUEST: errorReference,
+  NOT_FOUND: errorReference,
+  INTERNAL_SERVER_ERROR: errorReference,
+};
 
-function rethrowSepAdmissionError(error: unknown): never {
+function rethrowSepAdmissionError(error: unknown, requestId: string): never {
+  if (error instanceof ORPCError) throw error;
   if (error instanceof SepAdmissionError) {
     throw new ORPCError("BAD_REQUEST", {
       message: error.message,
       cause: error,
+      data: { requestId },
     });
   }
-  throw error;
+  throw new ORPCError("INTERNAL_SERVER_ERROR", {
+    message: "Internal Server Error",
+    cause: error,
+    data: { requestId },
+  });
 }
 
 export const sepAdmissionsRouter = {
@@ -41,9 +58,12 @@ export const sepAdmissionsRouter = {
     )
     .handler(async ({ context, input }) => {
       try {
-        return await context.sepAdmissions.submit(input.url);
+        return await context.sepAdmissions.submit(
+          input.url,
+          context.observation,
+        );
       } catch (error) {
-        rethrowSepAdmissionError(error);
+        rethrowSepAdmissionError(error, requestId(context));
       }
     }),
 
@@ -61,9 +81,17 @@ export const sepAdmissionsRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      const preview = await context.sepAdmissions.get(input.previewId);
-      if (!preview) throw notFound("Admission preview is unavailable");
-      return preview;
+      try {
+        const preview = await context.sepAdmissions.get(input.previewId);
+        if (!preview)
+          throw notFound(
+            "Admission preview is unavailable",
+            requestId(context),
+          );
+        return preview;
+      } catch (error) {
+        rethrowSepAdmissionError(error, requestId(context));
+      }
     }),
 
   extend: publicProcedure
@@ -82,10 +110,14 @@ export const sepAdmissionsRouter = {
     .handler(async ({ context, input }) => {
       try {
         const preview = await context.sepAdmissions.extend(input.previewId);
-        if (!preview) throw notFound("Admission preview is unavailable");
+        if (!preview)
+          throw notFound(
+            "Admission preview is unavailable",
+            requestId(context),
+          );
         return preview;
       } catch (error) {
-        rethrowSepAdmissionError(error);
+        rethrowSepAdmissionError(error, requestId(context));
       }
     }),
 
@@ -104,11 +136,18 @@ export const sepAdmissionsRouter = {
     )
     .handler(async ({ context, input }) => {
       try {
-        const preview = await context.sepAdmissions.retry(input.previewId);
-        if (!preview) throw notFound("Admission preview is unavailable");
+        const preview = await context.sepAdmissions.retry(
+          input.previewId,
+          context.observation,
+        );
+        if (!preview)
+          throw notFound(
+            "Admission preview is unavailable",
+            requestId(context),
+          );
         return preview;
       } catch (error) {
-        rethrowSepAdmissionError(error);
+        rethrowSepAdmissionError(error, requestId(context));
       }
     }),
 
@@ -134,11 +173,16 @@ export const sepAdmissionsRouter = {
         const result = await context.sepAdmissions.admit(
           input.previewId,
           input.observationKeys,
+          context.observation,
         );
-        if (!result) throw notFound("Admission preview is unavailable");
+        if (!result)
+          throw notFound(
+            "Admission preview is unavailable",
+            requestId(context),
+          );
         return result;
       } catch (error) {
-        rethrowSepAdmissionError(error);
+        rethrowSepAdmissionError(error, requestId(context));
       }
     }),
 
@@ -156,12 +200,24 @@ export const sepAdmissionsRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      const deleted = await context.sepAdmissions.delete(input.previewId);
-      if (!deleted) throw notFound("Admission preview is unavailable");
-      return { deleted: true };
+      try {
+        const deleted = await context.sepAdmissions.delete(input.previewId);
+        if (!deleted)
+          throw notFound(
+            "Admission preview is unavailable",
+            requestId(context),
+          );
+        return { deleted: true };
+      } catch (error) {
+        rethrowSepAdmissionError(error, requestId(context));
+      }
     }),
 };
 
-function notFound(message: string) {
-  return new ORPCError("NOT_FOUND", { message });
+function requestId(context: { observation?: { requestId: string } }) {
+  return context.observation?.requestId ?? "unknown";
+}
+
+function notFound(message: string, requestId: string) {
+  return new ORPCError("NOT_FOUND", { message, data: { requestId } });
 }

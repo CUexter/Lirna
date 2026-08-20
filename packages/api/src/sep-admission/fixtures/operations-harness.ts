@@ -9,6 +9,7 @@ import type { SepCaptureClient } from "../sep-capture";
 export function createHarness(
   options: {
     failExpandedCapture?: boolean;
+    degradedCapture?: boolean;
     archive?: boolean;
     distinctArchive?: boolean;
   } = {},
@@ -71,7 +72,7 @@ export function createHarness(
       };
       return "updated";
     },
-    async admit(id, observationKeys, now) {
+    async admit(id, observationKeys, now, onStage) {
       if (!record || record.id !== id || record.expiresAt <= now) {
         return undefined;
       }
@@ -85,6 +86,8 @@ export function createHarness(
         return admittedResult;
       }
       admittedSelection = observationKeys;
+      onStage?.("reading_derivative_parsing");
+      onStage?.("database_persistence");
       admittedResult = {
         sourceId: "10000000-0000-4000-8000-000000000000",
         states: observationKeys.map((observationKey, sequence) => ({
@@ -115,11 +118,16 @@ export function createHarness(
     },
   };
   const capture: SepCaptureClient = {
-    async capture(url, budget = "standard") {
+    async capture(url, budget, onStage) {
+      const captureBudget = budget ?? "standard";
       captureCount += 1;
-      if (budget === "expanded" && options.failExpandedCapture) {
+      onStage?.("validation");
+      onStage?.("mandatory_download");
+      if (captureBudget === "expanded" && options.failExpandedCapture) {
         throw new Error("controlled expanded capture failure");
       }
+      onStage?.("metadata_parsing");
+      onStage?.("optional_bundle_capture");
       return {
         stableKey: "sep:logic",
         submittedUrl: url,
@@ -128,7 +136,7 @@ export function createHarness(
         publisher: "Metaphysics Research Lab, Stanford University",
         publicationHistory: ["First published 2024"],
         diagnostics: [],
-        captureReport: captureReport(budget),
+        captureReport: captureReport(captureBudget, options.degradedCapture),
         processingMilliseconds: 12,
         resources: optionsWithArchive(options)
           ? [
@@ -213,13 +221,24 @@ function optionsWithArchive(options: {
   return options.archive || options.distinctArchive;
 }
 
-function captureReport(budget: "standard" | "expanded") {
+function captureReport(budget: "standard" | "expanded", degraded = false) {
   return {
     budget,
-    completeness: "complete" as const,
-    readingReadiness: "ready" as const,
-    readinessReasons: [],
-    unresolvedResources: [],
+    completeness: degraded ? ("partial" as const) : ("complete" as const),
+    readingReadiness: degraded ? ("degraded" as const) : ("ready" as const),
+    readinessReasons: degraded ? ["Component unavailable"] : [],
+    unresolvedResources: degraded
+      ? [
+          {
+            url: "https://plato.stanford.edu/private-value",
+            parentIdentity: "active:/",
+            role: "supplement" as const,
+            depth: 1,
+            reason: "private failure detail",
+            limit: false,
+          },
+        ]
+      : [],
     limits: {
       maxComponents: budget === "expanded" ? 128 : 64,
       maxAssets: budget === "expanded" ? 512 : 256,

@@ -94,14 +94,106 @@
           "message": {
             "type": "string"
           },
-          "data": {}
+          "data": {
+            "type": "object",
+            "properties": {
+              "requestId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "requestId"
+            ],
+            "additionalProperties": false
+          }
         },
         "required": [
           "defined",
           "inferable",
           "code",
           "status",
-          "message"
+          "message",
+          "data"
+        ]
+      },
+      "InternalServerError": {
+        "type": "object",
+        "properties": {
+          "defined": {
+            "const": true
+          },
+          "inferable": {
+            "type": "boolean"
+          },
+          "code": {
+            "const": "INTERNAL_SERVER_ERROR"
+          },
+          "status": {
+            "const": 500
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "requestId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "requestId"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "defined",
+          "inferable",
+          "code",
+          "status",
+          "message",
+          "data"
+        ]
+      },
+      "NotFound2": {
+        "type": "object",
+        "properties": {
+          "defined": {
+            "const": true
+          },
+          "inferable": {
+            "type": "boolean"
+          },
+          "code": {
+            "const": "NOT_FOUND"
+          },
+          "status": {
+            "const": 404
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "requestId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "requestId"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "defined",
+          "inferable",
+          "code",
+          "status",
+          "message",
+          "data"
         ]
       },
       "__schema0": {
@@ -1748,6 +1840,23 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "500",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalServerError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UndefinedError"
+                    }
+                  ]
+                }
+              }
+            }
           }
         }
       }
@@ -2345,7 +2454,24 @@
                 "schema": {
                   "oneOf": [
                     {
-                      "$ref": "#/components/schemas/NotFound"
+                      "$ref": "#/components/schemas/NotFound2"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UndefinedError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "500",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalServerError"
                     },
                     {
                       "$ref": "#/components/schemas/UndefinedError"
@@ -2413,7 +2539,24 @@
                 "schema": {
                   "oneOf": [
                     {
-                      "$ref": "#/components/schemas/NotFound"
+                      "$ref": "#/components/schemas/NotFound2"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UndefinedError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "500",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalServerError"
                     },
                     {
                       "$ref": "#/components/schemas/UndefinedError"
@@ -3046,7 +3189,24 @@
                 "schema": {
                   "oneOf": [
                     {
-                      "$ref": "#/components/schemas/NotFound"
+                      "$ref": "#/components/schemas/NotFound2"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UndefinedError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "500",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalServerError"
                     },
                     {
                       "$ref": "#/components/schemas/UndefinedError"
@@ -3679,7 +3839,24 @@
                 "schema": {
                   "oneOf": [
                     {
-                      "$ref": "#/components/schemas/NotFound"
+                      "$ref": "#/components/schemas/NotFound2"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UndefinedError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "500",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalServerError"
                     },
                     {
                       "$ref": "#/components/schemas/UndefinedError"
@@ -3905,7 +4082,24 @@
                 "schema": {
                   "oneOf": [
                     {
-                      "$ref": "#/components/schemas/NotFound"
+                      "$ref": "#/components/schemas/NotFound2"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UndefinedError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "500",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalServerError"
                     },
                     {
                       "$ref": "#/components/schemas/UndefinedError"

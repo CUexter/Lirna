@@ -17,6 +17,14 @@ function validateSubmittedUrl(value: string) {
   }
 }
 
+function formatServerError(error: Error) {
+  const requestId = (error as Error & { data?: { requestId?: unknown } }).data
+    ?.requestId;
+  return typeof requestId === "string"
+    ? `${error.message}\nError reference: ${requestId}`
+    : error.message;
+}
+
 export type UseSepAdmission = {
   url: string;
   validationError?: string;
@@ -50,7 +58,7 @@ export function useSepAdmission(): UseSepAdmission {
       setActionError(undefined);
     },
     onError(error) {
-      setActionError(error.message);
+      setActionError(formatServerError(error));
     },
   });
   const deletePreview = useMutation({
@@ -63,7 +71,7 @@ export function useSepAdmission(): UseSepAdmission {
       submitPreview.reset();
     },
     onError(error) {
-      setActionError(error.message);
+      setActionError(formatServerError(error));
     },
   });
   const retryPreview = useMutation({
@@ -74,7 +82,7 @@ export function useSepAdmission(): UseSepAdmission {
       setActionError(undefined);
     },
     async onError(error) {
-      setActionError(error.message);
+      setActionError(formatServerError(error));
       if (!preview) return;
       try {
         const refreshed = await inquiry.sepAdmission.get.call({
@@ -112,7 +120,9 @@ export function useSepAdmission(): UseSepAdmission {
   const admission: SepAdmissionPreviewProps["admission"] = {
     pending: admitPreview.isPending,
     result: admitPreview.data,
-    error: admitPreview.error?.message,
+    error: admitPreview.error
+      ? formatServerError(admitPreview.error)
+      : undefined,
     onAdmit: (observationKeys) => {
       if (!preview) return;
       admitPreview.mutate({ previewId: preview.id, observationKeys });
@@ -142,7 +152,9 @@ export function useSepAdmission(): UseSepAdmission {
     url,
     validationError,
     submitPending: submitPreview.isPending,
-    submitErrorMessage: submitPreview.error?.message,
+    submitErrorMessage: submitPreview.error
+      ? formatServerError(submitPreview.error)
+      : undefined,
     onUrlChange,
     onSubmit: handleSubmit,
     preview,
