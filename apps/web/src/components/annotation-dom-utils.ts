@@ -33,7 +33,7 @@ export interface MenuPosition {
 }
 
 export function selectionInside(article: HTMLElement) {
-  const selection = window.getSelection();
+  const selection = window.getSelection?.();
   if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
     return undefined;
   }
@@ -186,12 +186,13 @@ export function textOffsetAtPoint(article: HTMLElement, x: number, y: number) {
 
 export function menuPosition(rect: DOMRect): MenuPosition {
   const halfWidth = 176;
+  const below = rect.top < 220 && rect.bottom + 8 <= window.innerHeight;
   return {
     left: Math.min(
       window.innerWidth - halfWidth,
       Math.max(halfWidth, rect.left + rect.width / 2),
     ),
-    top: rect.top < 220 ? rect.bottom + 8 : rect.top - 8,
-    below: rect.top < 220,
+    top: below ? rect.bottom + 8 : rect.top - 8,
+    below,
   };
 }

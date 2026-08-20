@@ -42,7 +42,7 @@ function restoreProperty(
   key: string,
   value: PropertyDescriptor,
 ) {
-  return () => Object.defineProperty(target, key, value);
+  Object.defineProperty(target, key, value);
 }
 
 function installHighlightApi() {
@@ -60,9 +60,9 @@ function installHighlightApi() {
   return {
     registry,
     restore: () => {
-      if (css) restoreProperty(globalThis, "CSS", css)();
+      if (css) restoreProperty(globalThis, "CSS", css);
       else Reflect.deleteProperty(globalThis, "CSS");
-      if (highlight) restoreProperty(window, "Highlight", highlight)();
+      if (highlight) restoreProperty(window, "Highlight", highlight);
       else Reflect.deleteProperty(window, "Highlight");
     },
   };
@@ -125,6 +125,14 @@ test("accepts only non-collapsed selections inside the reading article", () => {
   selection?.addRange(range);
   expect(selectionInside(article)).toBeUndefined();
 
+  const crossing = document.createTextNode("outside Source state");
+  document.body.append(crossing);
+  range.setStart(text, 2);
+  range.setEnd(crossing, 7);
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+  expect(selectionInside(article)).toBeUndefined();
+
   const outside = document.createTextNode("outside Source state");
   document.body.append(outside);
   range.setStart(outside, 0);
@@ -132,6 +140,18 @@ test("accepts only non-collapsed selections inside the reading article", () => {
   selection?.removeAllRanges();
   selection?.addRange(range);
   expect(selectionInside(article)).toBeUndefined();
+
+  const getSelection = Object.getOwnPropertyDescriptor(window, "getSelection");
+  try {
+    Object.defineProperty(window, "getSelection", {
+      configurable: true,
+      value: undefined,
+    });
+    expect(selectionInside(article)).toBeUndefined();
+  } finally {
+    if (getSelection) restoreProperty(window, "getSelection", getSelection);
+    else Reflect.deleteProperty(window, "getSelection");
+  }
 });
 
 test("registers, updates, and cleans annotation and draft highlights", () => {
@@ -166,9 +186,19 @@ test("registers, updates, and cleans annotation and draft highlights", () => {
       "synthetic",
     );
 
+    const updatedDraftCleanup = paintDraftSelection(article, {
+      startOffset: 12,
+      endOffset: 24,
+      exactText: "Source state",
+    });
+    expect(registry.get("lirna-annotation-draft")?.ranges[0]?.toString()).toBe(
+      "Source state",
+    );
+
     cleanup?.();
     updatedCleanup?.();
     draftCleanup?.();
+    updatedDraftCleanup?.();
     expect(registry.size).toBe(0);
   } finally {
     restore();
@@ -209,7 +239,7 @@ test("rejects stale text and works without CSS Highlight support", () => {
       }),
     ).toBeUndefined();
   } finally {
-    if (css) restoreProperty(globalThis, "CSS", css)();
+    if (css) restoreProperty(globalThis, "CSS", css);
     else Reflect.deleteProperty(globalThis, "CSS");
   }
 });
@@ -252,16 +282,21 @@ test("looks up text offsets through modern, legacy, invalid, and unavailable car
     Reflect.deleteProperty(document, "caretRangeFromPoint");
     expect(textOffsetAtPoint(article, 10, 20)).toBe(-1);
   } finally {
-    if (modern) restoreProperty(document, "caretPositionFromPoint", modern)();
+    if (modern) restoreProperty(document, "caretPositionFromPoint", modern);
     else Reflect.deleteProperty(document, "caretPositionFromPoint");
-    if (legacy) restoreProperty(document, "caretRangeFromPoint", legacy)();
+    if (legacy) restoreProperty(document, "caretRangeFromPoint", legacy);
     else Reflect.deleteProperty(document, "caretRangeFromPoint");
   }
 });
 
-test("keeps the annotation menu center within viewport bounds", () => {
+test("keeps the annotation menu within viewport bounds", () => {
   const innerWidth = Object.getOwnPropertyDescriptor(window, "innerWidth");
+  const innerHeight = Object.getOwnPropertyDescriptor(window, "innerHeight");
   Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: 1000,
+  });
+  Object.defineProperty(window, "innerHeight", {
     configurable: true,
     value: 1000,
   });
@@ -272,7 +307,14 @@ test("keeps the annotation menu center within viewport bounds", () => {
     expect(
       menuPosition({ left: 980, width: 20, top: 300, bottom: 320 } as DOMRect),
     ).toEqual({ left: 824, top: 292, below: false });
+    expect(
+      menuPosition({ left: 490, width: 20, top: 0, bottom: 20 } as DOMRect),
+    ).toEqual({ left: 500, top: 28, below: true });
+    expect(
+      menuPosition({ left: 490, width: 20, top: 980, bottom: 1000 } as DOMRect),
+    ).toEqual({ left: 500, top: 972, below: false });
   } finally {
-    if (innerWidth) restoreProperty(window, "innerWidth", innerWidth)();
+    if (innerWidth) restoreProperty(window, "innerWidth", innerWidth);
+    if (innerHeight) restoreProperty(window, "innerHeight", innerHeight);
   }
 });
