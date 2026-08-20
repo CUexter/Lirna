@@ -25,6 +25,10 @@ const sourceExtensions = new Set([
   ".tsx",
 ]);
 
+function isShadcnPrimitive(source) {
+  return source.startsWith("packages/ui/src/components/");
+}
+
 export function isEligibleSource(source) {
   return (
     sourcePattern.test(source) &&
@@ -60,7 +64,7 @@ export function sourceBaselineViolations({
       violations.push(
         `${source} is deleted but remains in the legacy baseline`,
       );
-    } else if (coveredSources.has(source)) {
+    } else if (coveredSources.has(source) && !isShadcnPrimitive(source)) {
       violations.push(
         `${source} is covered but remains in the legacy baseline`,
       );
@@ -85,6 +89,7 @@ export function promoteCoveredSources({
       (source) =>
         (!requestedSources || requestedSources.has(source)) &&
         eligible.has(source) &&
+        !isShadcnPrimitive(source) &&
         coveredSources.has(source),
     )
     .sort();

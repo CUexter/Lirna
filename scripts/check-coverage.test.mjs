@@ -85,6 +85,19 @@ describe("coverage source baseline", () => {
     ]);
   });
 
+  test("keeps covered shadcn primitives as reviewed exceptions", () => {
+    expect(
+      sourceBaselineViolations({
+        absentSources: {
+          "packages/ui/src/components/button.tsx": "shadcn-hash",
+        },
+        coveredSources: new Set(["packages/ui/src/components/button.tsx"]),
+        eligibleSources: ["packages/ui/src/components/button.tsx"],
+        hashes: { "packages/ui/src/components/button.tsx": "shadcn-hash" },
+      }),
+    ).toEqual([]);
+  });
+
   test("promotes only covered eligible sources without changing floors or unrelated hashes", () => {
     const coverage = {
       functionsFound: 20,
@@ -112,6 +125,26 @@ describe("coverage source baseline", () => {
     expect(promotion.baseline.coverage).toEqual(coverage);
     expect(promotion.baseline.absentSources).toEqual({
       "packages/legacy/src/index.ts": "legacy-hash",
+    });
+    expect(promotion.sourceViolations).toEqual([]);
+  });
+
+  test("does not promote covered shadcn primitives", () => {
+    const promotion = promoteCoveredSources({
+      baseline: {
+        coverage: {},
+        absentSources: {
+          "packages/ui/src/components/button.tsx": "shadcn-hash",
+        },
+      },
+      coveredSources: new Set(["packages/ui/src/components/button.tsx"]),
+      eligibleSources: ["packages/ui/src/components/button.tsx"],
+      hashes: { "packages/ui/src/components/button.tsx": "shadcn-hash" },
+    });
+
+    expect(promotion.promotedSources).toEqual([]);
+    expect(promotion.baseline.absentSources).toEqual({
+      "packages/ui/src/components/button.tsx": "shadcn-hash",
     });
     expect(promotion.sourceViolations).toEqual([]);
   });

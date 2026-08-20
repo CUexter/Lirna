@@ -110,7 +110,7 @@ The active hook is `.husky/pre-commit`.
 | Fallow duplication | `bun run quality:fallow` (`fallow dupes`) | Production TypeScript and TSX under `apps/` and `packages/`; strict mode baselined against `.fallow/baselines/dupes.json`. Test files are excluded. The only reviewed production exception is the shared resource-column shape in `sources.ts` and `sep-admission.ts`: Source-state resources are durable evidence while preview resources are temporary admission evidence, so a shared persistence abstraction would incorrectly couple different lifecycles and migrations. |
 | Fallow dead code and architecture rules | `bun run quality:fallow` (`fallow dead-code`) | `apps/`, `packages/`, and scripts. Error-level rules always fail: circular dependencies, boundary violations (zone rules in `.fallowrc.json`), unlisted dependencies, unresolved imports, and duplicate exports. Warn-level rules are regression-baselined against `.fallow/baselines/dead-code.json`: unused files, exports, types, and dependencies. Replaces the former cycle detection, forbidden-edge, and undeclared-export checks in `check-architecture.mjs`. |
 | Documentation quality | `bun run quality:docs` | First-party Markdown links, root/workspace Bun commands, and code-form repository paths. |
-| Behavior tests and coverage | `bun run test:coverage` and `bun run test:e2e:ci` | Isolated Bun tests through public seams and Playwright browser journeys. Bun LCOV excludes `apps/web/src`, which runs in the required browser-E2E job; other source absent from LCOV is allowed only when its exact content hash is in the reviewed legacy baseline, so new or changed uninstrumented non-browser source fails. |
+| Behavior tests and coverage | `bun run test:coverage` and `bun run test:e2e:ci` | Bun tests provide focused behavior evidence through public seams, including LCOV for eligible web source; Playwright owns browser integration, responsive behavior, accessibility automation, bootstrap, root-router composition, and complete journeys. The 22 shadcn primitives remain LCOV-eligible hash-pinned reviewed exceptions; all other absent eligible source must have an unchanged baseline hash. |
 
 These checks do not run the build, TypeScript compiler, full Biome rule set,
 Semgrep, Trivy, unit tests, integration tests, or E2E tests.
@@ -206,16 +206,19 @@ These are current repository gaps, not approved exceptions to the standard.
 
 1. The general CI quality workflow does not run Nix flake checks; the separate
    Nix workflow owns that platform-specific verification.
-2. The Bun behavior suite currently covers the server tRPC seam; broader domain
-   unit and integration coverage remains a future responsibility. The root
-   `test:coverage` command enforces the initial LCOV baseline of 196/208 lines
-   and 15/24 functions. Legacy source absent from LCOV is hash-pinned in
-    `config/coverage-baseline.json`; new or changed absent non-browser source
-    fails until it gains coverage or a reviewer explicitly runs
-    `bun run coverage:baseline` and accepts the resulting exception.
-3. Browser modules run through Playwright rather than Bun LCOV. The encoded
-    browser journeys do not replace human interaction review or broader
-    accessibility evaluation.
+2. The Bun behavior suite currently covers focused public seams; broader domain
+   unit and integration coverage remains a future responsibility. The live
+   reviewed inventory is maintained in
+   [`config/coverage-baseline.json`](../config/coverage-baseline.json), not in
+   copied aggregate totals. It contains exactly 26 entries: 22 shadcn
+   primitives plus the type-only API client export, application bootstrap,
+   root-router composition, and documentation application configuration.
+3. Bun behavior tests and Playwright browser journeys are complementary. Bun
+   proves focused behavior and eligible LCOV; Playwright proves browser
+   integration, responsive behavior, accessibility automation, bootstrap, root
+   router composition, and complete Admission, Reading, and Annotation
+   journeys. Browser journeys do not replace human interaction review or
+   broader accessibility evaluation.
 4. The architecture policy does not replace human review of package boundary
    design, dependency necessity, or domain-level server/browser contracts.
 5. The Nix workflow classifies changes by affected output to keep pull-request
