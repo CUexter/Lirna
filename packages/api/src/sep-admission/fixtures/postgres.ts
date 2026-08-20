@@ -11,6 +11,7 @@ import {
   admissionCaptureLimits,
   admissionPreviewDefaults,
   previewResourcesForObservations,
+  previewRowFields,
   recommendedArchiveUrl,
 } from "./admission-preview";
 
@@ -77,22 +78,7 @@ export async function insertPreview(
     stableKey,
     submittedUrl: admissionPreviewDefaults.submittedUrl,
     recommendedArchiveUrl: recommendedArchiveUrl(observations) ?? null,
-    title,
-    authors: [...admissionPreviewDefaults.authors],
-    publisher: admissionPreviewDefaults.publisher,
-    publicationHistory: [...admissionPreviewDefaults.publicationHistory],
-    diagnostics: [],
-    captureDiagnostics: {
-      ...admissionPreviewDefaults.captureDiagnostics,
-      readinessReasons: [
-        ...admissionPreviewDefaults.captureDiagnostics.readinessReasons,
-      ],
-    },
-    rightsBasis: admissionPreviewDefaults.rightsBasis,
-    sensitivityLevel: admissionPreviewDefaults.sensitivityLevel,
-    processingMilliseconds: 1,
-    createdAt: now,
-    expiresAt: new Date(now.getTime() + 60_000),
+    ...previewRowFields({ title, now }),
   });
   await database.insert(sepPreviewResources).values(
     previewResourcesForObservations({

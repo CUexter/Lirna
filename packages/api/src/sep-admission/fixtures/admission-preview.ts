@@ -47,22 +47,14 @@ export function defaultObservationBody(observation: AdmissionObservationKey) {
   );
 }
 
-export function admissionPreviewFields({
-  id = randomUUID(),
-  stableKey = "sep:admission-fixture",
+export function previewRowFields({
   title = admissionPreviewDefaults.title,
   now = new Date(),
 }: {
-  id?: string;
-  stableKey?: string;
   title?: string;
   now?: Date;
 } = {}) {
   return {
-    id,
-    stableKey,
-    submittedUrl: admissionPreviewDefaults.submittedUrl,
-    recommendedArchiveUrl: admissionPreviewDefaults.recommendedArchiveUrl,
     title,
     authors: [...admissionPreviewDefaults.authors],
     publisher: admissionPreviewDefaults.publisher,
@@ -79,6 +71,26 @@ export function admissionPreviewFields({
     processingMilliseconds: 1,
     createdAt: now,
     expiresAt: new Date(now.getTime() + 60_000),
+  };
+}
+
+export function admissionPreviewFields({
+  id = randomUUID(),
+  stableKey = "sep:admission-fixture",
+  title = admissionPreviewDefaults.title,
+  now = new Date(),
+}: {
+  id?: string;
+  stableKey?: string;
+  title?: string;
+  now?: Date;
+} = {}) {
+  return {
+    id,
+    stableKey,
+    submittedUrl: admissionPreviewDefaults.submittedUrl,
+    recommendedArchiveUrl: admissionPreviewDefaults.recommendedArchiveUrl,
+    ...previewRowFields({ title, now }),
   };
 }
 
