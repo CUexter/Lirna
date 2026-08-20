@@ -1,4 +1,4 @@
-export const findingCodes = [
+const findingCodes = [
   "archived-repository",
   "critical-vulnerability",
   "deprecated-release",
