@@ -26,27 +26,30 @@ stub `fetch` against a localhost server), and stubs `ResizeObserver`,
 Bun LCOV covers JavaScript and TypeScript source under `apps/*/src` and
 `packages/*/src`, including browser modules under `apps/web/src`. shadcn
 primitives under `packages/ui/src/components/` are LCOV-eligible, but remain
-reviewed hash-pinned exceptions in `config/coverage-baseline.json`; an edit
+reviewed hash-pinned exceptions in the
+[live coverage baseline](../config/coverage-baseline.json); an edit
 still fails the ratchet until the primitive gains coverage or its reviewed hash
 is explicitly updated. Project-authored code under `packages/ui/src/lib/` and
 `apps/web/src/` remains subject to ordinary promotion. Browser E2E flows run in
 the Playwright quality job in addition to the Bun LCOV layer: the required
 aggregate `quality` job requires both the Bun/LCOV and browser-E2E jobs to pass.
-Test files, generated files, fixtures, and configuration are excluded by
-`scripts/check-coverage.mjs`; generated route source therefore remains outside
-the absent inventory through the existing `.gen.` rule. The reviewed baseline
-currently contains exactly 26 absent-source entries: 22 shadcn primitives, the
-type-only API client export, application bootstrap, root-router composition, and
-the documentation application configuration entry. New or changed non-excluded
-source fails unless its exact content hash is explicitly reviewed in the
-baseline. Run `bun run coverage:baseline` only to accept a deliberate legacy
-exception. `bun run coverage:promote` preserves aggregate floors, leaves shadcn
-exceptions in place, and validates unrelated absent sources before writing. To
-promote an explicit set without accepting unrelated stale exclusions, run
-`node scripts/check-coverage.mjs --promote-covered-source=<source>` once per
-source. Scoped promotion preserves aggregate floors and rejects each requested
-source unless it is both baselined and present in LCOV. `bun run test:coverage`
-also fails if either coverage ratio decreases.
+Test files, generated files, fixtures, and files inside configuration directories
+are excluded by `scripts/check-coverage.mjs`; a source file whose name contains
+`config` is still eligible unless another exclusion applies. Generated route
+source therefore remains outside the absent inventory through the existing
+`.gen.` rule. The reviewed baseline currently contains exactly 26 absent-source
+entries: 22 shadcn primitives, the type-only API client export, application
+bootstrap, root-router composition, and the documentation application
+configuration entry. New or changed non-excluded source fails unless its exact
+content hash is explicitly reviewed in the baseline. Run `bun run
+coverage:baseline` only to accept a deliberate legacy exception. `bun run
+coverage:promote` preserves aggregate floors, leaves shadcn exceptions in place,
+and validates unrelated absent sources before writing. To promote an explicit
+set without accepting unrelated stale exclusions, run `node
+scripts/check-coverage.mjs --promote-covered-source=<source>` once per source.
+Scoped promotion preserves aggregate floors, rejects ineligible or uncovered
+requests, and treats an already-promoted covered source as an idempotent no-op.
+`bun run test:coverage` also fails if either coverage ratio decreases.
 
 `bun run quality:ci` runs the coverage command after Biome check mode and the
 configured quality checks. It writes coverage and bundle-build artifacts, and

@@ -81,58 +81,63 @@ test("scopes active component annotations, ignores stale text, updates, and dele
     );
   };
   const highlights = installHighlightApi();
-  const user = userEvent.setup();
-  await renderAnnotations();
-  await waitFor(() =>
+  try {
+    const user = userEvent.setup();
+    await renderAnnotations();
+    await waitFor(() =>
+      expect(
+        highlights.registry.get("lirna-annotation-yellow")?.ranges,
+      ).toHaveLength(1),
+    );
     expect(
-      highlights.registry.get("lirna-annotation-yellow")?.ranges,
-    ).toHaveLength(1),
-  );
-  expect(
-    highlights.registry.get("lirna-annotation-yellow")?.ranges[0]?.toString(),
-  ).toBe("synthetic");
-  await openExistingAnnotation();
+      highlights.registry.get("lirna-annotation-yellow")?.ranges[0]?.toString(),
+    ).toBe("synthetic");
+    await openExistingAnnotation();
 
-  expect(view().getByLabelText("Annotation note")).toHaveProperty(
-    "value",
-    "Original note.",
-  );
-  await user.click(view().getByRole("button", { name: "green highlight" }));
-  await user.clear(view().getByLabelText("Annotation note"));
-  await user.type(view().getByLabelText("Annotation note"), "Revised note.");
-  await user.click(view().getByRole("button", { name: "Save" }));
-  await waitFor(() =>
-    expect(calls.update).toEqual([
-      {
-        ...annotationInput,
-        id: "annotation-1",
-        color: "green",
-        body: "Revised note.",
-      },
-    ]),
-  );
-  await waitFor(() => expect(calls.list).toHaveLength(2));
-  await waitFor(() =>
+    expect(view().getByLabelText("Annotation note")).toHaveProperty(
+      "value",
+      "Original note.",
+    );
+    await user.click(view().getByRole("button", { name: "green highlight" }));
+    await user.clear(view().getByLabelText("Annotation note"));
+    await user.type(view().getByLabelText("Annotation note"), "Revised note.");
+    await user.click(view().getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(calls.update).toEqual([
+        {
+          ...annotationInput,
+          id: "annotation-1",
+          color: "green",
+          body: "Revised note.",
+        },
+      ]),
+    );
+    await waitFor(() => expect(calls.list).toHaveLength(2));
+    await waitFor(() =>
+      expect(
+        highlights.registry.get("lirna-annotation-green")?.ranges,
+      ).toHaveLength(1),
+    );
+
+    await openExistingAnnotation();
     expect(
-      highlights.registry.get("lirna-annotation-green")?.ranges,
-    ).toHaveLength(1),
-  );
-
-  await openExistingAnnotation();
-  expect(
-    view()
-      .getByRole("button", { name: "green highlight" })
-      .getAttribute("aria-pressed"),
-  ).toBe("true");
-  expect(view().getByLabelText("Annotation note")).toHaveProperty(
-    "value",
-    "Revised note.",
-  );
-  await user.click(view().getByRole("button", { name: "Delete annotation" }));
-  await waitFor(() =>
-    expect(calls.delete).toEqual([{ ...annotationInput, id: "annotation-1" }]),
-  );
-  highlights.restore();
+      view()
+        .getByRole("button", { name: "green highlight" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(view().getByLabelText("Annotation note")).toHaveProperty(
+      "value",
+      "Revised note.",
+    );
+    await user.click(view().getByRole("button", { name: "Delete annotation" }));
+    await waitFor(() =>
+      expect(calls.delete).toEqual([
+        { ...annotationInput, id: "annotation-1" },
+      ]),
+    );
+  } finally {
+    highlights.restore();
+  }
 });
 
 test("keeps visible selection and editing state when list and mutations fail", async () => {

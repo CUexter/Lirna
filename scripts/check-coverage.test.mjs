@@ -261,6 +261,29 @@ describe("coverage source baseline", () => {
     ]);
   });
 
+  test("treats repeated scoped promotion as an idempotent no-op", () => {
+    const baseline = {
+      coverage: {
+        functionsFound: 20,
+        functionsHit: 18,
+        linesFound: 100,
+        linesHit: 90,
+      },
+      absentSources: {},
+    };
+    const promotion = promoteCoveredSources({
+      baseline,
+      coveredSources: new Set(["apps/covered/src/index.ts"]),
+      eligibleSources: ["apps/covered/src/index.ts"],
+      hashes: { "apps/covered/src/index.ts": "covered-hash" },
+      sources: ["apps/covered/src/index.ts"],
+    });
+
+    expect(promotion.promotedSources).toEqual([]);
+    expect(promotion.baseline).toEqual(baseline);
+    expect(promotion.sourceViolations).toEqual([]);
+  });
+
   test("does not alter a baseline when no covered legacy sources are eligible", () => {
     const baseline = {
       coverage: {

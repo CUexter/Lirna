@@ -10,6 +10,11 @@ import {
   selectionInside,
   textOffsetAtPoint,
 } from "./annotation-dom-utils";
+import {
+  FakeHighlight,
+  installHighlightApi,
+  restoreProperty,
+} from "./annotation-highlight-test-support";
 
 const sourceStateText = "A synthetic Source state preserves nested text.";
 
@@ -35,45 +40,6 @@ function annotation(overrides: Partial<Annotation> = {}): Annotation {
     updatedAt: "2026-08-20T00:00:00.000Z",
     ...overrides,
   };
-}
-
-function restoreProperty(
-  target: object,
-  key: string,
-  value: PropertyDescriptor,
-) {
-  Object.defineProperty(target, key, value);
-}
-
-function installHighlightApi() {
-  const registry = new Map<string, FakeHighlight>();
-  const css = Object.getOwnPropertyDescriptor(globalThis, "CSS");
-  const highlight = Object.getOwnPropertyDescriptor(window, "Highlight");
-  Object.defineProperty(globalThis, "CSS", {
-    configurable: true,
-    value: { highlights: registry },
-  });
-  Object.defineProperty(window, "Highlight", {
-    configurable: true,
-    value: FakeHighlight,
-  });
-  return {
-    registry,
-    restore: () => {
-      if (css) restoreProperty(globalThis, "CSS", css);
-      else Reflect.deleteProperty(globalThis, "CSS");
-      if (highlight) restoreProperty(window, "Highlight", highlight);
-      else Reflect.deleteProperty(window, "Highlight");
-    },
-  };
-}
-
-class FakeHighlight {
-  readonly ranges: Range[];
-
-  constructor(...ranges: Range[]) {
-    this.ranges = ranges;
-  }
 }
 
 afterEach(() => window.getSelection()?.removeAllRanges());
@@ -313,6 +279,14 @@ test("keeps the annotation menu within viewport bounds", () => {
     expect(
       menuPosition({ left: 490, width: 20, top: 980, bottom: 1000 } as DOMRect),
     ).toEqual({ left: 500, top: 972, below: false });
+
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 320,
+    });
+    expect(
+      menuPosition({ left: 300, width: 20, top: 100, bottom: 120 } as DOMRect),
+    ).toEqual({ left: 160, top: 128, below: true });
   } finally {
     if (innerWidth) restoreProperty(window, "innerWidth", innerWidth);
     if (innerHeight) restoreProperty(window, "innerHeight", innerHeight);

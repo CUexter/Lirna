@@ -1,5 +1,5 @@
 import { Badge } from "@lirna/ui/components/badge";
-import { Button } from "@lirna/ui/components/button";
+import { Button, buttonVariants } from "@lirna/ui/components/button";
 import {
   Card,
   CardAction,
@@ -119,15 +119,13 @@ function RouteComponent() {
               Lirna
             </span>
             <QuestionComposer className="hidden max-w-xl sm:flex lg:mr-auto" />
-            <Button
-              nativeButton={false}
-              render={<Link to="/sources/admission" />}
-              variant="outline"
-              size="sm"
+            <Link
+              className={buttonVariants({ size: "sm", variant: "outline" })}
+              to="/sources/admission"
             >
               <PlusIcon data-icon="inline-start" />
               Add Source
-            </Button>
+            </Link>
             <ModeToggle />
           </div>
         </header>

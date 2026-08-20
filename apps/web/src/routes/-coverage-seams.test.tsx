@@ -47,6 +47,7 @@ function DropdownItem({
 await mock.module("@lirna/ui/components/badge", () => ({ Badge: Primitive }));
 await mock.module("@lirna/ui/components/button", () => ({
   Button: ButtonPrimitive,
+  buttonVariants: ({ className }: { className?: string } = {}) => className,
 }));
 await mock.module("@lirna/ui/components/card", () => ({
   Card: Primitive,

@@ -103,19 +103,42 @@ test("runs lifecycle controls and exposes each pending operation", async () => {
   expect(
     view().getByRole("button", { name: "Admit active and archive" }),
   ).toHaveProperty("disabled", true);
-  retryRequest.resolve(
-    previewFixture({
-      capture: {
-        ...previewFixture().capture,
-        retryUsed: true,
-        retryAvailable: false,
-      },
-    }),
-  );
+  const expandedPreview = previewFixture({
+    capture: {
+      ...previewFixture().capture,
+      budget: "expanded",
+      retryUsed: true,
+      retryAvailable: false,
+    },
+  });
+  retryRequest.resolve(expandedPreview);
   await waitFor(() =>
     view().getByRole("button", { name: "Extend seven days" }),
   );
   expect(calls.retry).toEqual([{ previewId }]);
+  expect(
+    view()
+      .getByRole("checkbox", { name: /Recommended archive/ })
+      .getAttribute("aria-checked"),
+  ).toBe("false");
+  expect(
+    view()
+      .getByRole("checkbox", {
+        name: /Create one immutable Source state for each selected observation/,
+      })
+      .getAttribute("aria-checked"),
+  ).toBe("false");
+  expect(
+    view().getByRole("button", { name: "Admit active observation" }),
+  ).toHaveProperty("disabled", true);
+  await user.click(
+    view().getByRole("checkbox", { name: /Recommended archive/ }),
+  );
+  await user.click(
+    view().getByRole("checkbox", {
+      name: /Create one immutable Source state for each selected observation/,
+    }),
+  );
 
   const extendRequest = deferred<unknown>();
   actions.extend = (input) => {
@@ -131,7 +154,7 @@ test("runs lifecycle controls and exposes each pending operation", async () => {
   expect(
     view().getByRole("button", { name: "Admit active and archive" }),
   ).toHaveProperty("disabled", true);
-  extendRequest.resolve(previewFixture());
+  extendRequest.resolve(expandedPreview);
   await waitFor(() =>
     view().getByRole("button", { name: "Extend seven days" }),
   );

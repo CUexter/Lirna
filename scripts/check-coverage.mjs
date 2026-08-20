@@ -111,7 +111,9 @@ export function promoteCoveredSources({
         if (!eligible.has(source))
           return `${source} is not an eligible first-party source`;
         if (!(source in absentSources))
-          return `${source} is not in the legacy baseline`;
+          return coveredSources.has(source)
+            ? []
+            : `${source} is not in the legacy baseline`;
         if (!coveredSources.has(source))
           return `${source} is absent from LCOV and cannot be promoted`;
         return [];

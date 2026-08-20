@@ -3,6 +3,8 @@ import { act, waitFor, within } from "@testing-library/react";
 
 import type { Annotation } from "./annotation-dom-utils";
 
+export { installHighlightApi } from "./annotation-highlight-test-support";
+
 export const sourceId = "source-1";
 export const stateId = "state-1";
 export const componentIdentity = "article";
@@ -104,35 +106,4 @@ export async function selectExactText() {
   await waitFor(() =>
     within(document.body).getByRole("dialog", { name: "Create annotation" }),
   );
-}
-
-class FakeHighlight {
-  readonly ranges: Range[];
-
-  constructor(...ranges: Range[]) {
-    this.ranges = ranges;
-  }
-}
-
-export function installHighlightApi() {
-  const registry = new Map<string, FakeHighlight>();
-  const css = Object.getOwnPropertyDescriptor(globalThis, "CSS");
-  const highlight = Object.getOwnPropertyDescriptor(window, "Highlight");
-  Object.defineProperty(globalThis, "CSS", {
-    configurable: true,
-    value: { highlights: registry },
-  });
-  Object.defineProperty(window, "Highlight", {
-    configurable: true,
-    value: FakeHighlight,
-  });
-  return {
-    registry,
-    restore: () => {
-      if (css) Object.defineProperty(globalThis, "CSS", css);
-      else Reflect.deleteProperty(globalThis, "CSS");
-      if (highlight) Object.defineProperty(window, "Highlight", highlight);
-      else Reflect.deleteProperty(window, "Highlight");
-    },
-  };
 }

@@ -1,5 +1,5 @@
 import { Badge } from "@lirna/ui/components/badge";
-import { Button } from "@lirna/ui/components/button";
+import { Button, buttonVariants } from "@lirna/ui/components/button";
 import {
   Card,
   CardContent,
@@ -64,24 +64,21 @@ export function SepAdmissionDecision({
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           {result.states.map((state) => (
-            <Button
-              className="justify-between"
+            <Link
+              className={buttonVariants({
+                className: "justify-between",
+                variant: "outline",
+              })}
               key={state.id}
-              nativeButton={false}
-              render={
-                <Link
-                  params={{ sourceId: result.sourceId, stateId: state.id }}
-                  to="/sources/$sourceId/$stateId"
-                />
-              }
-              variant="outline"
+              params={{ sourceId: result.sourceId, stateId: state.id }}
+              to="/sources/$sourceId/$stateId"
             >
               <span>
                 State {state.sequence + 1}:{" "}
                 {observationLabel(state.observationKey)}
               </span>
               <ArrowRightIcon data-icon="inline-end" />
-            </Button>
+            </Link>
           ))}
         </CardContent>
       </Card>

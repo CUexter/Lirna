@@ -16,7 +16,7 @@ accepted
 
 ## Consequences
 
-- `apps/web/src` is LCOV-eligible. Uncovered web source is recorded in the live reviewed `config/coverage-baseline.json` with a content hash; any edit to such source fails the gate until it gains coverage or the baseline is re-accepted, enforcing forward progress on web unit-test coverage.
+- `apps/web/src` is LCOV-eligible. Uncovered web source is recorded in the [live reviewed coverage baseline](../../config/coverage-baseline.json) with a content hash; any edit to such source fails the gate until it gains coverage or the baseline is re-accepted, enforcing forward progress on web unit-test coverage.
 - The reviewed absent inventory contains exactly 26 entries: 22 shadcn primitives, the type-only API client export, application bootstrap, root-router composition, and documentation application configuration. Generated route source remains excluded by the existing generated-file rule.
 - `packages/env/src/server.ts` declares `isServer: true` explicitly so `@t3-oss/env-core` does not infer server-vs-client from `typeof window`, which is unreliable under a global happy-dom registration (and under Deno, which keeps `window`). This is semantically correct for a server package and lets server tests coexist with the happy-dom preload.
 - Browser E2E flows still run in the Playwright quality job. Bun behavior tests and Playwright journeys are complementary: Bun owns focused behavior and LCOV, while Playwright owns browser integration, responsive behavior, accessibility automation, bootstrap, root-router composition, and complete journeys.

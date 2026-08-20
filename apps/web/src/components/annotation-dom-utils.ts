@@ -186,11 +186,13 @@ export function textOffsetAtPoint(article: HTMLElement, x: number, y: number) {
 
 export function menuPosition(rect: DOMRect): MenuPosition {
   const halfWidth = 176;
+  const viewportHalfWidth = window.innerWidth / 2;
+  const horizontalInset = Math.min(halfWidth, viewportHalfWidth);
   const below = rect.top < 220 && rect.bottom + 8 <= window.innerHeight;
   return {
     left: Math.min(
-      window.innerWidth - halfWidth,
-      Math.max(halfWidth, rect.left + rect.width / 2),
+      window.innerWidth - horizontalInset,
+      Math.max(horizontalInset, rect.left + rect.width / 2),
     ),
     top: below ? rect.bottom + 8 : rect.top - 8,
     below,

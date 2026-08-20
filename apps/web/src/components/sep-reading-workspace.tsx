@@ -1,4 +1,4 @@
-import { Button } from "@lirna/ui/components/button";
+import { buttonVariants } from "@lirna/ui/components/button";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeftIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
@@ -58,15 +58,14 @@ export function SepReadingWorkspace({
     <main className="min-h-full bg-background">
       <header className="border-b px-4 sm:px-6 lg:px-10">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center">
-          <Button
-            nativeButton={false}
-            render={<Link hash="source-information" to="." />}
-            size="sm"
-            variant="ghost"
+          <Link
+            className={buttonVariants({ size: "sm", variant: "ghost" })}
+            hash="source-information"
+            to="."
           >
             <ArrowLeftIcon data-icon="inline-start" />
             Source information
-          </Button>
+          </Link>
           <span className="ml-auto font-semibold font-serif text-xl">
             Lirna
           </span>
