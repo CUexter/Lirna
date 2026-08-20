@@ -36,8 +36,12 @@ LCOV is accepted only when its exact content hash is recorded in
 `config/coverage-baseline.json`; new or changed non-excluded source fails. Run
 `bun run coverage:baseline` only to explicitly review and accept a legacy
 exception. After a focused coverage batch, run `bun run coverage:promote` to
-remove only legacy exclusions now present in LCOV; it preserves the aggregate
-floors and validates every unrelated absent source before writing. `bun run
+remove every legacy exclusion now present in LCOV; it preserves the aggregate
+floors and validates every unrelated absent source before writing. To promote
+ an explicit set without accepting unrelated stale exclusions, run
+ `node scripts/check-coverage.mjs --promote-covered-source=<source>` once per
+ source. Scoped promotion preserves aggregate floors and rejects each requested
+ source unless it is both baselined and present in LCOV. `bun run
 test:coverage` also fails if either coverage ratio decreases.
 
 `bun run quality:ci` runs the coverage command after Biome check mode and the

@@ -71,6 +71,17 @@ describe("architecture policy fixtures", () => {
     expect(evaluatePolicy({ workspaces, files })).toEqual([]);
   });
 
+  test("accepts TanStack Router support files under routes", () => {
+    const files = [
+      {
+        path: "apps/web/src/routes/sources/-admission.test.tsx",
+        ...parseSource("-admission.test.tsx", "export {};"),
+      },
+    ];
+
+    expect(evaluatePolicy({ workspaces, files })).toEqual([]);
+  });
+
   test("rejects server environment imports and native controls", () => {
     const files = [
       {

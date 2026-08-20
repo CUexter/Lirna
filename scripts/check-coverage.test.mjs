@@ -143,6 +143,56 @@ describe("coverage source baseline", () => {
     ]);
   });
 
+  test("scopes promotion without accepting unrelated absent-source hashes", () => {
+    const coverage = {
+      functionsFound: 20,
+      functionsHit: 18,
+      linesFound: 100,
+      linesHit: 90,
+    };
+    const promotion = promoteCoveredSources({
+      baseline: {
+        coverage,
+        absentSources: {
+          "apps/covered/src/index.ts": "covered-hash",
+          "packages/legacy/src/index.ts": "old-hash",
+        },
+      },
+      coveredSources: new Set(["apps/covered/src/index.ts"]),
+      eligibleSources: [
+        "apps/covered/src/index.ts",
+        "packages/legacy/src/index.ts",
+      ],
+      hashes: { "packages/legacy/src/index.ts": "changed-hash" },
+      sources: ["apps/covered/src/index.ts"],
+    });
+
+    expect(promotion.promotedSources).toEqual(["apps/covered/src/index.ts"]);
+    expect(promotion.baseline.coverage).toEqual(coverage);
+    expect(promotion.baseline.absentSources).toEqual({
+      "packages/legacy/src/index.ts": "old-hash",
+    });
+    expect(promotion.sourceViolations).toEqual([]);
+  });
+
+  test("rejects scoped sources that are not covered legacy sources", () => {
+    const promotion = promoteCoveredSources({
+      baseline: {
+        coverage: {},
+        absentSources: { "apps/legacy/src/index.ts": "legacy-hash" },
+      },
+      coveredSources: new Set(),
+      eligibleSources: ["apps/legacy/src/index.ts"],
+      hashes: { "apps/legacy/src/index.ts": "legacy-hash" },
+      sources: ["apps/legacy/src/index.ts", "apps/missing/src/index.ts"],
+    });
+
+    expect(promotion.sourceViolations).toEqual([
+      "apps/legacy/src/index.ts is absent from LCOV and cannot be promoted",
+      "apps/missing/src/index.ts is not an eligible first-party source",
+    ]);
+  });
+
   test("does not alter a baseline when no covered legacy sources are eligible", () => {
     const baseline = {
       coverage: {

@@ -75,16 +75,34 @@ export function promoteCoveredSources({
   coveredSources,
   eligibleSources,
   hashes,
+  sources,
 }) {
   const eligible = new Set(eligibleSources);
   const absentSources = baseline.absentSources ?? {};
+  const requestedSources = sources ? new Set(sources) : null;
   const promotedSources = Object.keys(absentSources)
-    .filter((source) => eligible.has(source) && coveredSources.has(source))
+    .filter(
+      (source) =>
+        (!requestedSources || requestedSources.has(source)) &&
+        eligible.has(source) &&
+        coveredSources.has(source),
+    )
     .sort();
   const promoted = new Set(promotedSources);
   const remainingAbsentSources = Object.fromEntries(
     Object.entries(absentSources).filter(([source]) => !promoted.has(source)),
   );
+  const requestedSourceViolations = requestedSources
+    ? [...requestedSources].sort().flatMap((source) => {
+        if (!eligible.has(source))
+          return `${source} is not an eligible first-party source`;
+        if (!(source in absentSources))
+          return `${source} is not in the legacy baseline`;
+        if (!coveredSources.has(source))
+          return `${source} is absent from LCOV and cannot be promoted`;
+        return [];
+      })
+    : [];
 
   return {
     baseline: {
@@ -92,12 +110,14 @@ export function promoteCoveredSources({
       absentSources: remainingAbsentSources,
     },
     promotedSources,
-    sourceViolations: sourceBaselineViolations({
-      absentSources: remainingAbsentSources,
-      coveredSources,
-      eligibleSources,
-      hashes,
-    }),
+    sourceViolations: requestedSources
+      ? requestedSourceViolations
+      : sourceBaselineViolations({
+          absentSources: remainingAbsentSources,
+          coveredSources,
+          eligibleSources,
+          hashes,
+        }),
   };
 }
 
@@ -172,14 +192,34 @@ function writePromotion({ baselineFile, promotion }) {
   return true;
 }
 
-function main() {
-  const args = process.argv.slice(2);
+function parseOptions(args) {
   const writeBaseline = args.includes("--write-baseline");
   const promoteCovered = args.includes("--promote-covered-sources");
+  const promotedSources = args
+    .filter((argument) => argument.startsWith("--promote-covered-source="))
+    .map((argument) => argument.slice("--promote-covered-source=".length));
+  const scopedPromotion = promotedSources.length > 0;
+
   if (writeBaseline && promoteCovered)
     throw new Error(
       "Choose either --write-baseline or --promote-covered-sources, not both",
     );
+  if (writeBaseline && scopedPromotion)
+    throw new Error(
+      "Choose either --write-baseline or --promote-covered-source, not both",
+    );
+  if (promoteCovered && scopedPromotion)
+    throw new Error(
+      "Choose either --promote-covered-sources or --promote-covered-source, not both",
+    );
+
+  return { promoteCovered, promotedSources, scopedPromotion, writeBaseline };
+}
+
+function main() {
+  const args = process.argv.slice(2);
+  const { promoteCovered, promotedSources, scopedPromotion, writeBaseline } =
+    parseOptions(args);
   const coverageArgument = args.find((argument) => !argument.startsWith("--"));
   const coverageFile = resolveInsideRoot(
     root,
@@ -241,14 +281,16 @@ function main() {
       "Coverage baseline is missing; run bun run coverage:baseline and review the result",
     );
   const baseline = JSON.parse(readFileSync(baselineFile, "utf8"));
-  const promotion = promoteCovered
-    ? promoteCoveredSources({
-        baseline,
-        coveredSources,
-        eligibleSources,
-        hashes,
-      })
-    : null;
+  const promotion =
+    promoteCovered || scopedPromotion
+      ? promoteCoveredSources({
+          baseline,
+          coveredSources,
+          eligibleSources,
+          hashes,
+          sources: scopedPromotion ? promotedSources : undefined,
+        })
+      : null;
   const sourceViolations =
     promotion?.sourceViolations ??
     sourceBaselineViolations({

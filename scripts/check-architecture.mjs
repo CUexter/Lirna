@@ -1,5 +1,5 @@
 import { readdir, readFile } from "node:fs/promises";
-import { dirname, extname, relative, resolve } from "node:path";
+import { basename, dirname, extname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
@@ -80,13 +80,22 @@ function packageImport(specifier, workspaces) {
     .sort((left, right) => right.name.length - left.name.length)[0];
 }
 
+function isRouteSupportFile(path) {
+  return basename(path).startsWith("-");
+}
+
 export function evaluatePolicy({ workspaces, files }) {
   const violations = [];
   for (const file of files) {
     const owner = workspaceForPath(workspaces, file.path);
     if (!owner) continue;
     const routeFile = owner.name === "web" && file.path.startsWith("apps/web/src/routes/");
-    if (routeFile && !file.path.endsWith("routeTree.gen.ts") && !file.createsRoute) {
+    if (
+      routeFile &&
+      !file.path.endsWith("routeTree.gen.ts") &&
+      !isRouteSupportFile(file.path) &&
+      !file.createsRoute
+    ) {
       violations.push(`${file.path} is under apps/web/src/routes but does not create a TanStack Router route`);
     }
     if (file.createsRoute && owner.name === "web" && !routeFile) {
