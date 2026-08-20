@@ -7,7 +7,11 @@ import {
 import { PaletteIcon, StickyNoteIcon } from "lucide-react";
 import type { CSSProperties, RefObject } from "react";
 
-import type { AnnotationColor, MenuPosition } from "./annotation-dom-utils";
+import {
+  type AnnotationColor,
+  annotationMenuHeight,
+  type MenuPosition,
+} from "./annotation-dom-utils";
 
 interface AnnotationSelectionMenuProps {
   menuRef: RefObject<HTMLDivElement | null>;
@@ -34,6 +38,7 @@ export function AnnotationSelectionMenu({
   const menuStyle = {
     left: position.left,
     top: position.top,
+    height: annotationMenuHeight,
     transform: position.below ? "translateX(-50%)" : "translate(-50%, -100%)",
   } satisfies CSSProperties;
 

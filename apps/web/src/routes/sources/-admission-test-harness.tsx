@@ -1,16 +1,10 @@
 import { mock } from "bun:test";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  createMemoryHistory,
-  createRootRoute,
-  createRoute,
-  createRouter,
-  RouterProvider,
-} from "@tanstack/react-router";
-import { render, within } from "@testing-library/react";
+import { createRootRoute, createRoute } from "@tanstack/react-router";
+import { within } from "@testing-library/react";
 import { mutationOptions } from "@/test-support/mutation-options";
 
 import { admittedFixture, previewFixture } from "./-admission-test-fixtures";
+import { renderRoute } from "./-route-test-harness";
 
 export const calls = {
   admit: [] as unknown[],
@@ -65,18 +59,9 @@ export async function renderAdmission() {
     path: "/sources/admission",
     component: Route.options.component,
   });
-  const router = createRouter({
-    history: createMemoryHistory({ initialEntries: ["/sources/admission"] }),
-    routeTree: rootRoute.addChildren([admissionRoute]),
-  });
-  await router.load();
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  render(
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>,
+  await renderRoute(
+    rootRoute.addChildren([admissionRoute]),
+    "/sources/admission",
   );
 }
 

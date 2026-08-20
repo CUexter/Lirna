@@ -279,6 +279,9 @@ test("keeps the annotation menu within viewport bounds", () => {
     expect(
       menuPosition({ left: 490, width: 20, top: 980, bottom: 1000 } as DOMRect),
     ).toEqual({ left: 500, top: 972, below: false });
+    expect(
+      menuPosition({ left: 490, width: 20, top: 0, bottom: 1000 } as DOMRect),
+    ).toEqual({ left: 500, top: 950, below: true });
 
     Object.defineProperty(window, "innerWidth", {
       configurable: true,

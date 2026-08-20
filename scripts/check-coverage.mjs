@@ -1,3 +1,4 @@
+// biome-ignore lint/style/noExcessiveLinesPerFile: The coverage policy keeps its validation and baseline-write paths together.
 import { createHash } from "node:crypto";
 import {
   existsSync,
@@ -81,6 +82,20 @@ export function sourceBaselineViolations({
   }
 
   return violations;
+}
+
+export function reviewedAbsentSources({
+  coveredSources,
+  eligibleSources,
+  hashes,
+}) {
+  return Object.fromEntries(
+    eligibleSources
+      .filter(
+        (source) => isShadcnPrimitive(source) || !coveredSources.has(source),
+      )
+      .map((source) => [source, hashes[source]]),
+  );
 }
 
 export function promoteCoveredSources({
@@ -278,11 +293,11 @@ function main() {
   const hashes = hashSources(eligibleSources);
 
   if (writeBaseline) {
-    const absentSources = Object.fromEntries(
-      eligibleSources
-        .filter((source) => !coveredSources.has(source))
-        .map((source) => [source, hashes[source]]),
-    );
+    const absentSources = reviewedAbsentSources({
+      coveredSources,
+      eligibleSources,
+      hashes,
+    });
     writeFileSync(
       baselineFile,
       `${JSON.stringify({ coverage: totals, absentSources }, null, 2)}\n`,

@@ -1,16 +1,10 @@
 import { afterEach, expect, mock, test } from "bun:test";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  createMemoryHistory,
-  createRootRoute,
-  createRoute,
-  createRouter,
-  RouterProvider,
-} from "@tanstack/react-router";
-import { cleanup, render, waitFor, within } from "@testing-library/react";
+import { createRootRoute, createRoute } from "@tanstack/react-router";
+import { cleanup, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { readingFixture, sourceId, stateId } from "./-reading-test-fixtures";
+import { renderRoute } from "./-route-test-harness";
 
 const calls = { annotations: [] as unknown[], reading: [] as unknown[] };
 let getReading: (input: unknown) => Promise<unknown> = async () =>
@@ -80,22 +74,10 @@ async function renderReading(search = "") {
     component: Route.options.component,
     validateSearch: Route.options.validateSearch,
   });
-  const router = createRouter({
-    history: createMemoryHistory({
-      initialEntries: [`/sources/${sourceId}/${stateId}${search}`],
-    }),
-    routeTree: rootRoute.addChildren([readingRoute]),
-  });
-  await router.load();
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  render(
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>,
+  return renderRoute(
+    rootRoute.addChildren([readingRoute]),
+    `/sources/${sourceId}/${stateId}${search}`,
   );
-  return router;
 }
 
 test("shows Reading loading and unavailable states through its route", async () => {
@@ -240,6 +222,9 @@ test("filters publisher bibliography and preserves component search when returni
     expect(
       view().getByText("Ada Lovelace. Synthetic publisher entry."),
     ).toBeTruthy();
+    expect(document.getElementById("entry-one")?.className).toContain(
+      "border-primary",
+    );
     await user.type(view().getByLabelText("Search bibliography"), "hopper");
     expect(
       view().queryByText("Ada Lovelace. Synthetic publisher entry."),

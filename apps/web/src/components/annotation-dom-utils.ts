@@ -15,6 +15,8 @@ const highlightStyles = colors
   .join("\n");
 
 const draftHighlightName = "lirna-annotation-draft";
+export const annotationMenuHeight = 42;
+const annotationMenuInset = 8;
 
 export function annotationStyleContent(color: AnnotationColor) {
   return `${highlightStyles}\n::highlight(${draftHighlightName}) { background-color: var(--annotation-${color}); }`;
@@ -188,13 +190,24 @@ export function menuPosition(rect: DOMRect): MenuPosition {
   const halfWidth = 176;
   const viewportHalfWidth = window.innerWidth / 2;
   const horizontalInset = Math.min(halfWidth, viewportHalfWidth);
-  const below = rect.top < 220 && rect.bottom + 8 <= window.innerHeight;
+  const canPlaceAbove =
+    rect.top - annotationMenuInset - annotationMenuHeight >=
+    annotationMenuInset;
+  const canPlaceBelow =
+    rect.bottom + annotationMenuInset + annotationMenuHeight <=
+    window.innerHeight;
+  const below = !canPlaceAbove || (rect.top < 220 && canPlaceBelow);
   return {
     left: Math.min(
       window.innerWidth - horizontalInset,
       Math.max(horizontalInset, rect.left + rect.width / 2),
     ),
-    top: below ? rect.bottom + 8 : rect.top - 8,
+    top: below
+      ? Math.min(
+          window.innerHeight - annotationMenuInset - annotationMenuHeight,
+          Math.max(annotationMenuInset, rect.bottom + annotationMenuInset),
+        )
+      : rect.top - annotationMenuInset,
     below,
   };
 }

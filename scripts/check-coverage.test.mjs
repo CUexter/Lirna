@@ -1,8 +1,10 @@
+// biome-ignore lint/style/noExcessiveLinesPerFile: The coverage policy cases share a single concise fixture vocabulary.
 import { describe, expect, test } from "bun:test";
 
 import {
   isEligibleSource,
   promoteCoveredSources,
+  reviewedAbsentSources,
   sourceBaselineViolations,
 } from "./check-coverage.mjs";
 
@@ -114,6 +116,30 @@ describe("coverage source baseline", () => {
         hashes: { "packages/ui/src/components/button.tsx": "shadcn-hash" },
       }),
     ).toEqual([]);
+  });
+
+  test("retains covered shadcn primitives when writing a baseline", () => {
+    expect(
+      reviewedAbsentSources({
+        coveredSources: new Set([
+          "apps/covered/src/index.ts",
+          "packages/ui/src/components/button.tsx",
+        ]),
+        eligibleSources: [
+          "apps/covered/src/index.ts",
+          "packages/legacy/src/index.ts",
+          "packages/ui/src/components/button.tsx",
+        ],
+        hashes: {
+          "apps/covered/src/index.ts": "covered-hash",
+          "packages/legacy/src/index.ts": "legacy-hash",
+          "packages/ui/src/components/button.tsx": "shadcn-hash",
+        },
+      }),
+    ).toEqual({
+      "packages/legacy/src/index.ts": "legacy-hash",
+      "packages/ui/src/components/button.tsx": "shadcn-hash",
+    });
   });
 
   test("rejects changed covered shadcn primitives", () => {
