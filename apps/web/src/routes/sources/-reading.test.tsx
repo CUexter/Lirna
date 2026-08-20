@@ -126,6 +126,7 @@ test("renders source-state scholarly apparatus and navigates components", async 
   expect(view().getByText("Synthetic figure")).toBeTruthy();
   expect(calls.annotations).toEqual([{ sourceId, stateId }]);
 
+  await user.click(view().getByText("Other components"));
   await user.click(view().getByRole("button", { name: "Supplement one" }));
   await waitFor(() => view().getByText("First supplement content."));
   expect(view().queryByText("Synthetic figure")).toBeNull();
@@ -178,6 +179,7 @@ test("restores a component location through its parent breadcrumb", async () => 
     await waitFor(() => view().getByText("A synthetic Source state passage."));
     locations.length = 0;
 
+    await user.click(view().getByText("Other components"));
     await user.click(view().getByRole("button", { name: "Supplement one" }));
     await waitFor(() => view().getByText("First supplement content."));
     window.scrollY = 480;

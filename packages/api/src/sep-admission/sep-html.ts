@@ -61,9 +61,10 @@ export function parseCitationInformation(html: string): SepCitationMetadata {
   ]
     .map((match) => decodeHtmlEntities(match[1] ?? ""))
     .find((href) => /\/archives\/[^/]+\/entries\/[^/]+\/$/i.test(href));
-  const publicationHistory = lines.filter((line) =>
-    /published|revised|modified|edition/i.test(line),
-  );
+  const publicationHistory = lines
+    .flatMap((line) => line.split(";"))
+    .map((line) => normalizePublicationHistory(line))
+    .filter((line): line is string => Boolean(line));
   const publisher = documentText
     .match(/\bpublisher\s*=\s*\{([^}]+)\}/i)?.[1]
     ?.trim();
@@ -100,6 +101,29 @@ export function parseCitationInformation(html: string): SepCitationMetadata {
     recommendedArchiveUrl,
     diagnostics,
   };
+}
+
+function normalizePublicationHistory(value: string): string | undefined {
+  const line = htmlText(value);
+  if (
+    !/^(?:this entry was first published|it was last modified)\b/i.test(line)
+  ) {
+    if (
+      !/^(?:first published|substantive revision|last modified|revised)\b/i.test(
+        line,
+      )
+    ) {
+      return undefined;
+    }
+    return line
+      .replace(/^first published/i, "First published")
+      .replace(/^substantive revision/i, "Substantive revision")
+      .replace(/^last modified/i, "Last modified")
+      .replace(/^revised/i, "Revised");
+  }
+  return line
+    .replace(/^This entry was first published/i, "First published")
+    .replace(/^It was last modified/i, "Last modified");
 }
 
 function htmlText(value: string): string {

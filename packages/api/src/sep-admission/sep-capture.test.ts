@@ -9,7 +9,7 @@ const mainBytes = Buffer.from(
 );
 const citationBytes = Buffer.from(`<!doctype html><html><body>
   <p>By Alice Example and Bob Scholar</p>
-  <p>First published Mon Jan 1, 2024; substantive revision Tue Feb 2, 2026</p>
+  <p>First published Mon Jan 1, 2024; substantive revision Tue Feb 2, 2026; The citation immediately above refers to the version in the following archive edition; howpublished = {\\url{https://example.invalid}}; edition = {{W}inter 2025}</p>
   <p>publisher = {Metaphysics Research Lab, Stanford University}</p>
   <a href="/archives/sum2026/entries/logic/">Summer 2026 archived edition</a>
 </body></html>`);
@@ -126,6 +126,10 @@ describe("SEP exact-byte capture", () => {
     expect(result.title).toBe("Logic");
     expect(result.authors).toEqual(["Alice Example", "Bob Scholar"]);
     expect(result.publisher).toContain("Metaphysics Research Lab");
+    expect(result.publicationHistory).toEqual([
+      "First published Mon Jan 1, 2024",
+      "Substantive revision Tue Feb 2, 2026",
+    ]);
     expect(result.recommendedArchiveUrl).toBe(
       "https://plato.stanford.edu/archives/sum2026/entries/logic/",
     );

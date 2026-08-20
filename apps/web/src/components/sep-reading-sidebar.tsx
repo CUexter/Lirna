@@ -21,6 +21,9 @@ export function SepReadingSidebar({
   onComponentChange: (identity: string) => void;
   onViewBibliography: () => void;
 }) {
+  const mainComponents = components.filter((item) => item.role === "main");
+  const otherComponents = components.filter((item) => item.role !== "main");
+
   return (
     <aside className="lg:sticky lg:top-6 lg:self-start">
       <div className="flex flex-col gap-4 rounded-md border p-4">
@@ -40,26 +43,26 @@ export function SepReadingSidebar({
               </NativeSelectOption>
             ))}
           </NativeSelect>
-          <ol className="hidden space-y-1 text-sm lg:block">
-            {components.map((item) => (
-              <li key={item.identity}>
-                <Button
-                  className="h-auto justify-start p-0 text-left text-muted-foreground"
-                  onClick={() => {
-                    onComponentChange(item.identity);
-                  }}
-                  type="button"
-                  variant="link"
-                >
-                  {item.identity === currentComponent.identity ? (
-                    <strong>{item.label}</strong>
-                  ) : (
-                    item.label
-                  )}
-                </Button>
-              </li>
-            ))}
-          </ol>
+          <div className="hidden min-w-0 space-y-2 text-sm lg:block">
+            <ComponentList
+              components={mainComponents}
+              currentComponent={currentComponent}
+              onComponentChange={onComponentChange}
+            />
+            {otherComponents.length ? (
+              <details open={currentComponent.role !== "main"}>
+                <summary className="cursor-pointer text-muted-foreground underline-offset-4 hover:underline">
+                  Other components
+                </summary>
+                <ComponentList
+                  className="mt-2"
+                  components={otherComponents}
+                  currentComponent={currentComponent}
+                  onComponentChange={onComponentChange}
+                />
+              </details>
+            ) : null}
+          </div>
         </nav>
         <nav aria-label="Component contents">
           <h2 className="mb-3 font-medium">Contents</h2>
@@ -76,6 +79,41 @@ export function SepReadingSidebar({
         ) : null}
       </div>
     </aside>
+  );
+}
+
+function ComponentList({
+  components,
+  currentComponent,
+  onComponentChange,
+  className,
+}: {
+  components: Component[];
+  currentComponent: Component;
+  onComponentChange: (identity: string) => void;
+  className?: string;
+}) {
+  return (
+    <ol className={`min-w-0 space-y-1 ${className ?? ""}`}>
+      {components.map((item) => (
+        <li className="min-w-0" key={item.identity}>
+          <Button
+            className="h-auto w-full min-w-0 justify-start whitespace-normal break-words p-0 text-left text-muted-foreground"
+            onClick={() => {
+              onComponentChange(item.identity);
+            }}
+            type="button"
+            variant="link"
+          >
+            {item.identity === currentComponent.identity ? (
+              <strong>{item.label}</strong>
+            ) : (
+              item.label
+            )}
+          </Button>
+        </li>
+      ))}
+    </ol>
   );
 }
 

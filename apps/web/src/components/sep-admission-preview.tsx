@@ -114,7 +114,8 @@ export function SepAdmissionPreview({
                 { label: "Publisher", value: preview.publisher },
                 {
                   label: "Publication history",
-                  value: preview.publicationHistory.join("; "),
+                  value:
+                    preview.publicationHistory.join("; ") || "Not recorded",
                 },
                 {
                   label: "Recommended archive",
