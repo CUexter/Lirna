@@ -9,17 +9,12 @@ import {
 } from "./dependency-score-policy.mjs";
 import {
   changedDirectDependencies,
-  range,
+  prepareDependencyRevisions,
 } from "./verify-dependency-assessments.mjs";
 
-const root = process.env.LIRNA_DEPENDENCY_PROJECT_ROOT ?? process.cwd();
-
 async function main() {
-  process.chdir(root);
-  const [mode, ...args] = process.argv.slice(2);
-  const revisions =
-    mode === "--staged" ? { base: "HEAD", target: ":" } : range(args);
-  if (/^0+$/.test(revisions.base)) return;
+  const revisions = prepareDependencyRevisions();
+  if (!revisions) return;
   const additions = await changedDirectDependencies(revisions);
   if (additions.length === 0) {
     console.log(

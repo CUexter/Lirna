@@ -10,14 +10,10 @@ const sections = [
   "optionalDependencies",
   "peerDependencies",
 ];
-const root = process.env.LIRNA_DEPENDENCY_PROJECT_ROOT ?? process.cwd();
 
 async function main() {
-  process.chdir(root);
-  const [mode, ...args] = process.argv.slice(2);
-  const revisions =
-    mode === "--staged" ? { base: "HEAD", target: ":" } : range(args);
-  if (/^0+$/.test(revisions.base)) return;
+  const revisions = prepareDependencyRevisions();
+  if (!revisions) return;
   const additions = await changedDirectDependencies(revisions);
   console.log(
     `dependency lockfile verification passed (${additions.length} changed direct dependencies)`,
@@ -101,6 +97,15 @@ export function range(args) {
       "usage: bun run dependency:check -- --staged | --range BASE HEAD",
     );
   return { base: args[0], target: args[1] };
+}
+
+export function prepareDependencyRevisions(args = process.argv.slice(2)) {
+  const root = process.env.LIRNA_DEPENDENCY_PROJECT_ROOT ?? process.cwd();
+  process.chdir(root);
+  const [mode, ...rest] = args;
+  const revisions =
+    mode === "--staged" ? { base: "HEAD", target: ":" } : range(rest);
+  return /^0+$/.test(revisions.base) ? undefined : revisions;
 }
 
 async function readJson(revision, path) {
