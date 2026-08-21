@@ -53,7 +53,9 @@ test("renders a typed, degraded SEP Reading workspace without captured markup", 
     page.getByRole("link", { name: "Source information", exact: true }),
   ).toHaveAttribute("href", /#source-information$/);
 
-  await page.getByRole("button", { name: "Bibliography" }).click();
+  await page
+    .getByRole("button", { name: "Citation: (Steup, 2023) (resolved)" })
+    .click();
   await expect(
     page.getByRole("heading", {
       level: 2,
@@ -61,6 +63,9 @@ test("renders a typed, degraded SEP Reading workspace without captured markup", 
       exact: true,
     }),
   ).toBeVisible();
+  await expect(
+    page.getByText("Steup, Matthias. 2023. Epistemology.").locator(".."),
+  ).toBeFocused();
   await page.getByLabel("Search bibliography").fill("Steup");
   await expect(
     page.getByText("Steup, Matthias. 2023. Epistemology."),
@@ -71,7 +76,9 @@ test("renders a typed, degraded SEP Reading workspace without captured markup", 
   await expect(page.getByText("online only")).toBeVisible();
   await page.getByRole("button", { name: "Back to citation" }).click();
   await expect(
-    page.getByRole("button", { name: "Citation: Steup 2023 (resolved)" }),
+    page.getByRole("button", {
+      name: "Citation: (Steup, 2023) (resolved)",
+    }),
   ).toBeVisible();
 
   await expect(page.getByText("window.pwned = true")).toHaveCount(0);

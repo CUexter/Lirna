@@ -1,3 +1,8 @@
+import {
+  authorYearKey,
+  authorYearReferences,
+  indexAuthorYearCandidates,
+} from "./sep-citation-author-year";
 import type {
   ReadingBibliographyGroup,
   ReadingBlock,
@@ -26,20 +31,41 @@ export function extractSepBibliography(
   const container = containers[0];
   if (!container) return { groups: [], excludedElements: new Set() };
 
-  const entries = descendants(container).filter(isBibliographyEntry);
-  const group = {
+  const elements = descendants(container);
+  const titleHeading = elements.find(isHeading);
+  const groups: ReadingBibliographyGroup[] = [];
+  let entryIndex = 0;
+  let groupIndex = 0;
+  let group: ReadingBibliographyGroup = {
     id: elementId(container) ?? "bibliography",
     title: bibliographyTitle(container),
-    entries: entries.map((entry, index) =>
-      bibliographyEntry(entry, index, componentIdentity),
-    ),
+    entries: [],
     provenance: {
       componentIdentity,
       locator: `#${elementId(container) ?? "bibliography"}`,
     },
-  } satisfies ReadingBibliographyGroup;
+  };
+  for (const element of elements) {
+    if (element !== titleHeading && isHeading(element)) {
+      if (group.entries.length) groups.push(group);
+      groupIndex += 1;
+      const id = elementId(element) ?? `bibliography-group-${groupIndex}`;
+      group = {
+        id,
+        title: textContent(element),
+        entries: [],
+        provenance: { componentIdentity, locator: `#${id}` },
+      };
+    } else if (isBibliographyEntry(element)) {
+      group.entries.push(
+        bibliographyEntry(element, entryIndex, componentIdentity),
+      );
+      entryIndex += 1;
+    }
+  }
+  if (group.entries.length) groups.push(group);
   return {
-    groups: group.entries.length ? [group] : [],
+    groups,
     excludedElements: new Set([container]),
   };
 }
@@ -51,6 +77,7 @@ export function resolveSepCitations(
 ) {
   const context: CitationResolutionContext = {
     entries: groups.flatMap((group) => group.entries),
+    authorYearCandidates: indexAuthorYearCandidates(groups),
     mention: 0,
   };
   const resolve = (inline: ReadingInline) => resolveCitation(inline, context);
@@ -61,20 +88,69 @@ export function resolveSepCitations(
 type BibliographyEntry = ReadingBibliographyGroup["entries"][number];
 interface CitationResolutionContext {
   entries: BibliographyEntry[];
+  authorYearCandidates: ReturnType<typeof indexAuthorYearCandidates>;
   mention: number;
 }
 
 function resolveCitation(
   inline: ReadingInline,
   context: CitationResolutionContext,
-): ReadingInline {
-  if (inline.kind === "link") return resolveCitationLink(inline, context);
+): ReadingInline[] {
+  if (inline.kind === "link") return [resolveCitationLink(inline, context)];
+  if (inline.kind === "text") return resolveCitationText(inline, context);
   if ("children" in inline)
-    return {
-      ...inline,
-      children: inline.children.map((child) => resolveCitation(child, context)),
-    };
-  return inline;
+    return [
+      {
+        ...inline,
+        children: inline.children.flatMap((child) =>
+          resolveCitation(child, context),
+        ),
+      },
+    ];
+  return [inline];
+}
+
+const maxCitationCandidates = 12;
+
+function resolveCitationText(
+  inline: Extract<ReadingInline, { kind: "text" }>,
+  context: CitationResolutionContext,
+): ReadingInline[] {
+  const resolved: ReadingInline[] = [];
+  let offset = 0;
+  for (const reference of authorYearReferences(inline.text)) {
+    if (reference.start < offset) continue;
+    const candidates =
+      context.authorYearCandidates.get(
+        authorYearKey(reference.surname, reference.year),
+      ) ?? [];
+    if (!candidates.length) continue;
+    if (reference.start > offset)
+      resolved.push({
+        kind: "text",
+        text: inline.text.slice(offset, reference.start),
+      });
+    const label = inline.text.slice(reference.start, reference.end);
+    context.mention += 1;
+    const state = citationState(candidates);
+    resolved.push({
+      kind: "citation",
+      mentionId: `citation-mention-${context.mention}`,
+      label,
+      state,
+      candidates: candidates
+        .slice(0, maxCitationCandidates)
+        .map((entry) => entry.id),
+      rule: "authored-author-year",
+      evidence: label,
+      ...(state === "resolved" ? { entryId: candidates[0]?.id } : {}),
+    });
+    offset = reference.end;
+  }
+  if (offset === 0) return [inline];
+  if (offset < inline.text.length)
+    resolved.push({ kind: "text", text: inline.text.slice(offset) });
+  return resolved;
 }
 
 function resolveCitationLink(
@@ -100,7 +176,9 @@ function resolveCitationLink(
     mentionId: `citation-mention-${context.mention}`,
     label,
     state,
-    candidates: candidates.map((entry) => entry.id),
+    candidates: candidates
+      .slice(0, maxCitationCandidates)
+      .map((entry) => entry.id),
     rule: byTarget.length
       ? "authored-fragment-target"
       : "normalized-authored-label",
@@ -117,34 +195,34 @@ function citationState(candidates: BibliographyEntry[]) {
 
 function transformSections(
   sections: ReadingSection[],
-  resolve: (inline: ReadingInline) => ReadingInline,
+  resolve: (inline: ReadingInline) => ReadingInline[],
 ) {
   for (const section of sections) {
-    section.title = section.title.map(resolve);
+    section.title = section.title.flatMap(resolve);
     transformBlocks(section.blocks, resolve);
     transformSections(section.children, resolve);
   }
 }
 function transformBlocks(
   blocks: ReadingBlock[],
-  resolve: (inline: ReadingInline) => ReadingInline,
+  resolve: (inline: ReadingInline) => ReadingInline[],
 ) {
   for (const block of blocks) {
     if (block.kind === "statement") {
-      block.label = block.label.map(resolve);
-      block.body = block.body.map(resolve);
+      block.label = block.label.flatMap(resolve);
+      block.body = block.body.flatMap(resolve);
     } else if (block.kind === "list")
-      block.items = block.items.map((item) => item.map(resolve));
+      block.items = block.items.map((item) => item.flatMap(resolve));
     else if (block.kind === "table") {
-      block.caption = block.caption.map(resolve);
+      block.caption = block.caption.flatMap(resolve);
       for (const row of [...block.head, ...block.body])
-        row.cells = row.cells.map((cell) => cell.map(resolve));
+        row.cells = row.cells.map((cell) => cell.flatMap(resolve));
     } else if (block.kind === "figure") {
-      block.figure.caption = block.figure.caption.map(resolve);
+      block.figure.caption = block.figure.caption.flatMap(resolve);
       block.figure.description.text =
-        block.figure.description.text.map(resolve);
+        block.figure.description.text.flatMap(resolve);
     } else if (block.kind !== "diagnostic")
-      block.children = block.children.map(resolve);
+      block.children = block.children.flatMap(resolve);
   }
 }
 
@@ -161,10 +239,11 @@ function isBibliographyEntry(element: HtmlElement) {
     )
   );
 }
+function isHeading(element: HtmlElement) {
+  return /^h[2-6]$/.test(element.tagName);
+}
 function bibliographyTitle(container: HtmlElement) {
-  const heading = descendants(container).find((element) =>
-    /^h[2-6]$/.test(element.tagName),
-  );
+  const heading = descendants(container).find(isHeading);
   return heading ? textContent(heading) : "Bibliography";
 }
 function bibliographyEntry(

@@ -1,6 +1,6 @@
 import { Button } from "@lirna/ui/components/button";
 import { Input } from "@lirna/ui/components/input";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { SepReadingData } from "./content";
 
@@ -14,7 +14,14 @@ export function Bibliography({
   onReturn: (mentionId: string) => void;
 }) {
   const [query, setQuery] = useState("");
+  const selectedEntryRef = useRef<HTMLLIElement>(null);
   const mentions = citationMentions(component);
+  useEffect(() => {
+    const entry = selectedEntryRef.current;
+    if (!(selectedEntry && entry)) return;
+    entry.scrollIntoView?.({ block: "center" });
+    entry.focus({ preventScroll: true });
+  }, [selectedEntry]);
   return (
     <section
       aria-labelledby="bibliography-heading"
@@ -59,6 +66,10 @@ export function Bibliography({
                   }
                   id={entry.id}
                   key={entry.id}
+                  ref={
+                    entry.id === selectedEntry ? selectedEntryRef : undefined
+                  }
+                  tabIndex={entry.id === selectedEntry ? -1 : undefined}
                 >
                   <p>{entry.text}</p>
                   {entry.links.map((link) => (
