@@ -40,7 +40,7 @@
     "lifecycle": "bun scripts/lifecycle.ts",
     "build": "bun run --filter '*' build",
     "check-types": "bun run --filter '*' check-types",
-    "test": "bun test --isolate --preload ./happydom.ts",
+    "test": "VITE_SERVER_URL=http://127.0.0.1:3000 bun test --isolate --preload ./happydom.ts",
     "test:coverage": "bun test --isolate --coverage --preload ./happydom.ts && bun scripts/check-coverage.ts",
     "test:mutation": "bun run test:mutation:dependency-score && bun run test:mutation:sep-url",
     "test:mutation:dependency-score": "stryker run stryker.dependency-score.config.json",
