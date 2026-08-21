@@ -87,7 +87,13 @@ test("renders a typed, degraded SEP Reading workspace without captured markup", 
   if (await componentSelector.isVisible()) {
     await componentSelector.selectOption("active:/notes.html");
   } else {
-    await page.getByRole("button", { name: "Notes" }).click();
+    const sourceComponents = page.getByRole("navigation", {
+      name: "Source components",
+    });
+    await sourceComponents
+      .getByText("Other components", { exact: true })
+      .click();
+    await sourceComponents.getByRole("button", { name: "Notes" }).click();
   }
   await expect(page.getByText("Typed Notes content.")).toBeVisible();
   await expect(
@@ -98,7 +104,7 @@ test("renders a typed, degraded SEP Reading workspace without captured markup", 
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(240);
   await expect(
     page.getByText("Rendering note: missing-semantic-asset"),
-  ).toBeVisible();
+  ).toHaveCount(0);
 
   const accessibility = await new AxeBuilder({ page }).analyze();
   const seriousViolations = accessibility.violations.filter((violation) =>

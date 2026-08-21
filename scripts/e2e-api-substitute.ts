@@ -10,6 +10,15 @@ const corsHeaders = {
 };
 
 const previewId = "01234567-89ab-4def-8123-456789abcdef";
+const resumePosition = {
+  sourceId: "10000000-0000-4000-8000-000000000000",
+  stateId: "20000000-0000-4000-8000-000000000000",
+  sourceTitle: "The Stanford Encyclopedia of Philosophy entry on Epistemology",
+  componentIdentity: "active:/",
+  componentLabel: "Article",
+  scrollTop: 0,
+  savedAt: "2026-08-17T12:00:00.000Z",
+};
 const standardLimits = {
   maxComponents: 64,
   maxAssets: 256,
@@ -536,7 +545,8 @@ function orpcError(message, code = "BAD_REQUEST") {
 }
 
 const orpcPostRoutes = {
-  "sepAdmission/reading": () => orpcSuccess(reading),
+  "sources/reading": () => orpcSuccess(reading),
+  "sources/resume": () => orpcSuccess(resumePosition),
   "annotations/list": () => orpcSuccess([]),
   "sepAdmission/get": () => orpcSuccess(preview),
   healthCheck: () => orpcSuccess("OK"),
@@ -588,7 +598,7 @@ const server = createServer(async (request, response) => {
     response.writeHead(204, {
       ...corsHeaders,
       "access-control-allow-headers": "content-type",
-      "access-control-allow-methods": "GET, POST, OPTIONS",
+      "access-control-allow-methods": "GET, POST, PUT, OPTIONS",
     });
     response.end();
     return;
@@ -618,13 +628,24 @@ const server = createServer(async (request, response) => {
 
   if (
     request.method === "GET" &&
-    request.url?.startsWith("/orpc/sepAdmission/reading")
+    request.url?.startsWith("/orpc/sources/reading")
   ) {
     sendJson(response, 200, orpcSuccess(reading));
     return;
   }
 
-  if (request.method === "POST" && request.url?.startsWith("/orpc/")) {
+  if (
+    request.method === "GET" &&
+    request.url?.startsWith("/orpc/sources/resume")
+  ) {
+    sendJson(response, 200, orpcSuccess(null));
+    return;
+  }
+
+  if (
+    (request.method === "POST" || request.method === "PUT") &&
+    request.url?.startsWith("/orpc/")
+  ) {
     await handleOrpcPost(request, response);
     return;
   }

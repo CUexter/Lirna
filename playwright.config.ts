@@ -24,7 +24,7 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
-      command: `bun run --cwd apps/web dev --host 127.0.0.1 --port ${webPort} --strictPort`,
+      command: `bun run --cwd apps/web start --host 127.0.0.1 --port ${webPort} --strictPort`,
       url: baseURL,
       reuseExistingServer: false,
       env: {

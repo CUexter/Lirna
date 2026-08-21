@@ -94,7 +94,8 @@ export function createDrizzleSepAdmissionStore(
         const previewResources = await tx
           .select()
           .from(sepPreviewResources)
-          .where(eq(sepPreviewResources.previewId, id));
+          .where(eq(sepPreviewResources.previewId, id))
+          .orderBy(asc(sepPreviewResources.identity));
         for (const key of selectedKeys) {
           if (
             !previewResources.some(

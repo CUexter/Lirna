@@ -76,10 +76,13 @@ export function createSepReadingDerivative(
       discoveryEdge: "submitted-entry",
     },
   ];
-  const components = componentResources
+  const canonicalResources = [...componentResources].sort((left, right) =>
+    left.identity.localeCompare(right.identity),
+  );
+  const components = canonicalResources
     .filter(isReadingComponentResource)
     .map((resource, order) =>
-      createReadingComponent(resource, componentResources, order),
+      createReadingComponent(resource, canonicalResources, order),
     );
   const mainComponent = resolveMainComponent(components, options.main.identity);
   return buildReadingContract(options, components, mainComponent, [

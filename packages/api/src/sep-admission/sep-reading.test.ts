@@ -44,7 +44,6 @@ describe("SEP Reading derivative", () => {
     const result = derivative(
       `<main><nav id="toc"><ol><li><a href="#direct">Direct</a><ol><li><a href="#legacy">Legacy</a></li></ol></li><li><a href="#missing-toc">Missing TOC target</a></li></ol></nav><h2 id="direct">Direct</h2><a name="legacy"></a><h3><a id="legacy"></a>Legacy</h3><a name="standalone"></a><h2>Standalone</h2><p><a href="#direct">Jump</a> <a href="#missing">Missing</a></p></main>`,
     );
-
     expect(result.toc).toEqual([
       {
         id: "direct",
@@ -73,12 +72,10 @@ describe("SEP Reading derivative", () => {
     );
     expect(readSepReadingDerivative(result)).toEqual(result);
   });
-
   test("keeps the left navigation while excluding SEP utility sections from reading", () => {
     const result = derivative(
       `<div id="article-sidebar"><ul><li>Academic Tools</li></ul></div><div id="article-content"><div id="aueditable"><div id="preamble"><p>Preamble content.</p></div><div id="toc"><ul><li><a href="#keep">Keep</a></li><li><a href="#Bib">Bibliography</a></li><li><a href="#Aca">Academic Tools</a></li><li><a href="#Oth">Other Internet Resources</a></li><li><a href="#Rel">Related Entries</a></li></ul></div><div id="main-text"><h2 id="keep">Keep</h2><p>Reading content.</p></div><div id="bibliography"><h2 id="Bib">Bibliography</h2><ul><li>Reference one.</li></ul></div><div id="academic-tools"><h2 id="Aca">Academic Tools</h2><p>Tool content.</p></div><div id="other-internet-resources"><h2 id="Oth">Other Internet Resources</h2><p>Other content.</p></div><div id="related-entries"><h2 id="Rel">Related Entries</h2><p>Related content.</p></div></div></div>`,
     );
-
     expect(result.toc).toEqual([{ id: "keep", title: "Keep", children: [] }]);
     expect(result.sections.map((section) => section.id)).toEqual(["keep"]);
     expect(result.plainText).toContain("Reading content.");
@@ -88,13 +85,11 @@ describe("SEP Reading derivative", () => {
     expect(result.plainText).not.toContain("Related content.");
     expect(result.components[0]?.bibliography[0]?.title).toBe("Bibliography");
   });
-
   test("retains typed SEP meaning instead of flattening notation and structure", () => {
     const result = derivative(
       `<main><h2 id="meaning">Meaning</h2><p><em>Emphasis</em> H<sub>2</sub>O x<sup>2</sup> <span data-tex="\\frac{x}{2}"></span> <span class="display" data-tex="\\unknown{x}"></span> <a href="https://example.com">safe</a> <a href="javascript:alert(1)">unsafe</a></p><dl><dt>Definition.</dt><dd>A labeled body.</dd></dl><blockquote>A quotation.</blockquote><ol><li>First</li><li>Second</li></ol><table><caption>Data</caption><tr><th>Term</th><th>Value</th></tr><tr><td>A</td><td>B</td></tr></table><table><tr><td>Layout</td><td>Only</td></tr></table><figure id="diagram">Diagram</figure></main>`,
     );
     const blocks = result.sections[0]?.blocks ?? [];
-
     expect(blocks.map((block) => block.kind)).toEqual([
       "paragraph",
       "statement",
@@ -119,23 +114,19 @@ describe("SEP Reading derivative", () => {
       ]),
     );
   });
-
   test("preserves inline spacing and reads content inside ordinary wrappers", () => {
     const result = derivative(
       `<html><body><article><div><h2 id="knowledge">Knowledge</h2><section><p>justified <em>true</em> belief</p></section></div></article></body></html>`,
     );
-
     expect(result.sections[0]?.title).toEqual([
       { kind: "text", text: "Knowledge" },
     ]);
     expect(result.plainText).toContain("justified true belief");
   });
-
   test("diagnoses duplicate authored internal targets", () => {
     const result = derivative(
       `<main><h2 id="same">First</h2><h2 id="same">Second</h2></main>`,
     );
-
     expect(result.capture.diagnostics).toContainEqual(
       expect.objectContaining({
         code: "duplicate-internal-target",
@@ -143,7 +134,6 @@ describe("SEP Reading derivative", () => {
       }),
     );
   });
-
   test("does not expose executable captured markup", () => {
     const result = derivative(
       `<main><h2 id="safe">Safe</h2><p>Visible text.</p><script>window.pwned = true</script><p onclick="alert(1)">Still text.</p><style>body { display: none }</style></main>`,
@@ -153,12 +143,10 @@ describe("SEP Reading derivative", () => {
     expect(JSON.stringify(result)).not.toContain("window.pwned");
     expect(JSON.stringify(result)).not.toContain("onclick");
   });
-
   test("derives bibliography apparatus and resolves only unambiguous authored citations", () => {
     const result = derivative(
       `<main><h2 id="knowledge">Knowledge</h2><p>Direct <a href="#ada-2024">Ada 2024</a>; ambiguous <a href="#citation-label">Smith 2024</a>; unresolved <a href="#citation-label">[99]</a>.</p><section id="bibliography"><h2>Bibliography</h2><a id="citation-label"></a><ul><li id="ada-2024">Ada 2024. <a href="https://example.com/ada">Publication</a></li><li id="smith-a">Smith 2024. First edition.</li><li id="smith-b">Smith 2024. Second edition.</li></ul></section></main>`,
     );
-
     expect(result.sections.map((section) => section.id)).toEqual(["knowledge"]);
     expect(result.components[0]?.bibliography).toEqual([
       expect.objectContaining({
@@ -190,7 +178,6 @@ describe("SEP Reading derivative", () => {
     expect(citations).toContain('"state":"unresolved"');
     expect(readSepReadingDerivative(result)).toEqual(result);
   });
-
   test("keeps supplements, Notes, figure descriptions, and assets as distinct components", () => {
     const main = {
       identity: "active:/",
@@ -273,7 +260,6 @@ describe("SEP Reading derivative", () => {
         diagnostics: [],
       },
     });
-
     expect(
       result.components.map((component) => [
         component.identity,
@@ -282,9 +268,9 @@ describe("SEP Reading derivative", () => {
       ]),
     ).toEqual([
       ["active:/", "Article", undefined],
+      ["active:/diagram-description.html", "Figure description", "active:/"],
       ["active:/notes.html", "Notes", "active:/"],
       ["active:/supplement.html", "Supplement", "active:/"],
-      ["active:/diagram-description.html", "Figure description", "active:/"],
     ]);
     expect(result.components[0]?.figures).toEqual([
       expect.objectContaining({
@@ -298,12 +284,10 @@ describe("SEP Reading derivative", () => {
       }),
     ]);
   });
-
   test("omits standalone images whose assets were not retained", () => {
     const result = derivative(
       '<main><p>Reading content.</p><img src="icons/sep-man.png" alt="SEP man icon"></main>',
     );
-
     expect(result.components[0]?.figures).toEqual([]);
     expect(result.capture.diagnostics).not.toContainEqual(
       expect.objectContaining({ code: "missing-semantic-asset" }),
