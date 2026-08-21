@@ -137,6 +137,45 @@ describe("Sources oRPC router", () => {
     ).resolves.toEqual(position);
   });
 
+  test("resume scopes a persisted position to one Source component", async () => {
+    let getInput: Parameters<ReadingPositionOperations["get"]>[0];
+    const position = readingPosition();
+    await expect(
+      call(
+        sourcesRouter.resume.get,
+        { sourceId, stateId, componentIdentity: "article" },
+        {
+          context: context(
+            admittedSourceStatesStub(),
+            readingPositionsStub({
+              async get(input) {
+                getInput = input;
+                return position;
+              },
+            }),
+          ),
+        },
+      ),
+    ).resolves.toEqual(position);
+    expect(getInput).toEqual({
+      sourceId,
+      stateId,
+      componentIdentity: "article",
+    });
+  });
+
+  test("resume rejects a partial component scope", async () => {
+    await expect(
+      call(
+        sourcesRouter.resume.get,
+        { sourceId },
+        {
+          context: context(admittedSourceStatesStub(), readingPositionsStub()),
+        },
+      ),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
   test("resume saves a validated reading position", async () => {
     let savedInput: Parameters<ReadingPositionOperations["save"]>[0];
     const position = readingPosition();

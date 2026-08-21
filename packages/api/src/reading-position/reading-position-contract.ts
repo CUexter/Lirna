@@ -17,7 +17,11 @@ export interface SaveReadingPositionInput {
 }
 
 export interface ReadingPositionOperations {
-  get(): Promise<ReadingPositionRecord | undefined>;
+  get(input?: {
+    sourceId: string;
+    stateId: string;
+    componentIdentity: string;
+  }): Promise<ReadingPositionRecord | undefined>;
   save(
     input: SaveReadingPositionInput,
   ): Promise<ReadingPositionRecord | undefined>;

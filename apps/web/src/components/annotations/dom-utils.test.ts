@@ -30,11 +30,17 @@ function articleWithNestedText() {
 function annotation(overrides: Partial<Annotation> = {}): Annotation {
   return {
     id: "annotation-1",
+    sourceId: "source-1",
     sourceStateId: "state-1",
     componentIdentity: "article",
-    startOffset: 2,
-    endOffset: 11,
+    kind: "highlight",
+    publisherAnchor: null,
+    offsetBasis: "normalized-derivative-text-v1",
+    normalizedStartOffset: 2,
+    normalizedEndOffset: 11,
     exactText: "synthetic",
+    prefix: "A ",
+    suffix: " Source state preserves nested",
     color: "yellow",
     body: null,
     createdAt: "2026-08-20T00:00:00.000Z",
@@ -145,18 +151,24 @@ test("registers, updates, and cleans annotation and draft highlights", () => {
     );
 
     const draftCleanup = paintDraftSelection(article, {
-      startOffset: 2,
-      endOffset: 11,
+      offsetBasis: "normalized-derivative-text-v1",
+      normalizedStartOffset: 2,
+      normalizedEndOffset: 11,
       exactText: "synthetic",
+      prefix: "A ",
+      suffix: " Source state preserves nested",
     });
     expect(registry.get("lirna-annotation-draft")?.ranges[0]?.toString()).toBe(
       "synthetic",
     );
 
     const updatedDraftCleanup = paintDraftSelection(article, {
-      startOffset: 12,
-      endOffset: 24,
+      offsetBasis: "normalized-derivative-text-v1",
+      normalizedStartOffset: 12,
+      normalizedEndOffset: 24,
       exactText: "Source state",
+      prefix: "A synthetic ",
+      suffix: " preserves nested text.",
     });
     expect(registry.get("lirna-annotation-draft")?.ranges[0]?.toString()).toBe(
       "Source state",
@@ -182,9 +194,12 @@ test("rejects stale text and works without CSS Highlight support", () => {
     expect(registry.size).toBe(0);
     expect(
       paintDraftSelection(article, {
-        startOffset: 2,
-        endOffset: 11,
+        offsetBasis: "normalized-derivative-text-v1",
+        normalizedStartOffset: 2,
+        normalizedEndOffset: 11,
         exactText: "stale text",
+        prefix: "A ",
+        suffix: "",
       }),
     ).toBeUndefined();
   } finally {
@@ -200,9 +215,12 @@ test("rejects stale text and works without CSS Highlight support", () => {
     expect(paintAnnotations(article, [annotation()])).toBeUndefined();
     expect(
       paintDraftSelection(article, {
-        startOffset: 2,
-        endOffset: 11,
+        offsetBasis: "normalized-derivative-text-v1",
+        normalizedStartOffset: 2,
+        normalizedEndOffset: 11,
         exactText: "synthetic",
+        prefix: "A ",
+        suffix: " Source state preserves nested",
       }),
     ).toBeUndefined();
   } finally {

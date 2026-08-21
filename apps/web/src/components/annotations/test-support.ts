@@ -34,11 +34,17 @@ let annotations: Annotation[] = [];
 export function annotation(overrides: Partial<Annotation> = {}): Annotation {
   return {
     id: "annotation-1",
+    sourceId,
     sourceStateId: stateId,
     componentIdentity,
-    startOffset: 2,
-    endOffset: 11,
+    kind: "highlight",
+    publisherAnchor: null,
+    offsetBasis: "normalized-derivative-text-v1",
+    normalizedStartOffset: 2,
+    normalizedEndOffset: 11,
     exactText: "synthetic",
+    prefix: "A ",
+    suffix: " Source state passage.",
     color: "yellow",
     body: null,
     createdAt: "2026-08-20T00:00:00.000Z",
@@ -52,6 +58,8 @@ export function setAnnotations(next: Annotation[]) {
 }
 
 export function resetActions(queryClient: QueryClient) {
+  localStorage.clear();
+  window.confirm = () => true;
   queryClient.clear();
   queryClient.setDefaultOptions({
     mutations: { retry: false },

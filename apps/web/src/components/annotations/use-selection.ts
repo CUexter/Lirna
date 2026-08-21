@@ -7,7 +7,9 @@ import type {
   SelectionDraft,
 } from "./dom-utils";
 import {
+  anchorForRange,
   menuPosition,
+  rangeFromAnchor,
   rangeOffsets,
   selectionInside,
   textOffsetAtPoint,
@@ -25,6 +27,7 @@ export interface AnnotationSelectionState {
 
 export type AnnotationSelectionAction =
   | { type: "DRAFT"; selection: SelectionDraft; position: MenuPosition }
+  | { type: "REPOSITION"; selection: SelectionDraft; position: MenuPosition }
   | { type: "EDIT"; annotation: Annotation }
   | { type: "DISMISS" }
   | { type: "CLOSE_MENU" }
@@ -57,6 +60,12 @@ export function annotationSelectionReducer(
         position: action.position,
         colorPickerOpen: false,
       };
+    case "REPOSITION":
+      return {
+        ...state,
+        selection: action.selection,
+        position: action.position,
+      };
     case "EDIT":
       return {
         ...state,
@@ -70,15 +79,11 @@ export function annotationSelectionReducer(
     case "DISMISS":
       return {
         ...state,
-        selection: undefined,
-        editing: undefined,
         position: undefined,
       };
     case "CLOSE_MENU":
       return {
         ...state,
-        selection: undefined,
-        editing: undefined,
         position: undefined,
       };
     case "OPEN_PANEL":
@@ -87,8 +92,6 @@ export function annotationSelectionReducer(
       return {
         ...state,
         panelOpen: false,
-        selection: undefined,
-        editing: undefined,
         position: undefined,
       };
     case "SET_COLOR":
@@ -106,6 +109,7 @@ export function annotationSelectionReducer(
         colorPickerOpen: false,
         color: "yellow",
         body: "",
+        panelOpen: false,
       };
     default:
       return state;
@@ -119,17 +123,39 @@ export interface UseAnnotationSelectionResult {
   panelRef: RefObject<HTMLDivElement | null>;
 }
 
-export function useAnnotationSelection(
-  articleRef: RefObject<HTMLElement | null>,
-  annotations: Annotation[],
-  componentIdentity: string,
-): UseAnnotationSelectionResult {
+export function useAnnotationSelection({
+  articleRef,
+  annotations,
+  componentIdentity,
+  sourceId,
+  stateId,
+  plainText,
+}: {
+  articleRef: RefObject<HTMLElement | null>;
+  annotations: Annotation[];
+  componentIdentity: string;
+  sourceId: string;
+  stateId: string;
+  plainText: string;
+}): UseAnnotationSelectionResult {
+  const storageKey = `lirna:annotation-draft:${sourceId}:${stateId}:${componentIdentity}`;
   const [state, dispatch] = useReducer(
     annotationSelectionReducer,
     initialState,
+    () => readStoredState(storageKey),
   );
   const menuRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  useEffect(() => {
+    if (state.selection || state.editing) {
+      localStorage.setItem(storageKey, JSON.stringify(state));
+    } else {
+      localStorage.removeItem(storageKey);
+    }
+  }, [state, storageKey]);
 
   useEffect(() => {
     const handleSelection = () => {
@@ -142,17 +168,38 @@ export function useAnnotationSelection(
         dispatch({ type: "DISMISS" });
         return;
       }
-      const offsets = rangeOffsets(article, selectedRange);
+      const selection = anchorForRange(article, selectedRange, plainText);
+      if (!selection) return;
+      const current = stateRef.current;
+      const sameSelection =
+        current.selection?.normalizedStartOffset ===
+          selection.normalizedStartOffset &&
+        current.selection.normalizedEndOffset === selection.normalizedEndOffset;
+      if (sameSelection) {
+        dispatch({
+          type: "REPOSITION",
+          selection,
+          position: menuPosition(selectedRange.getBoundingClientRect()),
+        });
+        return;
+      }
+      if (
+        (current.selection || current.editing) &&
+        !window.confirm("Replace the current annotation draft?")
+      ) {
+        window.getSelection()?.removeAllRanges();
+        return;
+      }
       dispatch({
         type: "DRAFT",
-        selection: { ...offsets, exactText },
+        selection,
         position: menuPosition(selectedRange.getBoundingClientRect()),
       });
     };
     document.addEventListener("selectionchange", handleSelection);
     return () =>
       document.removeEventListener("selectionchange", handleSelection);
-  }, [articleRef]);
+  }, [articleRef, plainText]);
 
   useEffect(() => {
     if (!state.position) return;
@@ -185,18 +232,37 @@ export function useAnnotationSelection(
         return;
       }
       const offset = textOffsetAtPoint(article, event.clientX, event.clientY);
-      const annotation = annotations.find(
-        (candidate) =>
-          candidate.componentIdentity === componentIdentity &&
-          candidate.startOffset <= offset &&
-          offset < candidate.endOffset,
-      );
+      const annotation = annotations.find((candidate) => {
+        if (candidate.componentIdentity !== componentIdentity) return false;
+        const range = rangeFromAnchor(article, plainText, candidate);
+        if (!range) return false;
+        const rendered = rangeOffsets(article, range);
+        return rendered.startOffset <= offset && offset < rendered.endOffset;
+      });
       if (!annotation) return;
+      const current = stateRef.current;
+      if (
+        (current.selection ||
+          (current.editing && current.editing.id !== annotation.id)) &&
+        !window.confirm("Replace the current annotation draft?")
+      ) {
+        return;
+      }
       dispatch({ type: "EDIT", annotation });
     };
     article.addEventListener("pointerup", openExisting);
     return () => article.removeEventListener("pointerup", openExisting);
-  }, [annotations, articleRef, componentIdentity]);
+  }, [annotations, articleRef, componentIdentity, plainText]);
 
   return { state, dispatch, menuRef, panelRef };
+}
+
+function readStoredState(storageKey: string): AnnotationSelectionState {
+  try {
+    const stored = localStorage.getItem(storageKey);
+    if (!stored) return initialState;
+    return { ...initialState, ...JSON.parse(stored), position: undefined };
+  } catch {
+    return initialState;
+  }
 }

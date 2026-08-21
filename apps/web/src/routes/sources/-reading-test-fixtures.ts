@@ -91,7 +91,8 @@ function component(overrides: Partial<Component> = {}): Component {
         provenance: { componentIdentity: "article", locator: "#references" },
       },
     ],
-    plainText: "A synthetic Source state passage.",
+    plainText:
+      "A synthetic Source state passage.\n\nA synthetic claim\n\nSynthetic publication content [1]",
     ...overrides,
   };
 }
@@ -136,6 +137,7 @@ export function readingFixture(): Reading {
         ],
         sections: [],
         toc: [],
+        plainText: "First supplement content.",
       }),
       component({
         identity: "supplement-two",
@@ -153,6 +155,7 @@ export function readingFixture(): Reading {
         ],
         sections: [],
         toc: [],
+        plainText: "Second supplement content.",
       }),
     ],
     capture: {

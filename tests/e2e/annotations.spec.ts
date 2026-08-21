@@ -59,9 +59,19 @@ test("preserves the visual selection while composing an annotation note", async 
     )
     .toBe("");
 
+  await page.getByLabel("Annotation note").fill("Resume after reload.");
+
   const after = await page.evaluate(highlightCovers, selectedText);
 
   // Bug: the visual selection disappears when the note field is focused.
   // Fix: paint the live selection as a custom highlight so it stays visible.
   expect(after).toBe(true);
+
+  await page.reload();
+  await expect(
+    page.getByRole("complementary", { name: "Create annotation" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Annotation note")).toHaveValue(
+    "Resume after reload.",
+  );
 });

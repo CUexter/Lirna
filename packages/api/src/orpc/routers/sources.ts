@@ -118,7 +118,20 @@ export const sourcesRouter = {
 
   resume: {
     get: publicProcedure
-      .input(z.object({}))
+      .input(
+        z
+          .object({
+            sourceId: z.string().uuid().optional(),
+            stateId: z.string().uuid().optional(),
+            componentIdentity: z.string().trim().min(1).max(2_000).optional(),
+          })
+          .refine(
+            ({ sourceId, stateId, componentIdentity }) =>
+              [sourceId, stateId, componentIdentity].filter(Boolean).length ===
+                0 || Boolean(sourceId && stateId && componentIdentity),
+            "Resume scope requires sourceId, stateId, and componentIdentity",
+          ),
+      )
       .output(readingPosition.nullable())
       .meta(
         openapi({
@@ -130,7 +143,16 @@ export const sourcesRouter = {
         }),
       )
       .handler(
-        async ({ context }) => (await context.readingPositions.get()) ?? null,
+        async ({ context, input }) =>
+          (await context.readingPositions.get(
+            input.sourceId && input.stateId && input.componentIdentity
+              ? {
+                  sourceId: input.sourceId,
+                  stateId: input.stateId,
+                  componentIdentity: input.componentIdentity,
+                }
+              : undefined,
+          )) ?? null,
       ),
     save: publicProcedure
       .input(

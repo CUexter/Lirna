@@ -7,20 +7,29 @@ import {
 } from "./use-selection";
 
 const selection = {
-  startOffset: 2,
-  endOffset: 11,
+  offsetBasis: "normalized-derivative-text-v1" as const,
+  normalizedStartOffset: 2,
+  normalizedEndOffset: 11,
   exactText: "synthetic",
+  prefix: "A ",
+  suffix: " Source state passage.",
 };
 
 const position = { left: 176, top: 128, below: true };
 
 const annotation: Annotation = {
   id: "annotation-1",
+  sourceId: "source-1",
   sourceStateId: "state-1",
   componentIdentity: "article",
-  startOffset: 2,
-  endOffset: 11,
+  kind: "note",
+  publisherAnchor: null,
+  offsetBasis: "normalized-derivative-text-v1",
+  normalizedStartOffset: 2,
+  normalizedEndOffset: 11,
   exactText: "synthetic",
+  prefix: "A ",
+  suffix: " Source state passage.",
   color: "blue",
   body: "A synthetic Source-state note.",
   createdAt: "2026-08-20T00:00:00.000Z",
@@ -50,6 +59,13 @@ test("applies every selection action while preserving unrelated state", () => {
     colorPickerOpen: false,
   });
   expect(
+    annotationSelectionReducer(state, {
+      type: "REPOSITION",
+      selection,
+      position,
+    }),
+  ).toEqual({ ...state, selection, position });
+  expect(
     annotationSelectionReducer(state, { type: "EDIT", annotation }),
   ).toEqual({
     ...state,
@@ -62,14 +78,10 @@ test("applies every selection action while preserving unrelated state", () => {
   });
   expect(annotationSelectionReducer(state, { type: "DISMISS" })).toEqual({
     ...state,
-    selection: undefined,
-    editing: undefined,
     position: undefined,
   });
   expect(annotationSelectionReducer(state, { type: "CLOSE_MENU" })).toEqual({
     ...state,
-    selection: undefined,
-    editing: undefined,
     position: undefined,
   });
   expect(annotationSelectionReducer(state, { type: "OPEN_PANEL" })).toEqual({
@@ -80,8 +92,6 @@ test("applies every selection action while preserving unrelated state", () => {
   expect(annotationSelectionReducer(state, { type: "CLOSE_PANEL" })).toEqual({
     ...state,
     panelOpen: false,
-    selection: undefined,
-    editing: undefined,
     position: undefined,
   });
   expect(
@@ -107,5 +117,6 @@ test("applies every selection action while preserving unrelated state", () => {
     colorPickerOpen: false,
     color: "yellow",
     body: "",
+    panelOpen: false,
   });
 });

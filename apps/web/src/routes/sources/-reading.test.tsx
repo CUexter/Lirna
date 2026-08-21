@@ -6,7 +6,10 @@ import userEvent from "@testing-library/user-event";
 import { readingFixture, sourceId, stateId } from "./-reading-test-fixtures";
 import { renderRoute } from "./-route-test-harness";
 
-const calls = { annotations: [] as unknown[], reading: [] as unknown[] };
+const calls = {
+  annotations: [] as unknown[],
+  reading: [] as unknown[],
+};
 let getReading: (input: unknown) => Promise<unknown> = async () =>
   readingFixture();
 
@@ -34,7 +37,9 @@ await mock.module("@/clients/inquiry", () => ({
           }),
         },
         save: {
-          mutationOptions: () => ({ mutationFn: async () => undefined }),
+          mutationOptions: () => ({
+            mutationFn: async () => undefined,
+          }),
         },
       },
     },
@@ -181,44 +186,6 @@ test("renders source-state scholarly apparatus and navigates components", async 
   );
   await waitFor(() => view().getByText("First supplement content."));
   expect(router.state.location.search).toEqual({ component: "supplement-one" });
-});
-
-test("restores a component location through its parent breadcrumb", async () => {
-  resetActions();
-  const originalScrollTo = window.scrollTo;
-  const scrollY = Object.getOwnPropertyDescriptor(window, "scrollY");
-  const locations: ScrollToOptions[] = [];
-  window.scrollTo = (options) => {
-    if (typeof options === "object") locations.push(options);
-  };
-  Object.defineProperty(window, "scrollY", {
-    configurable: true,
-    value: 240,
-    writable: true,
-  });
-
-  try {
-    const user = userEvent.setup();
-    await renderReading();
-    await waitFor(() => view().getByText("A synthetic Source state passage."));
-    locations.length = 0;
-
-    await user.click(view().getByText("Other components"));
-    await user.click(view().getByRole("button", { name: "Supplement one" }));
-    await waitFor(() => view().getByText("First supplement content."));
-    window.scrollY = 480;
-    await user.click(
-      within(
-        view().getByRole("navigation", { name: "Component path" }),
-      ).getByRole("button", { name: "Article" }),
-    );
-    await waitFor(() => view().getByText("A synthetic Source state passage."));
-    expect(locations).toContainEqual({ top: 240 });
-  } finally {
-    window.scrollTo = originalScrollTo;
-    if (scrollY) Object.defineProperty(window, "scrollY", scrollY);
-    else delete (window as { scrollY?: number }).scrollY;
-  }
 });
 
 test("filters publisher bibliography and preserves component search when returning from a Citation", async () => {

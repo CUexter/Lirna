@@ -10,6 +10,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
@@ -51,6 +52,7 @@ export const sourceStates = pgTable(
       table.sourceId,
       table.sequence,
     ),
+    unique("source_states_id_source_unique").on(table.id, table.sourceId),
     index("source_states_source_admitted_at_idx").on(
       table.sourceId,
       table.admittedAt,

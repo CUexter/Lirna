@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   check,
+  foreignKey,
   index,
   integer,
   pgTable,
@@ -9,19 +10,25 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-import { sourceStates } from "./sources";
+import { sourceStates, sources } from "./sources";
 
 export const annotations = pgTable(
   "annotations",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    sourceStateId: uuid("source_state_id")
+    sourceId: uuid("source_id")
       .notNull()
-      .references(() => sourceStates.id, { onDelete: "cascade" }),
+      .references(() => sources.id, { onDelete: "cascade" }),
+    sourceStateId: uuid("source_state_id").notNull(),
     componentIdentity: text("component_identity").notNull(),
-    startOffset: integer("start_offset").notNull(),
-    endOffset: integer("end_offset").notNull(),
+    kind: text("kind").notNull(),
+    publisherAnchor: text("publisher_anchor"),
+    offsetBasis: text("offset_basis").notNull(),
+    normalizedStartOffset: integer("start_offset").notNull(),
+    normalizedEndOffset: integer("end_offset").notNull(),
     exactText: text("exact_text").notNull(),
+    prefix: text("prefix").notNull(),
+    suffix: text("suffix").notNull(),
     color: text("color").notNull(),
     body: text("body"),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -32,14 +39,27 @@ export const annotations = pgTable(
       .notNull(),
   },
   (table) => [
+    foreignKey({
+      columns: [table.sourceStateId, table.sourceId],
+      foreignColumns: [sourceStates.id, sourceStates.sourceId],
+      name: "annotations_source_state_source_fk",
+    }).onDelete("cascade"),
     index("annotations_source_state_component_idx").on(
       table.sourceStateId,
       table.componentIdentity,
-      table.startOffset,
+      table.normalizedStartOffset,
     ),
     check(
       "annotations_offsets_check",
-      sql`${table.startOffset} >= 0 AND ${table.endOffset} > ${table.startOffset}`,
+      sql`${table.normalizedStartOffset} >= 0 AND ${table.normalizedEndOffset} > ${table.normalizedStartOffset}`,
+    ),
+    check(
+      "annotations_kind_check",
+      sql`${table.kind} IN ('highlight', 'note')`,
+    ),
+    check(
+      "annotations_offset_basis_check",
+      sql`${table.offsetBasis} = 'normalized-derivative-text-v1'`,
     ),
     check(
       "annotations_color_check",

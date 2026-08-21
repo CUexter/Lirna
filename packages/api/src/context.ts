@@ -5,12 +5,12 @@ import type { Context as HonoContext } from "hono";
 import type { AnnotationOperations } from "./annotations/annotation-contract";
 import { DrizzleAnnotationStore } from "./annotations/annotation-store";
 import type { RequestObservation } from "./observation";
+import type { ReadingPositionOperations } from "./reading-position/reading-position-contract";
+import { DrizzleReadingPositionStore } from "./reading-position/reading-position-store";
 import {
   createOpenRouterResearchAssistant,
   type ResearchAssistantOperations,
 } from "./research-assistant/research-assistant";
-import type { ReadingPositionOperations } from "./reading-position/reading-position-contract";
-import { DrizzleReadingPositionStore } from "./reading-position/reading-position-store";
 import type { SepAdmissionOperations } from "./sep-admission/sep-admission";
 import { sepAdmissionOperations } from "./sep-admission/sep-admission-store";
 import type { SepAdmittedStateOperations } from "./sep-admission/sep-admitted-state";

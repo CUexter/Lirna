@@ -1,7 +1,17 @@
 import type { db } from "@lirna/db";
 import { readingPositions } from "@lirna/db/schema/reading-positions";
-import { sourceStates, sources } from "@lirna/db/schema/sources";
-import { desc, eq } from "drizzle-orm";
+import {
+  sourceStateDerivativeActivations,
+  sourceStateDerivatives,
+  sourceStates,
+  sources,
+} from "@lirna/db/schema/sources";
+import { and, desc, eq } from "drizzle-orm";
+
+import {
+  readSepReadingDerivative,
+  sepReadingDerivativeKind,
+} from "../sep-admission/sep-reading-contract";
 
 import type {
   ReadingPositionOperations,
@@ -12,17 +22,30 @@ import type {
 export class DrizzleReadingPositionStore implements ReadingPositionOperations {
   constructor(private readonly database: typeof db) {}
 
-  async get(): Promise<ReadingPositionRecord | undefined> {
-    const [row] = await this.database
+  async get(input?: {
+    sourceId: string;
+    stateId: string;
+    componentIdentity: string;
+  }): Promise<ReadingPositionRecord | undefined> {
+    const query = this.database
       .select({ position: readingPositions, source: sources })
       .from(readingPositions)
       .innerJoin(
         sourceStates,
         eq(sourceStates.id, readingPositions.sourceStateId),
       )
-      .innerJoin(sources, eq(sources.id, sourceStates.sourceId))
-      .orderBy(desc(readingPositions.savedAt))
-      .limit(1);
+      .innerJoin(sources, eq(sources.id, sourceStates.sourceId));
+    const [row] = input
+      ? await query
+          .where(
+            and(
+              eq(sources.id, input.sourceId),
+              eq(sourceStates.id, input.stateId),
+              eq(readingPositions.componentIdentity, input.componentIdentity),
+            ),
+          )
+          .limit(1)
+      : await query.orderBy(desc(readingPositions.savedAt)).limit(1);
     return row ? serialize(row.position, row.source) : undefined;
   }
 
@@ -30,27 +53,55 @@ export class DrizzleReadingPositionStore implements ReadingPositionOperations {
     input: SaveReadingPositionInput,
   ): Promise<ReadingPositionRecord | undefined> {
     const [existing] = await this.database
-      .select({ source: sources })
-      .from(sourceStates)
+      .select({ payload: sourceStateDerivatives.payload, source: sources })
+      .from(sourceStateDerivativeActivations)
+      .innerJoin(
+        sourceStateDerivatives,
+        eq(
+          sourceStateDerivatives.id,
+          sourceStateDerivativeActivations.derivativeId,
+        ),
+      )
+      .innerJoin(
+        sourceStates,
+        eq(sourceStates.id, sourceStateDerivativeActivations.sourceStateId),
+      )
       .innerJoin(sources, eq(sources.id, sourceStates.sourceId))
-      .where(eq(sourceStates.id, input.stateId))
+      .where(
+        and(
+          eq(sourceStates.id, input.stateId),
+          eq(sources.id, input.sourceId),
+          eq(sourceStateDerivativeActivations.kind, sepReadingDerivativeKind),
+          eq(sourceStateDerivatives.sourceStateId, input.stateId),
+          eq(sourceStateDerivatives.kind, sepReadingDerivativeKind),
+          eq(sourceStateDerivatives.valid, true),
+        ),
+      )
+      .orderBy(desc(sourceStateDerivativeActivations.activatedAt))
       .limit(1);
-    if (!existing || existing.source.id !== input.sourceId) return undefined;
+    const component = existing
+      ? readSepReadingDerivative(existing.payload).components.find(
+          (item) => item.identity === input.componentIdentity,
+        )
+      : undefined;
+    if (!existing || !component) return undefined;
 
     const [position] = await this.database
       .insert(readingPositions)
       .values({
         sourceStateId: input.stateId,
         componentIdentity: input.componentIdentity,
-        componentLabel: input.componentLabel,
+        componentLabel: component.label,
         scrollTop: input.scrollTop,
         savedAt: new Date(),
       })
       .onConflictDoUpdate({
-        target: readingPositions.sourceStateId,
+        target: [
+          readingPositions.sourceStateId,
+          readingPositions.componentIdentity,
+        ],
         set: {
-          componentIdentity: input.componentIdentity,
-          componentLabel: input.componentLabel,
+          componentLabel: component.label,
           scrollTop: input.scrollTop,
           savedAt: new Date(),
         },

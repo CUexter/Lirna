@@ -50,6 +50,20 @@
       "when": 1787256085485,
       "tag": "0006_chief_violations",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787323307253,
+      "tag": "0007_plain_randall_flagg",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787325273504,
+      "tag": "0008_source_state_ownership",
+      "breakpoints": true
     }
   ]
 }

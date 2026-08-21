@@ -5,6 +5,7 @@ import type {
   AnnotationOperations,
   AnnotationRecord,
 } from "../../annotations/annotation-contract";
+import { InvalidAnnotationAnchorError } from "../../annotations/annotation-store";
 import type { Context } from "../../context";
 import { annotationsRouter } from "./annotations";
 
@@ -28,9 +29,13 @@ describe("annotations oRPC router", () => {
         sourceId,
         stateId,
         componentIdentity: "article:main",
-        startOffset: 4,
-        endOffset: 12,
+        kind: "note",
+        offsetBasis: "normalized-derivative-text-v1",
+        normalizedStartOffset: 4,
+        normalizedEndOffset: 12,
         exactText: "evidence",
+        prefix: "Read",
+        suffix: " carefully.",
         color: "green",
         body: "  A useful note  ",
       },
@@ -61,9 +66,13 @@ describe("annotations oRPC router", () => {
           sourceId,
           stateId,
           componentIdentity: "article:main",
-          startOffset: 12,
-          endOffset: 4,
+          kind: "highlight",
+          offsetBasis: "normalized-derivative-text-v1",
+          normalizedStartOffset: 12,
+          normalizedEndOffset: 4,
           exactText: "evidence",
+          prefix: "",
+          suffix: "",
           color: "yellow",
         },
         { context: context(operations) },
@@ -88,15 +97,33 @@ describe("annotations oRPC router", () => {
           sourceId,
           stateId,
           componentIdentity: "article:main",
-          startOffset: 4,
-          endOffset: 12,
+          kind: "highlight",
+          offsetBasis: "normalized-derivative-text-v1",
+          normalizedStartOffset: 4,
+          normalizedEndOffset: 12,
           exactText: "shorter",
+          prefix: "Read",
+          suffix: " carefully.",
           color: "yellow",
         },
         { context: context(operations) },
       ),
     ).rejects.toThrow();
     expect(createCalls).toBe(0);
+  });
+
+  test("returns bad request for an anchor rejected by the derivative boundary", async () => {
+    const operations = operationsStub({
+      async create() {
+        throw new InvalidAnnotationAnchorError();
+      },
+    });
+
+    await expect(
+      call(annotationsRouter.create, createInput(), {
+        context: context(operations),
+      }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   test("lists annotations for a Source state", async () => {
@@ -149,7 +176,13 @@ describe("annotations oRPC router", () => {
     await expect(
       call(
         annotationsRouter.update,
-        { sourceId, stateId, id: annotationId, color: "pink" },
+        {
+          sourceId,
+          stateId,
+          id: annotationId,
+          color: "pink",
+          kind: "highlight",
+        },
         { context: context(operationsStub()) },
       ),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
@@ -191,9 +224,13 @@ function createInput(): Parameters<AnnotationOperations["create"]>[0] {
     sourceId,
     stateId,
     componentIdentity: "article:main",
-    startOffset: 4,
-    endOffset: 12,
+    kind: "note",
+    offsetBasis: "normalized-derivative-text-v1",
+    normalizedStartOffset: 4,
+    normalizedEndOffset: 12,
     exactText: "evidence",
+    prefix: "Read",
+    suffix: " carefully.",
     color: "green",
     body: "A useful note",
   };
@@ -204,11 +241,17 @@ function annotationRecord(
 ): AnnotationRecord {
   return {
     id: annotationId,
+    sourceId: input.sourceId,
     sourceStateId: input.stateId,
     componentIdentity: input.componentIdentity,
-    startOffset: input.startOffset,
-    endOffset: input.endOffset,
+    kind: input.kind,
+    publisherAnchor: input.publisherAnchor ?? null,
+    offsetBasis: input.offsetBasis,
+    normalizedStartOffset: input.normalizedStartOffset,
+    normalizedEndOffset: input.normalizedEndOffset,
     exactText: input.exactText,
+    prefix: input.prefix,
+    suffix: input.suffix,
     color: input.color,
     body: input.body ?? null,
     createdAt: "2026-08-18T12:00:00.000Z",

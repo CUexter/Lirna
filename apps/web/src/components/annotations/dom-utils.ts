@@ -26,9 +26,13 @@ export function annotationStyleContent(color: AnnotationColor) {
 }
 
 export interface SelectionDraft {
-  startOffset: number;
-  endOffset: number;
+  offsetBasis: "normalized-derivative-text-v1";
+  normalizedStartOffset: number;
+  normalizedEndOffset: number;
   exactText: string;
+  prefix: string;
+  suffix: string;
+  publisherAnchor?: string;
 }
 
 export interface MenuPosition {
@@ -55,6 +59,76 @@ export function rangeOffsets(article: HTMLElement, range: Range) {
   prefix.setEnd(range.startContainer, range.startOffset);
   const startOffset = prefix.toString().length;
   return { startOffset, endOffset: startOffset + range.toString().length };
+}
+
+export function anchorForRange(
+  article: HTMLElement,
+  range: Range,
+  plainText: string,
+): SelectionDraft | undefined {
+  const exactText = range.toString();
+  const domStart = rangeOffsets(article, range).startOffset;
+  const occurrence = occurrences(article.textContent ?? "", exactText).indexOf(
+    domStart,
+  );
+  const normalizedStartOffset = occurrences(plainText, exactText)[occurrence];
+  if (normalizedStartOffset === undefined) return undefined;
+  const normalizedEndOffset = normalizedStartOffset + exactText.length;
+  const startElement =
+    range.startContainer instanceof Element
+      ? range.startContainer
+      : range.startContainer.parentElement;
+  const publisherElement = startElement?.closest("[id]");
+  const publisherAnchor = publisherElement?.contains(range.endContainer)
+    ? publisherElement.id
+    : undefined;
+  return {
+    offsetBasis: "normalized-derivative-text-v1",
+    normalizedStartOffset,
+    normalizedEndOffset,
+    exactText,
+    prefix: plainText.slice(
+      Math.max(0, normalizedStartOffset - 32),
+      normalizedStartOffset,
+    ),
+    suffix: plainText.slice(normalizedEndOffset, normalizedEndOffset + 32),
+    ...(publisherAnchor ? { publisherAnchor } : {}),
+  };
+}
+
+export function rangeFromAnchor(
+  article: HTMLElement,
+  plainText: string,
+  anchor: Pick<
+    SelectionDraft,
+    "normalizedStartOffset" | "normalizedEndOffset" | "exactText"
+  >,
+) {
+  const { normalizedStartOffset, normalizedEndOffset, exactText } = anchor;
+  if (
+    plainText.slice(normalizedStartOffset, normalizedEndOffset) !== exactText
+  ) {
+    return undefined;
+  }
+  const occurrence = occurrences(plainText, exactText).indexOf(
+    normalizedStartOffset,
+  );
+  const domStart = occurrences(article.textContent ?? "", exactText)[
+    occurrence
+  ];
+  return domStart === undefined
+    ? undefined
+    : rangeFromOffsets(article, domStart, domStart + exactText.length);
+}
+
+function occurrences(text: string, value: string) {
+  const offsets: number[] = [];
+  let offset = text.indexOf(value);
+  while (offset >= 0) {
+    offsets.push(offset);
+    offset = text.indexOf(value, offset + Math.max(1, value.length));
+  }
+  return offsets;
 }
 
 export function rangeFromOffsets(
@@ -94,6 +168,7 @@ export function rangeFromOffsets(
 export function paintAnnotations(
   article: HTMLElement,
   annotations: Annotation[],
+  plainText = article.textContent ?? "",
 ) {
   const registry = customHighlightRegistry();
   const HighlightConstructor = customHighlightConstructor();
@@ -102,11 +177,7 @@ export function paintAnnotations(
   for (const color of colors) {
     const ranges = annotations.flatMap((annotation) => {
       if (annotation.color !== color) return [];
-      const range = rangeFromOffsets(
-        article,
-        annotation.startOffset,
-        annotation.endOffset,
-      );
+      const range = rangeFromAnchor(article, plainText, annotation);
       return range?.toString() === annotation.exactText ? [range] : [];
     });
     if (ranges.length) {
@@ -124,15 +195,12 @@ export function paintAnnotations(
 export function paintDraftSelection(
   article: HTMLElement,
   selection: SelectionDraft,
+  plainText = article.textContent ?? "",
 ) {
   const registry = customHighlightRegistry();
   const HighlightConstructor = customHighlightConstructor();
   if (!registry || !HighlightConstructor) return undefined;
-  const range = rangeFromOffsets(
-    article,
-    selection.startOffset,
-    selection.endOffset,
-  );
+  const range = rangeFromAnchor(article, plainText, selection);
   if (!range || range.toString() !== selection.exactText) return undefined;
   registry.set(draftHighlightName, new HighlightConstructor(range));
   return () => {

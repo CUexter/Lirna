@@ -49,6 +49,7 @@ export {
   annotationInput,
   calls,
   componentIdentity,
+  installCaretAt,
   installHighlightApi,
   resetActions,
   selectExactText,
@@ -67,6 +68,7 @@ function AnnotationSurface() {
       <ReadingAnnotations
         articleRef={articleRef}
         componentIdentity={componentIdentity}
+        plainText="A synthetic Source state passage."
         sourceId={sourceId}
         stateId={stateId}
       />

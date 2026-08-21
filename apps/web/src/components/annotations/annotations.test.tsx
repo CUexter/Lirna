@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { waitFor } from "@testing-library/react";
+import { cleanup, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import {
@@ -30,9 +30,13 @@ test("creates bodyless and noted Annotations through exact-text controls", async
   expect(calls.create[0]).toEqual({
     ...annotationInput,
     componentIdentity,
-    startOffset: 2,
-    endOffset: 11,
+    kind: "highlight",
+    offsetBasis: "normalized-derivative-text-v1",
+    normalizedStartOffset: 2,
+    normalizedEndOffset: 11,
     exactText: "synthetic",
+    prefix: "A ",
+    suffix: " Source state passage.",
     color: "blue",
     body: "",
   });
@@ -45,9 +49,13 @@ test("creates bodyless and noted Annotations through exact-text controls", async
   expect(calls.create[1]).toEqual({
     ...annotationInput,
     componentIdentity,
-    startOffset: 2,
-    endOffset: 11,
+    kind: "note",
+    offsetBasis: "normalized-derivative-text-v1",
+    normalizedStartOffset: 2,
+    normalizedEndOffset: 11,
     exactText: "synthetic",
+    prefix: "A ",
+    suffix: " Source state passage.",
     color: "yellow",
     body: "A durable note.",
   });
@@ -64,8 +72,8 @@ test("scopes active component annotations, ignores stale text, updates, and dele
     annotation({ body: "Original note." }),
     annotation({
       id: "stale",
-      startOffset: 12,
-      endOffset: 18,
+      normalizedStartOffset: 12,
+      normalizedEndOffset: 18,
       exactText: "stale",
     }),
   ];
@@ -108,6 +116,7 @@ test("scopes active component annotations, ignores stale text, updates, and dele
           ...annotationInput,
           id: "annotation-1",
           color: "green",
+          kind: "note",
           body: "Revised note.",
         },
       ]),
@@ -223,5 +232,30 @@ test("keeps the annotation editor open when deletion fails", async () => {
   expect(view().getByLabelText("Annotation note")).toHaveProperty(
     "value",
     "Keep this annotation.",
+  );
+});
+
+test("restores an unsaved draft after the annotation surface reloads", async () => {
+  resetActions(queryClient);
+  const user = userEvent.setup();
+  await renderAnnotations();
+  await selectExactText();
+  await user.click(view().getByRole("button", { name: "Add note" }));
+  await user.type(
+    view().getByLabelText("Annotation note"),
+    "Resume this draft.",
+  );
+
+  cleanup();
+  queryClient.clear();
+  calls.list.length = 0;
+  await renderAnnotations();
+
+  expect(
+    view().getByRole("complementary", { name: "Create annotation" }),
+  ).toBeTruthy();
+  expect(view().getByLabelText("Annotation note")).toHaveProperty(
+    "value",
+    "Resume this draft.",
   );
 });

@@ -45,14 +45,16 @@ export function SepReadingWorkspace({
     reading,
     selectedComponent,
   );
-  const { openBibliography, returnToCitation, saveLocation } = useScrollRestore(
-    component,
-    view,
-    onViewChange,
-  );
+  const {
+    ephemeralScrollTop,
+    openBibliography,
+    returnToCitation,
+    saveLocation,
+  } = useScrollRestore(component, view, onViewChange);
 
   const resumeStatus = useReadingResume({
     component,
+    ephemeralScrollTop,
     sourceId: source.id,
     stateId: source.stateId,
   });
@@ -142,6 +144,7 @@ export function SepReadingWorkspace({
           <WorkspaceAnnotations
             articleRef={articleRef}
             componentIdentity={component.identity}
+            plainText={component.plainText}
             sourceId={source.id}
             stateId={source.stateId}
             view={view}
@@ -166,27 +169,41 @@ export function SepReadingWorkspace({
 
 function useReadingResume({
   component,
+  ephemeralScrollTop,
   sourceId,
   stateId,
 }: {
   component: SepReadingData["components"][number] | undefined;
+  ephemeralScrollTop: number | undefined;
   sourceId: string;
   stateId: string;
 }) {
   const { mutate } = useMutation(inquiry.sources.resume.save.mutationOptions());
   const { data: resume, isPending } = useQuery(
-    inquiry.sources.resume.get.queryOptions({ input: {} }),
+    inquiry.sources.resume.get.queryOptions({
+      input: component
+        ? {
+            sourceId,
+            stateId,
+            componentIdentity: component.identity,
+          }
+        : {},
+    }),
   );
   const [status, setStatus] = useState<"saving" | "saved" | "error">("saving");
 
   useEffect(() => {
     if (!component || isPending) return;
-    if (
+    if (ephemeralScrollTop !== undefined) {
+      window.scrollTo({ top: ephemeralScrollTop });
+    } else if (
       resume?.sourceId === sourceId &&
       resume.stateId === stateId &&
       resume.componentIdentity === component.identity
     ) {
       window.scrollTo({ top: resume.scrollTop });
+    } else {
+      window.scrollTo({ top: 0 });
     }
     let timer: ReturnType<typeof setTimeout> | undefined;
     const save = () => {
@@ -227,7 +244,15 @@ function useReadingResume({
       window.removeEventListener("pagehide", saveImmediately);
       document.removeEventListener("visibilitychange", saveImmediately);
     };
-  }, [component, isPending, mutate, resume, sourceId, stateId]);
+  }, [
+    component,
+    ephemeralScrollTop,
+    isPending,
+    mutate,
+    resume,
+    sourceId,
+    stateId,
+  ]);
 
   return status;
 }
@@ -271,10 +296,9 @@ function useScrollRestore(
   const locations = useRef(new Map<string, number>());
   const returnMention = useRef<string | undefined>(undefined);
 
-  useEffect(() => {
-    if (!component) return;
-    window.scrollTo({ top: locations.current.get(component.identity) ?? 0 });
-  }, [component]);
+  const ephemeralScrollTop = component
+    ? locations.current.get(component.identity)
+    : undefined;
 
   useEffect(() => {
     if (view !== "article" || !returnMention.current) return;
@@ -297,7 +321,12 @@ function useScrollRestore(
     returnMention.current = mentionId;
     onViewChange("article");
   };
-  return { openBibliography, returnToCitation, saveLocation };
+  return {
+    ephemeralScrollTop,
+    openBibliography,
+    returnToCitation,
+    saveLocation,
+  };
 }
 
 function WorkspaceAnnotations({
