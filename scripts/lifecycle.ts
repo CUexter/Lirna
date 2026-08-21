@@ -1,159 +1,28 @@
-// biome-ignore lint/style/noExcessiveLinesPerFile: The lifecycle CLI keeps its persisted registry contract and command mutations in one executable boundary.
-import { execFile } from "node:child_process";
+// biome-ignore lint/style/noExcessiveLinesPerFile: Registration, diagnosis, allocation, and worktree creation form one lifecycle workflow.
 import { randomUUID } from "node:crypto";
+import { access } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import {
-  access,
-  mkdir,
-  mkdtemp,
-  readFile,
-  realpath,
-  rename,
-  rm,
-  rmdir,
-  unlink,
-  writeFile,
-} from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
-import { dirname, isAbsolute, join } from "node:path";
-import { setTimeout as delay } from "node:timers/promises";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { promisify } from "node:util";
-
-const exec = promisify(execFile);
-const identityPattern =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const toolNamePattern = /^[a-z][a-z0-9-]*$/;
-const databaseNamePattern = /^lirna_[0-9a-f]{32}$/;
-const databaseEndpoint = "127.0.0.1:5433";
-
-type ManagedEnvironment = {
-  checkoutPath: string;
-  identity: string;
-  ports: { server: number; tools: Record<string, number>; web: number };
-};
-
-function registryPath() {
-  const configuredStateHome = process.env.XDG_STATE_HOME;
-  if (configuredStateHome && !isAbsolute(configuredStateHome)) {
-    throw new Error("XDG_STATE_HOME must be an absolute path.");
-  }
-  const stateHome = configuredStateHome || join(homedir(), ".local", "state");
-  return join(stateHome, "lirna", "lifecycle.json");
-}
-
-async function readRegistry(path) {
-  try {
-    const registry = JSON.parse(await readFile(path, "utf8"));
-    if (
-      ![1, 2].includes(registry?.version) ||
-      !identityPattern.test(registry.primary?.identity) ||
-      typeof registry.primary?.checkoutPath !== "string" ||
-      !isAbsolute(registry.primary.checkoutPath) ||
-      (registry.version === 2 && !validEnvironments(registry))
-    ) {
-      throw new Error("unsupported lifecycle registry structure");
-    }
-    return registry;
-  } catch (error) {
-    if (error.code === "ENOENT") return null;
-    throw error;
-  }
-}
-
-function environmentPorts(environment) {
-  const tools = environment?.ports?.tools;
-  if (
-    !identityPattern.test(environment?.identity) ||
-    typeof environment.checkoutPath !== "string" ||
-    !isAbsolute(environment.checkoutPath) ||
-    !Number.isInteger(environment.ports?.server) ||
-    !Number.isInteger(environment.ports?.web) ||
-    !tools ||
-    Array.isArray(tools) ||
-    Object.keys(tools).some((name) => !toolNamePattern.test(name))
-  ) {
-    return null;
-  }
-  const ports = [
-    environment.ports.server,
-    environment.ports.web,
-    ...Object.values(tools),
-  ];
-  if (
-    ports.some(
-      (port) => !Number.isInteger(port) || port < 1024 || port > 65_535,
-    ) ||
-    new Set(ports).size !== ports.length
-  ) {
-    return null;
-  }
-  return ports;
-}
-
-function validEnvironments(registry) {
-  if (!Array.isArray(registry.environments)) return false;
-  const identities = new Set();
-  const paths = new Set();
-  const ports = new Set();
-  for (const environment of registry.environments) {
-    const allocatedPorts = environmentPorts(environment);
-    if (
-      !allocatedPorts ||
-      identities.has(environment.identity) ||
-      paths.has(environment.checkoutPath) ||
-      allocatedPorts.some((port) => ports.has(port))
-    ) {
-      return false;
-    }
-    identities.add(environment.identity);
-    paths.add(environment.checkoutPath);
-    for (const port of allocatedPorts) ports.add(port);
-  }
-  return registry.environments.some(
-    (environment) =>
-      environment.identity === registry.primary.identity &&
-      environment.checkoutPath === registry.primary.checkoutPath,
-  );
-}
-
-async function inspectCheckoutDetails(cwd = process.cwd()) {
-  const [
-    { stdout: root },
-    { stdout: gitDirectory },
-    { stdout: commonDirectory },
-  ] = await Promise.all([
-    exec("git", ["-C", cwd, "rev-parse", "--show-toplevel"]),
-    exec("git", [
-      "-C",
-      cwd,
-      "rev-parse",
-      "--path-format=absolute",
-      "--git-dir",
-    ]),
-    exec("git", [
-      "-C",
-      cwd,
-      "rev-parse",
-      "--path-format=absolute",
-      "--git-common-dir",
-    ]),
-  ]);
-  const [checkoutPath, gitPath, commonPath] = await Promise.all([
-    realpath(root.trim()),
-    realpath(gitDirectory.trim()),
-    realpath(commonDirectory.trim()),
-  ]);
-  return {
-    checkoutKind: gitPath === commonPath ? "primary" : "linked-worktree",
-    checkoutPath,
-    commonPath,
-  };
-}
-
-async function inspectCheckout(cwd = process.cwd()) {
-  const { checkoutKind, checkoutPath } = await inspectCheckoutDetails(cwd);
-  return { checkoutKind, checkoutPath };
-}
+  exec,
+  inspectCheckout,
+  inspectCheckoutDetails,
+} from "./lifecycle/checkout";
+import { databaseCommand } from "./lifecycle/database-command";
+import { environmentReport, toolNamePattern } from "./lifecycle/environment";
+import {
+  addEnvironment,
+  assertPrimaryOwnership,
+  nextPort,
+  readRegistry,
+  registryPath,
+  upgradeRegistry,
+  withRegistryLock,
+  writeEnvironmentConfig,
+  writeRegistry,
+} from "./lifecycle/registry";
+import { runService } from "./lifecycle/service-command";
 
 function invalidDiagnosisReport(checkout, registryFilePath) {
   if (registryFilePath === undefined) {
@@ -255,219 +124,6 @@ function registrationReport(checkout, identity) {
   };
 }
 
-function assertPrimaryOwnership(registry, checkoutPath) {
-  if (registry?.primary.checkoutPath === checkoutPath) return;
-  if (!registry) throw new Error("The lifecycle registry could not be read.");
-  throw new Error(
-    `A different primary checkout is already registered at ${registry.primary.checkoutPath}.`,
-  );
-}
-
-function nextPort(registry) {
-  const usedPorts = new Set(
-    registry.environments.flatMap(({ ports }) => [
-      ports.server,
-      ports.web,
-      ...Object.values(ports.tools),
-    ]),
-  );
-  for (let port = 3000; port <= 65_535; port += 1) {
-    if (!usedPorts.has(port)) return port;
-  }
-  throw new Error("No lifecycle ports remain available.");
-}
-
-function addEnvironment(registry, checkoutPath, identity = randomUUID()) {
-  const environment = {
-    checkoutPath,
-    identity,
-    ports: { server: nextPort(registry), tools: {}, web: 0 },
-  };
-  registry.environments.push(environment);
-  environment.ports.web = nextPort(registry);
-  return environment;
-}
-
-function upgradeRegistry(registry) {
-  if (registry.version === 2) return false;
-  registry.environments = [];
-  registry.version = 2;
-  addEnvironment(
-    registry,
-    registry.primary.checkoutPath,
-    registry.primary.identity,
-  );
-  return true;
-}
-
-async function writeRegistry(path, registry) {
-  const temporaryPath = `${path}.${process.pid}.${randomUUID()}.tmp`;
-  await writeFile(temporaryPath, `${JSON.stringify(registry, null, 2)}\n`, {
-    flag: "wx",
-    mode: 0o600,
-  });
-  try {
-    await rename(temporaryPath, path);
-  } finally {
-    await unlink(temporaryPath).catch(() => {});
-  }
-}
-
-async function withRegistryLock(path, mutate) {
-  await mkdir(dirname(path), { mode: 0o700, recursive: true });
-  const lockPath = `${path}.lock`;
-  for (let attempt = 0; ; attempt += 1) {
-    try {
-      await mkdir(lockPath, { mode: 0o700 });
-      break;
-    } catch (error) {
-      if (error.code !== "EEXIST" || attempt === 499) {
-        throw new Error(`The lifecycle registry is locked at ${lockPath}.`);
-      }
-      await delay(10);
-    }
-  }
-  try {
-    return await mutate(await readRegistry(path));
-  } finally {
-    await rmdir(lockPath);
-  }
-}
-
-function environmentReport(environment) {
-  const toolUrls = Object.fromEntries(
-    Object.entries(environment.ports.tools).map(([name, port]) => [
-      name,
-      `http://127.0.0.1:${port}`,
-    ]),
-  );
-  return {
-    checkoutPath: environment.checkoutPath,
-    databaseName: databaseName(environment.identity),
-    identity: environment.identity,
-    ports: environment.ports,
-    urls: {
-      server: `http://127.0.0.1:${environment.ports.server}`,
-      tools: toolUrls,
-      web: `http://127.0.0.1:${environment.ports.web}`,
-    },
-    version: 1,
-  };
-}
-
-function databaseName(identity: string) {
-  const name = `lirna_${identity.replaceAll("-", "")}`;
-  if (!identityPattern.test(identity) || !databaseNamePattern.test(name)) {
-    throw new Error("The managed lifecycle identity cannot name a database.");
-  }
-  return name;
-}
-
-async function writeEnvironmentConfig(environment) {
-  const path = join(environment.checkoutPath, ".lirna", "environment.json");
-  await mkdir(dirname(path), { mode: 0o700, recursive: true });
-  const temporaryPath = `${path}.${process.pid}.${randomUUID()}.tmp`;
-  await writeFile(
-    temporaryPath,
-    `${JSON.stringify(environmentReport(environment), null, 2)}\n`,
-    { flag: "wx", mode: 0o600 },
-  );
-  try {
-    await rename(temporaryPath, path);
-  } finally {
-    await unlink(temporaryPath).catch(() => {});
-  }
-}
-
-async function runtimeEnvironment() {
-  const checkout = await inspectCheckoutDetails();
-  const path = join(checkout.checkoutPath, ".lirna", "environment.json");
-  let environment: ManagedEnvironment;
-  try {
-    environment = JSON.parse(await readFile(path, "utf8"));
-  } catch {
-    throw new Error(
-      "This checkout has no readable generated lifecycle environment. Run lifecycle registration or allocation from the primary checkout.",
-    );
-  }
-  if (
-    environment.checkoutPath !== checkout.checkoutPath ||
-    !environmentPorts(environment)
-  ) {
-    throw new Error(
-      "This checkout has an invalid generated lifecycle environment.",
-    );
-  }
-
-  const serverUrl = `http://127.0.0.1:${environment.ports.server}`;
-  const webUrl = `http://127.0.0.1:${environment.ports.web}`;
-  const databaseUrl = postgresAdminUrl();
-  databaseUrl.pathname = `/${databaseName(environment.identity)}`;
-  return {
-    checkoutPath: checkout.checkoutPath,
-    environment,
-    values: {
-      BETTER_AUTH_URL: serverUrl,
-      CORS_ORIGIN: webUrl,
-      DATABASE_URL: databaseUrl.toString(),
-      SERVER_URL: serverUrl,
-      VITE_SERVER_URL: serverUrl,
-    },
-  };
-}
-
-async function run(args: string[]) {
-  if (args.length !== 1 || !["server", "web", "studio"].includes(args[0])) {
-    throw new Error("usage: bun run lifecycle run <server|web|studio>");
-  }
-  const { checkoutPath, environment, values } = await runtimeEnvironment();
-  const port =
-    args[0] === "server"
-      ? environment.ports.server
-      : args[0] === "web"
-        ? environment.ports.web
-        : environment.ports.tools.studio;
-  if (!port) {
-    throw new Error(
-      "The generated lifecycle environment has no allocated studio port. Allocate one from the primary checkout with `bun run lifecycle allocate <checkout-path> --tool studio`.",
-    );
-  }
-  const command =
-    args[0] === "server"
-      ? ["bun", "--hot", "apps/server/src/index.ts"]
-      : args[0] === "web"
-        ? [
-            "bun",
-            "x",
-            "vite",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            String(port),
-            "--strictPort",
-          ]
-        : [
-            "bun",
-            "run",
-            "--cwd",
-            "packages/db",
-            "db:studio",
-            "--",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            String(port),
-          ];
-  const child = Bun.spawn(command, {
-    cwd: checkoutPath,
-    env: { ...process.env, ...values, PORT: String(port) },
-    stderr: "inherit",
-    stdin: "inherit",
-    stdout: "inherit",
-  });
-  process.exitCode = await child.exited;
-}
-
 async function register() {
   const checkout = await inspectCheckout();
   if (checkout.checkoutKind !== "primary") {
@@ -475,7 +131,7 @@ async function register() {
   }
 
   const registryFilePath = registryPath();
-  const { environment, registry } = await withRegistryLock(
+  const registry = await withRegistryLock(
     registryFilePath,
     async (existing) => {
       if (existing) assertPrimaryOwnership(existing, checkout.checkoutPath);
@@ -494,10 +150,10 @@ async function register() {
         ) ??
         addEnvironment(stored, checkout.checkoutPath, stored.primary.identity);
       if (changed || !existing) await writeRegistry(registryFilePath, stored);
-      return { environment, registry: stored };
+      await writeEnvironmentConfig(environment);
+      return stored;
     },
   );
-  await writeEnvironmentConfig(environment);
   process.stdout.write(
     `${JSON.stringify(registrationReport(checkout, registry.primary.identity), null, 2)}\n`,
   );
@@ -604,22 +260,50 @@ async function create(args) {
         throw new Error(`The branch ${branch} already exists.`);
       }
 
-      await exec("git", [
-        "-C",
-        caller.checkoutPath,
-        "worktree",
-        "add",
-        "--quiet",
-        "-b",
-        branch,
-        checkoutPath,
-      ]);
-      const environment = addEnvironment(registry, checkoutPath);
-      await writeRegistry(registryFilePath, registry);
-      return environment;
+      let worktreeCreated = false;
+      try {
+        await exec("git", [
+          "-C",
+          caller.checkoutPath,
+          "worktree",
+          "add",
+          "--quiet",
+          "-b",
+          branch,
+          checkoutPath,
+        ]);
+        worktreeCreated = true;
+        const environment = addEnvironment(registry, checkoutPath);
+        await writeEnvironmentConfig(environment);
+        await writeRegistry(registryFilePath, registry);
+        return environment;
+      } catch (error) {
+        if (!worktreeCreated) throw error;
+        const cleanupFailures = [];
+        await exec("git", [
+          "-C",
+          caller.checkoutPath,
+          "worktree",
+          "remove",
+          "--force",
+          checkoutPath,
+        ]).catch(() => cleanupFailures.push("worktree"));
+        await exec("git", [
+          "-C",
+          caller.checkoutPath,
+          "branch",
+          "-D",
+          branch,
+        ]).catch(() => cleanupFailures.push("branch"));
+        if (cleanupFailures.length > 0) {
+          throw new Error(
+            `${error.message} Rollback could not remove the ${cleanupFailures.join(" and ")}.`,
+          );
+        }
+        throw error;
+      }
     },
   );
-  await writeEnvironmentConfig(environment);
   process.stdout.write(
     `${JSON.stringify(environmentReport(environment), null, 2)}\n`,
   );
@@ -658,213 +342,13 @@ async function allocate(args) {
         }
       }
       if (changed) await writeRegistry(registryFilePath, registry);
+      await writeEnvironmentConfig(stored);
       return stored;
     },
   );
-  await writeEnvironmentConfig(environment);
   process.stdout.write(
     `${JSON.stringify(environmentReport(environment), null, 2)}\n`,
   );
-}
-
-async function databaseRegistry() {
-  const registry = await readRegistry(registryPath());
-  if (!registry) {
-    throw new Error(
-      "Register the primary checkout before managing the shared development PostgreSQL service.",
-    );
-  }
-  return registry;
-}
-
-function composeArguments(primaryCheckoutPath, args) {
-  return [
-    "compose",
-    "--project-directory",
-    primaryCheckoutPath,
-    "--file",
-    join(primaryCheckoutPath, "docker-compose.yml"),
-    ...args,
-  ];
-}
-
-async function databaseReport(registry) {
-  let service: { Health?: string; State?: string } | undefined;
-  try {
-    const { stdout } = await exec(
-      "docker",
-      composeArguments(registry.primary.checkoutPath, [
-        "ps",
-        "--format",
-        "json",
-        "postgres",
-      ]),
-    );
-    service = JSON.parse(stdout.trim());
-  } catch {}
-  return {
-    endpoint: databaseEndpoint,
-    primaryCheckoutPath: registry.primary.checkoutPath,
-    serviceState:
-      service?.State === "running" && service.Health === "healthy"
-        ? "reachable"
-        : "unreachable",
-  };
-}
-
-function writeDatabaseDiagnosis(report) {
-  process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-  process.exitCode = report.serviceState === "reachable" ? 0 : 1;
-}
-
-async function diagnoseDatabase() {
-  writeDatabaseDiagnosis(await databaseReport(await databaseRegistry()));
-}
-
-async function startDatabase() {
-  const registry = await databaseRegistry();
-  try {
-    await exec(
-      "docker",
-      composeArguments(registry.primary.checkoutPath, [
-        "up",
-        "--detach",
-        "--wait",
-        "postgres",
-      ]),
-    );
-  } catch {
-    throw new Error(
-      "Unable to start the shared development PostgreSQL service.",
-    );
-  }
-  writeDatabaseDiagnosis(await databaseReport(registry));
-}
-
-function postgresAdminUrl() {
-  const configured = process.env.POSTGRES_ADMIN_URL;
-  try {
-    const url = configured
-      ? new URL(configured)
-      : new URL(
-          `postgresql://postgres:${encodeURIComponent(process.env.POSTGRES_PASSWORD ?? "password")}@${databaseEndpoint}/postgres`,
-        );
-    if (
-      !["postgres:", "postgresql:"].includes(url.protocol) ||
-      !url.hostname ||
-      !url.pathname.slice(1)
-    ) {
-      throw new Error();
-    }
-    return url;
-  } catch {
-    throw new Error("POSTGRES_ADMIN_URL must be a valid PostgreSQL URL.");
-  }
-}
-
-async function committedMigrations(checkoutPath: string) {
-  const root = await mkdtemp(join(tmpdir(), "lirna-migrations-"));
-  const archive = join(root, "migrations.tar");
-  try {
-    await exec("git", [
-      "-C",
-      checkoutPath,
-      "archive",
-      "--format=tar",
-      `--output=${archive}`,
-      "HEAD",
-      "--",
-      "packages/db/src/migrations",
-    ]);
-    await exec("tar", ["-xf", archive, "-C", root]);
-    return {
-      dispose: () => rm(root, { force: true, recursive: true }),
-      path: join(root, "packages", "db", "src", "migrations"),
-    };
-  } catch (error) {
-    await rm(root, { force: true, recursive: true });
-    throw error;
-  }
-}
-
-async function provisionDatabase() {
-  const registry = await databaseRegistry();
-  const checkout = await inspectCheckoutDetails();
-  const environment = registry.environments.find(
-    ({ checkoutPath }) => checkoutPath === checkout.checkoutPath,
-  );
-  if (!environment) {
-    throw new Error(
-      "This checkout does not have a managed lifecycle environment.",
-    );
-  }
-  const name = databaseName(environment.identity);
-  const adminUrl = postgresAdminUrl();
-  const { stdout: migrationChanges } = await exec("git", [
-    "-C",
-    environment.checkoutPath,
-    "status",
-    "--porcelain=v1",
-    "--untracked-files=all",
-    "--",
-    "packages/db/src/migrations",
-  ]);
-  if (migrationChanges.trim()) {
-    throw new Error(
-      "Commit or discard worktree migration changes before provisioning.",
-    );
-  }
-
-  const migrations = await committedMigrations(environment.checkoutPath);
-  try {
-    const provisionerPath = join(
-      environment.checkoutPath,
-      "scripts",
-      "lifecycle",
-      "database.ts",
-    );
-    const { provisionManagedDatabase } = await import(
-      pathToFileURL(provisionerPath).href
-    );
-    const provisionedName = await provisionManagedDatabase({
-      adminUrl: adminUrl.toString(),
-      identity: environment.identity,
-      migrationsFolder: migrations.path,
-    });
-    if (provisionedName !== name) {
-      throw new Error(
-        "The provisioned database does not match the managed identity.",
-      );
-    }
-  } catch {
-    throw new Error("Unable to provision the managed worktree database.");
-  } finally {
-    await migrations.dispose();
-  }
-
-  process.stdout.write(
-    `${JSON.stringify({ databaseName: name, migrationState: "current" }, null, 2)}\n`,
-  );
-}
-
-async function database(args: string[]) {
-  if (
-    args.length !== 1 ||
-    !["diagnose", "provision", "start"].includes(args[0])
-  ) {
-    throw new Error(
-      "usage: bun run lifecycle database <start|diagnose|provision>",
-    );
-  }
-  if (args[0] === "start") {
-    await startDatabase();
-    return;
-  }
-  if (args[0] === "provision") {
-    await provisionDatabase();
-    return;
-  }
-  await diagnoseDatabase();
 }
 
 async function main() {
@@ -886,11 +370,11 @@ async function main() {
     return;
   }
   if (command === "run") {
-    await run(args);
+    await runService(args);
     return;
   }
   if (command === "database") {
-    await database(args);
+    await databaseCommand(args);
     return;
   }
   throw new Error(

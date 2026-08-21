@@ -60,11 +60,25 @@ async function lifecycle(context, ...args) {
 }
 
 async function publicLifecycle(context, ...args) {
-  await mkdir(join(context.checkoutPath, "scripts"), { recursive: true });
+  await mkdir(join(context.checkoutPath, "scripts", "lifecycle"), {
+    recursive: true,
+  });
   await Promise.all([
     copyFile(
       lifecycleScript,
       join(context.checkoutPath, "scripts/lifecycle.ts"),
+    ),
+    ...[
+      "checkout.ts",
+      "database-command.ts",
+      "environment.ts",
+      "registry.ts",
+      "service-command.ts",
+    ].map((file) =>
+      copyFile(
+        join(import.meta.dir, "lifecycle", file),
+        join(context.checkoutPath, "scripts", "lifecycle", file),
+      ),
     ),
     copyFile(
       join(import.meta.dir, "..", "package.json"),
@@ -387,6 +401,22 @@ test("atomically allocates distinct environments and regenerates config idempote
     stdout: `${JSON.stringify(allocated, null, 2)}\n`,
   });
   expect(await readFile(configPath, "utf8")).toBe(originalConfig);
+
+  const tools = Array.from({ length: 12 }, (_, index) => `tool-${index}`);
+  const allocations = await Promise.all(
+    tools.map((tool) =>
+      lifecycle(primary, "allocate", first.checkoutPath, "--tool", tool),
+    ),
+  );
+  expect(allocations.every(({ exitCode }) => exitCode === 0)).toBe(true);
+  const registry = JSON.parse(
+    await readFile(join(primary.stateHome, "lirna", "lifecycle.json"), "utf8"),
+  );
+  const stored = registry.environments.find(
+    ({ checkoutPath }) => checkoutPath === first.checkoutPath,
+  );
+  const generated = JSON.parse(await readFile(configPath, "utf8"));
+  expect(generated.ports).toEqual(stored.ports);
 });
 
 test("creates a managed task worktree with an allocated environment", async () => {
@@ -435,6 +465,48 @@ test("creates a managed task worktree with an allocated environment", async () =
       2,
     )}\n`,
   });
+});
+
+test("rolls back a managed worktree when configuration generation fails", async () => {
+  const primary = await sandbox();
+  expect((await lifecycle(primary, "register")).exitCode).toBe(0);
+  await rm(join(primary.checkoutPath, ".lirna"), { recursive: true });
+  await writeFile(join(primary.checkoutPath, ".lirna"), "blocks config\n");
+  for (const args of [
+    ["-C", primary.checkoutPath, "add", "--force", ".lirna"],
+    ["-C", primary.checkoutPath, "commit", "--quiet", "-m", "block config"],
+  ]) {
+    const git = Bun.spawn(["git", ...args], { stderr: "pipe" });
+    expect(await git.exited).toBe(0);
+  }
+  const checkoutPath = join(primary.checkoutPath, "..", "rollback-task");
+
+  const created = await lifecycle(primary, "create", "rollback-task");
+
+  expect(created.exitCode).toBe(1);
+  expect(created.stderr).not.toBe("");
+  expect(existsSync(checkoutPath)).toBe(false);
+  const branch = Bun.spawn(
+    [
+      "git",
+      "-C",
+      primary.checkoutPath,
+      "show-ref",
+      "--verify",
+      "--quiet",
+      "refs/heads/rollback-task",
+    ],
+    { stderr: "pipe" },
+  );
+  expect(await branch.exited).toBe(1);
+  const registry = JSON.parse(
+    await readFile(join(primary.stateHome, "lirna", "lifecycle.json"), "utf8"),
+  );
+  expect(
+    registry.environments.some(
+      (environment) => environment.checkoutPath === checkoutPath,
+    ),
+  ).toBe(false);
 });
 
 test("runs each managed service with its generated environment and allocated port", async () => {
@@ -545,6 +617,16 @@ test("runs each managed service with its generated environment and allocated por
       .split("\n")
       .map((line) => JSON.parse(line)),
   ).toEqual(expected);
+});
+
+test("rejects inherited object names as managed services", async () => {
+  const context = await sandbox();
+
+  expect(await lifecycle(context, "run", "constructor")).toEqual({
+    exitCode: 1,
+    stderr: "usage: bun run lifecycle run <server|web|studio>\n",
+    stdout: "",
+  });
 });
 
 test("refuses an existing task branch, path, or lifecycle registration", async () => {
@@ -765,6 +847,40 @@ test("starts the shared PostgreSQL service idempotently through the primary chec
       "postgres",
     ],
   ]);
+});
+
+test("supports database commands for a primary checkout with a version 1 registry", async () => {
+  const context = await databaseDocker(await sandbox());
+  const identity = "12345678-1234-4123-8123-123456789abc";
+  await mkdir(join(context.stateHome, "lirna"), { recursive: true });
+  await writeFile(
+    join(context.stateHome, "lirna", "lifecycle.json"),
+    `${JSON.stringify({
+      primary: { checkoutPath: context.checkoutPath, identity },
+      version: 1,
+    })}\n`,
+  );
+
+  expect((await lifecycle(context, "database", "start")).exitCode).toBe(0);
+  expect((await lifecycle(context, "database", "diagnose")).exitCode).toBe(0);
+});
+
+test("refuses database commands from an unregistered checkout", async () => {
+  const registered = await databaseDocker(await sandbox());
+  const other = await sandbox();
+  other.stateHome = registered.stateHome;
+  other.dockerBin = registered.dockerBin;
+  other.dockerLog = registered.dockerLog;
+  expect((await lifecycle(registered, "register")).exitCode).toBe(0);
+
+  for (const command of ["start", "diagnose"]) {
+    expect(await lifecycle(other, "database", command)).toEqual({
+      exitCode: 1,
+      stderr: "This checkout is not registered with the lifecycle registry.\n",
+      stdout: "",
+    });
+  }
+  expect(existsSync(registered.dockerLog)).toBe(false);
 });
 
 test("diagnoses an unreachable shared PostgreSQL service without changing state or exposing credentials", async () => {

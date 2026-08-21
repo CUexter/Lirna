@@ -2,17 +2,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Client, Pool } from "pg";
 
-const identityPattern =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const databaseNamePattern = /^lirna_[0-9a-f]{32}$/;
-
-function databaseName(identity: string) {
-  const name = `lirna_${identity.replaceAll("-", "")}`;
-  if (!identityPattern.test(identity) || !databaseNamePattern.test(name)) {
-    throw new Error("The managed lifecycle identity cannot name a database.");
-  }
-  return name;
-}
+import { databaseName } from "./environment";
 
 export async function provisionManagedDatabase({
   adminUrl,
