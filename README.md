@@ -102,6 +102,17 @@ Database diagnosis emits only the stable `127.0.0.1:5433` endpoint, registered
 primary path, and reachable or unreachable state. It never reads or prints
 database credentials and exits nonzero while the service is unreachable.
 
+Provision the current registered worktree's identity-derived disposable
+database and apply every committed Drizzle migration:
+
+```bash
+bun run lifecycle database provision
+```
+
+The command accepts no database name or checkout path. Repeating it converges
+on the same database and migration state without migrating the administrative
+database or databases assigned to other worktrees.
+
 ### Database Setup
 
 Lirna uses PostgreSQL with Drizzle ORM.

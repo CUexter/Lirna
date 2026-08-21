@@ -3,23 +3,26 @@ import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import {
   mkdir,
+  mkdtemp,
   readFile,
   realpath,
   rename,
+  rm,
   rmdir,
   unlink,
   writeFile,
 } from "node:fs/promises";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 const exec = promisify(execFile);
 const identityPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const toolNamePattern = /^[a-z][a-z0-9-]*$/;
+const databaseNamePattern = /^lirna_[0-9a-f]{32}$/;
 const databaseEndpoint = "127.0.0.1:5433";
 
 function registryPath() {
@@ -330,7 +333,7 @@ function environmentReport(environment) {
   );
   return {
     checkoutPath: environment.checkoutPath,
-    databaseName: `lirna_${environment.identity.replaceAll("-", "")}`,
+    databaseName: databaseName(environment.identity),
     identity: environment.identity,
     ports: environment.ports,
     urls: {
@@ -340,6 +343,14 @@ function environmentReport(environment) {
     },
     version: 1,
   };
+}
+
+function databaseName(identity: string) {
+  const name = `lirna_${identity.replaceAll("-", "")}`;
+  if (!identityPattern.test(identity) || !databaseNamePattern.test(name)) {
+    throw new Error("The managed lifecycle identity cannot name a database.");
+  }
+  return name;
 }
 
 async function writeEnvironmentConfig(environment) {
@@ -539,12 +550,129 @@ async function startDatabase() {
   writeDatabaseDiagnosis(await databaseReport(registry));
 }
 
+function postgresAdminUrl() {
+  const configured = process.env.POSTGRES_ADMIN_URL;
+  try {
+    const url = configured
+      ? new URL(configured)
+      : new URL(
+          `postgresql://postgres:${encodeURIComponent(process.env.POSTGRES_PASSWORD ?? "password")}@${databaseEndpoint}/postgres`,
+        );
+    if (
+      !["postgres:", "postgresql:"].includes(url.protocol) ||
+      !url.hostname ||
+      !url.pathname.slice(1)
+    ) {
+      throw new Error();
+    }
+    return url;
+  } catch {
+    throw new Error("POSTGRES_ADMIN_URL must be a valid PostgreSQL URL.");
+  }
+}
+
+async function committedMigrations(checkoutPath: string) {
+  const root = await mkdtemp(join(tmpdir(), "lirna-migrations-"));
+  const archive = join(root, "migrations.tar");
+  try {
+    await exec("git", [
+      "-C",
+      checkoutPath,
+      "archive",
+      "--format=tar",
+      `--output=${archive}`,
+      "HEAD",
+      "--",
+      "packages/db/src/migrations",
+    ]);
+    await exec("tar", ["-xf", archive, "-C", root]);
+    return {
+      dispose: () => rm(root, { force: true, recursive: true }),
+      path: join(root, "packages", "db", "src", "migrations"),
+    };
+  } catch (error) {
+    await rm(root, { force: true, recursive: true });
+    throw error;
+  }
+}
+
+async function provisionDatabase() {
+  const registry = await databaseRegistry();
+  const checkout = await inspectCheckoutDetails();
+  const environment = registry.environments.find(
+    ({ checkoutPath }) => checkoutPath === checkout.checkoutPath,
+  );
+  if (!environment) {
+    throw new Error(
+      "This checkout does not have a managed lifecycle environment.",
+    );
+  }
+  const name = databaseName(environment.identity);
+  const adminUrl = postgresAdminUrl();
+  const { stdout: migrationChanges } = await exec("git", [
+    "-C",
+    environment.checkoutPath,
+    "status",
+    "--porcelain=v1",
+    "--untracked-files=all",
+    "--",
+    "packages/db/src/migrations",
+  ]);
+  if (migrationChanges.trim()) {
+    throw new Error(
+      "Commit or discard worktree migration changes before provisioning.",
+    );
+  }
+
+  const migrations = await committedMigrations(environment.checkoutPath);
+  try {
+    const provisionerPath = join(
+      environment.checkoutPath,
+      "packages",
+      "db",
+      "src",
+      "lifecycle",
+      "provision-managed-database.ts",
+    );
+    const { provisionManagedDatabase } = await import(
+      pathToFileURL(provisionerPath).href
+    );
+    const provisionedName = await provisionManagedDatabase({
+      adminUrl: adminUrl.toString(),
+      identity: environment.identity,
+      migrationsFolder: migrations.path,
+    });
+    if (provisionedName !== name) {
+      throw new Error(
+        "The provisioned database does not match the managed identity.",
+      );
+    }
+  } catch {
+    throw new Error("Unable to provision the managed worktree database.");
+  } finally {
+    await migrations.dispose();
+  }
+
+  process.stdout.write(
+    `${JSON.stringify({ databaseName: name, migrationState: "current" }, null, 2)}\n`,
+  );
+}
+
 async function database(args: string[]) {
-  if (args.length !== 1 || !["diagnose", "start"].includes(args[0])) {
-    throw new Error("usage: bun run lifecycle database <start|diagnose>");
+  if (
+    args.length !== 1 ||
+    !["diagnose", "provision", "start"].includes(args[0])
+  ) {
+    throw new Error(
+      "usage: bun run lifecycle database <start|diagnose|provision>",
+    );
   }
   if (args[0] === "start") {
     await startDatabase();
+    return;
+  }
+  if (args[0] === "provision") {
+    await provisionDatabase();
     return;
   }
   await diagnoseDatabase();

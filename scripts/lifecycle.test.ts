@@ -558,3 +558,58 @@ test("diagnoses an unreachable shared PostgreSQL service without changing state 
   expect(diagnosis.stdout).not.toContain("password");
   expect(await readFile(context.dockerLog, "utf8")).not.toContain("password");
 });
+
+test("refuses an arbitrary provisioning target", async () => {
+  const context = await sandbox();
+  expect((await lifecycle(context, "register")).exitCode).toBe(0);
+
+  const result = await lifecycle(
+    context,
+    "database",
+    "provision",
+    "someone_elses_database",
+  );
+
+  expect(result).toEqual({
+    exitCode: 1,
+    stderr: "usage: bun run lifecycle database <start|diagnose|provision>\n",
+    stdout: "",
+  });
+});
+
+test("refuses to provision an unmanaged linked worktree", async () => {
+  const primary = await sandbox();
+  expect((await lifecycle(primary, "register")).exitCode).toBe(0);
+  const context = await linkedWorktree(primary);
+
+  const result = await lifecycle(context, "database", "provision");
+
+  expect(result).toEqual({
+    exitCode: 1,
+    stderr: "This checkout does not have a managed lifecycle environment.\n",
+    stdout: "",
+  });
+});
+
+test("refuses uncommitted migration history", async () => {
+  const context = await sandbox();
+  expect((await lifecycle(context, "register")).exitCode).toBe(0);
+  const migrations = join(
+    context.checkoutPath,
+    "packages",
+    "db",
+    "src",
+    "migrations",
+  );
+  await mkdir(migrations, { recursive: true });
+  await writeFile(join(migrations, "uncommitted.sql"), "SELECT 1;\n");
+
+  const result = await lifecycle(context, "database", "provision");
+
+  expect(result).toEqual({
+    exitCode: 1,
+    stderr:
+      "Commit or discard worktree migration changes before provisioning.\n",
+    stdout: "",
+  });
+});
