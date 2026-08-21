@@ -4,7 +4,7 @@ set -euo pipefail
 root=$(git rev-parse --show-toplevel)
 flake="$root/flake.nix"
 workflow="$root/.github/workflows/nix.yml"
-classifier="$root/scripts/classify-nix-changes.mjs"
+classifier="$root/scripts/classify-nix-changes.ts"
 output_paths="$root/config/nix-output-paths.json"
 report="$root/docs/code-quality-standard.md"
 
@@ -19,23 +19,23 @@ grep -Fq 'desktop = lirnaDesktop;' "$flake"
 grep -Fq 'module = (nixpkgs.lib.nixosSystem' "$flake"
 grep -Fq 'nixosTest = import ./nix/test.nix' "$flake"
 classify() {
-  printf '%s\n' "$1" | node "$classifier"
+  printf '%s\n' "$1" | bun "$classifier"
 }
 
 test "$(classify 'apps/web/src/routes/index.tsx')" = $'desktop=true\nvm=false'
 test "$(classify 'apps/server/src/index.ts')" = $'desktop=false\nvm=true'
 test "$(classify 'packages/api/src/index.ts')" = $'desktop=true\nvm=true'
 test "$(classify 'config/web-bundle-budget.json')" = $'desktop=true\nvm=false'
-test "$(classify 'scripts/check-web-bundle.mjs')" = $'desktop=true\nvm=false'
+test "$(classify 'scripts/check-web-bundle.ts')" = $'desktop=true\nvm=false'
 test "$(classify 'README.md')" = $'desktop=false\nvm=false'
 test "$(classify 'apps/web/src-tauri/src/main.rs')" = $'desktop=true\nvm=false'
 test "$(classify 'package.json')" = $'desktop=true\nvm=true'
-test "$(node "$classifier" --full </dev/null)" = $'desktop=true\nvm=true'
+test "$(bun "$classifier" --full </dev/null)" = $'desktop=true\nvm=true'
 
 grep -Fq 'run: scripts/test-nix-verification.sh' "$workflow"
-grep -Fq 'git diff --no-renames --name-only "$BASE_SHA...$HEAD_SHA" | node scripts/classify-nix-changes.mjs' "$workflow"
-grep -Fq 'git diff --no-renames --name-only "$BEFORE_SHA" "${{ github.sha }}" | node scripts/classify-nix-changes.mjs' "$workflow"
-grep -Fq 'node scripts/classify-nix-changes.mjs --full' "$workflow"
+grep -Fq 'git diff --no-renames --name-only "$BASE_SHA...$HEAD_SHA" | bun scripts/classify-nix-changes.ts' "$workflow"
+grep -Fq 'git diff --no-renames --name-only "$BEFORE_SHA" "${{ github.sha }}" | bun scripts/classify-nix-changes.ts' "$workflow"
+grep -Fq 'bun scripts/classify-nix-changes.ts --full' "$workflow"
 grep -Fq "if: github.event_name != 'pull_request' && needs.changes.outputs.desktop == 'true'" "$workflow"
 grep -Fq "if: github.event_name != 'pull_request' && needs.changes.outputs.vm == 'true'" "$workflow"
 grep -Fq "github.event_name == 'pull_request' &&" "$workflow"

@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { assessmentFindings } from "./dependency-score-findings.mjs";
+import { assessmentFindings } from "./dependency-score-findings.ts";
 import {
   classifyAssessment,
   criticalVulnerabilities,
   findingCodes,
   githubRepository,
   validateScorePolicy,
-} from "./dependency-score-policy.mjs";
+} from "./dependency-score-policy.ts";
 
 async function committedPolicy() {
   return JSON.parse(

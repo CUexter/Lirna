@@ -8,7 +8,7 @@ an acceptable way to satisfy these standards.
 ## Required checks
 
 `bun run quality:architecture` runs the executable policy in
-`scripts/check-architecture.mjs` across the current Bun workspaces under
+`scripts/check-architecture.ts` across the current Bun workspaces under
 `apps/*` and `packages/*`. It enforces these repository-wide constraints:
 
 - Workspace dependencies are declared, acyclic, and limited to the allowed

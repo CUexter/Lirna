@@ -30,8 +30,8 @@
       "!prototype",
       "!**/public",
       "!scripts/assess-dependency.mjs",
-      "!scripts/check-architecture.mjs",
-      "!scripts/check-react-props.mjs",
+      "!scripts/check-architecture.ts",
+      "!scripts/check-react-props.ts",
       "!config/openapi.json",
       "!config/semgrep/fixtures"
     ]

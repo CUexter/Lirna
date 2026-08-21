@@ -34,7 +34,7 @@ is explicitly updated. Project-authored code under `packages/ui/src/lib/` and
 the Playwright quality job in addition to the Bun LCOV layer: the required
 aggregate `quality` job requires both the Bun/LCOV and browser-E2E jobs to pass.
 Test files, generated files, fixtures, and files inside configuration directories
-are excluded by `scripts/check-coverage.mjs`; a source file whose name contains
+are excluded by `scripts/check-coverage.ts`; a source file whose name contains
 `config` is still eligible unless another exclusion applies. Generated route
 source therefore remains outside the absent inventory through the existing
 `.gen.` rule. The reviewed baseline currently contains exactly 26 absent-source
@@ -46,7 +46,7 @@ coverage:baseline` only to accept a deliberate legacy exception. `bun run
 coverage:promote` preserves aggregate floors, leaves shadcn exceptions in place,
 and validates unrelated absent sources before writing. To promote an explicit
 set without accepting unrelated stale exclusions, run `node
-scripts/check-coverage.mjs --promote-covered-source=<source>` once per source.
+scripts/check-coverage.ts --promote-covered-source=<source>` once per source.
 Scoped promotion preserves aggregate floors, rejects ineligible or uncovered
 requests, and treats an already-promoted covered source as an idempotent no-op.
 `bun run test:coverage` also fails if either coverage ratio decreases.
@@ -81,7 +81,7 @@ The campaigns are intentionally explicit:
 
 | Campaign | Mutated source | Bun test command |
 | --- | --- | --- |
-| Dependency scoring | `scripts/dependency-score-policy.mjs` | `bun test --isolate scripts/dependency-score.test.mjs` |
+| Dependency scoring | `scripts/dependency-score-policy.ts` | `bun test --isolate scripts/dependency-score.test.ts` |
 | SEP URL policy | `packages/api/src/sep-admission/sep-url.ts` | `bun test --isolate packages/api/src/sep-admission/sep-capture.test.ts` |
 
 The initial setup run on 2026-08-20 established diagnostic observations, not

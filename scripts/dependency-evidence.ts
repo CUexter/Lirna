@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 import {
   criticalVulnerabilities,
   githubRepository,
-} from "./dependency-score-policy.mjs";
+} from "./dependency-score-policy.ts";
 
 const exec = promisify(execFile);
 const lifecycleNames = new Set([

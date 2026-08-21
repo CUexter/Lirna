@@ -1,9 +1,9 @@
 {
   "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
-  "mutate": ["scripts/dependency-score-policy.mjs"],
+  "mutate": ["scripts/dependency-score-policy.ts"],
   "testRunner": "command",
   "commandRunner": {
-    "command": "bun test --isolate scripts/dependency-score.test.mjs"
+    "command": "bun test --isolate scripts/dependency-score.test.ts"
   },
   "coverageAnalysis": "off",
   "concurrency": 4,

@@ -4,7 +4,7 @@ import {
   formatFailures,
   measureBuild,
   validatePolicy,
-} from "./check-web-bundle.mjs";
+} from "./check-web-bundle.ts";
 
 const policy = {
   budget: {

@@ -22,7 +22,7 @@
     "packages/db",
     "packages/env",
     "packages/ui",
-    "scripts/check-web-bundle.mjs",
-    "scripts/path-safety.mjs"
+    "scripts/check-web-bundle.ts",
+    "scripts/path-safety.ts"
   ]
 }

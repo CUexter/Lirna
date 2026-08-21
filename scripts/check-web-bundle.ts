@@ -141,7 +141,7 @@ async function main() {
   const metrics = await measureBuild(directory);
   const report = {
     budget: policy.budget,
-    generatedBy: "scripts/check-web-bundle.mjs",
+    generatedBy: "scripts/check-web-bundle.ts",
     headroomPercent: policy.headroomPercent,
     baseline: policy.baseline,
     policy: path.relative(root, policyPath),

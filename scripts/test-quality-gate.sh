@@ -19,10 +19,10 @@ if (scripts.check !== "biome check .") {
 if (scripts["check:fix"] !== "biome check --write .") {
   throw new Error("check:fix must be the explicitly mutating Biome command");
 }
-if (scripts["quality:ci"] !== "bun run check && bun run quality && bun run test:coverage") {
+if (scripts["quality:ci"] !== "bun run check && bun run quality && bun run openapi:check && bun run test:coverage") {
   throw new Error("quality:ci must run the read-only checks and coverage ratchet");
 }
-if (scripts["quality:architecture"] !== "node scripts/check-architecture.mjs") {
+if (scripts["quality:architecture"] !== "bun scripts/check-architecture.ts") {
   throw new Error("quality:architecture must run the executable architecture policy");
 }
 NODE
@@ -50,15 +50,15 @@ grep -Fq 'noExcessiveLinesPerFile' "$root/biome.json"
 grep -Fq 'bun run quality:props' "$root/package.json"
 grep -Fq 'bun run quality:fallow' "$root/package.json"
 grep -Fq 'bun run quality:bundle' "$root/package.json"
-grep -Fq 'check-web-bundle.mjs' "$root/apps/web/package.json"
+grep -Fq 'check-web-bundle.ts' "$root/apps/web/package.json"
 test -f "$root/config/web-bundle-budget.json"
-bun test "$root/scripts/web-bundle-budget.test.mjs"
+bun test "$root/scripts/web-bundle-budget.test.ts"
 grep -Fq 'bun run quality:architecture' "$root/package.json"
 grep -Fq 'bun run quality:docs' "$root/package.json"
 grep -Fq 'quality:docs' "$root/package.json"
-grep -Fq 'check-architecture.mjs' "$root/package.json"
+grep -Fq 'check-architecture.ts' "$root/package.json"
 grep -Fq 'bun run test:coverage' "$root/package.json"
-grep -Fq 'check-coverage.mjs' "$root/package.json"
+grep -Fq 'check-coverage.ts' "$root/package.json"
 grep -Fq '"test:e2e": "playwright test"' "$root/package.json"
 grep -Fq '"test:e2e:ci": "CI=1 playwright test"' "$root/package.json"
 test ! -e "$root/scripts/check-ui-primitives.mjs"

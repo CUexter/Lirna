@@ -51,9 +51,9 @@ The visualizer complements rather than replaces the existing checks:
   ([Fallow configuration](../.fallowrc.json)). Its zones enforce package-level
   directions such as `api -> db`, but an allowed zone edge does not show whether
   the caller entered through an intentionally narrow interface.
-- `scripts/check-architecture.mjs` enforces selected workspace, import, route,
+- `scripts/check-architecture.ts` enforces selected workspace, import, route,
   environment, and UI policies; it is a policy checker rather than a navigable
-  dependency picture ([architecture checker](../scripts/check-architecture.mjs)).
+  dependency picture ([architecture checker](../scripts/check-architecture.ts)).
 - CodeGraph is better for a focused symbol call path and blast radius after a
   suspicious seam is selected. dependency-cruiser's artifacts are better suited
   to repeatable whole-repository and folder-level comparison.

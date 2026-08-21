@@ -25,7 +25,7 @@ const nixPolicyChange =
   changes("flake.lock") ||
   changes("config/nix-output-paths.json") ||
   changes(".github/workflows/nix.yml") ||
-  changes("scripts/classify-nix-changes.mjs") ||
+  changes("scripts/classify-nix-changes.ts") ||
   changes("scripts/test-nix-verification.sh") ||
   changesWithin("nix");
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { checkDocumentation } from "./check-documentation.mjs";
+import { checkDocumentation } from "./check-documentation.ts";
 
 const fixtureRoot = new URL(
   "./fixtures/documentation-quality/",

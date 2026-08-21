@@ -36,7 +36,7 @@ fs.writeFileSync(`${root}/package.json`, `${JSON.stringify(manifest)}\n`);
 fs.writeFileSync(`${root}/bun.lock`, `${JSON.stringify(lock)}\n`);
 NODE
 git -C "$tmp/dependency-repo" add package.json bun.lock
-LIRNA_DEPENDENCY_PROJECT_ROOT="$tmp/dependency-repo" node "$root/scripts/verify-dependency-assessments.mjs" --staged >/dev/null
+LIRNA_DEPENDENCY_PROJECT_ROOT="$tmp/dependency-repo" bun "$root/scripts/verify-dependency-assessments.ts" --staged >/dev/null
 node - "$tmp/dependency-repo" <<'NODE'
 const fs = require("node:fs");
 const root = process.argv[2];
@@ -45,7 +45,7 @@ manifest.dependencies.ghost = "3.0.0";
 fs.writeFileSync(`${root}/package.json`, `${JSON.stringify(manifest)}\n`);
 NODE
 git -C "$tmp/dependency-repo" add package.json
-if LIRNA_DEPENDENCY_PROJECT_ROOT="$tmp/dependency-repo" node "$root/scripts/verify-dependency-assessments.mjs" --staged >"$tmp/dependency-violation.log" 2>&1; then
+if LIRNA_DEPENDENCY_PROJECT_ROOT="$tmp/dependency-repo" bun "$root/scripts/verify-dependency-assessments.ts" --staged >"$tmp/dependency-violation.log" 2>&1; then
   printf '%s\n' 'dependency verifier accepted a hallucinated fixture' >&2
   exit 1
 fi
@@ -60,7 +60,7 @@ printf '%s\n' 'synthetic git failure' >&2
 exit 128
 EOF
 chmod +x "$tmp/dependency-bin/git"
-if PATH="$tmp/dependency-bin" LIRNA_DEPENDENCY_PROJECT_ROOT="$tmp/dependency-repo" node "$root/scripts/verify-dependency-assessments.mjs" --staged >"$tmp/dependency-tool-error.log" 2>&1; then
+if PATH="$tmp/dependency-bin" LIRNA_DEPENDENCY_PROJECT_ROOT="$tmp/dependency-repo" bun "$root/scripts/verify-dependency-assessments.ts" --staged >"$tmp/dependency-tool-error.log" 2>&1; then
   printf '%s\n' 'dependency verifier swallowed a git tool error' >&2
   exit 1
 fi

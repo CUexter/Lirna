@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { collectEvidence } from "./dependency-evidence.mjs";
-import { assessmentFindings } from "./dependency-score-findings.mjs";
+import { collectEvidence } from "./dependency-evidence.ts";
+import { assessmentFindings } from "./dependency-score-findings.ts";
 import {
   classifyAssessment,
   validateScorePolicy,
-} from "./dependency-score-policy.mjs";
+} from "./dependency-score-policy.ts";
 import {
   changedDirectDependencies,
   prepareDependencyRevisions,
-} from "./verify-dependency-assessments.mjs";
+} from "./verify-dependency-assessments.ts";
 
 async function main() {
   const revisions = prepareDependencyRevisions();

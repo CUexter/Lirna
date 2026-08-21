@@ -6,7 +6,7 @@ import {
   promoteCoveredSources,
   reviewedAbsentSources,
   sourceBaselineViolations,
-} from "./check-coverage.mjs";
+} from "./check-coverage.ts";
 
 describe("coverage source baseline", () => {
   test("recognizes Bun-instrumented source and excludes policy fixtures", () => {

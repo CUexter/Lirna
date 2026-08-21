@@ -66,7 +66,7 @@ This is a research recommendation, not an accepted architecture decision.
 - Tests do not depend on Vitest or Vite. Unit/component tests use `bun test` with
   Happy DOM, browser E2E tests use Playwright, and the production Vite output is
   checked against a repository bundle budget
-  ([root scripts](../package.json), [bundle check](../scripts/check-web-bundle.mjs)).
+  ([root scripts](../package.json), [bundle check](../scripts/check-web-bundle.ts)).
   Replacing the web bundler would therefore change build validation, not the
   primary test runner.
 - `apps/docs` is a separate Astro/Starlight workspace, so removing direct Vite
@@ -117,7 +117,7 @@ or claim that Vite plugins run on Bun's bundler.
   future experiment by explaining module contribution and dependency chains. It
   does not reproduce the current build or plugin pipeline by itself
   ([Bun 1.4, Observability](https://bun.com/blog/bun-v1.4#observability),
-  [bundle check](../scripts/check-web-bundle.mjs)).
+  [bundle check](../scripts/check-web-bundle.ts)).
 
 ### Bundler and dev server: capable baseline, different product
 

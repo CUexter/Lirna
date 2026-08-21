@@ -1,4 +1,4 @@
-import { githubRepository } from "./dependency-score-policy.mjs";
+import { githubRepository } from "./dependency-score-policy.ts";
 
 export function assessmentFindings(signals) {
   return [

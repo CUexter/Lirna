@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { evaluatePolicy, parseSource } from "./check-architecture.mjs";
+import { evaluatePolicy, parseSource } from "./check-architecture.ts";
 
 const workspaces = [
   {

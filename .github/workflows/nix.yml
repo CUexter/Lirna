@@ -37,11 +37,11 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            git diff --no-renames --name-only "$BASE_SHA...$HEAD_SHA" | node scripts/classify-nix-changes.mjs >> "$GITHUB_OUTPUT"
+            git diff --no-renames --name-only "$BASE_SHA...$HEAD_SHA" | bun scripts/classify-nix-changes.ts >> "$GITHUB_OUTPUT"
           elif [[ "${{ github.event_name }}" == "push" ]]; then
-            git diff --no-renames --name-only "$BEFORE_SHA" "${{ github.sha }}" | node scripts/classify-nix-changes.mjs >> "$GITHUB_OUTPUT"
+            git diff --no-renames --name-only "$BEFORE_SHA" "${{ github.sha }}" | bun scripts/classify-nix-changes.ts >> "$GITHUB_OUTPUT"
           else
-            node scripts/classify-nix-changes.mjs --full </dev/null >> "$GITHUB_OUTPUT"
+            bun scripts/classify-nix-changes.ts --full </dev/null >> "$GITHUB_OUTPUT"
           fi
 
   desktop:

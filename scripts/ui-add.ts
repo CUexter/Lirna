@@ -4,7 +4,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-import { isEligibleSource } from "./check-coverage.mjs";
+import { isEligibleSource } from "./check-coverage.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 const baselineFile = path.join(root, "config/coverage-baseline.json");
@@ -102,7 +102,7 @@ function baselineOnly(files) {
     throw new Error(
       "No files given. Usage: bun run ui:add -- --baseline-only <file...>",
     );
-  const sources = [];
+  const sources: string[] = [];
   for (const file of files) {
     const source = path
       .relative(root, path.resolve(process.cwd(), file))
@@ -120,7 +120,7 @@ function main() {
   const args = process.argv.slice(2);
   const baselineIndex = args.indexOf("--baseline-only");
 
-  let sources;
+  let sources: string[];
   if (baselineIndex !== -1) {
     sources = baselineOnly(args.slice(baselineIndex + 1));
   } else {

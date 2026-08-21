@@ -16,14 +16,14 @@
     "test-results/**",
     "result/**",
     "result-*",
-    "scripts/check-architecture.mjs",
-    "scripts/check-react-props.mjs",
-    "scripts/check-documentation.mjs",
-    "scripts/check-architecture.test.mjs",
-    "scripts/check-coverage.test.mjs",
-    "scripts/check-documentation.test.mjs",
-    "scripts/dependency-score.test.mjs",
-    "scripts/web-bundle-budget.test.mjs",
+    "scripts/check-architecture.ts",
+    "scripts/check-react-props.ts",
+    "scripts/check-documentation.ts",
+    "scripts/check-architecture.test.ts",
+    "scripts/check-coverage.test.ts",
+    "scripts/check-documentation.test.ts",
+    "scripts/dependency-score.test.ts",
+    "scripts/web-bundle-budget.test.ts",
     "apps/web/pwa-assets.config.ts",
     "config/semgrep/fixtures/**"
   ],
@@ -74,7 +74,8 @@
         "config/**",
         "*.json",
         "*.jsonc",
-        "*.mjs"
+        "*.mjs",
+        "*.ts"
       ]
     }
   },
