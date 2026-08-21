@@ -47,6 +47,32 @@ function component(overrides: Partial<Component> = {}): Component {
               },
             ],
           },
+          {
+            kind: "figure",
+            figure: {
+              id: "synthetic-figure",
+              caption: [{ kind: "text", text: "Synthetic figure" }],
+              description: {
+                text: [{ kind: "text", text: "Figure description" }],
+              },
+              dimensions: { width: 20, height: 10 },
+              diagnostics: [
+                {
+                  level: "warning",
+                  code: "missing-semantic-asset",
+                  message: "The semantic figure asset was not retained.",
+                  source: {
+                    componentIdentity: "article",
+                    locator: "#synthetic-figure",
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: "paragraph",
+            children: [{ kind: "text", text: "After the synthetic figure." }],
+          },
         ],
         children: [],
       },
@@ -57,7 +83,17 @@ function component(overrides: Partial<Component> = {}): Component {
         caption: [{ kind: "text", text: "Synthetic figure" }],
         description: { text: [{ kind: "text", text: "Figure description" }] },
         dimensions: { width: 20, height: 10 },
-        diagnostics: [],
+        diagnostics: [
+          {
+            level: "warning",
+            code: "missing-semantic-asset",
+            message: "The semantic figure asset was not retained.",
+            source: {
+              componentIdentity: "article",
+              locator: "#synthetic-figure",
+            },
+          },
+        ],
       },
     ],
     bibliography: [
@@ -92,7 +128,7 @@ function component(overrides: Partial<Component> = {}): Component {
       },
     ],
     plainText:
-      "A synthetic Source state passage.\n\nA synthetic claim\n\nSynthetic publication content [1]",
+      "A synthetic Source state passage.\n\nA synthetic claim\n\nSynthetic publication content [1]\n\nSynthetic figure Figure description\n\nAfter the synthetic figure.",
     ...overrides,
   };
 }

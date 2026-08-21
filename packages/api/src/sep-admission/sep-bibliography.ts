@@ -139,6 +139,10 @@ function transformBlocks(
       block.caption = block.caption.map(resolve);
       for (const row of [...block.head, ...block.body])
         row.cells = row.cells.map((cell) => cell.map(resolve));
+    } else if (block.kind === "figure") {
+      block.figure.caption = block.figure.caption.map(resolve);
+      block.figure.description.text =
+        block.figure.description.text.map(resolve);
     } else if (block.kind !== "diagnostic")
       block.children = block.children.map(resolve);
   }

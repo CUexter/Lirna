@@ -1,23 +1,26 @@
 import { buttonVariants } from "@lirna/ui/components/button";
-import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeftIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-
-import { inquiry } from "@/clients/inquiry";
+import { useEffect, useRef } from "react";
 
 import { ReadingAnnotations } from "../annotations/annotations";
 import { Bibliography } from "./bibliography";
 import { SepReadingBreadcrumb } from "./breadcrumb";
 import { SepReadingCaptureStatus } from "./capture-status";
 import { SepReadingComponentNav } from "./component-nav";
+import { ComponentUnavailable } from "./component-unavailable";
 import {
   Blocks,
   CitationActions,
   Figure,
+  placedFigureIds,
   ReadingSection,
   type SepReadingData,
 } from "./content";
+import {
+  saveReadingHistoryScrollTop,
+  useReadingResume,
+} from "./reading-resume";
 import { ReadingResearchAssistant } from "./research-assistant";
 import { SepReadingSidebar } from "./sidebar";
 import { SepReadingSourceHeader } from "./source-header";
@@ -50,7 +53,13 @@ export function SepReadingWorkspace({
     openBibliography,
     returnToCitation,
     saveLocation,
-  } = useScrollRestore(component, view, onViewChange);
+  } = useScrollRestore({
+    component,
+    sourceId: source.id,
+    stateId: source.stateId,
+    view,
+    onViewChange,
+  });
 
   const resumeStatus = useReadingResume({
     component,
@@ -59,7 +68,17 @@ export function SepReadingWorkspace({
     stateId: source.stateId,
   });
 
-  if (!component) return null;
+  if (!component) {
+    return (
+      <ComponentUnavailable
+        componentIdentity={selectedComponent}
+        mainComponentIdentity={reading.mainComponent.identity}
+        onComponentChange={onComponentChange}
+      />
+    );
+  }
+
+  const placedFigures = placedFigureIds(component);
 
   const handleComponentChange = (identity: string) => {
     saveLocation();
@@ -135,20 +154,24 @@ export function SepReadingWorkspace({
                 {component.sections.map((section) => (
                   <ReadingSection key={section.id} section={section} />
                 ))}
-                {component.figures.map((figure) => (
-                  <Figure figure={figure} key={figure.id} />
-                ))}
+                {component.figures
+                  .filter((figure) => !placedFigures.has(figure.id))
+                  .map((figure) => (
+                    <Figure figure={figure} key={figure.id} />
+                  ))}
               </article>
             )}
           </CitationActions.Provider>
-          <WorkspaceAnnotations
-            articleRef={articleRef}
-            componentIdentity={component.identity}
-            plainText={component.plainText}
-            sourceId={source.id}
-            stateId={source.stateId}
-            view={view}
-          />
+          {view === "article" ? (
+            <ReadingAnnotations
+              articleRef={articleRef}
+              componentIdentity={component.identity}
+              key={component.identity}
+              plainText={component.plainText}
+              sourceId={source.id}
+              stateId={source.stateId}
+            />
+          ) : null}
           <ReadingResearchAssistant
             componentIdentity={component.identity}
             componentLabel={component.label}
@@ -167,106 +190,15 @@ export function SepReadingWorkspace({
   );
 }
 
-function useReadingResume({
-  component,
-  ephemeralScrollTop,
-  sourceId,
-  stateId,
-}: {
-  component: SepReadingData["components"][number] | undefined;
-  ephemeralScrollTop: number | undefined;
-  sourceId: string;
-  stateId: string;
-}) {
-  const { mutate } = useMutation(inquiry.sources.resume.save.mutationOptions());
-  const { data: resume, isPending } = useQuery(
-    inquiry.sources.resume.get.queryOptions({
-      input: component
-        ? {
-            sourceId,
-            stateId,
-            componentIdentity: component.identity,
-          }
-        : {},
-    }),
-  );
-  const [status, setStatus] = useState<"saving" | "saved" | "error">("saving");
-
-  useEffect(() => {
-    if (!component || isPending) return;
-    if (ephemeralScrollTop !== undefined) {
-      window.scrollTo({ top: ephemeralScrollTop });
-    } else if (
-      resume?.sourceId === sourceId &&
-      resume.stateId === stateId &&
-      resume.componentIdentity === component.identity
-    ) {
-      window.scrollTo({ top: resume.scrollTop });
-    } else {
-      window.scrollTo({ top: 0 });
-    }
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const save = () => {
-      mutate(
-        {
-          componentIdentity: component.identity,
-          componentLabel: component.label,
-          scrollTop: Math.max(0, Math.round(window.scrollY)),
-          sourceId,
-          stateId,
-        },
-        {
-          onError: () => setStatus("error"),
-          onSuccess: () => setStatus("saved"),
-        },
-      );
-    };
-    const scheduleSave = () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(save, 500);
-    };
-    const saveImmediately = () => {
-      if (timer) clearTimeout(timer);
-      setStatus("saving");
-      save();
-    };
-    const saveOnUnmount = () => {
-      if (timer) clearTimeout(timer);
-      save();
-    };
-    saveImmediately();
-    window.addEventListener("scroll", scheduleSave, { passive: true });
-    window.addEventListener("pagehide", saveImmediately);
-    document.addEventListener("visibilitychange", saveImmediately);
-    return () => {
-      saveOnUnmount();
-      window.removeEventListener("scroll", scheduleSave);
-      window.removeEventListener("pagehide", saveImmediately);
-      document.removeEventListener("visibilitychange", saveImmediately);
-    };
-  }, [
-    component,
-    ephemeralScrollTop,
-    isPending,
-    mutate,
-    resume,
-    sourceId,
-    stateId,
-  ]);
-
-  return status;
-}
-
 function useComponentTree(
   reading: SepReadingData,
   selectedComponent: string | undefined,
 ) {
-  const component =
-    reading.components.find((item) => item.identity === selectedComponent) ??
-    reading.components.find(
-      (item) => item.identity === reading.mainComponent.identity,
-    ) ??
-    reading.components[0];
+  const component = selectedComponent
+    ? reading.components.find((item) => item.identity === selectedComponent)
+    : (reading.components.find(
+        (item) => item.identity === reading.mainComponent.identity,
+      ) ?? reading.components[0]);
   const parent = component
     ? reading.components.find(
         (item) => item.identity === component.parentIdentity,
@@ -288,11 +220,19 @@ function useComponentTree(
   return { component, parent, previous, next };
 }
 
-function useScrollRestore(
-  component: SepReadingData["components"][number] | undefined,
-  view: "article" | "bibliography",
-  onViewChange: (view: "article" | "bibliography", citation?: string) => void,
-) {
+function useScrollRestore({
+  component,
+  sourceId,
+  stateId,
+  view,
+  onViewChange,
+}: {
+  component: SepReadingData["components"][number] | undefined;
+  sourceId: string;
+  stateId: string;
+  view: "article" | "bibliography";
+  onViewChange: (view: "article" | "bibliography", citation?: string) => void;
+}) {
   const locations = useRef(new Map<string, number>());
   const returnMention = useRef<string | undefined>(undefined);
 
@@ -311,6 +251,12 @@ function useScrollRestore(
   const saveLocation = () => {
     if (!component) return;
     locations.current.set(component.identity, window.scrollY);
+    saveReadingHistoryScrollTop(
+      sourceId,
+      stateId,
+      component.identity,
+      window.scrollY,
+    );
   };
   const openBibliography = (entryId: string | undefined, mentionId: string) => {
     saveLocation();
@@ -327,15 +273,4 @@ function useScrollRestore(
     returnToCitation,
     saveLocation,
   };
-}
-
-function WorkspaceAnnotations({
-  view,
-  ...props
-}: React.ComponentProps<typeof ReadingAnnotations> & {
-  view: "article" | "bibliography";
-}) {
-  return view === "article" ? (
-    <ReadingAnnotations key={props.componentIdentity} {...props} />
-  ) : null;
 }

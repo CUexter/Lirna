@@ -1,9 +1,28 @@
 import { Button } from "@lirna/ui/components/button";
-import { Link } from "@tanstack/react-router";
 import { createContext, useContext } from "react";
 import type { InquiryOutputs } from "@/clients/inquiry";
 
 export type SepReadingData = InquiryOutputs["sources"]["reading"];
+
+export function placedFigureIds(
+  component: SepReadingData["components"][number],
+) {
+  const ids = new Set<string>();
+  const visitBlocks = (blocks: typeof component.introductoryBlocks) => {
+    for (const block of blocks) {
+      if (block.kind === "figure") ids.add(block.figure.id);
+    }
+  };
+  const visitSections = (sections: typeof component.sections) => {
+    for (const section of sections) {
+      visitBlocks(section.blocks);
+      visitSections(section.children);
+    }
+  };
+  visitBlocks(component.introductoryBlocks);
+  visitSections(component.sections);
+  return ids;
+}
 
 export const CitationActions = createContext<{
   open: (entryId: string | undefined, mentionId: string) => void;
@@ -14,7 +33,13 @@ export function Figure({
 }: {
   figure: SepReadingData["components"][number]["figures"][number];
 }) {
-  if (!figure.assetDataUrl && figure.caption.length === 0) return null;
+  if (
+    !figure.assetDataUrl &&
+    figure.caption.length === 0 &&
+    figure.description.text.length === 0 &&
+    figure.diagnostics.length === 0
+  )
+    return null;
   return (
     <figure className="rounded border p-4" id={figure.id}>
       {figure.assetDataUrl ? (
@@ -164,6 +189,7 @@ function Block({
         </table>
       </div>
     );
+  if (block.kind === "figure") return <Figure figure={block.figure} />;
   if (block.kind === "diagnostic")
     return <Diagnostic diagnostic={block.diagnostic} />;
   return null;
@@ -253,7 +279,6 @@ export function Diagnostic({
 }: {
   diagnostic: SepReadingData["capture"]["diagnostics"][number];
 }) {
-  if (diagnostic.code === "missing-semantic-asset") return null;
   return (
     <aside
       className="rounded border border-amber-500/50 bg-amber-50 p-3 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100"
@@ -263,9 +288,9 @@ export function Diagnostic({
       <p>{diagnostic.message}</p>
       <p className="text-sm">
         Captured location: <code>{diagnostic.source.locator}</code>.{" "}
-        <Link className="underline" hash="source-information" to=".">
+        <a className="underline" href="#source-information">
           Review Source information
-        </Link>
+        </a>
       </p>
     </aside>
   );

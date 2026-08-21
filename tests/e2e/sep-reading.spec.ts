@@ -78,22 +78,33 @@ test("renders a typed, degraded SEP Reading workspace without captured markup", 
   expect(await page.evaluate(() => "pwned" in window)).toBe(false);
 
   await page.evaluate(() => {
+    window.location.hash = "knowledge";
     document.body.style.minHeight = "3000px";
-    window.scrollTo(0, 240);
   });
+  await expect(page).toHaveURL(/#knowledge$/);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).not.toBe(0);
+  await page.evaluate(() => window.scrollTo(0, 240));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(240);
+  const articleHistoryKey = await page.evaluate(
+    () => window.history.state?.__TSR_key,
+  );
   const componentSelector = page.getByLabel("Source component", {
     exact: true,
   });
   if (await componentSelector.isVisible()) {
-    await componentSelector.selectOption("active:/notes.html");
+    await componentSelector.evaluate((element) => {
+      const select = element as HTMLSelectElement;
+      select.value = "active:/notes.html";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
   } else {
     const sourceComponents = page.getByRole("navigation", {
       name: "Source components",
     });
     await sourceComponents
-      .getByText("Other components", { exact: true })
-      .click();
-    await sourceComponents.getByRole("button", { name: "Notes" }).click();
+      .locator("button")
+      .filter({ hasText: "Notes" })
+      .evaluate((button) => button.click());
   }
   await expect(page.getByText("Typed Notes content.")).toBeVisible();
   await expect(
@@ -101,14 +112,36 @@ test("renders a typed, degraded SEP Reading workspace without captured markup", 
   ).toBeVisible();
   await page.goBack();
   await expect(page.getByRole("heading", { name: "Knowledge" })).toBeVisible();
+  await expect(page).toHaveURL(/#knowledge$/);
+  expect(await page.evaluate(() => window.history.state?.__TSR_key)).toBe(
+    articleHistoryKey,
+  );
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(240);
   await expect(
     page.getByText("Rendering note: missing-semantic-asset"),
-  ).toHaveCount(0);
+  ).toBeVisible();
 
   const accessibility = await new AxeBuilder({ page }).analyze();
   const seriousViolations = accessibility.violations.filter((violation) =>
     ["serious", "critical"].includes(violation.impact ?? ""),
   );
   expect(seriousViolations).toEqual([]);
+});
+
+test("does not substitute the article for an unavailable component", async ({
+  page,
+}) => {
+  await page.goto(
+    `/sources/${sourceId}/${stateId}?component=${encodeURIComponent("active:/missing.html")}`,
+  );
+  await expect(
+    page.getByRole("heading", { name: "Component unavailable" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("active:/missing.html", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("Visible typed paragraph.")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Open main article" }).click();
+  await expect(page.getByText("Visible typed paragraph.")).toBeVisible();
 });

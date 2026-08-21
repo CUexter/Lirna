@@ -6,10 +6,8 @@ import {
 import { decodeCapturedHtml } from "./sep-html";
 import { extractArticle, readingArticleExclusions } from "./sep-reading-blocks";
 import {
-  type ReadingBlock,
   type ReadingComponent,
   type ReadingDiagnostic,
-  type ReadingSection,
   type SepReadingContract,
   sepReadingContractSchema,
 } from "./sep-reading-contract";
@@ -21,7 +19,7 @@ import {
   textContent,
 } from "./sep-reading-dom";
 import { extractFigures } from "./sep-reading-figures";
-import { inlineText } from "./sep-reading-inline";
+import { readingArticleText } from "./sep-reading-text";
 import { collectTargets } from "./sep-reading-toc";
 
 interface SepReadingResource {
@@ -64,11 +62,6 @@ interface CreateSepReadingDerivativeOptions {
 export function createSepReadingDerivative(
   options: CreateSepReadingDerivativeOptions,
 ): SepReadingContract {
-  const mainDiagnostics = mainExtractionDiagnostics(options.main);
-  const captureDiagnostics = options.capture.diagnostics.map((diagnostic) => ({
-    ...diagnostic,
-    source: { componentIdentity: options.main.identity, locator: "capture" },
-  }));
   const componentResources: SepReadingResource[] = options.components ?? [
     {
       ...options.main,
@@ -76,6 +69,14 @@ export function createSepReadingDerivative(
       discoveryEdge: "submitted-entry",
     },
   ];
+  const mainDiagnostics = mainExtractionDiagnostics(
+    options.main,
+    componentResources,
+  );
+  const captureDiagnostics = options.capture.diagnostics.map((diagnostic) => ({
+    ...diagnostic,
+    source: { componentIdentity: options.main.identity, locator: "capture" },
+  }));
   const canonicalResources = [...componentResources].sort((left, right) =>
     left.identity.localeCompare(right.identity),
   );
@@ -93,6 +94,7 @@ export function createSepReadingDerivative(
 
 function mainExtractionDiagnostics(
   main: CreateSepReadingDerivativeOptions["main"],
+  resources: SepReadingResource[],
 ): ReadingDiagnostic[] {
   const document = parse(
     decodeCapturedHtml(main.body, main.charset ?? undefined, "main"),
@@ -104,13 +106,19 @@ function mainExtractionDiagnostics(
     findElementById(document, "article-content") ??
     document;
   const targets = collectTargets(readingRoot, main.identity);
-  const extraction = extractArticle(
-    readingRoot,
-    main.identity,
-    targets.ids,
-    readingArticleExclusions(readingRoot),
-  );
-  return [...targets.diagnostics, ...extraction.diagnostics];
+  const diagnostics = [...targets.diagnostics];
+  const figures = extractFigures({
+    root: readingRoot,
+    resource: main,
+    resources,
+    ids: targets.ids,
+    diagnostics,
+  });
+  const extraction = extractArticle(readingRoot, main.identity, targets.ids, {
+    excludedElements: readingArticleExclusions(readingRoot),
+    figures: figures.byElement,
+  });
+  return [...diagnostics, ...extraction.diagnostics];
 }
 
 function isReadingComponentResource(
@@ -193,11 +201,18 @@ function createReadingComponent(
     ...readingArticleExclusions(readingRoot),
     ...bibliography.excludedElements,
   ]);
+  const figureExtraction = extractFigures({
+    root: readingRoot,
+    resource,
+    resources,
+    ids: targets.ids,
+    diagnostics: targets.diagnostics,
+  });
   const extraction = extractArticle(
     readingRoot,
     resource.identity,
     targets.ids,
-    excludedElements,
+    { excludedElements, figures: figureExtraction.byElement },
   );
   extraction.diagnostics.unshift(...targets.diagnostics);
   resolveSepCitations(
@@ -208,13 +223,6 @@ function createReadingComponent(
   const parentIdentity = resource.discoveryEdge.startsWith("authored:")
     ? resource.discoveryEdge.slice("authored:".length)
     : undefined;
-  const figures = extractFigures({
-    root: readingRoot,
-    resource,
-    resources,
-    ids: targets.ids,
-    diagnostics: extraction.diagnostics,
-  });
   return {
     identity: resource.identity,
     role: resource.role,
@@ -230,12 +238,12 @@ function createReadingComponent(
     toc: extraction.toc,
     introductoryBlocks: extraction.introductoryBlocks,
     sections: extraction.sections,
-    figures,
+    figures: figureExtraction.figures,
     bibliography: bibliography.groups,
-    plainText: [
-      ...blocksText(extraction.introductoryBlocks),
-      ...sectionsText(extraction.sections),
-    ].join("\n\n"),
+    plainText: readingArticleText(
+      extraction.introductoryBlocks,
+      extraction.sections,
+    ),
   };
 }
 
@@ -286,25 +294,4 @@ function roleLabel(role: ReadingComponent["role"]) {
       : role === "unknown-component"
         ? "Additional component"
         : role[0]?.toUpperCase() + role.slice(1);
-}
-
-function blocksText(blocks: ReadingBlock[]): string[] {
-  return blocks.map((block) =>
-    block.kind === "statement"
-      ? `${inlineText(block.label)} ${inlineText(block.body)}`
-      : block.kind === "list"
-        ? block.items.map(inlineText).join(" ")
-        : block.kind === "table"
-          ? block.body.flatMap((row) => row.cells.map(inlineText)).join(" ")
-          : block.kind === "diagnostic"
-            ? block.diagnostic.message
-            : inlineText(block.children),
-  );
-}
-function sectionsText(sections: ReadingSection[]): string[] {
-  return sections.flatMap((section) => [
-    inlineText(section.title),
-    ...blocksText(section.blocks),
-    ...sectionsText(section.children),
-  ]);
 }

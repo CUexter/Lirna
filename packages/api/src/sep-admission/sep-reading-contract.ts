@@ -50,6 +50,23 @@ const diagnosticSchema = z.object({
 const tableRowSchema = z.object({
   cells: z.array(z.array(z.lazy(() => inlineSchema))),
 });
+const figureSchema: z.ZodType<ReadingFigure> = z.object({
+  id: z.string().min(1),
+  caption: z.array(inlineSchema),
+  description: z.object({
+    text: z.array(inlineSchema),
+    componentIdentity: z.string().min(1).optional(),
+  }),
+  dimensions: z
+    .object({
+      width: z.number().int().positive(),
+      height: z.number().int().positive(),
+    })
+    .partial(),
+  assetIdentity: z.string().min(1).optional(),
+  assetDataUrl: z.string().startsWith("data:image/").optional(),
+  diagnostics: z.array(diagnosticSchema),
+});
 const blockSchema: z.ZodType<ReadingBlock> = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("paragraph"),
@@ -75,6 +92,7 @@ const blockSchema: z.ZodType<ReadingBlock> = z.discriminatedUnion("kind", [
     head: z.array(tableRowSchema),
     body: z.array(tableRowSchema),
   }),
+  z.object({ kind: z.literal("figure"), figure: figureSchema }),
   z.object({ kind: z.literal("diagnostic"), diagnostic: diagnosticSchema }),
 ]);
 const sectionSchema: z.ZodType<ReadingSection> = z.object({
@@ -83,23 +101,6 @@ const sectionSchema: z.ZodType<ReadingSection> = z.object({
   level: z.number().int().min(2).max(6),
   blocks: z.array(blockSchema),
   children: z.array(z.lazy(() => sectionSchema)),
-});
-const figureSchema = z.object({
-  id: z.string().min(1),
-  caption: z.array(inlineSchema),
-  description: z.object({
-    text: z.array(inlineSchema),
-    componentIdentity: z.string().min(1).optional(),
-  }),
-  dimensions: z
-    .object({
-      width: z.number().int().positive(),
-      height: z.number().int().positive(),
-    })
-    .partial(),
-  assetIdentity: z.string().min(1).optional(),
-  assetDataUrl: z.string().startsWith("data:image/").optional(),
-  diagnostics: z.array(diagnosticSchema),
 });
 const tocSchema: z.ZodType<ReadingTocItem> = z.object({
   id: z.string().min(1),
@@ -246,6 +247,7 @@ export type ReadingBlock =
       head: Array<{ cells: ReadingInline[][] }>;
       body: Array<{ cells: ReadingInline[][] }>;
     }
+  | { kind: "figure"; figure: ReadingFigure }
   | { kind: "diagnostic"; diagnostic: ReadingDiagnostic };
 export interface ReadingDiagnostic {
   level: "info" | "warning";
@@ -292,6 +294,7 @@ export interface ReadingComponent {
   toc: ReadingTocItem[];
   introductoryBlocks: ReadingBlock[];
   sections: ReadingSection[];
+  // Retained as a catalog so persisted v1 derivatives without placed blocks render.
   figures: ReadingFigure[];
   bibliography: ReadingBibliographyGroup[];
   plainText: string;

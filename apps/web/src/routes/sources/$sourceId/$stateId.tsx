@@ -48,6 +48,7 @@ function RouteComponent() {
       onComponentChange={(identity) =>
         navigate({
           search: { component: identity },
+          hash: "",
           resetScroll: false,
         })
       }

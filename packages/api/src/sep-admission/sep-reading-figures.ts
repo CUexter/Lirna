@@ -42,9 +42,13 @@ export function extractFigures({
   resources: FigureResource[];
   ids: Set<string>;
   diagnostics: ReadingDiagnostic[];
-}): ReadingFigure[] {
+}): {
+  figures: ReadingFigure[];
+  byElement: Map<HtmlElement, ReadingFigure>;
+} {
   let count = 0;
-  return descendants(root)
+  const byElement = new Map<HtmlElement, ReadingFigure>();
+  const figures = descendants(root)
     .filter(
       (element) => element.tagName === "figure" || element.tagName === "img",
     )
@@ -63,8 +67,11 @@ export function extractFigures({
         ids,
         diagnostics,
       });
-      return figure ? [figure] : [];
+      if (!figure) return [];
+      byElement.set(element, figure);
+      return [figure];
     });
+  return { figures, byElement };
 }
 
 function createFigure({
@@ -85,11 +92,13 @@ function createFigure({
   const image = figureImage(element);
   const asset =
     image && resourceForAttribute(image, "src", resource, resources);
-  if (element.tagName === "img" && !asset) return undefined;
+  if (!isSemanticFigure(element, asset)) return undefined;
   const descriptionResource =
     image && resourceForAttribute(image, "longdesc", resource, resources);
   const figureDiagnostics = missingFigureDiagnostics({
+    element,
     image,
+    asset,
     descriptionResource,
     resource,
   });
@@ -149,11 +158,15 @@ function figureCaption(element: HtmlElement, context: InlineContext) {
 }
 
 function missingFigureDiagnostics({
+  element,
   image,
+  asset,
   descriptionResource,
   resource,
 }: {
+  element: HtmlElement;
   image: HtmlElement | undefined;
+  asset: FigureResource | undefined;
   descriptionResource: FigureResource | undefined;
   resource: FigureResource;
 }) {
@@ -169,7 +182,47 @@ function missingFigureDiagnostics({
       ),
     );
   }
+  if (attribute(image, "src") && !asset) {
+    diagnostics.push(
+      diagnostic(
+        resource.identity,
+        element,
+        "missing-semantic-asset",
+        "The authored semantic figure asset was not retained in this Source state.",
+      ),
+    );
+  } else if (asset && !retainedImageDataUrl(asset)) {
+    diagnostics.push(
+      diagnostic(
+        resource.identity,
+        element,
+        "unsupported-semantic-asset",
+        "The retained semantic figure asset uses an unsupported media type.",
+      ),
+    );
+  }
   return diagnostics;
+}
+
+function isDecorativeImage(image: HtmlElement) {
+  return (
+    attribute(image, "alt") === "" ||
+    attribute(image, "role")?.toLowerCase() === "presentation" ||
+    attribute(image, "aria-hidden")?.toLowerCase() === "true"
+  );
+}
+
+function isSemanticFigure(
+  element: HtmlElement,
+  asset: FigureResource | undefined,
+) {
+  if (element.tagName !== "img") return true;
+  if (isDecorativeImage(element)) return false;
+  return Boolean(
+    asset ||
+      attribute(element, "alt")?.trim() ||
+      attribute(element, "longdesc")?.trim(),
+  );
 }
 
 function resourceForAttribute(

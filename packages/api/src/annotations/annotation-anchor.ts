@@ -106,6 +106,13 @@ function blockChunk(block: ReadingBlock): {
   if (block.kind === "diagnostic") {
     return { text: block.diagnostic.message, spans: [] };
   }
+  if (block.kind === "figure") {
+    const chunks = [
+      inlineChunk(block.figure.caption),
+      inlineChunk(block.figure.description.text),
+    ].filter((chunk) => chunk.text.length > 0);
+    return joinChunks(chunks, " ");
+  }
   return inlineChunk(block.children);
 }
 

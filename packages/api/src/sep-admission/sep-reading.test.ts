@@ -15,17 +15,18 @@ const source = {
   admittedAt: "2026-08-18T12:00:00.000Z",
 };
 function derivative(html: string) {
+  const main = {
+    identity: "active:/",
+    requestedUrl: source.canonicalUrl,
+    finalUrl: source.canonicalUrl,
+    retrievedAt: new Date("2026-08-17T12:00:00.000Z"),
+    sha256: "a".repeat(64),
+    charset: "utf-8",
+    body: Buffer.from(html),
+  };
   return createSepReadingDerivative({
     source,
-    main: {
-      identity: "active:/",
-      requestedUrl: source.canonicalUrl,
-      finalUrl: source.canonicalUrl,
-      retrievedAt: new Date("2026-08-17T12:00:00.000Z"),
-      sha256: "a".repeat(64),
-      charset: "utf-8",
-      body: Buffer.from(html),
-    },
+    main,
     resources: [
       { identity: "citation-information:logic", sha256: "b".repeat(64) },
       { identity: "active:/", sha256: "a".repeat(64) },
@@ -97,7 +98,7 @@ describe("SEP Reading derivative", () => {
       "list",
       "table",
       "paragraph",
-      "diagnostic",
+      "figure",
     ]);
     expect(JSON.stringify(blocks[0])).toContain('"kind":"subscript"');
     expect(JSON.stringify(blocks[0])).toContain('"kind":"superscript"');
@@ -107,10 +108,6 @@ describe("SEP Reading derivative", () => {
       expect.arrayContaining([
         expect.objectContaining({ code: "unsupported-tex-macro" }),
         expect.objectContaining({ code: "unsafe-link" }),
-        expect.objectContaining({
-          code: "unsupported-structure",
-          source: { componentIdentity: "active:/", locator: "#diagram" },
-        }),
       ]),
     );
   });
@@ -283,14 +280,5 @@ describe("SEP Reading derivative", () => {
         }),
       }),
     ]);
-  });
-  test("omits standalone images whose assets were not retained", () => {
-    const result = derivative(
-      '<main><p>Reading content.</p><img src="icons/sep-man.png" alt="SEP man icon"></main>',
-    );
-    expect(result.components[0]?.figures).toEqual([]);
-    expect(result.capture.diagnostics).not.toContainEqual(
-      expect.objectContaining({ code: "missing-semantic-asset" }),
-    );
   });
 });

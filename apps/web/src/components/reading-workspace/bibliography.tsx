@@ -147,5 +147,10 @@ function visitBlockInlines(
       for (const cell of row.cells) visit(cell);
     return;
   }
+  if (block.kind === "figure") {
+    visit(block.figure.caption);
+    visit(block.figure.description.text);
+    return;
+  }
   if (block.kind !== "diagnostic") visit(block.children);
 }

@@ -1,6 +1,7 @@
 import type {
   ReadingBlock,
   ReadingDiagnostic,
+  ReadingFigure,
   ReadingSection,
 } from "./sep-reading-contract";
 import {
@@ -26,14 +27,22 @@ import {
   validateTocTargets,
 } from "./sep-reading-toc";
 
-type BlockContext = InlineContext & { blocks: ReadingBlock[] };
+type BlockContext = InlineContext & {
+  blocks: ReadingBlock[];
+  figures: Map<HtmlElement, ReadingFigure>;
+};
 
 export function extractArticle(
   root: HtmlNode | undefined,
   componentIdentity: string,
   ids: Set<string>,
-  excludedElements: Set<HtmlElement> = new Set(),
+  options: {
+    excludedElements?: Set<HtmlElement>;
+    figures?: Map<HtmlElement, ReadingFigure>;
+  } = {},
 ) {
+  const excludedElements = options.excludedElements ?? new Set<HtmlElement>();
+  const figures = options.figures ?? new Map<HtmlElement, ReadingFigure>();
   const introductoryBlocks: ReadingBlock[] = [];
   const sections: ReadingSection[] = [];
   const diagnostics: ReadingDiagnostic[] = [];
@@ -81,7 +90,7 @@ export function extractArticle(
       return;
     }
     const target = stack.at(-1)?.blocks ?? introductoryBlocks;
-    appendBlock(element, { ...context, blocks: target });
+    appendBlock(element, { ...context, blocks: target, figures });
   };
   for (const element of childElements(root)) {
     visit(element);
@@ -145,6 +154,11 @@ function isReadingUtilityHeading(element: HtmlElement) {
 }
 
 function appendBlock(element: HtmlElement, context: BlockContext) {
+  const figure = context.figures.get(element);
+  if (figure) {
+    context.blocks.push({ kind: "figure", figure });
+    return;
+  }
   if (element.tagName === "p") {
     appendInlineBlock(element, context, "paragraph");
     return;

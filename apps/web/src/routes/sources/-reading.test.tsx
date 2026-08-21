@@ -148,6 +148,15 @@ test("renders source-state scholarly apparatus and navigates components", async 
   expect(view().getByText("Capture and rendering status")).toBeTruthy();
   expect(view().getByText("Synthetic capture warning.")).toBeTruthy();
   expect(view().getByText("Synthetic figure")).toBeTruthy();
+  expect(view().getAllByText("Synthetic figure")).toHaveLength(1);
+  expect(
+    view().getByText("Rendering note: missing-semantic-asset"),
+  ).toBeTruthy();
+  const figure = document.getElementById("synthetic-figure");
+  const followingParagraph = view().getByText("After the synthetic figure.");
+  expect(figure?.compareDocumentPosition(followingParagraph) ?? 0).toBe(
+    Node.DOCUMENT_POSITION_FOLLOWING,
+  );
   await waitFor(() =>
     expect(
       view().getByText("Reading position synced for Article"),
@@ -186,6 +195,36 @@ test("renders source-state scholarly apparatus and navigates components", async 
   );
   await waitFor(() => view().getByText("First supplement content."));
   expect(router.state.location.search).toEqual({ component: "supplement-one" });
+});
+
+test("shows an unavailable component instead of substituting the article", async () => {
+  resetActions();
+  const user = userEvent.setup();
+  const router = await renderReading("?component=missing-supplement");
+  await waitFor(() =>
+    expect(
+      view().getByRole("heading", { name: "Component unavailable" }),
+    ).toBeTruthy(),
+  );
+  expect(view().getByText("missing-supplement")).toBeTruthy();
+  expect(view().queryByText("A synthetic Source state passage.")).toBeNull();
+
+  await user.click(view().getByRole("button", { name: "Open main article" }));
+  await waitFor(() => view().getByText("A synthetic Source state passage."));
+  expect(router.state.location.search).toEqual({ component: "article" });
+});
+
+test("clears component-local fragments when switching components", async () => {
+  resetActions();
+  const user = userEvent.setup();
+  const router = await renderReading("?component=article#claim");
+  await waitFor(() => view().getByText("A synthetic Source state passage."));
+  expect(router.state.location.hash).toBe("claim");
+
+  await user.click(view().getByText("Other components"));
+  await user.click(view().getByRole("button", { name: "Supplement one" }));
+  await waitFor(() => view().getByText("First supplement content."));
+  expect(router.state.location.hash).toBe("");
 });
 
 test("filters publisher bibliography and preserves component search when returning from a Citation", async () => {

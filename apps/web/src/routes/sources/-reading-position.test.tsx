@@ -1,6 +1,6 @@
 import { afterEach, expect, mock, test } from "bun:test";
 import { createRootRoute, createRoute } from "@tanstack/react-router";
-import { cleanup, waitFor, within } from "@testing-library/react";
+import { act, cleanup, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { readingFixture, sourceId, stateId } from "./-reading-test-fixtures";
@@ -79,6 +79,7 @@ function view() {
 }
 
 function resetActions() {
+  window.history.replaceState({}, "");
   calls.resumeGet.length = 0;
   calls.resumeSave.length = 0;
   getResume = async (input) => {
@@ -131,7 +132,7 @@ test("restores a component location through its parent breadcrumb", async () => 
       ).getByRole("button", { name: "Article" }),
     );
     await waitFor(() => view().getByText("A synthetic Source state passage."));
-    expect(locations).toContainEqual({ top: 240 });
+    await waitFor(() => expect(locations).toContainEqual({ top: 240 }));
   } finally {
     window.scrollTo = originalScrollTo;
     if (scrollY) Object.defineProperty(window, "scrollY", scrollY);
@@ -168,6 +169,7 @@ test("restores and saves positions for the selected Source component", async () 
       stateId,
       componentIdentity: "supplement-one",
     });
+    act(() => window.dispatchEvent(new Event("pagehide")));
     await waitFor(() =>
       expect(calls.resumeSave).toContainEqual(
         expect.objectContaining({
@@ -210,6 +212,7 @@ test("starts an unseen Source component at the top before saving it", async () =
     await user.click(view().getByRole("button", { name: "Supplement one" }));
     await waitFor(() => view().getByText("First supplement content."));
     await waitFor(() => expect(locations).toContainEqual({ top: 0 }));
+    act(() => window.dispatchEvent(new Event("pagehide")));
     await waitFor(() =>
       expect(calls.resumeSave).toContainEqual(
         expect.objectContaining({
