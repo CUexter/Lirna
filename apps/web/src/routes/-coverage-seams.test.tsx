@@ -1,4 +1,5 @@
 import { expect, mock, test } from "bun:test";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   createMemoryHistory,
   createRootRoute,
@@ -9,8 +10,8 @@ import {
 import { fireEvent, render, waitFor, within } from "@testing-library/react";
 import type { HTMLAttributes, ReactNode } from "react";
 
-import Loader from "../components/loader";
-import { ThemeProvider } from "../components/theme-provider";
+import Loader from "../components/app-shell/loader";
+import { ThemeProvider } from "../components/app-shell/theme-provider";
 
 function Primitive({ children, ...props }: HTMLAttributes<HTMLDivElement>) {
   return <div {...props}>{children}</div>;
@@ -119,11 +120,16 @@ test("renders the focused home route and applies theme choices", async () => {
   });
 
   await router.load();
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   localStorage.removeItem("theme");
   render(
     <ThemeProvider attribute="class" defaultTheme="system">
       <Loader />
-      <RouterProvider router={router} />
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
     </ThemeProvider>,
   );
   const view = within(document.body);

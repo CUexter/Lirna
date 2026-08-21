@@ -7,6 +7,8 @@ import { renderRoute } from "./-route-test-harness";
 const sourceId = "20000000-0000-4000-8000-000000000000";
 const stateId = "30000000-0000-4000-8000-000000000000";
 let getSources: () => Promise<unknown> = async () => [];
+let deleteSource: (input: unknown) => Promise<unknown> = async () => true;
+let deletedInput: unknown;
 
 await mock.module("@/clients/library", () => ({
   library: {
@@ -17,6 +19,9 @@ await mock.module("@/clients/library", () => ({
           queryFn: getSources,
         }),
       },
+      delete: {
+        mutationOptions: () => ({ mutationFn: deleteSource }),
+      },
     },
   },
 }));
@@ -26,6 +31,8 @@ const { Route } = await import("./index");
 afterEach(() => {
   cleanup();
   getSources = async () => [];
+  deleteSource = async () => true;
+  deletedInput = undefined;
 });
 
 function view() {
@@ -95,4 +102,36 @@ test("shows the Source library failure", async () => {
     ),
   );
   expect(view().getByText("Source library unavailable")).toBeTruthy();
+});
+
+test("deletes a Source after confirmation", async () => {
+  getSources = async () => [
+    {
+      id: sourceId,
+      title: "Synthetic SEP entry",
+      admittedAt: "2026-08-18T12:01:00.000Z",
+      states: [{ id: stateId, sequence: 1, observationKey: "submitted" }],
+    },
+  ];
+  deleteSource = async (input) => {
+    deletedInput = input;
+    getSources = async () => [];
+    return true;
+  };
+  const confirm = window.confirm;
+  window.confirm = () => true;
+
+  try {
+    await renderLibrary();
+    await waitFor(() => view().getByText("Synthetic SEP entry"));
+    await view()
+      .getByRole("button", { name: "Delete Synthetic SEP entry" })
+      .click();
+    await waitFor(() => expect(deletedInput).toEqual({ sourceId }));
+    await waitFor(() =>
+      expect(view().queryByText("Synthetic SEP entry")).toBeNull(),
+    );
+  } finally {
+    window.confirm = confirm;
+  }
 });

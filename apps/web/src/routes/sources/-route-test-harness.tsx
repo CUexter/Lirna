@@ -1,11 +1,18 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  notifyManager,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
 import {
   type AnyRoute,
   createMemoryHistory,
   createRouter,
   RouterProvider,
 } from "@tanstack/react-router";
-import { render } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
+
+notifyManager.setNotifyFunction(act);
+notifyManager.setBatchNotifyFunction(act);
 
 export async function renderRoute(routeTree: AnyRoute, initialEntry: string) {
   const router = createRouter({

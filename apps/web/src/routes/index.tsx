@@ -14,6 +14,7 @@ import {
   InputGroupInput,
 } from "@lirna/ui/components/input-group";
 import { Separator } from "@lirna/ui/components/separator";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   AlertCircleIcon,
@@ -30,7 +31,8 @@ import {
   SparklesIcon,
 } from "lucide-react";
 
-import { ModeToggle } from "@/components/mode-toggle";
+import { inquiry } from "@/clients/inquiry";
+import { ModeToggle } from "@/components/app-shell/mode-toggle";
 
 export const Route = createFileRoute("/")({
   component: RouteComponent,
@@ -68,6 +70,9 @@ function QuestionComposer({ className }: { className: string }) {
 }
 
 function RouteComponent() {
+  const { data: resume } = useQuery(
+    inquiry.sources.resume.get.queryOptions({ input: {} }),
+  );
   const formattedDate = new Intl.DateTimeFormat(undefined, {
     weekday: "long",
     month: "long",
@@ -176,20 +181,43 @@ function RouteComponent() {
 
             <Card className="[--card-spacing:--spacing(6)]">
               <CardHeader>
-                <Badge variant="secondary">Alongside it</Badge>
+                <Badge variant="secondary">
+                  {resume ? "Resume point" : "Reading"}
+                </Badge>
                 <CardTitle className="font-serif text-2xl">
-                  Continue the Source
+                  {resume
+                    ? `Continue ${resume.sourceTitle}`
+                    : "Continue the Source"}
                 </CardTitle>
                 <CardDescription className="leading-6">
-                  Attention and memory in self-directed study, page 18. Your
-                  question is parked beside the passage.
+                  {resume
+                    ? `You left at ${resume.componentLabel}. Your exact reading position is saved.`
+                    : "Your next reading position will appear here when you leave a Source."}
                 </CardDescription>
               </CardHeader>
               <CardFooter>
-                <Button variant="outline">
-                  <BookMarkedIcon data-icon="inline-start" />
-                  Return to page 18
-                </Button>
+                {resume ? (
+                  <Link
+                    className={buttonVariants({ variant: "outline" })}
+                    params={{
+                      sourceId: resume.sourceId,
+                      stateId: resume.stateId,
+                    }}
+                    search={{ component: resume.componentIdentity }}
+                    to="/sources/$sourceId/$stateId"
+                  >
+                    <BookMarkedIcon data-icon="inline-start" />
+                    Resume reading
+                  </Link>
+                ) : (
+                  <Link
+                    className={buttonVariants({ variant: "outline" })}
+                    to="/sources"
+                  >
+                    <BookMarkedIcon data-icon="inline-start" />
+                    Browse Sources
+                  </Link>
+                )}
               </CardFooter>
             </Card>
           </section>

@@ -1,6 +1,6 @@
 import { afterEach, expect, mock, test } from "bun:test";
 import { createRootRoute, createRoute } from "@tanstack/react-router";
-import { cleanup, waitFor, within } from "@testing-library/react";
+import { act, cleanup, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { readingFixture, sourceId, stateId } from "./-reading-test-fixtures";
@@ -25,6 +25,17 @@ await mock.module("@/clients/inquiry", () => ({
           queryKey: ["reading", input],
           queryFn: () => getReading(input),
         }),
+      },
+      resume: {
+        get: {
+          queryOptions: ({ input }: { input: unknown }) => ({
+            queryKey: ["resume", input],
+            queryFn: async () => null,
+          }),
+        },
+        save: {
+          mutationOptions: () => ({ mutationFn: async () => undefined }),
+        },
       },
     },
   },
@@ -98,10 +109,11 @@ test("shows Reading loading and unavailable states through its route", async () 
   };
   await renderReading();
   expect(view().getByText("Loading Reading workspace…")).toBeTruthy();
-  resolveReading(readingFixture());
+  await act(async () => resolveReading(readingFixture()));
   await waitFor(() => view().getByRole("heading", { level: 1 }));
   expect(calls.reading).toEqual([{ sourceId, stateId }]);
 
+  cleanup();
   resetActions();
   getReading = async (input) => {
     calls.reading.push(input);
@@ -131,6 +143,11 @@ test("renders source-state scholarly apparatus and navigates components", async 
   expect(view().getByText("Capture and rendering status")).toBeTruthy();
   expect(view().getByText("Synthetic capture warning.")).toBeTruthy();
   expect(view().getByText("Synthetic figure")).toBeTruthy();
+  await waitFor(() =>
+    expect(
+      view().getByText("Reading position synced for Article"),
+    ).toBeTruthy(),
+  );
   expect(calls.annotations).toEqual([{ sourceId, stateId }]);
 
   await user.click(view().getByText("Other components"));

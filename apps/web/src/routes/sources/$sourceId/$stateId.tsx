@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
 import { inquiry } from "@/clients/inquiry";
-import { SepReadingWorkspace } from "@/components/sep-reading-workspace";
+import { SepReadingWorkspace } from "@/components/reading-workspace/workspace";
 
 export const Route = createFileRoute("/sources/$sourceId/$stateId")({
   validateSearch: z.object({

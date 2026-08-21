@@ -4,7 +4,7 @@ import { inquiry } from "@/clients/inquiry";
 import type {
   SepAdmissionPreviewData,
   SepAdmissionPreviewProps,
-} from "@/components/sep-admission-preview";
+} from "@/components/source-admission/preview";
 
 function validateSubmittedUrl(value: string) {
   try {

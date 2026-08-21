@@ -11,7 +11,7 @@ import { Label } from "@lirna/ui/components/label";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeftIcon, SearchIcon } from "lucide-react";
 
-import { SepAdmissionPreview } from "@/components/sep-admission-preview";
+import { SepAdmissionPreview } from "@/components/source-admission/preview";
 import { useSepAdmission } from "@/hooks/use-sep-admission";
 
 export const Route = createFileRoute("/sources/admission")({
