@@ -13,6 +13,7 @@ apps/web/src/routeTree.gen.ts
 local.db
 local.db-*
 /.lirna/
+/.worktrees/
 
 # Environment variables
 .env

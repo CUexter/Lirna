@@ -425,7 +425,7 @@ test("creates a managed task worktree with an allocated environment", async () =
   await linkedWorktree(primary);
 
   const created = await lifecycle(primary, "create", "task-branch");
-  const checkoutPath = join(primary.checkoutPath, "..", "task-branch");
+  const checkoutPath = join(primary.checkoutPath, ".worktrees", "task-branch");
 
   expect(created.exitCode).toBe(0);
   expect(created.stderr).toBe("");
@@ -444,6 +444,11 @@ test("creates a managed task worktree with an allocated environment", async () =
     { stderr: "pipe" },
   );
   expect(await branch.exited).toBe(0);
+  const ignored = Bun.spawn(
+    ["git", "-C", primary.checkoutPath, "check-ignore", checkoutPath],
+    { stderr: "pipe", stdout: "pipe" },
+  );
+  expect(await ignored.exited).toBe(0);
   expect(
     JSON.parse(
       await readFile(join(checkoutPath, ".lirna", "environment.json"), "utf8"),
@@ -479,7 +484,11 @@ test("rolls back a managed worktree when configuration generation fails", async 
     const git = Bun.spawn(["git", ...args], { stderr: "pipe" });
     expect(await git.exited).toBe(0);
   }
-  const checkoutPath = join(primary.checkoutPath, "..", "rollback-task");
+  const checkoutPath = join(
+    primary.checkoutPath,
+    ".worktrees",
+    "rollback-task",
+  );
 
   const created = await lifecycle(primary, "create", "rollback-task");
 
@@ -648,15 +657,23 @@ test("refuses an existing task branch, path, or lifecycle registration", async (
     stdout: "",
   });
 
-  const existingPath = join(primary.checkoutPath, "..", "already-there");
-  await mkdir(existingPath);
+  const existingPath = join(
+    primary.checkoutPath,
+    ".worktrees",
+    "already-there",
+  );
+  await mkdir(existingPath, { recursive: true });
   expect(await lifecycle(primary, "create", "already-there")).toEqual({
     exitCode: 1,
     stderr: `A path already exists at ${existingPath}.\n`,
     stdout: "",
   });
 
-  const registeredPath = join(primary.checkoutPath, "..", "already-registered");
+  const registeredPath = join(
+    primary.checkoutPath,
+    ".worktrees",
+    "already-registered",
+  );
   primaryEnvironment.environments.push({
     checkoutPath: registeredPath,
     identity: "12345678-1234-4123-8123-123456789abc",

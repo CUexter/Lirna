@@ -264,8 +264,8 @@ postgresTest(
     const stateHome = join(root, "state");
     const firstBranch = `isolation-a-${randomUUID()}`;
     const secondBranch = `isolation-b-${randomUUID()}`;
-    const firstPath = join(root, firstBranch);
-    const secondPath = join(root, secondBranch);
+    const firstPath = join(primaryPath, ".worktrees", firstBranch);
+    const secondPath = join(primaryPath, ".worktrees", secondBranch);
     const databaseNames: string[] = [];
     const servers: Server[] = [];
     const worktreePaths: string[] = [];

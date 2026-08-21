@@ -1,7 +1,7 @@
 // biome-ignore lint/style/noExcessiveLinesPerFile: Registration, diagnosis, allocation, and worktree creation form one lifecycle workflow.
 import { randomUUID } from "node:crypto";
-import { access } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { access, mkdir } from "node:fs/promises";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -237,7 +237,8 @@ async function create(args) {
   if (caller.checkoutKind !== "primary") {
     throw new Error("Only the primary checkout can create managed worktrees.");
   }
-  const checkoutPath = join(dirname(caller.checkoutPath), branch);
+  const worktreesPath = join(caller.checkoutPath, ".worktrees");
+  const checkoutPath = join(worktreesPath, branch);
   const registryFilePath = registryPath();
   const environment = await withRegistryLock(
     registryFilePath,
@@ -262,6 +263,7 @@ async function create(args) {
 
       let worktreeCreated = false;
       try {
+        await mkdir(worktreesPath, { recursive: true });
         await exec("git", [
           "-C",
           caller.checkoutPath,

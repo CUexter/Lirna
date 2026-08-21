@@ -62,9 +62,9 @@ their non-secret environment details to the ignored
 `.lirna/environment.json` file. Re-running registration preserves the identity
 and allocation and safely regenerates that file.
 
-From the registered primary checkout, create a managed task worktree in the
-primary checkout's parent directory. The task branch name becomes both the
-branch and sibling directory name:
+From the registered primary checkout, create a managed task worktree under
+`.worktrees/`. The task branch name becomes both the branch and subdirectory
+name, such as `.worktrees/task-branch`:
 
 ```bash
 bun run lifecycle create task-branch
