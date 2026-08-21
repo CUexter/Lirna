@@ -69,7 +69,7 @@ if [[ -z "${POSTGRES_ADMIN_URL:-}" ]]; then
     --name "$container" \
     --env POSTGRES_PASSWORD="$password" \
     --publish 127.0.0.1::5432 \
-    postgres:18@sha256:06cad38a5d9f5d24b4d83d86def30795d5e4b757fedbf5281172b576dedcd941 >/dev/null
+    postgres:17@sha256:e38411452a464af89e5adadb8d223bf53b898d47d6ef918b2d58c08707350449 >/dev/null
 
   for _ in {1..30}; do
     if docker exec "$container" pg_isready --username postgres >/dev/null 2>&1; then
@@ -93,7 +93,7 @@ POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
 
 POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
   bun test \
-    "$db_dir/src/lifecycle/provision-managed-database.postgres.test.ts" \
+    "$db_dir/scripts/provision-managed-database.postgres.test.ts" \
     --timeout 30000
 
 POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \

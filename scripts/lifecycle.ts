@@ -630,8 +630,7 @@ async function provisionDatabase() {
       environment.checkoutPath,
       "packages",
       "db",
-      "src",
-      "lifecycle",
+      "scripts",
       "provision-managed-database.ts",
     );
     const { provisionManagedDatabase } = await import(

@@ -6,7 +6,7 @@ Run the migration and repository integration suite from the repository root:
 bun run test:db
 ```
 
-By default the command starts a digest-pinned disposable PostgreSQL 18 container
+By default the command starts a digest-pinned disposable PostgreSQL 17 container
 with a generated test-only password and a random host port. The test creates a
 uniquely named database, applies every migration under
 `packages/db/src/migrations/`, exercises a write and read through the exported
@@ -14,6 +14,8 @@ database seam used by callers, verifies the unique-email constraint, drops the
 database, and removes the container. It does not read `apps/server/.env`, use the
 development database, or access Vault content. Repeated and parallel runs use
 separate containers and database names.
+PostgreSQL 17 is pinned because the current Drizzle Kit release reports false
+composite-primary-key drift when introspecting PostgreSQL 18.
 
 Docker must be installed and the daemon must be running. To use an existing
 throwaway PostgreSQL server instead, provide an administrator URL through the

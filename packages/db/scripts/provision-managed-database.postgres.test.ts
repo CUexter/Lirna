@@ -17,7 +17,7 @@ import { provisionManagedDatabase } from "./provision-managed-database";
 
 const adminUrl = process.env.POSTGRES_ADMIN_URL;
 const postgresTest = adminUrl ? test : test.skip;
-const repositoryRoot = resolve(import.meta.dir, "../../../..");
+const repositoryRoot = resolve(import.meta.dir, "../../..");
 const lifecycleScript = join(repositoryRoot, "scripts", "lifecycle.ts");
 const dbPackage = join(repositoryRoot, "packages", "db");
 
@@ -70,7 +70,9 @@ postgresTest(
     const admin = new Client({ connectionString: adminUrl });
 
     try {
-      await mkdir(join(primary, "packages", "db"), { recursive: true });
+      await mkdir(join(primary, "packages", "db", "scripts"), {
+        recursive: true,
+      });
       await Promise.all([
         cp(
           join(dbPackage, "src", "migrations"),
@@ -78,9 +80,14 @@ postgresTest(
           { recursive: true },
         ),
         cp(
-          join(dbPackage, "src", "lifecycle"),
-          join(primary, "packages", "db", "src", "lifecycle"),
-          { recursive: true },
+          join(dbPackage, "scripts", "provision-managed-database.ts"),
+          join(
+            primary,
+            "packages",
+            "db",
+            "scripts",
+            "provision-managed-database.ts",
+          ),
         ),
         cp(
           join(dbPackage, "package.json"),
