@@ -98,6 +98,11 @@ POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
 
 POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
   bun test \
+    "$root/scripts/lifecycle/concurrent-isolation.postgres.test.ts" \
+    --timeout 120000
+
+POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
+  bun test \
     "$root/packages/api/src/sep-admission/sep-preview-store.postgres.test.ts" \
     "$root/packages/api/src/sep-admission/sep-admission-admit.postgres.test.ts" \
     "$root/packages/api/src/sep-admission/sep-admitted-state-reader.postgres.test.ts" \
