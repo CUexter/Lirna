@@ -43,6 +43,31 @@ Install dependencies from the project root:
 bun install
 ```
 
+### Checkout Lifecycle
+
+Register the primary Git checkout once before creating managed worktrees:
+
+```bash
+bun run lifecycle register
+```
+
+Registration assigns a stable, non-secret UUID to the canonical checkout path.
+Machine-local lifecycle state is stored at
+`$XDG_STATE_HOME/lirna/lifecycle.json`, or
+`~/.local/state/lirna/lifecycle.json` when `XDG_STATE_HOME` is unset. It is
+never written into the checkout.
+
+Inspect the current checkout without changing lifecycle, application, or
+database state:
+
+```bash
+bun run lifecycle diagnose
+```
+
+Diagnosis emits stable JSON fields for the identity, canonical checkout path,
+checkout kind, registration state, issues, and corrective actions. It exits
+nonzero when it finds an inconsistency.
+
 ### Database Setup
 
 Lirna uses PostgreSQL with Drizzle ORM.
@@ -161,6 +186,8 @@ lirna/
 ## Available Scripts
 
 - `bun run dev`: Start all applications in development mode
+- `bun run lifecycle register`: Idempotently register the primary checkout
+- `bun run lifecycle diagnose`: Read the current checkout lifecycle state
 - `bun run build`: Build all applications
 - `bun run dev:web`: Start only the web application
 - `bun run dev:server`: Start only the server

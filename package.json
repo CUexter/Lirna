@@ -36,6 +36,7 @@
   },
   "scripts": {
     "dev": "bun run --filter '*' --parallel dev",
+    "lifecycle": "bun scripts/lifecycle.mjs",
     "build": "bun run --filter '*' build",
     "check-types": "bun run --filter '*' check-types",
     "test": "bun test --isolate --preload ./happydom.ts",
