@@ -4,7 +4,8 @@
   "workspaces": {
     "packages": [
       "apps/*",
-      "packages/*"
+      "packages/*",
+      "scripts/lifecycle"
     ],
     "catalog": {
       "dotenv": "^17.4.2",

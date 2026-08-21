@@ -199,6 +199,16 @@
         "typescript": "catalog:",
       },
     },
+    "scripts/lifecycle": {
+      "name": "@lirna/lifecycle-tooling",
+      "dependencies": {
+        "drizzle-orm": "^0.45.2",
+        "pg": "^8.22.0",
+      },
+      "devDependencies": {
+        "@types/pg": "^8.20.0",
+      },
+    },
   },
   "catalog": {
     "@orpc/client": "2.0.0-beta.28",
@@ -751,6 +761,8 @@
     "@lirna/db": ["@lirna/db@workspace:packages/db"],
 
     "@lirna/env": ["@lirna/env@workspace:packages/env"],
+
+    "@lirna/lifecycle-tooling": ["@lirna/lifecycle-tooling@workspace:scripts/lifecycle"],
 
     "@lirna/ui": ["@lirna/ui@workspace:packages/ui"],
 

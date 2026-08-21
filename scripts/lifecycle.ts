@@ -628,10 +628,9 @@ async function provisionDatabase() {
   try {
     const provisionerPath = join(
       environment.checkoutPath,
-      "packages",
-      "db",
       "scripts",
-      "provision-managed-database.ts",
+      "lifecycle",
+      "database.ts",
     );
     const { provisionManagedDatabase } = await import(
       pathToFileURL(provisionerPath).href

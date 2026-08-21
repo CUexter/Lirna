@@ -93,7 +93,7 @@ POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
 
 POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
   bun test \
-    "$db_dir/scripts/provision-managed-database.postgres.test.ts" \
+    "$root/scripts/lifecycle/database.postgres.test.ts" \
     --timeout 30000
 
 POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
