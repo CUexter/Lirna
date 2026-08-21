@@ -33,13 +33,14 @@ async function sandbox() {
 
 async function runLifecycle(
   command,
-  { checkoutPath, dockerBin, dockerLog, stateHome },
+  { checkoutPath, dockerBin, dockerLog, runtimeLog, stateHome },
 ) {
   const child = Bun.spawn(command, {
     cwd: checkoutPath,
     env: {
       ...process.env,
       LIRNA_DOCKER_LOG: dockerLog,
+      LIRNA_RUNTIME_LOG: runtimeLog,
       PATH: dockerBin ? `${dockerBin}:${process.env.PATH}` : process.env.PATH,
       XDG_STATE_HOME: stateHome,
     },
@@ -55,7 +56,7 @@ async function runLifecycle(
 }
 
 async function lifecycle(context, ...args) {
-  return runLifecycle(["bun", lifecycleScript, ...args], context);
+  return runLifecycle([process.execPath, lifecycleScript, ...args], context);
 }
 
 async function publicLifecycle(context, ...args) {
@@ -128,6 +129,34 @@ if (args.includes("ps"))
     { mode: 0o755 },
   );
   return { ...context, dockerBin, dockerLog };
+}
+
+async function runtimeBun(context) {
+  const dockerBin = join(context.checkoutPath, "bin");
+  const runtimeLog = join(context.checkoutPath, "runtime.log");
+  await mkdir(dockerBin);
+  await writeFile(
+    join(dockerBin, "bun"),
+    `#!${process.execPath}
+import { appendFile } from "node:fs/promises";
+
+await appendFile(
+  process.env.LIRNA_RUNTIME_LOG,
+  JSON.stringify({
+    args: process.argv.slice(2),
+    environment: {
+      BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
+      CORS_ORIGIN: process.env.CORS_ORIGIN,
+      PORT: process.env.PORT,
+      SERVER_URL: process.env.SERVER_URL,
+      VITE_SERVER_URL: process.env.VITE_SERVER_URL,
+    },
+  }) + "\\n",
+);
+`,
+    { mode: 0o755 },
+  );
+  return { ...context, dockerBin, runtimeLog };
 }
 
 afterEach(async () => {
@@ -406,6 +435,116 @@ test("creates a managed task worktree with an allocated environment", async () =
       2,
     )}\n`,
   });
+});
+
+test("runs each managed service with its generated environment and allocated port", async () => {
+  const primary = await runtimeBun(await sandbox());
+  expect((await lifecycle(primary, "register")).exitCode).toBe(0);
+  const first = await linkedWorktree(primary);
+  const secondPath = join(primary.checkoutPath, "..", "linked-two");
+  const addSecond = Bun.spawn(
+    [
+      "git",
+      "-C",
+      primary.checkoutPath,
+      "worktree",
+      "add",
+      "--quiet",
+      "--detach",
+      secondPath,
+    ],
+    { stderr: "pipe" },
+  );
+  expect(await addSecond.exited).toBe(0);
+  const second = { ...primary, checkoutPath: secondPath };
+  const firstEnvironment = JSON.parse(
+    (
+      await lifecycle(
+        primary,
+        "allocate",
+        first.checkoutPath,
+        "--tool",
+        "studio",
+      )
+    ).stdout,
+  );
+  const secondEnvironment = JSON.parse(
+    (
+      await lifecycle(
+        primary,
+        "allocate",
+        second.checkoutPath,
+        "--tool",
+        "studio",
+      )
+    ).stdout,
+  );
+
+  for (const context of [first, second]) {
+    expect((await lifecycle(context, "run", "server")).exitCode).toBe(0);
+    expect((await lifecycle(context, "run", "web")).exitCode).toBe(0);
+    expect((await lifecycle(context, "run", "studio")).exitCode).toBe(0);
+  }
+
+  const expected = [firstEnvironment, secondEnvironment].flatMap(
+    (environment) => {
+      const serverUrl = environment.urls.server;
+      const webUrl = environment.urls.web;
+      const baseEnvironment = {
+        BETTER_AUTH_URL: serverUrl,
+        CORS_ORIGIN: webUrl,
+        SERVER_URL: serverUrl,
+        VITE_SERVER_URL: serverUrl,
+      };
+      return [
+        {
+          args: ["--hot", "apps/server/src/index.ts"],
+          environment: {
+            ...baseEnvironment,
+            PORT: String(environment.ports.server),
+          },
+        },
+        {
+          args: [
+            "x",
+            "vite",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            String(environment.ports.web),
+            "--strictPort",
+          ],
+          environment: {
+            ...baseEnvironment,
+            PORT: String(environment.ports.web),
+          },
+        },
+        {
+          args: [
+            "run",
+            "--cwd",
+            "packages/db",
+            "db:studio",
+            "--",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            String(environment.ports.tools.studio),
+          ],
+          environment: {
+            ...baseEnvironment,
+            PORT: String(environment.ports.tools.studio),
+          },
+        },
+      ];
+    },
+  );
+  expect(
+    (await readFile(primary.runtimeLog, "utf8"))
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line)),
+  ).toEqual(expected);
 });
 
 test("refuses an existing task branch, path, or lifecycle registration", async () => {

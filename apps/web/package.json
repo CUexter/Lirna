@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "bun ../../scripts/lifecycle.ts run web",
     "build": "vite build && bun ../../scripts/check-web-bundle.ts",
     "serve": "vite preview",
     "start": "vite",

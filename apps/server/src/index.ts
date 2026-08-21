@@ -149,4 +149,12 @@ export function createApp(
 
 export const app = createApp();
 
+if (import.meta.main) {
+  Bun.serve({
+    fetch: app.fetch,
+    hostname: "127.0.0.1",
+    port: Number(process.env.PORT ?? 3000),
+  });
+}
+
 export default app;

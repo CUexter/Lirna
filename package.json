@@ -79,7 +79,7 @@
     "dev:web": "bun run --filter web dev",
     "dev:server": "bun run --filter server dev",
     "db:push": "bun run --filter @lirna/db db:push",
-    "db:studio": "bun run --filter @lirna/db db:studio",
+    "db:studio": "bun run lifecycle run studio",
     "db:generate": "bun run --filter @lirna/db db:generate",
     "db:migrate": "bun run --filter @lirna/db db:migrate",
     "db:start": "docker compose up -d postgres",

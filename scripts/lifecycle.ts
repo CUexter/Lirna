@@ -26,6 +26,12 @@ const toolNamePattern = /^[a-z][a-z0-9-]*$/;
 const databaseNamePattern = /^lirna_[0-9a-f]{32}$/;
 const databaseEndpoint = "127.0.0.1:5433";
 
+type ManagedEnvironment = {
+  checkoutPath: string;
+  identity: string;
+  ports: { server: number; tools: Record<string, number>; web: number };
+};
+
 function registryPath() {
   const configuredStateHome = process.env.XDG_STATE_HOME;
   if (configuredStateHome && !isAbsolute(configuredStateHome)) {
@@ -371,6 +377,95 @@ async function writeEnvironmentConfig(environment) {
   } finally {
     await unlink(temporaryPath).catch(() => {});
   }
+}
+
+async function runtimeEnvironment() {
+  const checkout = await inspectCheckoutDetails();
+  const path = join(checkout.checkoutPath, ".lirna", "environment.json");
+  let environment: ManagedEnvironment;
+  try {
+    environment = JSON.parse(await readFile(path, "utf8"));
+  } catch {
+    throw new Error(
+      "This checkout has no readable generated lifecycle environment. Run lifecycle registration or allocation from the primary checkout.",
+    );
+  }
+  if (
+    environment.checkoutPath !== checkout.checkoutPath ||
+    !environmentPorts(environment)
+  ) {
+    throw new Error(
+      "This checkout has an invalid generated lifecycle environment.",
+    );
+  }
+
+  const serverUrl = `http://127.0.0.1:${environment.ports.server}`;
+  const webUrl = `http://127.0.0.1:${environment.ports.web}`;
+  const databaseUrl = postgresAdminUrl();
+  databaseUrl.pathname = `/${databaseName(environment.identity)}`;
+  return {
+    checkoutPath: checkout.checkoutPath,
+    environment,
+    values: {
+      BETTER_AUTH_URL: serverUrl,
+      CORS_ORIGIN: webUrl,
+      DATABASE_URL: databaseUrl.toString(),
+      SERVER_URL: serverUrl,
+      VITE_SERVER_URL: serverUrl,
+    },
+  };
+}
+
+async function run(args: string[]) {
+  if (args.length !== 1 || !["server", "web", "studio"].includes(args[0])) {
+    throw new Error("usage: bun run lifecycle run <server|web|studio>");
+  }
+  const { checkoutPath, environment, values } = await runtimeEnvironment();
+  const port =
+    args[0] === "server"
+      ? environment.ports.server
+      : args[0] === "web"
+        ? environment.ports.web
+        : environment.ports.tools.studio;
+  if (!port) {
+    throw new Error(
+      "The generated lifecycle environment has no allocated studio port. Allocate one from the primary checkout with `bun run lifecycle allocate <checkout-path> --tool studio`.",
+    );
+  }
+  const command =
+    args[0] === "server"
+      ? ["bun", "--hot", "apps/server/src/index.ts"]
+      : args[0] === "web"
+        ? [
+            "bun",
+            "x",
+            "vite",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            String(port),
+            "--strictPort",
+          ]
+        : [
+            "bun",
+            "run",
+            "--cwd",
+            "packages/db",
+            "db:studio",
+            "--",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            String(port),
+          ];
+  const child = Bun.spawn(command, {
+    cwd: checkoutPath,
+    env: { ...process.env, ...values, PORT: String(port) },
+    stderr: "inherit",
+    stdin: "inherit",
+    stdout: "inherit",
+  });
+  process.exitCode = await child.exited;
 }
 
 async function register() {
@@ -790,12 +885,16 @@ async function main() {
     await register();
     return;
   }
+  if (command === "run") {
+    await run(args);
+    return;
+  }
   if (command === "database") {
     await database(args);
     return;
   }
   throw new Error(
-    "usage: bun run lifecycle <register|create|diagnose|allocate|database>",
+    "usage: bun run lifecycle <register|create|diagnose|allocate|run|database>",
   );
 }
 

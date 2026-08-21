@@ -123,6 +123,25 @@ The command accepts no database name or checkout path. Repeating it converges
 on the same database and migration state without migrating the administrative
 database or databases assigned to other worktrees.
 
+Run application services through the lifecycle command. It reads the generated
+environment, binds the allocated loopback ports, and passes the matching server
+URL, Better Auth URL, CORS origin, browser API URL, and database URL to the
+process. Vite uses `--strictPort`, so a port collision fails rather than moving
+to another port:
+
+```bash
+bun run dev:server
+bun run dev:web
+```
+
+After reserving the optional `studio` tool port, start Drizzle Studio on its
+allocated loopback endpoint:
+
+```bash
+bun run lifecycle allocate ../lirna-task --tool studio
+bun run db:studio
+```
+
 ### Database Setup
 
 Lirna uses PostgreSQL with Drizzle ORM.
