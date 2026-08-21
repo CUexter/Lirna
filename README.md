@@ -62,9 +62,19 @@ their non-secret environment details to the ignored
 `.lirna/environment.json` file. Re-running registration preserves the identity
 and allocation and safely regenerates that file.
 
-From the registered primary checkout, reserve an environment for an existing
-linked worktree. Repeat `--tool` for each exposed development tool that needs a
-port:
+From the registered primary checkout, create a managed task worktree in the
+primary checkout's parent directory. The task branch name becomes both the
+branch and sibling directory name:
+
+```bash
+bun run lifecycle create task-branch
+```
+
+Creation refuses an existing branch, directory, or lifecycle registration. It
+also allocates the worktree's environment and writes its generated configuration.
+
+To reserve an environment for an existing linked worktree, repeat `--tool` for
+each exposed development tool that needs a port:
 
 ```bash
 bun run lifecycle allocate ../lirna-task --tool studio
@@ -232,6 +242,7 @@ lirna/
 
 - `bun run dev`: Start all applications in development mode
 - `bun run lifecycle register`: Idempotently register the primary checkout
+- `bun run lifecycle create <task-branch>`: Create and allocate a managed sibling worktree
 - `bun run lifecycle allocate <path> [--tool <name>]`: Allocate a linked-worktree environment
 - `bun run lifecycle diagnose`: Read the current checkout lifecycle state
 - `bun run lifecycle database start`: Idempotently start shared local PostgreSQL

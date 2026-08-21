@@ -360,6 +360,101 @@ test("atomically allocates distinct environments and regenerates config idempote
   expect(await readFile(configPath, "utf8")).toBe(originalConfig);
 });
 
+test("creates a managed task worktree with an allocated environment", async () => {
+  const primary = await sandbox();
+  expect((await lifecycle(primary, "register")).exitCode).toBe(0);
+  await linkedWorktree(primary);
+
+  const created = await lifecycle(primary, "create", "task-branch");
+  const checkoutPath = join(primary.checkoutPath, "..", "task-branch");
+
+  expect(created.exitCode).toBe(0);
+  expect(created.stderr).toBe("");
+  const environment = JSON.parse(created.stdout);
+  const identity = environment.identity;
+  expect(environment).toMatchObject({
+    checkoutPath,
+    databaseName: expect.stringMatching(/^lirna_[0-9a-f]{32}$/),
+    identity: expect.stringMatching(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    ),
+    ports: { server: expect.any(Number), tools: {}, web: expect.any(Number) },
+  });
+  const branch = Bun.spawn(
+    ["git", "-C", primary.checkoutPath, "rev-parse", "--verify", "task-branch"],
+    { stderr: "pipe" },
+  );
+  expect(await branch.exited).toBe(0);
+  expect(
+    JSON.parse(
+      await readFile(join(checkoutPath, ".lirna", "environment.json"), "utf8"),
+    ),
+  ).toEqual(environment);
+  expect(await lifecycle({ ...primary, checkoutPath }, "diagnose")).toEqual({
+    exitCode: 0,
+    stderr: "",
+    stdout: `${JSON.stringify(
+      {
+        actions: [],
+        checkoutKind: "linked-worktree",
+        checkoutPath,
+        identity,
+        issues: [],
+        registrationState: "registered",
+      },
+      null,
+      2,
+    )}\n`,
+  });
+});
+
+test("refuses an existing task branch, path, or lifecycle registration", async () => {
+  const primary = await sandbox();
+  const registration = await lifecycle(primary, "register");
+  await linkedWorktree(primary);
+  const primaryEnvironment = JSON.parse(
+    await readFile(join(primary.stateHome, "lirna", "lifecycle.json"), "utf8"),
+  );
+  const existingBranch = Bun.spawn(
+    ["git", "-C", primary.checkoutPath, "branch", "already-exists"],
+    { stderr: "pipe" },
+  );
+  expect(await existingBranch.exited).toBe(0);
+
+  expect(await lifecycle(primary, "create", "already-exists")).toEqual({
+    exitCode: 1,
+    stderr: "The branch already-exists already exists.\n",
+    stdout: "",
+  });
+
+  const existingPath = join(primary.checkoutPath, "..", "already-there");
+  await mkdir(existingPath);
+  expect(await lifecycle(primary, "create", "already-there")).toEqual({
+    exitCode: 1,
+    stderr: `A path already exists at ${existingPath}.\n`,
+    stdout: "",
+  });
+
+  const registeredPath = join(primary.checkoutPath, "..", "already-registered");
+  primaryEnvironment.environments.push({
+    checkoutPath: registeredPath,
+    identity: "12345678-1234-4123-8123-123456789abc",
+    ports: { server: 3002, tools: {}, web: 3003 },
+  });
+  await writeFile(
+    join(primary.stateHome, "lirna", "lifecycle.json"),
+    `${JSON.stringify(primaryEnvironment, null, 2)}\n`,
+  );
+  expect(await lifecycle(primary, "create", "already-registered")).toEqual({
+    exitCode: 1,
+    stderr: `A lifecycle environment is already registered at ${registeredPath}.\n`,
+    stdout: "",
+  });
+  expect(JSON.parse(registration.stdout).identity).toBe(
+    primaryEnvironment.primary.identity,
+  );
+});
+
 test("upgrades version 1 registration without changing its identity", async () => {
   const context = await sandbox();
   const path = join(context.stateHome, "lirna", "lifecycle.json");

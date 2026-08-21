@@ -2,6 +2,7 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import {
+  access,
   mkdir,
   mkdtemp,
   readFile,
@@ -174,11 +175,14 @@ function invalidDiagnosisReport(checkout, registryFilePath) {
 }
 
 function diagnosisReport(checkout, registry) {
-  if (registry?.primary.checkoutPath === checkout.checkoutPath) {
+  const environment = registry?.environments?.find(
+    (environment) => environment.checkoutPath === checkout.checkoutPath,
+  );
+  if (environment) {
     return {
       actions: [],
       ...checkout,
-      identity: registry.primary.identity,
+      identity: environment.identity,
       issues: [],
       registrationState: "registered",
     };
@@ -434,6 +438,98 @@ function allocationArguments(args: string[]) {
   return { checkoutPath, tools: [...new Set(tools)].sort() };
 }
 
+async function createArguments(args: string[]) {
+  if (args.length !== 1) {
+    throw new Error("usage: bun run lifecycle create <task-branch>");
+  }
+  const [branch] = args;
+  if (branch.includes("/")) {
+    throw new Error("Task branch names cannot contain path separators.");
+  }
+  try {
+    await exec("git", ["check-ref-format", "--branch", branch]);
+  } catch {
+    throw new Error("Task branch name is not valid for Git.");
+  }
+  return branch;
+}
+
+async function pathExists(path) {
+  try {
+    await access(path);
+    return true;
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  }
+}
+
+async function branchExists(checkoutPath, branch) {
+  try {
+    await exec("git", [
+      "-C",
+      checkoutPath,
+      "show-ref",
+      "--verify",
+      "--quiet",
+      `refs/heads/${branch}`,
+    ]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function create(args) {
+  const branch = await createArguments(args);
+  const caller = await inspectCheckoutDetails();
+  if (caller.checkoutKind !== "primary") {
+    throw new Error("Only the primary checkout can create managed worktrees.");
+  }
+  const checkoutPath = join(dirname(caller.checkoutPath), branch);
+  const registryFilePath = registryPath();
+  const environment = await withRegistryLock(
+    registryFilePath,
+    async (registry) => {
+      assertPrimaryOwnership(registry, caller.checkoutPath);
+      upgradeRegistry(registry);
+      if (
+        registry.environments.some(
+          (environment) => environment.checkoutPath === checkoutPath,
+        )
+      ) {
+        throw new Error(
+          `A lifecycle environment is already registered at ${checkoutPath}.`,
+        );
+      }
+      if (await pathExists(checkoutPath)) {
+        throw new Error(`A path already exists at ${checkoutPath}.`);
+      }
+      if (await branchExists(caller.checkoutPath, branch)) {
+        throw new Error(`The branch ${branch} already exists.`);
+      }
+
+      await exec("git", [
+        "-C",
+        caller.checkoutPath,
+        "worktree",
+        "add",
+        "--quiet",
+        "-b",
+        branch,
+        checkoutPath,
+      ]);
+      const environment = addEnvironment(registry, checkoutPath);
+      await writeRegistry(registryFilePath, registry);
+      return environment;
+    },
+  );
+  await writeEnvironmentConfig(environment);
+  process.stdout.write(
+    `${JSON.stringify(environmentReport(environment), null, 2)}\n`,
+  );
+}
+
 async function allocate(args) {
   const requested = allocationArguments(args);
   const [caller, target] = await Promise.all([
@@ -682,6 +778,10 @@ async function main() {
     await allocate(args);
     return;
   }
+  if (command === "create") {
+    await create(args);
+    return;
+  }
   if (command === "diagnose") {
     await diagnose();
     return;
@@ -695,7 +795,7 @@ async function main() {
     return;
   }
   throw new Error(
-    "usage: bun run lifecycle <register|diagnose|allocate|database>",
+    "usage: bun run lifecycle <register|create|diagnose|allocate|database>",
   );
 }
 
