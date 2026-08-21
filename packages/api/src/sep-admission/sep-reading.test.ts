@@ -298,4 +298,15 @@ describe("SEP Reading derivative", () => {
       }),
     ]);
   });
+
+  test("omits standalone images whose assets were not retained", () => {
+    const result = derivative(
+      '<main><p>Reading content.</p><img src="icons/sep-man.png" alt="SEP man icon"></main>',
+    );
+
+    expect(result.components[0]?.figures).toEqual([]);
+    expect(result.capture.diagnostics).not.toContainEqual(
+      expect.objectContaining({ code: "missing-semantic-asset" }),
+    );
+  });
 });

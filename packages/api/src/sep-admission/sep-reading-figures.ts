@@ -53,9 +53,9 @@ export function extractFigures({
         element.tagName === "figure" ||
         !ancestorsContain(root, element, "figure"),
     )
-    .map((element) => {
+    .flatMap((element) => {
       count += 1;
-      return createFigure({
+      const figure = createFigure({
         element,
         fallbackId: `figure-${count}`,
         resource,
@@ -63,6 +63,7 @@ export function extractFigures({
         ids,
         diagnostics,
       });
+      return figure ? [figure] : [];
     });
 }
 
@@ -80,15 +81,15 @@ function createFigure({
   resources: FigureResource[];
   ids: Set<string>;
   diagnostics: ReadingDiagnostic[];
-}): ReadingFigure {
+}): ReadingFigure | undefined {
   const image = figureImage(element);
   const asset =
     image && resourceForAttribute(image, "src", resource, resources);
+  if (element.tagName === "img" && !asset) return undefined;
   const descriptionResource =
     image && resourceForAttribute(image, "longdesc", resource, resources);
   const figureDiagnostics = missingFigureDiagnostics({
     image,
-    asset,
     descriptionResource,
     resource,
   });
@@ -149,27 +150,15 @@ function figureCaption(element: HtmlElement, context: InlineContext) {
 
 function missingFigureDiagnostics({
   image,
-  asset,
   descriptionResource,
   resource,
 }: {
   image: HtmlElement | undefined;
-  asset: FigureResource | undefined;
   descriptionResource: FigureResource | undefined;
   resource: FigureResource;
 }) {
   if (!image) return [];
   const diagnostics: ReadingDiagnostic[] = [];
-  if (attribute(image, "src") && !asset) {
-    diagnostics.push(
-      diagnostic(
-        resource.identity,
-        image,
-        "missing-semantic-asset",
-        "The semantic figure asset was not retained in this Source state.",
-      ),
-    );
-  }
   if (attribute(image, "longdesc") && !descriptionResource) {
     diagnostics.push(
       diagnostic(
