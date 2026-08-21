@@ -1,13 +1,17 @@
 import { db } from "@lirna/db";
-import { sepSourceStateMetadata } from "@lirna/db/schema/sep-admission";
 import {
+  sepAdmissionPreviews,
+  sepSourceStateMetadata,
+} from "@lirna/db/schema/sep-admission";
+import {
+  sourceRelations,
   sourceStateDerivativeActivations,
   sourceStateDerivatives,
   sourceStateResources,
   sourceStates,
   sources,
 } from "@lirna/db/schema/sources";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
 import {
   parseStringList,
   sepObservationKeySchema,
@@ -54,6 +58,79 @@ export function createSepAdmittedStateReader(
         grouped.set(row.source.id, source);
       }
       return [...grouped.values()];
+    },
+
+    async deleteSource(sourceId: string): Promise<boolean> {
+      return database.transaction(async (tx) => {
+        const existing = await tx
+          .select({ id: sources.id })
+          .from(sources)
+          .where(eq(sources.id, sourceId))
+          .limit(1);
+        if (existing.length === 0) return false;
+
+        await tx
+          .update(sepAdmissionPreviews)
+          .set({ replacesSourceId: null })
+          .where(eq(sepAdmissionPreviews.replacesSourceId, sourceId));
+        await tx
+          .delete(sourceRelations)
+          .where(
+            or(
+              eq(sourceRelations.sourceId, sourceId),
+              eq(sourceRelations.relatedSourceId, sourceId),
+            ),
+          );
+        await tx
+          .delete(sourceStateDerivativeActivations)
+          .where(
+            inArray(
+              sourceStateDerivativeActivations.sourceStateId,
+              tx
+                .select({ id: sourceStates.id })
+                .from(sourceStates)
+                .where(eq(sourceStates.sourceId, sourceId)),
+            ),
+          );
+        await tx
+          .delete(sourceStateDerivatives)
+          .where(
+            inArray(
+              sourceStateDerivatives.sourceStateId,
+              tx
+                .select({ id: sourceStates.id })
+                .from(sourceStates)
+                .where(eq(sourceStates.sourceId, sourceId)),
+            ),
+          );
+        await tx
+          .delete(sepSourceStateMetadata)
+          .where(
+            inArray(
+              sepSourceStateMetadata.sourceStateId,
+              tx
+                .select({ id: sourceStates.id })
+                .from(sourceStates)
+                .where(eq(sourceStates.sourceId, sourceId)),
+            ),
+          );
+        await tx
+          .delete(sourceStateResources)
+          .where(
+            inArray(
+              sourceStateResources.sourceStateId,
+              tx
+                .select({ id: sourceStates.id })
+                .from(sourceStates)
+                .where(eq(sourceStates.sourceId, sourceId)),
+            ),
+          );
+        await tx
+          .delete(sourceStates)
+          .where(eq(sourceStates.sourceId, sourceId));
+        await tx.delete(sources).where(eq(sources.id, sourceId));
+        return true;
+      });
     },
 
     async getState(

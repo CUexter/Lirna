@@ -46,6 +46,9 @@ export function admittedSourceStatesStub(
     async listSources() {
       return [];
     },
+    async deleteSource() {
+      return false;
+    },
     async getState() {
       return undefined;
     },

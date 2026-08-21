@@ -37,6 +37,7 @@ export interface SepLibrarySource {
 
 export interface SepAdmittedStateOperations {
   listSources(): Promise<SepLibrarySource[]>;
+  deleteSource(sourceId: string): Promise<boolean>;
   getState(
     sourceId: string,
     stateId: string,

@@ -26,6 +26,15 @@ const sepLibrarySourceSchema = z.object({
   ),
 });
 const notFoundError = { NOT_FOUND: {} };
+const readingPosition = z.object({
+  sourceId: z.string().uuid(),
+  stateId: z.string().uuid(),
+  sourceTitle: z.string(),
+  componentIdentity: z.string(),
+  componentLabel: z.string(),
+  scrollTop: z.number().int().nonnegative(),
+  savedAt: z.string().datetime(),
+});
 
 export const sourcesRouter = {
   list: publicProcedure
@@ -41,6 +50,27 @@ export const sourcesRouter = {
       }),
     )
     .handler(({ context }) => context.admittedSourceStates.listSources()),
+
+  delete: publicProcedure
+    .input(z.object({ sourceId: z.string().uuid() }))
+    .output(z.boolean())
+    .errors(notFoundError)
+    .meta(
+      openapi({
+        method: "DELETE",
+        path: "/sources",
+        operationId: "sources.delete",
+        summary: "Delete an admitted Source",
+        tags: ["Sources"],
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      const deleted = await context.admittedSourceStates.deleteSource(
+        input.sourceId,
+      );
+      if (!deleted) throw notFound("SEP Source is unavailable");
+      return deleted;
+    }),
 
   state: publicProcedure
     .input(sourceStateInput)
@@ -85,6 +115,48 @@ export const sourcesRouter = {
       if (!reading) throw notFound("SEP Reading Derivative is unavailable");
       return reading;
     }),
+
+  resume: {
+    get: publicProcedure
+      .input(z.object({}))
+      .output(readingPosition.nullable())
+      .meta(
+        openapi({
+          method: "GET",
+          path: "/sources/resume",
+          operationId: "sources.resume.get",
+          summary: "Get the latest reading position",
+          tags: ["Sources"],
+        }),
+      )
+      .handler(
+        async ({ context }) => (await context.readingPositions.get()) ?? null,
+      ),
+    save: publicProcedure
+      .input(
+        sourceStateInput.extend({
+          componentIdentity: z.string().trim().min(1).max(2_000),
+          componentLabel: z.string().trim().min(1).max(2_000),
+          scrollTop: z.number().int().nonnegative(),
+        }),
+      )
+      .output(readingPosition)
+      .errors(notFoundError)
+      .meta(
+        openapi({
+          method: "PUT",
+          path: "/sources/resume",
+          operationId: "sources.resume.save",
+          summary: "Save the latest reading position",
+          tags: ["Sources"],
+        }),
+      )
+      .handler(async ({ context, input }) => {
+        const position = await context.readingPositions.save(input);
+        if (!position) throw notFound("SEP Source state is unavailable");
+        return position;
+      }),
+  },
   assistant: {
     ask: publicProcedure
       .input(
