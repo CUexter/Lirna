@@ -32,11 +32,11 @@
   },
   "type": "module",
   "imports": {
-    "#path-safety": "./scripts/path-safety.mjs"
+    "#path-safety": "./scripts/path-safety.ts"
   },
   "scripts": {
     "dev": "bun run --filter '*' --parallel dev",
-    "lifecycle": "bun scripts/lifecycle.mjs",
+    "lifecycle": "bun scripts/lifecycle.ts",
     "build": "bun run --filter '*' build",
     "check-types": "bun run --filter '*' check-types",
     "test": "bun test --isolate --preload ./happydom.ts",

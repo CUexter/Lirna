@@ -84,6 +84,24 @@ Diagnosis emits stable JSON fields for the identity, canonical checkout path,
 checkout kind, registration state, issues, and corrective actions. It exits
 nonzero when it finds an inconsistency.
 
+Start the one shared local PostgreSQL service from any registered development
+worktree. The command always uses the registered primary checkout's Compose
+project, waits for PostgreSQL to become healthy, and is safe to run repeatedly:
+
+```bash
+bun run lifecycle database start
+```
+
+Inspect the shared service without changing it:
+
+```bash
+bun run lifecycle database diagnose
+```
+
+Database diagnosis emits only the stable `127.0.0.1:5433` endpoint, registered
+primary path, and reachable or unreachable state. It never reads or prints
+database credentials and exits nonzero while the service is unreachable.
+
 ### Database Setup
 
 Lirna uses PostgreSQL with Drizzle ORM.
@@ -205,6 +223,8 @@ lirna/
 - `bun run lifecycle register`: Idempotently register the primary checkout
 - `bun run lifecycle allocate <path> [--tool <name>]`: Allocate a linked-worktree environment
 - `bun run lifecycle diagnose`: Read the current checkout lifecycle state
+- `bun run lifecycle database start`: Idempotently start shared local PostgreSQL
+- `bun run lifecycle database diagnose`: Read shared PostgreSQL reachability without credentials
 - `bun run build`: Build all applications
 - `bun run dev:web`: Start only the web application
 - `bun run dev:server`: Start only the server
