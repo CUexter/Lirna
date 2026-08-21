@@ -57,6 +57,9 @@ export async function insertPreview(
     id = randomUUID(),
     stableKey,
     title = admissionPreviewDefaults.title,
+    authors = admissionPreviewDefaults.authors,
+    publisher = admissionPreviewDefaults.publisher,
+    publicationHistory = admissionPreviewDefaults.publicationHistory,
     observations,
     bodies,
     citationBody = Buffer.from("citation"),
@@ -66,6 +69,9 @@ export async function insertPreview(
     id?: string;
     stableKey: string;
     title?: string;
+    authors?: readonly string[];
+    publisher?: string;
+    publicationHistory?: readonly string[];
     observations: AdmissionObservationKey[];
     bodies?: Partial<Record<AdmissionObservationKey, Buffer>>;
     citationBody?: Buffer;
@@ -79,6 +85,9 @@ export async function insertPreview(
     submittedUrl: admissionPreviewDefaults.submittedUrl,
     recommendedArchiveUrl: recommendedArchiveUrl(observations) ?? null,
     ...previewRowFields({ title, now }),
+    authors: [...authors],
+    publisher,
+    publicationHistory: [...publicationHistory],
   });
   await database.insert(sepPreviewResources).values(
     previewResourcesForObservations({

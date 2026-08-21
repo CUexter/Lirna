@@ -131,11 +131,13 @@ export interface BuildReadingDerivativeInput {
   };
   main: AdmissionReadingResource;
   resources: AdmissionReadingResource[];
-  preview: {
+  metadata: {
     title: string;
-    authors: unknown;
+    authors: string[];
     publisher: string;
-    publicationHistory: unknown;
+    publicationHistory: string[];
+  };
+  preview: {
     captureDiagnostics: unknown;
     diagnostics: unknown;
   };
@@ -155,6 +157,7 @@ export function buildReadingDerivative({
   state,
   main,
   resources,
+  metadata,
   preview,
 }: BuildReadingDerivativeInput): AdmissionReadingDerivativeRecord {
   const capture = buildReadingCaptureReport(preview);
@@ -167,10 +170,10 @@ export function buildReadingDerivative({
       source: {
         id: source.id,
         stateId: state.id,
-        title: preview.title,
-        authors: parseStringList(preview.authors),
-        publisher: preview.publisher,
-        publicationHistory: parseStringList(preview.publicationHistory),
+        title: metadata.title,
+        authors: metadata.authors,
+        publisher: metadata.publisher,
+        publicationHistory: metadata.publicationHistory,
         canonicalUrl: main.requestedUrl,
         observation: sepObservationKeySchema.parse(state.observationKey),
         admittedAt: state.admittedAt.toISOString(),

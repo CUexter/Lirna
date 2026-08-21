@@ -8,7 +8,10 @@ import {
 } from "@lirna/db/schema/sources";
 import { asc, eq } from "drizzle-orm";
 
-import { readingIntegrationHtml } from "./fixtures/admission-preview";
+import {
+  observationHtml,
+  readingIntegrationHtml,
+} from "./fixtures/admission-preview";
 import {
   hash,
   insertPreview,
@@ -79,6 +82,66 @@ describePostgres("SEP Admission PostgreSQL store", () => {
         .where(eq(sourceStateResources.sourceStateId, stateId ?? ""))
         .execute(),
     ).rejects.toMatchObject({ cause: { code: "P0001" } });
+  });
+
+  test("keeps active and archived observation metadata and resources distinct", async () => {
+    const previewId = randomUUID();
+    const activeBody = Buffer.from(
+      observationHtml({
+        title: "Active title",
+        author: "Active Author",
+        publisher: "Active Publisher",
+        issued: "2025-01-02",
+        modified: "2026-03-04",
+      }),
+    );
+    const archiveBody = Buffer.from(
+      observationHtml({
+        title: "Archived title",
+        author: "Archive Author",
+        publisher: "Archive Publisher",
+        issued: "2001-05-06",
+        modified: "2010-07-08",
+      }),
+    );
+    await insertPreview(database, {
+      id: previewId,
+      stableKey: `sep:metadata-${previewId}`,
+      title: "Active title",
+      authors: ["Active Author"],
+      publisher: "Active Publisher",
+      publicationHistory: ["First published 2025", "Revised 2026"],
+      observations: ["submitted", "recommended-archive"],
+      bodies: { submitted: activeBody, "recommended-archive": archiveBody },
+    });
+
+    const admitted = await store.admit(
+      previewId,
+      ["submitted", "recommended-archive"],
+      new Date(),
+    );
+
+    expect(admitted?.states).toMatchObject([
+      {
+        observationKey: "submitted",
+        title: "Active title",
+        authors: ["Active Author"],
+        publisher: "Active Publisher",
+        publicationHistory: ["First published 2025", "Revised 2026"],
+        resources: [{ role: "citation-information" }, { role: "main" }],
+      },
+      {
+        observationKey: "recommended-archive",
+        title: "Archived title",
+        authors: ["Archive Author"],
+        publisher: "Archive Publisher",
+        publicationHistory: [
+          "First published 2001-05-06",
+          "Revised 2010-07-08",
+        ],
+        resources: [{ role: "main" }],
+      },
+    ]);
   });
 
   test("reuses stable Sources and serializes repeated and concurrent admissions", async () => {

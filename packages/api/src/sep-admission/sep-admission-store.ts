@@ -23,13 +23,17 @@ import {
   buildStateRecords,
   parseStringList,
 } from "./sep-admission-builders";
-import type { SepAdmittedState } from "./sep-admitted-state";
+import type {
+  SepAdmittedState,
+  SepAdmittedStateOperations,
+} from "./sep-admitted-state";
 import { createSepAdmittedStateReader } from "./sep-admitted-state-reader";
 import {
   createSepCaptureClient,
   SepAdmissionError,
   type SepObservationKey,
 } from "./sep-capture";
+import { decodeCapturedHtml, parseEntryMetadata } from "./sep-html";
 import {
   createSepPreviewStore,
   selectLivePreviewForUpdate,
@@ -37,12 +41,13 @@ import {
 
 export function createDrizzleSepAdmissionStore(
   database: typeof db = db,
-): SepAdmissionStore {
+): SepAdmissionStore & SepAdmittedStateOperations {
   const preview = createSepPreviewStore(database);
   const reader = createSepAdmittedStateReader(database);
 
   return {
     ...preview,
+    ...reader,
     async admit(
       id: string,
       observationKeys: SepObservationKey[],
@@ -135,23 +140,44 @@ export function createDrizzleSepAdmissionStore(
           now,
         });
         await tx.insert(sourceStates).values(stateRecords);
-        const authors = parseStringList(locked.authors);
-        const publicationHistory = parseStringList(locked.publicationHistory);
+        const submittedMetadata = {
+          title: locked.title,
+          authors: parseStringList(locked.authors),
+          publisher: locked.publisher,
+          publicationHistory: parseStringList(locked.publicationHistory),
+        };
+        const stateResources = stateRecords.map((state) => {
+          const resources = resourcesForState(
+            previewResources,
+            state.observationKey,
+          );
+          const main = resources.find((resource) => resource.role === "main");
+          if (!main)
+            throw new Error("Selected observation lost its main resource");
+          return {
+            state,
+            resources,
+            main,
+            metadata:
+              state.observationKey === "submitted"
+                ? submittedMetadata
+                : parseEntryMetadata(
+                    decodeCapturedHtml(
+                      main.body,
+                      main.charset ?? undefined,
+                      main.role,
+                    ),
+                  ),
+          };
+        });
         await tx.insert(sepSourceStateMetadata).values(
-          stateRecords.map((state) => ({
+          stateResources.map(({ state, metadata }) => ({
             sourceStateId: state.id,
             admissionPreviewId: id,
             observationKey: state.observationKey,
-            title: locked.title,
-            authors,
-            publisher: locked.publisher,
-            publicationHistory,
+            ...metadata,
           })),
         );
-        const stateResources = stateRecords.map((state) => ({
-          state,
-          resources: resourcesForState(previewResources, state.observationKey),
-        }));
         await tx.insert(sourceStateResources).values(
           stateResources.flatMap(({ state, resources }) =>
             resources.map((resource) => ({
@@ -178,18 +204,18 @@ export function createDrizzleSepAdmissionStore(
           ),
         );
         onStage?.("reading_derivative_parsing");
-        const derivatives = stateResources.map(({ state, resources }) => {
-          const main = resources.find((resource) => resource.role === "main");
-          if (!main)
-            throw new Error("Selected observation lost its main resource");
-          return buildReadingDerivative({
-            source,
-            state,
-            main,
-            resources,
-            preview: locked,
-          });
-        });
+        const derivatives = stateResources.map(
+          ({ state, resources, main, metadata }) => {
+            return buildReadingDerivative({
+              source,
+              state,
+              main,
+              resources,
+              metadata,
+              preview: locked,
+            });
+          },
+        );
         onStage?.("database_persistence");
         await tx.insert(sourceStateDerivatives).values(derivatives);
         await tx.insert(sourceStateDerivativeActivations).values(
@@ -230,11 +256,7 @@ function resourcesForState(
   observationKey: string | null,
 ) {
   return resources.filter(
-    (resource) =>
-      resource.observationKey === observationKey ||
-      (observationKey === "recommended-archive" &&
-        resource.observationKey === "submitted" &&
-        resource.role === "citation-information"),
+    (resource) => resource.observationKey === observationKey,
   );
 }
 

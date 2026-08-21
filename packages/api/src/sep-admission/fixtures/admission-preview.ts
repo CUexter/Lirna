@@ -22,6 +22,22 @@ export const admissionPreviewDefaults = {
 export const readingIntegrationHtml =
   "<html><body><main><h2>Knowledge</h2><p>A typed paragraph.</p><script>window.pwned = true</script></main></body></html>";
 
+export function observationHtml({
+  title,
+  author,
+  publisher,
+  issued,
+  modified,
+}: {
+  title: string;
+  author: string;
+  publisher: string;
+  issued: string;
+  modified: string;
+}) {
+  return `<html><head><title>${title} (Stanford Encyclopedia of Philosophy)</title><meta name="citation_title" content="${title}"><meta name="citation_author" content="${author}"><meta name="citation_publisher" content="${publisher}"><meta name="DCTERMS.issued" content="${issued}"><meta name="DCTERMS.modified" content="${modified}"></head><body><main><p>${title} evidence.</p></main></body></html>`;
+}
+
 export const admissionCaptureLimits = {
   maxComponents: 64,
   maxAssets: 256,
@@ -43,7 +59,19 @@ export function recommendedArchiveUrl(
 
 export function defaultObservationBody(observation: AdmissionObservationKey) {
   return Buffer.from(
-    `<html><body><main><p>${observation}</p></main></body></html>`,
+    observationHtml({
+      title:
+        observation === "submitted"
+          ? admissionPreviewDefaults.title
+          : "Archived admission integration",
+      author:
+        observation === "submitted"
+          ? admissionPreviewDefaults.authors[0]
+          : "Archive Integration Author",
+      publisher: admissionPreviewDefaults.publisher,
+      issued: observation === "submitted" ? "2026" : "2020",
+      modified: observation === "submitted" ? "2026" : "2024",
+    }),
   );
 }
 

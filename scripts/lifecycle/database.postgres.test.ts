@@ -85,6 +85,10 @@ postgresTest(
           join(primary, "scripts", "lifecycle", "database.ts"),
         ),
         cp(
+          join(repositoryRoot, "scripts", "lifecycle", "environment.ts"),
+          join(primary, "scripts", "lifecycle", "environment.ts"),
+        ),
+        cp(
           join(repositoryRoot, "scripts", "lifecycle", "package.json"),
           join(primary, "scripts", "lifecycle", "package.json"),
         ),

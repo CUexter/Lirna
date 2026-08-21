@@ -136,6 +136,12 @@ describe("SEP admission builders", () => {
       state,
       main,
       resources: [main, citation],
+      metadata: {
+        title: preview.title,
+        authors: preview.authors,
+        publisher: preview.publisher,
+        publicationHistory: preview.publicationHistory,
+      },
       preview,
     });
 

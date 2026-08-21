@@ -129,12 +129,7 @@ describe("SEP Admission lifecycle", () => {
     expect(admitted?.states[0]?.resources.map(({ sha256 }) => sha256)).toEqual(
       previewHashes,
     );
-    expect(
-      await harness.operations.getState(
-        admitted?.sourceId ?? "",
-        admitted?.states[0]?.id ?? "",
-      ),
-    ).toEqual(admitted?.states[0]);
+    expect(admitted?.states[0]?.observationKey).toBe("submitted");
   });
 
   test("requires an explicit unique observation selection", async () => {

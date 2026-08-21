@@ -9,6 +9,15 @@ export interface SepCitationMetadata {
   diagnostics: SepDiagnostic[];
 }
 
+export interface SepEntryMetadata {
+  title: string;
+  authors: string[];
+  publisher: string;
+  publicationHistory: string[];
+}
+
+const sepPublisher = "Metaphysics Research Lab, Stanford University";
+
 export function decodeCapturedHtml(
   body: Buffer,
   charset: string | undefined,
@@ -32,6 +41,39 @@ export function parseTitle(html: string): string {
       "",
     )
     .trim();
+}
+
+export function parseEntryMetadata(html: string): SepEntryMetadata {
+  const meta = [...html.matchAll(/<meta\b([^>]*)>/gi)].map((match) =>
+    metaAttributes(match[1] ?? ""),
+  );
+  const values = (name: string) =>
+    meta
+      .filter(
+        (attributes) => attributes.name?.toLowerCase() === name.toLowerCase(),
+      )
+      .map((attributes) => attributes.content)
+      .filter((value): value is string => Boolean(value));
+  const first = (...names: string[]) =>
+    names.flatMap((name) => values(name))[0];
+  const title = first("citation_title", "DC.title") ?? parseTitle(html);
+  if (!title) {
+    throw new SepAdmissionError(
+      "SEP main entry does not contain a readable title",
+    );
+  }
+  const authors = values("citation_author");
+  const issued = first("DCTERMS.issued", "citation_publication_date");
+  const modified = first("DCTERMS.modified");
+  return {
+    title,
+    authors: authors.length ? authors : values("DC.creator"),
+    publisher: first("citation_publisher", "DC.publisher") ?? sepPublisher,
+    publicationHistory: [
+      ...(issued ? [`First published ${issued}`] : []),
+      ...(modified ? [`Revised ${modified}`] : []),
+    ],
+  };
 }
 
 export function parseCitationInformation(html: string): SepCitationMetadata {
@@ -130,6 +172,20 @@ function htmlText(value: string): string {
   return decodeHtmlEntities(value.replace(/<[^>]*>/g, " "))
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function metaAttributes(value: string) {
+  const attributes: Record<string, string> = {};
+  for (const match of value.matchAll(
+    /([:\w.-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/g,
+  )) {
+    const name = match[1]?.toLowerCase();
+    const content = match[2] ?? match[3] ?? match[4];
+    if (name && content !== undefined) {
+      attributes[name] = decodeHtmlEntities(content);
+    }
+  }
+  return attributes;
 }
 
 function decodeHtmlEntities(value: string): string {
