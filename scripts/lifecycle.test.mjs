@@ -1,3 +1,4 @@
+// biome-ignore lint/style/noExcessiveLinesPerFile: Lifecycle scenarios share one isolated Git-worktree fixture and assert the public command contract end to end.
 import { afterEach, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import {
@@ -23,6 +24,10 @@ async function sandbox() {
     stderr: "pipe",
   });
   expect(await git.exited).toBe(0);
+  await copyFile(
+    join(import.meta.dir, "..", ".gitignore"),
+    join(checkoutPath, ".gitignore"),
+  );
   return { checkoutPath, stateHome };
 }
 
@@ -210,13 +215,145 @@ test("registers a primary checkout idempotently with a stable local identity", a
       ),
     ),
   ).toEqual({
+    environments: [
+      {
+        checkoutPath: context.checkoutPath,
+        identity: registration.identity,
+        ports: { server: 3000, tools: {}, web: 3001 },
+      },
+    ],
     primary: {
       checkoutPath: context.checkoutPath,
       identity: registration.identity,
     },
-    version: 1,
+    version: 2,
   });
   expect(existsSync(join(context.checkoutPath, "lifecycle.json"))).toBe(false);
+  expect(
+    JSON.parse(
+      await readFile(
+        join(context.checkoutPath, ".lirna", "environment.json"),
+        "utf8",
+      ),
+    ),
+  ).toEqual({
+    checkoutPath: context.checkoutPath,
+    databaseName: `lirna_${registration.identity.replaceAll("-", "")}`,
+    identity: registration.identity,
+    ports: { server: 3000, tools: {}, web: 3001 },
+    urls: {
+      server: "http://127.0.0.1:3000",
+      tools: {},
+      web: "http://127.0.0.1:3001",
+    },
+    version: 1,
+  });
+  const ignored = Bun.spawn(
+    [
+      "git",
+      "-C",
+      context.checkoutPath,
+      "check-ignore",
+      ".lirna/environment.json",
+    ],
+    { stderr: "pipe", stdout: "pipe" },
+  );
+  expect(await ignored.exited).toBe(0);
+});
+
+test("atomically allocates distinct environments and regenerates config idempotently", async () => {
+  const primary = await sandbox();
+  await publicLifecycle(primary, "register");
+  const first = await linkedWorktree(primary);
+  const secondPath = join(primary.checkoutPath, "..", "linked-two");
+  const addSecond = Bun.spawn(
+    [
+      "git",
+      "-C",
+      primary.checkoutPath,
+      "worktree",
+      "add",
+      "--quiet",
+      "--detach",
+      secondPath,
+    ],
+    { stderr: "pipe" },
+  );
+  expect(await addSecond.exited).toBe(0);
+  const second = { ...primary, checkoutPath: secondPath };
+
+  const [firstAllocation, secondAllocation] = await Promise.all([
+    lifecycle(primary, "allocate", first.checkoutPath, "--tool", "studio"),
+    lifecycle(primary, "allocate", second.checkoutPath, "--tool", "studio"),
+  ]);
+
+  expect(firstAllocation.exitCode).toBe(0);
+  expect(secondAllocation.exitCode).toBe(0);
+  const environments = [
+    JSON.parse(firstAllocation.stdout),
+    JSON.parse(secondAllocation.stdout),
+  ];
+  const allocatedPorts = environments.flatMap(({ ports }) => [
+    ports.server,
+    ports.web,
+    ports.tools.studio,
+  ]);
+  expect(new Set(allocatedPorts).size).toBe(allocatedPorts.length);
+  for (const environment of environments) {
+    expect(environment.databaseName).toBe(
+      `lirna_${environment.identity.replaceAll("-", "")}`,
+    );
+    expect(environment.urls).toEqual({
+      server: `http://127.0.0.1:${environment.ports.server}`,
+      tools: {
+        studio: `http://127.0.0.1:${environment.ports.tools.studio}`,
+      },
+      web: `http://127.0.0.1:${environment.ports.web}`,
+    });
+  }
+
+  const allocated = environments.find(
+    ({ checkoutPath }) => checkoutPath === first.checkoutPath,
+  );
+  const configPath = join(first.checkoutPath, ".lirna", "environment.json");
+  const originalConfig = await readFile(configPath, "utf8");
+  await rm(configPath);
+  const regenerated = await lifecycle(
+    primary,
+    "allocate",
+    first.checkoutPath,
+    "--tool",
+    "studio",
+  );
+  expect(regenerated).toEqual({
+    exitCode: 0,
+    stderr: "",
+    stdout: `${JSON.stringify(allocated, null, 2)}\n`,
+  });
+  expect(await readFile(configPath, "utf8")).toBe(originalConfig);
+});
+
+test("upgrades version 1 registration without changing its identity", async () => {
+  const context = await sandbox();
+  const path = join(context.stateHome, "lirna", "lifecycle.json");
+  const identity = "12345678-1234-4123-8123-123456789abc";
+  await mkdir(join(context.stateHome, "lirna"), { recursive: true });
+  await writeFile(
+    path,
+    `${JSON.stringify({
+      primary: { checkoutPath: context.checkoutPath, identity },
+      version: 1,
+    })}\n`,
+  );
+
+  const registration = await lifecycle(context, "register");
+  const diagnosis = await lifecycle(context, "diagnose");
+
+  expect(JSON.parse(registration.stdout).identity).toBe(identity);
+  expect(JSON.parse(diagnosis.stdout).identity).toBe(identity);
+  const registry = JSON.parse(await readFile(path, "utf8"));
+  expect(registry.version).toBe(2);
+  expect(registry.environments[0].identity).toBe(identity);
 });
 
 test("diagnoses invalid local state without exposing its contents or changing it", async () => {

@@ -57,6 +57,22 @@ Machine-local lifecycle state is stored at
 `~/.local/state/lirna/lifecycle.json` when `XDG_STATE_HOME` is unset. It is
 never written into the checkout.
 
+Registration also atomically reserves distinct server and web ports and writes
+their non-secret environment details to the ignored
+`.lirna/environment.json` file. Re-running registration preserves the identity
+and allocation and safely regenerates that file.
+
+From the registered primary checkout, reserve an environment for an existing
+linked worktree. Repeat `--tool` for each exposed development tool that needs a
+port:
+
+```bash
+bun run lifecycle allocate ../lirna-task --tool studio
+```
+
+The generated database name derives from the worktree identity. The generated
+configuration contains no database credentials or other secrets.
+
 Inspect the current checkout without changing lifecycle, application, or
 database state:
 
@@ -187,6 +203,7 @@ lirna/
 
 - `bun run dev`: Start all applications in development mode
 - `bun run lifecycle register`: Idempotently register the primary checkout
+- `bun run lifecycle allocate <path> [--tool <name>]`: Allocate a linked-worktree environment
 - `bun run lifecycle diagnose`: Read the current checkout lifecycle state
 - `bun run build`: Build all applications
 - `bun run dev:web`: Start only the web application
