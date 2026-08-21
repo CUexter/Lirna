@@ -94,7 +94,9 @@
   },
   "dependencies": {
     "@lirna/env": "workspace:*",
+    "ai": "^7.0.73",
     "dotenv": "catalog:",
+    "workflow": "^4.8.4",
     "zod": "catalog:"
   },
   "devDependencies": {
