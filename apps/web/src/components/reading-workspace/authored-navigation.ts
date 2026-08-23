@@ -1,6 +1,10 @@
 import type { RefObject } from "react";
 
 import type { SepReadingData } from "./content";
+import {
+  observeReadingNavigation,
+  type ReadingNavigationCause,
+} from "./navigation-observations";
 
 export function authoredTarget(
   reading: SepReadingData,
@@ -26,10 +30,12 @@ export function authoredTarget(
 export function scrollToPendingFragment(
   ref: RefObject<string | undefined>,
   {
+    cause,
     container,
     highlight = false,
   }: {
     container?: RefObject<HTMLElement | null>;
+    cause?: ReadingNavigationCause;
     highlight?: boolean;
   } = {},
 ) {
@@ -38,7 +44,7 @@ export function scrollToPendingFragment(
     if (!fragment) return;
     const target = document.getElementById(fragment);
     if (!target) return;
-    scrollTarget(target, container?.current);
+    scrollTarget(target, container?.current, cause);
     if (highlight) highlightTarget(target);
     ref.current = undefined;
   });
@@ -65,7 +71,7 @@ export function jumpToReference(
 ) {
   const target = document.getElementById(reference.targetId);
   if (!target) return;
-  scrollTarget(target, container?.current);
+  scrollTarget(target, container?.current, "reference-target");
   highlightTarget(target);
 }
 
@@ -79,11 +85,22 @@ export function createReferenceJumper(
 export function scrollTarget(
   target: HTMLElement,
   scrollContainer?: HTMLElement | null,
+  cause: ReadingNavigationCause = "pending-fragment",
 ) {
   if (!scrollContainer?.contains(target)) {
+    observeReadingNavigation({
+      cause,
+      owner: "article",
+      target: target.id ? `#${target.id}` : target.tagName.toLowerCase(),
+    });
     target.scrollIntoView({ block: "center" });
     return;
   }
+  observeReadingNavigation({
+    cause,
+    owner: "reading-tools",
+    target: target.id ? `#${target.id}` : target.tagName.toLowerCase(),
+  });
   const containerRect = scrollContainer.getBoundingClientRect();
   const targetRect = target.getBoundingClientRect();
   scrollContainer.scrollTo({

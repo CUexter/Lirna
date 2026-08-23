@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import { createReferenceJumper } from "./authored-navigation";
 import { ComponentUnavailable } from "./component-unavailable";
 import type { SepReadingData } from "./content";
+import { useReadingNavigationObservations } from "./navigation-observer";
 import { ReadingArticlePane } from "./reading-article-pane";
 import { useReadingResume } from "./reading-resume";
 import { ReadingToolsPanel, type ReadingToolTab } from "./reading-tools-panel";
@@ -117,6 +118,15 @@ function useReadingWorkspaceViewProps({
     view === "bibliography" ? "bibliography" : "contents",
   );
   const [citationScrollRequest, setCitationScrollRequest] = useState(0);
+
+  useReadingNavigationObservations({
+    componentIdentity: component.identity,
+    initialFragment,
+    notesIdentity,
+    selectedCitation,
+    selectedReference,
+    view,
+  });
   const notes = reading.components.find(
     (item) => item.identity === notesIdentity,
   );

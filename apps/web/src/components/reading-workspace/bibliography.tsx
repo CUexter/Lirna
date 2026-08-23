@@ -42,7 +42,7 @@ export function Bibliography({
     const scrollContainer = scrollContainerRef.current;
     if (!(selectedEntryRequest && entry && scrollContainer)) return;
     const frame = requestAnimationFrame(() => {
-      scrollTarget(entry, scrollContainer);
+      scrollTarget(entry, scrollContainer, "bibliography-selection");
       entry.focus({ preventScroll: true });
     });
     return () => cancelAnimationFrame(frame);

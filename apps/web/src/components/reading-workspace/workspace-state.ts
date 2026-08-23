@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef } from "react";
 
 import { highlightTarget } from "./authored-navigation";
 import type { SepReadingData } from "./content";
+import { observeReadingNavigation } from "./navigation-observations";
 import { saveReadingHistoryScrollTop } from "./reading-resume";
 
 export function useComponentTree(
@@ -38,6 +39,11 @@ export function usePreservedScroll() {
   const scrollTop = useRef<number | undefined>(undefined);
   useLayoutEffect(() => {
     if (scrollTop.current === undefined) return;
+    observeReadingNavigation({
+      cause: "preserved-scroll",
+      owner: "article",
+      target: `scroll-top:${scrollTop.current}`,
+    });
     window.scrollTo({ top: scrollTop.current });
     scrollTop.current = undefined;
   });
@@ -77,6 +83,12 @@ export function useScrollRestore({
   };
   const returnToCitation = (mentionId: string) => {
     const citation = document.getElementById(mentionId);
+    if (citation)
+      observeReadingNavigation({
+        cause: "citation-return",
+        owner: "article",
+        target: `#${mentionId}`,
+      });
     citation?.scrollIntoView({ block: "center" });
     if (citation) highlightTarget(citation);
   };

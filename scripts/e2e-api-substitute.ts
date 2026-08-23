@@ -342,6 +342,18 @@ const reading = {
         {
           kind: "paragraph",
           children: [
+            { kind: "text", text: "(1) A numbered assertion. Compare (1). " },
+            {
+              kind: "link",
+              href: "notes.html#1",
+              internal: true,
+              children: [{ kind: "text", text: "Note one" }],
+            },
+          ],
+        },
+        {
+          kind: "paragraph",
+          children: [
             { kind: "text", text: "H" },
             { kind: "subscript", children: [{ kind: "text", text: "2" }] },
             { kind: "text", text: "O " },

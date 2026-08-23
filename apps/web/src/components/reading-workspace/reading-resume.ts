@@ -2,8 +2,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { inquiry } from "@/clients/inquiry";
-
 import type { SepReadingData } from "./content";
+import { observeReadingNavigation } from "./navigation-observations";
 
 const historyPositionsKey = "lirnaReadingPositions";
 const historyNavigationPositionsKey = "lirnaReadingNavigationPositions";
@@ -210,13 +210,25 @@ export function useReadingResume({
         entryScrollTop ?? ephemeralScrollTop ?? persistedScrollTop;
       started = true;
       window.addEventListener("scroll", handleScroll, { passive: true });
-      if (!explicitFragment) window.scrollTo({ top: desiredScrollTop });
+      if (!explicitFragment) {
+        observeReadingNavigation({
+          cause: "resume",
+          owner: "article",
+          target: `scroll-top:${desiredScrollTop}`,
+        });
+        window.scrollTo({ top: desiredScrollTop });
+      }
       if (
         !explicitFragment &&
         initialNavigationScrollTop !== undefined &&
         window.location.hash.length > 0
       ) {
         correctionTimer = setTimeout(() => {
+          observeReadingNavigation({
+            cause: "resume-correction",
+            owner: "article",
+            target: `scroll-top:${desiredScrollTop}`,
+          });
           window.scrollTo({ top: desiredScrollTop });
         }, 1000);
       }
