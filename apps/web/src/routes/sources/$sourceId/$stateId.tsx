@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useLocation } from "@tanstack/react-router";
 import { z } from "zod";
 
 import { inquiry } from "@/clients/inquiry";
@@ -17,6 +17,7 @@ export const Route = createFileRoute("/sources/$sourceId/$stateId")({
 function RouteComponent() {
   const { sourceId, stateId } = Route.useParams();
   const { component, view, citation } = Route.useSearch();
+  const { hash } = useLocation();
   const navigate = Route.useNavigate();
   const reading = useQuery(
     inquiry.sources.reading.queryOptions({ input: { sourceId, stateId } }),
@@ -42,12 +43,15 @@ function RouteComponent() {
   return (
     <SepReadingWorkspace
       reading={reading.data}
+      initialFragment={hash}
       selectedComponent={component}
       view={view ?? "article"}
       selectedCitation={citation}
       onComponentChange={(identity) =>
         navigate({
-          search: { component: identity },
+          search: {
+            component: identity,
+          },
           hash: "",
           resetScroll: false,
         })

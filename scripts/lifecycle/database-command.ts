@@ -101,6 +101,39 @@ async function startDatabase() {
   writeDatabaseDiagnosis(await databaseReport(registry));
 }
 
+async function migrateDatabase() {
+  const { environment } = await databaseContext(
+    "This checkout does not have a managed lifecycle environment.",
+  );
+  const databaseUrl = postgresAdminUrl();
+  databaseUrl.pathname = `/${databaseName(environment.identity)}`;
+  const child = Bun.spawn(
+    ["bun", "run", "--cwd", "packages/db", "db:migrate"],
+    {
+      cwd: environment.checkoutPath,
+      env: migrationEnvironment(databaseUrl.toString()),
+      stderr: "inherit",
+      stdin: "inherit",
+      stdout: "inherit",
+    },
+  );
+  process.exitCode = await child.exited;
+}
+
+function migrationEnvironment(databaseUrl: string) {
+  const environment = { ...process.env, DATABASE_URL: databaseUrl };
+  for (const name of [
+    "BETTER_AUTH_URL",
+    "CORS_ORIGIN",
+    "PORT",
+    "SERVER_URL",
+    "VITE_SERVER_URL",
+  ]) {
+    delete environment[name];
+  }
+  return environment;
+}
+
 async function committedMigrations(checkoutPath: string) {
   const root = await mkdtemp(join(tmpdir(), "lirna-migrations-"));
   const archive = join(root, "migrations.tar");
@@ -182,10 +215,10 @@ async function provisionDatabase() {
 export async function databaseCommand(args: string[]) {
   if (
     args.length !== 1 ||
-    !["diagnose", "provision", "start"].includes(args[0])
+    !["diagnose", "migrate", "provision", "start"].includes(args[0])
   ) {
     throw new Error(
-      "usage: bun run lifecycle database <start|diagnose|provision>",
+      "usage: bun run lifecycle database <start|diagnose|migrate|provision>",
     );
   }
   if (args[0] === "start") {
@@ -194,6 +227,10 @@ export async function databaseCommand(args: string[]) {
   }
   if (args[0] === "provision") {
     await provisionDatabase();
+    return;
+  }
+  if (args[0] === "migrate") {
+    await migrateDatabase();
     return;
   }
   await diagnoseDatabase();

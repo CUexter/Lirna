@@ -61,6 +61,19 @@ test("creates bodyless and noted Annotations through exact-text controls", async
   });
 });
 
+test("does not highlight text until the reader explicitly creates an Annotation", async () => {
+  resetActions(queryClient);
+  const highlights = installHighlightApi();
+  try {
+    await renderAnnotations();
+    await selectExactText();
+
+    expect(highlights.registry.has("lirna-annotation-draft")).toBe(false);
+  } finally {
+    highlights.restore();
+  }
+});
+
 test("scopes active component annotations, ignores stale text, updates, and deletes", async () => {
   resetActions(queryClient);
   const existingAnnotations = [

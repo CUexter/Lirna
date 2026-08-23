@@ -101,4 +101,41 @@ describePostgres("SEP admitted-state PostgreSQL reader", () => {
       await store.getState(admitted?.sourceId ?? "", randomUUID()),
     ).toBeUndefined();
   });
+
+  test("deletes an admitted Source and its immutable state records", async () => {
+    const previewId = randomUUID();
+    const admittedAt = new Date();
+    await insertPreview(database, {
+      id: previewId,
+      stableKey: `sep:delete-${previewId}`,
+      title: "Deletion integration",
+      observations: ["submitted"],
+      now: admittedAt,
+    });
+
+    const admitted = await store.admit(previewId, ["submitted"], admittedAt);
+    const sourceId = admitted?.sourceId;
+    expect(sourceId).toBeDefined();
+
+    await expect(
+      database
+        .delete(sourceStateDerivativeActivations)
+        .where(
+          eq(
+            sourceStateDerivativeActivations.sourceStateId,
+            admitted?.states[0]?.id ?? "",
+          ),
+        )
+        .execute(),
+    ).rejects.toHaveProperty(
+      "cause.message",
+      "source_state_derivative_activations records are immutable",
+    );
+
+    expect(await store.deleteSource(sourceId ?? "")).toBeTrue();
+    expect(await store.listSources()).not.toContainEqual(
+      expect.objectContaining({ id: sourceId }),
+    );
+    expect(await store.deleteSource(sourceId ?? "")).toBeFalse();
+  });
 });

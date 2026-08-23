@@ -14,6 +14,8 @@ import { Link } from "@tanstack/react-router";
 import { ArrowRightIcon, DatabaseIcon } from "lucide-react";
 import { useState } from "react";
 import type { InquiryOutputs } from "@/clients/inquiry";
+import { ServerErrorMessage } from "@/components/server-error-message";
+import type { FormattedServerError } from "@/utils/server-error";
 
 import type { SepAdmissionPreviewData } from "./preview";
 
@@ -25,7 +27,7 @@ interface SepAdmissionDecisionProps {
   pending: boolean;
   disabled: boolean;
   result?: AdmissionResult;
-  error?: string;
+  error?: FormattedServerError;
   onAdmit: (observationKeys: ObservationKey[]) => void;
 }
 
@@ -149,11 +151,7 @@ export function SepAdmissionDecision({
             Select at least one observation.
           </p>
         ) : null}
-        {error ? (
-          <p className="text-destructive text-sm" role="alert">
-            {error}
-          </p>
-        ) : null}
+        {error ? <ServerErrorMessage error={error} /> : null}
       </CardContent>
       <CardFooter>
         <Button

@@ -1,6 +1,6 @@
 import { Button } from "@lirna/ui/components/button";
 import { StickyNoteIcon } from "lucide-react";
-import { type RefObject, useEffect, useState } from "react";
+import { type ReactNode, type RefObject, useEffect, useState } from "react";
 
 import { AnnotationColorPicker } from "./color-picker";
 import {
@@ -25,6 +25,8 @@ interface AnnotationView {
   notes: Annotation[];
   plainText: string;
   queries: AnnotationQueries;
+  restingTools?: ReactNode;
+  showRestingTools: boolean;
   selection: UseAnnotationSelectionResult;
 }
 
@@ -90,17 +92,24 @@ export function AnnotationRestingView({ view }: { view: AnnotationView }) {
         onSelect={navigateToAnnotation}
         plainText={plainText}
       />
-      <Button
-        aria-label="View notes"
-        className="fixed right-4 bottom-4 z-40 shadow-lg"
-        onClick={actions.openPanel}
-        type="button"
-        variant="secondary"
-      >
-        <StickyNoteIcon data-icon="inline-start" />
-        Notes
-        {notes.length > 0 ? ` (${notes.length})` : ""}
-      </Button>
+      {view.showRestingTools ? (
+        <nav
+          aria-label="Reading tools"
+          className="fixed top-20 right-4 z-40 flex items-center gap-2 rounded-md border bg-background/95 p-2 shadow-lg backdrop-blur"
+        >
+          {view.restingTools}
+          <Button
+            aria-label="View notes"
+            onClick={actions.openPanel}
+            type="button"
+            variant="secondary"
+          >
+            <StickyNoteIcon data-icon="inline-start" />
+            Notes
+            {notes.length > 0 ? ` (${notes.length})` : ""}
+          </Button>
+        </nav>
+      ) : null}
     </>
   );
 }

@@ -15,6 +15,9 @@ const sepLibrarySourceSchema = z.object({
   id: z.string().uuid(),
   title: z.string(),
   admittedAt: z.string().datetime(),
+  authors: z.array(z.string()),
+  publisher: z.string(),
+  publicationHistory: z.array(z.string()),
   states: z.array(
     z.object({
       id: z.string().uuid(),

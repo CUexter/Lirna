@@ -18,3 +18,10 @@ export function formatRelativeDate(value: string | undefined) {
   if (days < 30) return `${days}d ago`;
   return formatDate(value);
 }
+
+export function formatPublicationDate(history: string[]) {
+  const firstPublished = history.find((entry) =>
+    /^First published\s+/i.test(entry),
+  );
+  return firstPublished?.replace(/^First published\s+/i, "") ?? "Unknown";
+}

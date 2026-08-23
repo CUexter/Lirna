@@ -43,7 +43,7 @@ export function SourceResults({
       {sources.length > 0 ? (
         <section
           aria-label="Admitted Sources"
-          className="mt-3 grid gap-4 md:grid-cols-2"
+          className="mt-3 grid items-start gap-4 md:grid-cols-2"
         >
           {sources.map((source) => (
             <SourceCard

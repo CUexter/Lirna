@@ -1,6 +1,10 @@
 import { Button } from "@lirna/ui/components/button";
+import katex from "katex";
 import { createContext, useContext } from "react";
 import type { InquiryOutputs } from "@/clients/inquiry";
+
+import "katex/dist/katex.min.css";
+import { AutoReferencedText, useReferenceTargetId } from "./references";
 
 export type SepReadingData = InquiryOutputs["sources"]["reading"];
 
@@ -26,6 +30,10 @@ export function placedFigureIds(
 
 export const CitationActions = createContext<{
   open: (entryId: string | undefined, mentionId: string) => void;
+} | null>(null);
+
+export const AuthoredLinkActions = createContext<{
+  open: (href: string, label: string) => boolean;
 } | null>(null);
 
 export function Figure({
@@ -120,21 +128,31 @@ function Block({
 }: {
   block: SepReadingData["introductoryBlocks"][number];
 }) {
-  if (block.kind === "paragraph")
+  const referenceId = useReferenceTargetId(block);
+  if (block.kind === "paragraph") {
+    const [first, ...rest] = block.children;
+    if (first?.kind === "text" && /^\(\d+\)$/.test(first.text))
+      return (
+        <p id={referenceId}>
+          <span className="mr-2 inline-block">{first.text}</span>
+          <Inlines values={rest} />
+        </p>
+      );
     return (
-      <p>
+      <p id={referenceId}>
         <Inlines values={block.children} />
       </p>
     );
+  }
   if (block.kind === "quotation")
     return (
-      <blockquote className="border-l-2 pl-5 italic">
+      <blockquote className="border-l-2 pl-5 italic" id={referenceId}>
         <Inlines values={block.children} />
       </blockquote>
     );
   if (block.kind === "statement")
     return (
-      <dl className="rounded border p-4">
+      <dl className="rounded border p-4" id={referenceId}>
         <dt className="font-semibold">
           <Inlines values={block.label} />
         </dt>
@@ -146,7 +164,10 @@ function Block({
   if (block.kind === "list") {
     const List = block.ordered ? "ol" : "ul";
     return (
-      <List className="list-outside pl-6 marker:text-muted-foreground">
+      <List
+        className="list-outside pl-6 marker:text-muted-foreground"
+        id={referenceId}
+      >
         {block.items.map((item, itemIndex) => (
           <li key={itemIndex}>
             <Inlines values={item} />
@@ -157,7 +178,7 @@ function Block({
   }
   if (block.kind === "table")
     return (
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto" id={referenceId}>
         <table className="w-full border-collapse text-left text-base">
           <caption className="mb-2 caption-top text-left font-medium">
             <Inlines values={block.caption} />
@@ -201,11 +222,13 @@ function Inlines({
   values: SepReadingData["sections"][number]["title"];
 }) {
   const citationActions = useContext(CitationActions);
+  const authoredLinkActions = useContext(AuthoredLinkActions);
   return (
     <>
       {values.map((value, index) => (
         <Inline
           citationActions={citationActions}
+          authoredLinkActions={authoredLinkActions}
           key={`${value.kind}:${index}`}
           value={value}
         />
@@ -217,29 +240,33 @@ function Inlines({
 function Inline({
   value,
   citationActions,
+  authoredLinkActions,
 }: {
   value: SepReadingData["sections"][number]["title"][number];
   citationActions: React.ContextType<typeof CitationActions>;
+  authoredLinkActions: React.ContextType<typeof AuthoredLinkActions>;
 }) {
-  if (value.kind === "text") return <span>{value.text}</span>;
-  if (value.kind === "tex")
+  if (value.kind === "text")
     return (
-      <code
-        className={
-          value.display
-            ? "my-3 block overflow-x-auto rounded bg-muted p-3 text-base"
-            : "rounded bg-muted px-1 font-sans text-base"
-        }
-        title="Original TeX source"
-      >
-        {value.source}
-      </code>
+      <span>
+        <AutoReferencedText text={value.text} />
+      </span>
     );
+  if (value.kind === "tex") return <MathNotation {...value} />;
   if (value.kind === "link")
     return (
       <a
         href={value.href}
         className="underline decoration-muted-foreground underline-offset-4 hover:decoration-foreground"
+        onClick={(event) => {
+          if (
+            authoredLinkActions?.open(
+              value.href,
+              inlinePlainText(value.children),
+            )
+          )
+            event.preventDefault();
+        }}
       >
         <Inlines values={value.children} />
       </a>
@@ -255,10 +282,13 @@ function Inline({
           variant="link"
         >
           {value.label}
-        </Button>{" "}
-        <span className="font-sans text-muted-foreground text-sm">
-          {value.state}
-        </span>
+        </Button>
+      </span>
+    );
+  if (value.kind === "anchor")
+    return (
+      <span className="scroll-mt-6" id={value.id}>
+        <Inlines values={value.children} />
       </span>
     );
   const Element =
@@ -272,6 +302,47 @@ function Inline({
       <Inlines values={value.children} />
     </Element>
   );
+}
+
+function MathNotation({
+  source,
+  display,
+}: {
+  source: string;
+  display: boolean;
+}) {
+  try {
+    const html = katex.renderToString(source, {
+      displayMode: display,
+      maxExpand: 1000,
+      maxSize: 10,
+      throwOnError: true,
+      trust: false,
+    });
+    return (
+      <span
+        className={display ? "my-3 block overflow-x-auto" : undefined}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    );
+  } catch {
+    return (
+      <span
+        className={
+          display
+            ? "my-3 block overflow-x-auto rounded bg-muted p-3 text-base"
+            : "rounded bg-muted px-1 font-sans text-base"
+        }
+        data-rendering="degraded"
+        role="note"
+      >
+        <span className="sr-only">
+          Mathematical notation could not be rendered. Original TeX source:{" "}
+        </span>
+        <code title="Original TeX source">{source}</code>
+      </span>
+    );
+  }
 }
 
 export function Diagnostic({

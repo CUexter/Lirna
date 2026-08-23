@@ -129,6 +129,16 @@ function inlineChunk(values: ReadingInline[]): {
         spans: [{ id: value.mentionId, start: 0, end: value.label.length }],
       };
     }
+    if (value.kind === "anchor") {
+      const chunk = inlineChunk(value.children);
+      return {
+        ...chunk,
+        spans: [
+          ...chunk.spans,
+          { id: value.id, start: 0, end: chunk.text.length },
+        ],
+      };
+    }
     return inlineChunk(value.children);
   });
   return joinChunks(chunks, "");

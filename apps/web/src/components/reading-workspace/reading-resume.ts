@@ -111,11 +111,13 @@ function writeHistoryScrollTop(key: string, scrollTop: number) {
 export function useReadingResume({
   component,
   ephemeralScrollTop,
+  explicitFragment,
   sourceId,
   stateId,
 }: {
   component: SepReadingData["components"][number] | undefined;
   ephemeralScrollTop: number | undefined;
+  explicitFragment?: string;
   sourceId: string;
   stateId: string;
 }) {
@@ -208,8 +210,9 @@ export function useReadingResume({
         entryScrollTop ?? ephemeralScrollTop ?? persistedScrollTop;
       started = true;
       window.addEventListener("scroll", handleScroll, { passive: true });
-      window.scrollTo({ top: desiredScrollTop });
+      if (!explicitFragment) window.scrollTo({ top: desiredScrollTop });
       if (
+        !explicitFragment &&
         initialNavigationScrollTop !== undefined &&
         window.location.hash.length > 0
       ) {
@@ -257,6 +260,7 @@ export function useReadingResume({
   }, [
     component,
     ephemeralScrollTop,
+    explicitFragment,
     isPending,
     mutate,
     resume,

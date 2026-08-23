@@ -1,6 +1,6 @@
 import { afterEach, expect, mock, test } from "bun:test";
 import { createRootRoute, createRoute } from "@tanstack/react-router";
-import { cleanup, waitFor, within } from "@testing-library/react";
+import { act, cleanup, waitFor, within } from "@testing-library/react";
 
 import { renderRoute } from "./-route-test-harness";
 
@@ -65,6 +65,9 @@ test("renders admitted Sources and links to the latest Source state", async () =
       id: sourceId,
       title: "Synthetic SEP entry",
       admittedAt: "2026-08-18T12:01:00.000Z",
+      authors: ["Synthetic Author"],
+      publisher: "Synthetic Press",
+      publicationHistory: ["First published 2024"],
       states: [
         {
           id: stateId,
@@ -80,12 +83,9 @@ test("renders admitted Sources and links to the latest Source state", async () =
   await renderLibrary();
 
   await waitFor(() => view().getByText("Synthetic SEP entry"));
-  const readingLink = view().getByRole("link", {
-    name: "Open reading workspace",
-  });
-  expect(readingLink.getAttribute("href")).toBe(
-    `/sources/${sourceId}/${stateId}`,
-  );
+  expect(
+    view().queryByRole("link", { name: "Open reading workspace" }),
+  ).toBeNull();
   expect(view().queryByText("No Sources yet")).toBeNull();
 });
 
@@ -110,6 +110,9 @@ test("deletes a Source after confirmation", async () => {
       id: sourceId,
       title: "Synthetic SEP entry",
       admittedAt: "2026-08-18T12:01:00.000Z",
+      authors: ["Synthetic Author"],
+      publisher: "Synthetic Press",
+      publicationHistory: ["First published 2024"],
       states: [{ id: stateId, sequence: 1, observationKey: "submitted" }],
     },
   ];
@@ -118,20 +121,35 @@ test("deletes a Source after confirmation", async () => {
     getSources = async () => [];
     return true;
   };
-  const confirm = window.confirm;
-  window.confirm = () => true;
+  await renderLibrary();
+  await waitFor(() => view().getByText("Synthetic SEP entry"));
 
-  try {
-    await renderLibrary();
-    await waitFor(() => view().getByText("Synthetic SEP entry"));
-    await view()
-      .getByRole("button", { name: "Delete Synthetic SEP entry" })
+  await act(async () => {
+    view().getByRole("button", { name: "Delete Synthetic SEP entry" }).click();
+  });
+  expect(deletedInput).toBeUndefined();
+  expect(view().getByText(/Are you sure\?/)).toBeTruthy();
+  expect(
+    view().getByRole("status", { name: "Confirmation expires in 5 seconds" }),
+  ).toBeTruthy();
+
+  await act(async () => {
+    view().getByRole("button", { name: "Cancel" }).click();
+  });
+  expect(
+    view().getByRole("button", { name: "Delete Synthetic SEP entry" }),
+  ).toBeTruthy();
+
+  await act(async () => {
+    view().getByRole("button", { name: "Delete Synthetic SEP entry" }).click();
+  });
+  await act(async () => {
+    view()
+      .getByRole("button", { name: "Confirm delete Synthetic SEP entry" })
       .click();
-    await waitFor(() => expect(deletedInput).toEqual({ sourceId }));
-    await waitFor(() =>
-      expect(view().queryByText("Synthetic SEP entry")).toBeNull(),
-    );
-  } finally {
-    window.confirm = confirm;
-  }
+  });
+  await waitFor(() => expect(deletedInput).toEqual({ sourceId }));
+  await waitFor(() =>
+    expect(view().queryByText("Synthetic SEP entry")).toBeNull(),
+  );
 });

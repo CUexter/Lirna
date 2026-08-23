@@ -10,14 +10,14 @@
     "budgetLevel": "Aggregate JavaScript and largest individual JavaScript asset. No per-entry budget."
   },
   "baseline": {
-    "javascriptBytes": 952410,
-    "largestJavascriptBytes": 416452,
-    "assetBytes": 1063374
+    "javascriptBytes": 1033019,
+    "largestJavascriptBytes": 344308,
+    "assetBytes": 1454027
   },
   "headroomPercent": 10,
   "budget": {
-    "javascriptBytes": 1047651,
-    "largestJavascriptBytes": 458098,
-    "assetBytes": 1169712
+    "javascriptBytes": 1136321,
+    "largestJavascriptBytes": 378739,
+    "assetBytes": 1599430
   }
 }

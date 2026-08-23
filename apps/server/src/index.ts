@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { createContext } from "@lirna/api/context";
 import type { RequestObservation } from "@lirna/api/observation";
 import { generateOpenApiDocument } from "@lirna/api/openapi";
@@ -14,8 +15,26 @@ import { cors } from "hono/cors";
 import pino, { type Logger } from "pino";
 
 type AppVariables = {
+  requestError: unknown;
   requestObservation: RequestObservation;
 };
+
+function createLogger() {
+  const file = pino.destination({
+    dest: resolve(import.meta.dirname, "../../../logs/server.log"),
+    mkdir: true,
+  });
+  return pino(
+    { level: env.LOG_LEVEL },
+    pino.multistream([{ stream: process.stdout }, { stream: file }]),
+  );
+}
+
+function toLogError(error: unknown) {
+  return error instanceof Error
+    ? error
+    : new Error(`Non-Error exception: ${String(error)}`);
+}
 
 function writeLog(
   logger: Logger,
@@ -32,24 +51,42 @@ function writeLog(
 export function createApp(
   options: { logger?: Logger; createRequestId?: () => string } = {},
 ) {
-  const rootLogger = options.logger ?? pino({ level: env.LOG_LEVEL });
+  const rootLogger = options.logger ?? createLogger();
   const createRequestId =
     options.createRequestId ?? (() => crypto.randomUUID().slice(0, 12));
+  const debugErrors = shouldExposeDebugErrors(env.DEBUG_ERRORS, env.NODE_ENV);
   const app = new Hono<{ Variables: AppVariables }>();
 
-  app.onError((_error, c) =>
-    c.json(
-      { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error" },
+  app.onError((error, c) => {
+    c.set("requestError", error);
+    return c.json(
+      {
+        code: "INTERNAL_SERVER_ERROR",
+        message: debugErrors ? error.message : "Internal Server Error",
+        ...(c.get("requestObservation")?.requestId
+          ? { requestId: c.get("requestObservation").requestId }
+          : {}),
+        ...(debugErrors
+          ? {
+              debug: {
+                type: error.name,
+                ...(error.stack ? { stack: error.stack } : {}),
+              },
+            }
+          : {}),
+      },
       500,
-    ),
-  );
+    );
+  });
 
   app.use("/*", async (c, next) => {
     const requestId = createRequestId();
     const requestLogger = rootLogger.child({ requestId });
     const startedAt = performance.now();
     let thrown = false;
+    let thrownError: unknown;
     c.header("X-Request-ID", requestId);
+    c.set("requestError", undefined);
     c.set("requestObservation", {
       requestId,
       emit(level, record) {
@@ -60,9 +97,13 @@ export function createApp(
       await next();
     } catch (error) {
       thrown = true;
+      thrownError = error;
       throw error;
     } finally {
-      const status = thrown ? 500 : c.res.status;
+      const handledError = c.get("requestError");
+      const requestError = thrown ? thrownError : handledError;
+      const failedWithException = thrown || handledError !== undefined;
+      const status = failedWithException ? 500 : c.res.status;
       const level = status >= 500 ? "error" : "info";
       writeLog(requestLogger, level, {
         event: "request.completed",
@@ -74,6 +115,7 @@ export function createApp(
           Math.round(performance.now() - startedAt),
         ),
         outcome: status >= 400 ? "failure" : "success",
+        ...(failedWithException ? { err: toLogError(requestError) } : {}),
       });
     }
   });
@@ -101,6 +143,7 @@ export function createApp(
     const context = createContext({
       context: c,
       observation: c.get("requestObservation"),
+      debugErrors,
     });
     const { matched, response } = await orpcHandler.handle(c.req.raw, {
       prefix: "/orpc",
@@ -115,6 +158,7 @@ export function createApp(
       context: await createContext({
         context: c,
         observation: c.get("requestObservation"),
+        debugErrors,
       }),
     });
     if (matched) return c.newResponse(response.body, response);
@@ -147,6 +191,13 @@ export function createApp(
   return app;
 }
 
+export function shouldExposeDebugErrors(
+  debugErrors: boolean,
+  nodeEnv: "development" | "production" | "test",
+) {
+  return debugErrors && nodeEnv !== "production";
+}
+
 export const app = createApp();
 
 if (import.meta.main) {
@@ -156,5 +207,3 @@ if (import.meta.main) {
     port: Number(process.env.PORT ?? 3000),
   });
 }
-
-export default app;

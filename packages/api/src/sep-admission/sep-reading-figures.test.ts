@@ -147,4 +147,30 @@ describe("SEP Reading figures", () => {
       }),
     );
   });
+
+  test("places legacy SEP figure containers under their authored section", () => {
+    const result = derivative(
+      '<main><h4><a id="basic">2.3.1 Basic ontology</a></h4><p>Before.</p><a name="Fig1"></a><div class="figure"><center><p><img src="Water.png" width="600" alt="diagram of water"></p><p>Figure 1: Water structure.</p></center></div><p>After.</p></main>',
+      {
+        path: "Water.png",
+        mediaType: "image/png",
+        body: Buffer.from("water"),
+      },
+    );
+
+    expect(result.sections[0]?.blocks.map((block) => block.kind)).toEqual([
+      "paragraph",
+      "figure",
+      "paragraph",
+    ]);
+    expect(result.sections[0]?.blocks[1]).toEqual({
+      kind: "figure",
+      figure: expect.objectContaining({
+        id: "Fig1",
+        assetIdentity: "active:/Water.png",
+        assetDataUrl: "data:image/png;base64,d2F0ZXI=",
+        caption: [{ kind: "text", text: "Figure 1: Water structure." }],
+      }),
+    });
+  });
 });

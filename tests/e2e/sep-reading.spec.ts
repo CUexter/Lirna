@@ -33,9 +33,12 @@ test("renders a typed, degraded SEP Reading workspace without captured markup", 
     "#notation",
   );
   await expect(page.locator("sub")).toHaveText("2");
+  await expect(page.locator(".katex").first()).toBeVisible();
+  await expect(page.locator(".katex math").first()).toContainText("x");
   await expect(page.getByTitle("Original TeX source")).toHaveText(
-    "\\frac{x}{2}",
+    "\\unknown{x}",
   );
+  await expect(page.locator('[data-rendering="degraded"]')).toBeVisible();
   await expect(
     page.getByRole("table", { name: "Observed distinctions" }),
   ).toBeVisible();
@@ -56,13 +59,10 @@ test("renders a typed, degraded SEP Reading workspace without captured markup", 
   await page
     .getByRole("button", { name: "Citation: (Steup, 2023) (resolved)" })
     .click();
-  await expect(
-    page.getByRole("heading", {
-      level: 2,
-      name: "Bibliography",
-      exact: true,
-    }),
-  ).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Bibliography" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   await expect(
     page.getByText("Steup, Matthias. 2023. Epistemology.").locator(".."),
   ).toBeFocused();
@@ -74,7 +74,7 @@ test("renders a typed, degraded SEP Reading workspace without captured markup", 
     page.getByRole("link", { name: /Publisher page/ }),
   ).toHaveAttribute("href", "https://example.com/epistemology");
   await expect(page.getByText("online only")).toBeVisible();
-  await page.getByRole("button", { name: "Back to citation" }).click();
+  await page.getByRole("button", { name: "Show in article" }).click();
   await expect(
     page.getByRole("button", {
       name: "Citation: (Steup, 2023) (resolved)",

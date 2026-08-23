@@ -15,7 +15,7 @@ import {
   view,
 } from "./test-harness";
 
-test("confirms before replacing a draft or deleting an annotation", async () => {
+test("replaces a selection without prompting but confirms deletion", async () => {
   resetActions(queryClient);
   const confirmations: string[] = [];
   window.confirm = (message) => {
@@ -54,11 +54,8 @@ test("confirms before replacing a draft or deleting an annotation", async () => 
     window.getSelection()?.addRange(replacement);
     document.dispatchEvent(new Event("selectionchange"));
   });
-  expect(confirmations).toContain("Replace the current annotation draft?");
-  expect(view().getByLabelText("Annotation note")).toHaveProperty(
-    "value",
-    "Keep this draft.",
-  );
+  expect(confirmations).toEqual([]);
+  expect(view().getByLabelText("Annotation note")).toHaveProperty("value", "");
 
   cleanup();
   localStorage.clear();
@@ -72,7 +69,7 @@ test("confirms before replacing a draft or deleting an annotation", async () => 
   expect(calls.delete).toEqual([]);
 });
 
-test("confirms before replacing a draft by opening an existing annotation", async () => {
+test("opens an existing annotation without prompting over a draft", async () => {
   resetActions(queryClient);
   setAnnotations([annotation()]);
   const confirmations: string[] = [];
@@ -94,12 +91,9 @@ test("confirms before replacing a draft by opening an existing annotation", asyn
   });
   restoreCaret();
 
-  expect(confirmations).toEqual(["Replace the current annotation draft?"]);
+  expect(confirmations).toEqual([]);
   expect(
-    view().getByRole("complementary", { name: "Create annotation" }),
+    view().getByRole("complementary", { name: "Edit annotation" }),
   ).toBeTruthy();
-  expect(view().getByLabelText("Annotation note")).toHaveProperty(
-    "value",
-    "Keep this draft.",
-  );
+  expect(view().getByLabelText("Annotation note")).toHaveProperty("value", "");
 });

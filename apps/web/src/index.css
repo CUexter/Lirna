@@ -1,1 +1,26 @@
 @import "@lirna/ui/globals.css";
+
+@keyframes authored-target-highlight {
+  0%,
+  20% {
+    background-color: color-mix(in oklab, var(--primary) 18%, transparent);
+    box-shadow: 0 0 0 0.25rem
+      color-mix(in oklab, var(--primary) 12%, transparent);
+  }
+
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0.25rem transparent;
+  }
+}
+
+.authored-target-highlight {
+  animation: authored-target-highlight 2s ease-out;
+  border-radius: 0.25rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .authored-target-highlight {
+    animation-duration: 1ms;
+  }
+}

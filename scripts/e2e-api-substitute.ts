@@ -347,6 +347,8 @@ const reading = {
             { kind: "text", text: "O " },
             { kind: "tex", source: "\\frac{x}{2}", display: false },
             { kind: "text", text: " " },
+            { kind: "tex", source: "\\unknown{x}", display: true },
+            { kind: "text", text: " " },
             {
               kind: "link",
               href: "https://example.com",

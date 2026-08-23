@@ -11,6 +11,7 @@ import { Label } from "@lirna/ui/components/label";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeftIcon, SearchIcon } from "lucide-react";
 
+import { ServerErrorMessage } from "@/components/server-error-message";
 import { SepAdmissionPreview } from "@/components/source-admission/preview";
 import { useSepAdmission } from "@/hooks/use-sep-admission";
 
@@ -96,14 +97,19 @@ function RouteComponent() {
                   Lirna validates every redirect and retains exact response
                   bytes locally for this temporary preview.
                 </p>
-                {validationError || submitErrorMessage ? (
+                {validationError ? (
                   <p
                     className="text-destructive text-sm"
                     id="sep-url-error"
                     role="alert"
                   >
-                    {validationError ?? submitErrorMessage}
+                    {validationError}
                   </p>
+                ) : submitErrorMessage ? (
+                  <ServerErrorMessage
+                    error={submitErrorMessage}
+                    id="sep-url-error"
+                  />
                 ) : null}
               </div>
               <Button

@@ -183,13 +183,6 @@ export function useAnnotationSelection({
         });
         return;
       }
-      if (
-        (current.selection || current.editing) &&
-        !window.confirm("Replace the current annotation draft?")
-      ) {
-        window.getSelection()?.removeAllRanges();
-        return;
-      }
       dispatch({
         type: "DRAFT",
         selection,
@@ -240,14 +233,6 @@ export function useAnnotationSelection({
         return rendered.startOffset <= offset && offset < rendered.endOffset;
       });
       if (!annotation) return;
-      const current = stateRef.current;
-      if (
-        (current.selection ||
-          (current.editing && current.editing.id !== annotation.id)) &&
-        !window.confirm("Replace the current annotation draft?")
-      ) {
-        return;
-      }
       dispatch({ type: "EDIT", annotation });
     };
     article.addEventListener("pointerup", openExisting);

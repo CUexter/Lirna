@@ -1,3 +1,4 @@
+// biome-ignore lint/style/noExcessiveLinesPerFile: Block traversal keeps authored order, shared numbering, diagnostics, and anchor placement in one extraction pipeline.
 import type {
   ReadingBlock,
   ReadingDiagnostic,
@@ -30,6 +31,7 @@ import {
 type BlockContext = InlineContext & {
   blocks: ReadingBlock[];
   figures: Map<HtmlElement, ReadingFigure>;
+  numbering: { count: number };
 };
 
 export function extractArticle(
@@ -48,6 +50,7 @@ export function extractArticle(
   const diagnostics: ReadingDiagnostic[] = [];
   const context: InlineContext = { componentIdentity, ids, diagnostics };
   const stack: ReadingSection[] = [];
+  const numbering = { count: 0 };
   let pendingAnchor: string | undefined;
   let generatedSectionCount = 0;
   const visitHeading = (element: HtmlElement) => {
@@ -83,14 +86,28 @@ export function extractArticle(
       visitHeading(element);
       return;
     }
+    const target = stack.at(-1)?.blocks ?? introductoryBlocks;
+    if (figures.has(element)) {
+      const start = target.length;
+      appendBlock(element, { ...context, blocks: target, figures, numbering });
+      if (pendingAnchor && target.length > start) {
+        attachAnchor(target[start] as ReadingBlock, pendingAnchor);
+        pendingAnchor = undefined;
+      }
+      return;
+    }
     if (
       ["html", "body", "article", "section", "div"].includes(element.tagName)
     ) {
       for (const child of childElements(element)) visit(child);
       return;
     }
-    const target = stack.at(-1)?.blocks ?? introductoryBlocks;
-    appendBlock(element, { ...context, blocks: target, figures });
+    const start = target.length;
+    appendBlock(element, { ...context, blocks: target, figures, numbering });
+    if (pendingAnchor && target.length > start) {
+      attachAnchor(target[start] as ReadingBlock, pendingAnchor);
+      pendingAnchor = undefined;
+    }
   };
   for (const element of childElements(root)) {
     visit(element);
@@ -258,11 +275,20 @@ function appendTable(table: HtmlElement, context: BlockContext) {
   const cells = rows.map((row) => ({
     cells: childElements(row)
       .filter((cell) => cell.tagName === "td" || cell.tagName === "th")
-      .map((cell) => inlineNodes(cell, context)),
+      .map((cell) => {
+        const children = inlineNodes(cell, context);
+        if (!hasClass(cell, "numbered")) return children;
+        context.numbering.count += 1;
+        return children.length
+          ? children
+          : [{ kind: "text" as const, text: `(${context.numbering.count})` }];
+      }),
   }));
   if (!isGenuine) {
     for (const row of cells) {
-      const children = row.cells.flat();
+      const children = row.cells.flatMap((cell, index) =>
+        index === 0 ? cell : [{ kind: "text" as const, text: " " }, ...cell],
+      );
       if (children.length) context.blocks.push({ kind: "paragraph", children });
     }
     return;
@@ -279,6 +305,23 @@ function appendTable(table: HtmlElement, context: BlockContext) {
     head: cells.slice(0, headerCount),
     body: cells.slice(headerCount),
   });
+}
+
+function attachAnchor(block: ReadingBlock, id: string) {
+  const anchor = { kind: "anchor" as const, id, children: [] };
+  if (block.kind === "figure") {
+    block.figure.id = id;
+  } else if (block.kind === "statement") {
+    block.label.unshift(anchor);
+  } else if (block.kind === "list") {
+    block.items[0]?.unshift(anchor);
+  } else if (block.kind === "table") {
+    (block.caption.length ? block.caption : block.body[0]?.cells[0])?.unshift(
+      anchor,
+    );
+  } else if (block.kind !== "diagnostic") {
+    block.children.unshift(anchor);
+  }
 }
 
 function addDiagnostic(

@@ -1,3 +1,4 @@
+// biome-ignore lint/style/noExcessiveLinesPerFile: The persisted derivative schema and its matching public types remain auditable as one contract.
 import { z } from "zod";
 
 const derivativeKind = "sep-reading-v1";
@@ -14,6 +15,11 @@ const inlineSchema: z.ZodType<ReadingInline> = z.discriminatedUnion("kind", [
   }),
   z.object({
     kind: z.literal("superscript"),
+    children: z.array(z.lazy(() => inlineSchema)),
+  }),
+  z.object({
+    kind: z.literal("anchor"),
+    id: z.string().min(1),
     children: z.array(z.lazy(() => inlineSchema)),
   }),
   z.object({
@@ -203,6 +209,7 @@ export const sepReadingContractSchema = z.object({
 export type SepReadingContract = z.infer<typeof sepReadingContractSchema>;
 export type ReadingInline =
   | { kind: "text"; text: string }
+  | { kind: "anchor"; id: string; children: ReadingInline[] }
   | {
       kind: "emphasis" | "subscript" | "superscript";
       children: ReadingInline[];

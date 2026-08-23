@@ -122,7 +122,7 @@ test("restores a component location through its parent breadcrumb", async () => 
     await waitFor(() => view().getByText("A synthetic Source state passage."));
     locations.length = 0;
 
-    await user.click(view().getByText("Other components"));
+    await user.click(view().getByRole("tab", { name: "Supplementary" }));
     await user.click(view().getByRole("button", { name: "Supplement one" }));
     await waitFor(() => view().getByText("First supplement content."));
     window.scrollY = 480;
@@ -184,6 +184,33 @@ test("restores and saves positions for the selected Source component", async () 
   }
 });
 
+test("does not restore a saved position over an explicit fragment", async () => {
+  resetActions();
+  const originalScrollTo = window.scrollTo;
+  const locations: ScrollToOptions[] = [];
+  window.scrollTo = (options) => {
+    if (typeof options === "object") locations.push(options);
+  };
+  getResume = async () => ({
+    sourceId,
+    stateId,
+    sourceTitle: "Synthetic Reading Source",
+    componentIdentity: "article",
+    componentLabel: "Article",
+    scrollTop: 640,
+    savedAt: "2026-08-20T01:00:00.000Z",
+  });
+
+  try {
+    await renderReading("#Poss");
+    await waitFor(() => view().getByText("A synthetic Source state passage."));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 250)));
+    expect(locations).toEqual([]);
+  } finally {
+    window.scrollTo = originalScrollTo;
+  }
+});
+
 test("starts an unseen Source component at the top before saving it", async () => {
   resetActions();
   const originalScrollTo = window.scrollTo;
@@ -208,7 +235,7 @@ test("starts an unseen Source component at the top before saving it", async () =
     locations.length = 0;
     calls.resumeSave.length = 0;
 
-    await user.click(view().getByText("Other components"));
+    await user.click(view().getByRole("tab", { name: "Supplementary" }));
     await user.click(view().getByRole("button", { name: "Supplement one" }));
     await waitFor(() => view().getByText("First supplement content."));
     await waitFor(() => expect(locations).toContainEqual({ top: 0 }));
@@ -221,6 +248,40 @@ test("starts an unseen Source component at the top before saving it", async () =
         }),
       ),
     );
+  } finally {
+    window.scrollTo = originalScrollTo;
+    if (scrollY) Object.defineProperty(window, "scrollY", scrollY);
+    else delete (window as { scrollY?: number }).scrollY;
+  }
+});
+
+test("preserves the article position when opening Bibliography", async () => {
+  resetActions();
+  const originalScrollTo = window.scrollTo;
+  const scrollY = Object.getOwnPropertyDescriptor(window, "scrollY");
+  const locations: ScrollToOptions[] = [];
+  Object.defineProperty(window, "scrollY", {
+    configurable: true,
+    value: 0,
+    writable: true,
+  });
+  window.scrollTo = (options) => {
+    if (typeof options !== "object") return;
+    locations.push(options);
+    window.scrollY = options.top ?? window.scrollY;
+  };
+
+  try {
+    const user = userEvent.setup();
+    await renderReading();
+    await waitFor(() => view().getByText("A synthetic Source state passage."));
+    window.scrollY = 620;
+    locations.length = 0;
+
+    await user.click(view().getByRole("tab", { name: "Bibliography" }));
+    await view().findByRole("region", { name: "Bibliography" });
+    expect(locations).toEqual([]);
+    expect(window.scrollY).toBe(620);
   } finally {
     window.scrollTo = originalScrollTo;
     if (scrollY) Object.defineProperty(window, "scrollY", scrollY);

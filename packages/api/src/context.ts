@@ -24,6 +24,7 @@ export type CreateContextOptions = {
   readingPositions?: ReadingPositionOperations;
   researchAssistant?: ResearchAssistantOperations;
   observation?: RequestObservation;
+  debugErrors?: boolean;
 };
 
 const annotationStore = new DrizzleAnnotationStore(db);
@@ -43,6 +44,7 @@ export async function createContext({
   readingPositions,
   researchAssistant: researchAssistantOverride,
   observation,
+  debugErrors,
 }: CreateContextOptions) {
   const session = await auth.api.getSession({
     headers: context.req.raw.headers,
@@ -58,6 +60,7 @@ export async function createContext({
       ? { researchAssistant: researchAssistantOverride ?? researchAssistant }
       : {}),
     ...(observation ? { observation } : {}),
+    ...(debugErrors === undefined ? {} : { debugErrors }),
   };
 }
 

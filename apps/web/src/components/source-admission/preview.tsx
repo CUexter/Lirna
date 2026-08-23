@@ -10,6 +10,8 @@ import {
 } from "@lirna/ui/components/card";
 import { Clock3Icon, Trash2Icon } from "lucide-react";
 import type { InquiryOutputs } from "@/clients/inquiry";
+import { ServerErrorMessage } from "@/components/server-error-message";
+import type { FormattedServerError } from "@/utils/server-error";
 import { SepCaptureDetails } from "./capture-details";
 import { SepAdmissionDecision } from "./decision";
 
@@ -21,7 +23,7 @@ export interface SepAdmissionPreviewProps {
     extendPending: boolean;
     deletePending: boolean;
     retryPending: boolean;
-    error?: string;
+    error?: FormattedServerError;
     onExtend: () => void;
     onDelete: () => void;
     onRetry: () => void;
@@ -29,7 +31,7 @@ export interface SepAdmissionPreviewProps {
   admission: {
     pending: boolean;
     result?: InquiryOutputs["sepAdmission"]["admit"];
-    error?: string;
+    error?: FormattedServerError;
     onAdmit: (
       observationKeys: SepAdmissionPreviewData["observations"][number]["key"][],
     ) => void;
@@ -235,11 +237,7 @@ export function SepAdmissionPreview({
         </CardFooter>
       </Card>
 
-      {lifecycle.error ? (
-        <p className="text-destructive text-sm" role="alert">
-          {lifecycle.error}
-        </p>
-      ) : null}
+      {lifecycle.error ? <ServerErrorMessage error={lifecycle.error} /> : null}
     </section>
   );
 }

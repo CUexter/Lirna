@@ -23,6 +23,9 @@ describe("Sources oRPC router", () => {
         id: sourceId,
         title: "Synthetic SEP entry",
         admittedAt: "2026-08-18T12:01:00.000Z",
+        authors: ["Synthetic Author"],
+        publisher: "Synthetic Press",
+        publicationHistory: ["First published 2024"],
         states: [
           {
             id: stateId,

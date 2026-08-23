@@ -8,7 +8,7 @@ process.env.CORS_ORIGIN = "http://localhost:5173";
 process.env.NODE_ENV = "test";
 process.env.LOG_LEVEL = "silent";
 
-const { app, createApp } = await import("./index");
+const { app, createApp, shouldExposeDebugErrors } = await import("./index");
 
 describe("server HTTP API", () => {
   test("returns the public health-check result through oRPC", async () => {
@@ -84,6 +84,11 @@ describe("server HTTP API", () => {
     const response = await observedApp.request("/failure");
 
     expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Internal Server Error",
+      requestId: "req-failure",
+    });
     expect(records).toHaveLength(1);
     expect(records[0]).toMatchObject({
       level: 50,
@@ -91,7 +96,18 @@ describe("server HTTP API", () => {
       requestId: "req-failure",
       status: 500,
       outcome: "failure",
+      err: {
+        type: "Error",
+        message: "private failure detail",
+      },
     });
-    expect(JSON.stringify(records[0])).not.toContain("private failure detail");
+    expect(records[0]?.err).toMatchObject({
+      stack: expect.stringContaining("private failure detail"),
+    });
+  });
+
+  test("never exposes debug errors in production", () => {
+    expect(shouldExposeDebugErrors(true, "development")).toBe(true);
+    expect(shouldExposeDebugErrors(true, "production")).toBe(false);
   });
 });

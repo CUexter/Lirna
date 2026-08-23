@@ -73,6 +73,23 @@ describe("SEP Reading derivative", () => {
     );
     expect(readSepReadingDerivative(result)).toEqual(result);
   });
+  test("retains legacy block targets and generated proposition numbers", () => {
+    const numberedRows = Array.from(
+      { length: 6 },
+      (_, index) =>
+        `<a name="claim-${index + 1}"></a><table><tr><td class="numbered"></td><td>Claim ${index + 1}</td></tr></table>`,
+    ).join("");
+    const result = derivative(
+      `<main><h2 id="claims">Claims</h2>${numberedRows}<p><a href="${source.canonicalUrl}#claim-6">Return to (6)</a></p></main>`,
+    );
+
+    expect(JSON.stringify(result.sections)).toContain(
+      '"kind":"anchor","id":"claim-6"',
+    );
+    expect(result.plainText).toContain("(6) Claim 6");
+    expect(JSON.stringify(result.sections)).toContain('"internal":true');
+    expect(readSepReadingDerivative(result)).toEqual(result);
+  });
   test("keeps the left navigation while excluding SEP utility sections from reading", () => {
     const result = derivative(
       `<div id="article-sidebar"><ul><li>Academic Tools</li></ul></div><div id="article-content"><div id="aueditable"><div id="preamble"><p>Preamble content.</p></div><div id="toc"><ul><li><a href="#keep">Keep</a></li><li><a href="#Bib">Bibliography</a></li><li><a href="#Aca">Academic Tools</a></li><li><a href="#Oth">Other Internet Resources</a></li><li><a href="#Rel">Related Entries</a></li></ul></div><div id="main-text"><h2 id="keep">Keep</h2><p>Reading content.</p></div><div id="bibliography"><h2 id="Bib">Bibliography</h2><ul><li>Reference one.</li></ul></div><div id="academic-tools"><h2 id="Aca">Academic Tools</h2><p>Tool content.</p></div><div id="other-internet-resources"><h2 id="Oth">Other Internet Resources</h2><p>Other content.</p></div><div id="related-entries"><h2 id="Rel">Related Entries</h2><p>Related content.</p></div></div></div>`,

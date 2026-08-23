@@ -334,6 +334,31 @@
             "properties": {
               "kind": {
                 "type": "string",
+                "const": "anchor"
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "children": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/__schema1"
+                }
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "children"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
                 "const": "tex"
               },
               "source": {
@@ -620,6 +645,132 @@
                     "caption",
                     "head",
                     "body"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "figure"
+                    },
+                    "figure": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "caption": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/__schema1"
+                          }
+                        },
+                        "description": {
+                          "type": "object",
+                          "properties": {
+                            "text": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/components/schemas/__schema1"
+                              }
+                            },
+                            "componentIdentity": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "text"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "dimensions": {
+                          "type": "object",
+                          "properties": {
+                            "width": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "height": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "assetIdentity": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "assetDataUrl": {
+                          "type": "string",
+                          "pattern": "^data:image\\/.*"
+                        },
+                        "diagnostics": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "level": {
+                                "type": "string",
+                                "enum": [
+                                  "info",
+                                  "warning"
+                                ]
+                              },
+                              "code": {
+                                "type": "string"
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "source": {
+                                "type": "object",
+                                "properties": {
+                                  "componentIdentity": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "locator": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "componentIdentity",
+                                  "locator"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "level",
+                              "code",
+                              "message",
+                              "source"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "caption",
+                        "description",
+                        "dimensions",
+                        "diagnostics"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "figure"
                   ],
                   "additionalProperties": false
                 },
@@ -4354,6 +4505,21 @@
                         "format": "date-time",
                         "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
                       },
+                      "authors": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "publisher": {
+                        "type": "string"
+                      },
+                      "publicationHistory": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
                       "states": {
                         "type": "array",
                         "items": {
@@ -4400,6 +4566,9 @@
                       "id",
                       "title",
                       "admittedAt",
+                      "authors",
+                      "publisher",
+                      "publicationHistory",
                       "states"
                     ],
                     "additionalProperties": false
@@ -5016,6 +5185,132 @@
                                   "properties": {
                                     "kind": {
                                       "type": "string",
+                                      "const": "figure"
+                                    },
+                                    "figure": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "caption": {
+                                          "type": "array",
+                                          "items": {
+                                            "$ref": "#/components/schemas/__schema1"
+                                          }
+                                        },
+                                        "description": {
+                                          "type": "object",
+                                          "properties": {
+                                            "text": {
+                                              "type": "array",
+                                              "items": {
+                                                "$ref": "#/components/schemas/__schema1"
+                                              }
+                                            },
+                                            "componentIdentity": {
+                                              "type": "string",
+                                              "minLength": 1
+                                            }
+                                          },
+                                          "required": [
+                                            "text"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        "dimensions": {
+                                          "type": "object",
+                                          "properties": {
+                                            "width": {
+                                              "type": "integer",
+                                              "exclusiveMinimum": 0,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "height": {
+                                              "type": "integer",
+                                              "exclusiveMinimum": 0,
+                                              "maximum": 9007199254740991
+                                            }
+                                          },
+                                          "additionalProperties": false
+                                        },
+                                        "assetIdentity": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "assetDataUrl": {
+                                          "type": "string",
+                                          "pattern": "^data:image\\/.*"
+                                        },
+                                        "diagnostics": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "object",
+                                            "properties": {
+                                              "level": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "info",
+                                                  "warning"
+                                                ]
+                                              },
+                                              "code": {
+                                                "type": "string"
+                                              },
+                                              "message": {
+                                                "type": "string"
+                                              },
+                                              "source": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "componentIdentity": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                  },
+                                                  "locator": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                  }
+                                                },
+                                                "required": [
+                                                  "componentIdentity",
+                                                  "locator"
+                                                ],
+                                                "additionalProperties": false
+                                              }
+                                            },
+                                            "required": [
+                                              "level",
+                                              "code",
+                                              "message",
+                                              "source"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "caption",
+                                        "description",
+                                        "dimensions",
+                                        "diagnostics"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "figure"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
                                       "const": "diagnostic"
                                     },
                                     "diagnostic": {
@@ -5583,6 +5878,132 @@
                               "caption",
                               "head",
                               "body"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "const": "figure"
+                              },
+                              "figure": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "caption": {
+                                    "type": "array",
+                                    "items": {
+                                      "$ref": "#/components/schemas/__schema1"
+                                    }
+                                  },
+                                  "description": {
+                                    "type": "object",
+                                    "properties": {
+                                      "text": {
+                                        "type": "array",
+                                        "items": {
+                                          "$ref": "#/components/schemas/__schema1"
+                                        }
+                                      },
+                                      "componentIdentity": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "text"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "dimensions": {
+                                    "type": "object",
+                                    "properties": {
+                                      "width": {
+                                        "type": "integer",
+                                        "exclusiveMinimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "height": {
+                                        "type": "integer",
+                                        "exclusiveMinimum": 0,
+                                        "maximum": 9007199254740991
+                                      }
+                                    },
+                                    "additionalProperties": false
+                                  },
+                                  "assetIdentity": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "assetDataUrl": {
+                                    "type": "string",
+                                    "pattern": "^data:image\\/.*"
+                                  },
+                                  "diagnostics": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "level": {
+                                          "type": "string",
+                                          "enum": [
+                                            "info",
+                                            "warning"
+                                          ]
+                                        },
+                                        "code": {
+                                          "type": "string"
+                                        },
+                                        "message": {
+                                          "type": "string"
+                                        },
+                                        "source": {
+                                          "type": "object",
+                                          "properties": {
+                                            "componentIdentity": {
+                                              "type": "string",
+                                              "minLength": 1
+                                            },
+                                            "locator": {
+                                              "type": "string",
+                                              "minLength": 1
+                                            }
+                                          },
+                                          "required": [
+                                            "componentIdentity",
+                                            "locator"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "required": [
+                                        "level",
+                                        "code",
+                                        "message",
+                                        "source"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "caption",
+                                  "description",
+                                  "dimensions",
+                                  "diagnostics"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "figure"
                             ],
                             "additionalProperties": false
                           },

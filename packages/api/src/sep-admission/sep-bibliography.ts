@@ -158,10 +158,17 @@ function resolveCitationLink(
   context: CitationResolutionContext,
 ): ReadingInline {
   const label = inlineText(inline.children);
-  const target = inline.internal ? inline.href.slice(1) : undefined;
+  const target = inline.internal ? linkFragment(inline.href) : undefined;
   const byTarget = target
     ? context.entries.filter((entry) => entry.anchor === target)
     : [];
+  if (inline.internal && !inline.href.startsWith("#") && !byTarget.length)
+    return {
+      ...inline,
+      children: inline.children.flatMap((child) =>
+        resolveCitation(child, context),
+      ),
+    };
   const normalized = normalize(label);
   const byLabel = normalized
     ? context.entries.filter((entry) => normalize(entry.label) === normalized)
@@ -185,6 +192,14 @@ function resolveCitationLink(
     evidence: byTarget.length ? inline.href : label,
     ...(state === "resolved" ? { entryId: candidates[0]?.id } : {}),
   };
+}
+
+function linkFragment(href: string) {
+  try {
+    return new URL(href, "https://plato.stanford.edu").hash.slice(1);
+  } catch {
+    return undefined;
+  }
 }
 
 function citationState(candidates: BibliographyEntry[]) {

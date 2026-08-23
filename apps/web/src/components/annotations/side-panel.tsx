@@ -35,7 +35,7 @@ export function AnnotationSidePanel({
       aria-label={
         editing ? "Edit annotation" : showEditor ? "Create annotation" : "Notes"
       }
-      className="fixed top-0 right-0 z-50 flex h-full w-80 max-w-[calc(100vw-2rem)] flex-col border-l bg-popover text-popover-foreground shadow-lg"
+      className="fixed top-0 right-0 z-50 flex h-full w-80 max-w-[calc(100vw-2rem)] flex-col border-l bg-popover text-popover-foreground shadow-lg lg:right-auto lg:left-0 lg:border-r lg:border-l-0"
       onKeyDown={(event) => {
         if (event.key === "Escape") onClose();
       }}

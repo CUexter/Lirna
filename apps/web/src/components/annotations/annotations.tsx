@@ -1,4 +1,4 @@
-import type { RefObject } from "react";
+import { type ReactNode, type RefObject, useEffect } from "react";
 import {
   AnnotationPanelView,
   AnnotationRestingView,
@@ -16,13 +16,24 @@ export function ReadingAnnotations({
   stateId,
   componentIdentity,
   plainText,
+  resting,
+  editAnnotationId,
+  onEditAnnotationHandled,
 }: {
   articleRef: RefObject<HTMLElement | null>;
   sourceId: string;
   stateId: string;
   componentIdentity: string;
   plainText: string;
+  resting?: {
+    tools?: ReactNode;
+    showTools?: boolean;
+  };
+  editAnnotationId?: string;
+  onEditAnnotationHandled?: () => void;
 }) {
+  const { tools: restingTools, showTools: showRestingTools = true } =
+    resting ?? {};
   const q = useAnnotationQueries({ sourceId, stateId });
   const selection = useAnnotationSelection({
     articleRef,
@@ -36,7 +47,6 @@ export function ReadingAnnotations({
   useAnnotationDomEffects({
     articleRef,
     annotations: q.annotations,
-    selection: state.selection,
     componentIdentity,
     plainText,
   });
@@ -63,6 +73,16 @@ export function ReadingAnnotations({
   const notes = annotations.filter((annotation) =>
     Boolean(annotation.body?.trim()),
   );
+
+  useEffect(() => {
+    if (!editAnnotationId) return;
+    const annotation = annotations.find(
+      (candidate) => candidate.id === editAnnotationId,
+    );
+    if (!annotation) return;
+    dispatch({ type: "EDIT", annotation });
+    onEditAnnotationHandled?.();
+  }, [annotations, dispatch, editAnnotationId, onEditAnnotationHandled]);
 
   const navigateToAnnotation = (annotation: Annotation) => {
     const article = articleRef.current;
@@ -95,6 +115,8 @@ export function ReadingAnnotations({
     notes,
     plainText,
     queries: q,
+    restingTools,
+    showRestingTools,
     selection,
   };
 

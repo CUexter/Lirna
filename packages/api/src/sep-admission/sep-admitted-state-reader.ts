@@ -11,7 +11,7 @@ import {
   sourceStates,
   sources,
 } from "@lirna/db/schema/sources";
-import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
 import {
   parseStringList,
   sepObservationKeySchema,
@@ -33,9 +33,17 @@ export function createSepAdmittedStateReader(
   return {
     async listSources(): Promise<SepLibrarySource[]> {
       const rows = await database
-        .select({ source: sources, state: sourceStates })
+        .select({
+          source: sources,
+          state: sourceStates,
+          metadata: sepSourceStateMetadata,
+        })
         .from(sources)
         .innerJoin(sourceStates, eq(sourceStates.sourceId, sources.id))
+        .innerJoin(
+          sepSourceStateMetadata,
+          eq(sepSourceStateMetadata.sourceStateId, sourceStates.id),
+        )
         .where(eq(sourceStates.adapterId, "sep"))
         .orderBy(desc(sources.admittedAt), desc(sourceStates.sequence));
       const grouped = new Map<string, SepLibrarySource>();
@@ -44,6 +52,9 @@ export function createSepAdmittedStateReader(
           id: row.source.id,
           title: row.source.title,
           admittedAt: row.source.admittedAt.toISOString(),
+          authors: parseStringList(row.metadata.authors),
+          publisher: row.metadata.publisher,
+          publicationHistory: parseStringList(row.metadata.publicationHistory),
           states: [],
         };
         source.states.push({
@@ -68,6 +79,10 @@ export function createSepAdmittedStateReader(
           .where(eq(sources.id, sourceId))
           .limit(1);
         if (existing.length === 0) return false;
+
+        await tx.execute(
+          sql`select set_config('lirna.allow_immutable_deletion', 'on', true)`,
+        );
 
         await tx
           .update(sepAdmissionPreviews)

@@ -5,6 +5,10 @@ import type {
   SepAdmissionPreviewData,
   SepAdmissionPreviewProps,
 } from "@/components/source-admission/preview";
+import {
+  type FormattedServerError,
+  formatServerError,
+} from "@/utils/server-error";
 
 function validateSubmittedUrl(value: string) {
   try {
@@ -17,19 +21,11 @@ function validateSubmittedUrl(value: string) {
   }
 }
 
-function formatServerError(error: Error) {
-  const requestId = (error as Error & { data?: { requestId?: unknown } }).data
-    ?.requestId;
-  return typeof requestId === "string"
-    ? `${error.message}\nError reference: ${requestId}`
-    : error.message;
-}
-
 export type UseSepAdmission = {
   url: string;
   validationError?: string;
   submitPending: boolean;
-  submitErrorMessage?: string;
+  submitErrorMessage?: FormattedServerError;
   onUrlChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   preview?: SepAdmissionPreviewData;
@@ -41,7 +37,7 @@ export function useSepAdmission(): UseSepAdmission {
   const [url, setUrl] = useState("");
   const [validationError, setValidationError] = useState<string>();
   const [preview, setPreview] = useState<SepAdmissionPreviewData>();
-  const [actionError, setActionError] = useState<string>();
+  const [actionError, setActionError] = useState<FormattedServerError>();
 
   const submitPreview = useMutation({
     ...inquiry.sepAdmission.submit.mutationOptions(),

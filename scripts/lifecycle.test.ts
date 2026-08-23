@@ -33,14 +33,26 @@ async function sandbox() {
 
 async function runLifecycle(
   command,
-  { checkoutPath, dockerBin, dockerLog, runtimeLog, stateHome },
+  {
+    checkoutPath,
+    databaseUrl,
+    dockerBin,
+    dockerLog,
+    runtimeLog,
+    runtimeWaitsForTermination,
+    stateHome,
+  },
 ) {
   const child = Bun.spawn(command, {
     cwd: checkoutPath,
     env: {
       ...process.env,
+      DATABASE_URL: databaseUrl ?? process.env.DATABASE_URL,
       LIRNA_DOCKER_LOG: dockerLog,
       LIRNA_RUNTIME_LOG: runtimeLog,
+      LIRNA_RUNTIME_WAITS_FOR_TERMINATION: runtimeWaitsForTermination
+        ? "true"
+        : "",
       PATH: dockerBin ? `${dockerBin}:${process.env.PATH}` : process.env.PATH,
       XDG_STATE_HOME: stateHome,
     },
@@ -53,6 +65,34 @@ async function runLifecycle(
     new Response(child.stderr).text(),
   ]);
   return { exitCode, stderr, stdout };
+}
+
+function startLifecycle(command, context) {
+  const {
+    checkoutPath,
+    databaseUrl,
+    dockerBin,
+    dockerLog,
+    runtimeLog,
+    runtimeWaitsForTermination,
+    stateHome,
+  } = context;
+  return Bun.spawn(command, {
+    cwd: checkoutPath,
+    env: {
+      ...process.env,
+      DATABASE_URL: databaseUrl ?? process.env.DATABASE_URL,
+      LIRNA_DOCKER_LOG: dockerLog,
+      LIRNA_RUNTIME_LOG: runtimeLog,
+      LIRNA_RUNTIME_WAITS_FOR_TERMINATION: runtimeWaitsForTermination
+        ? "true"
+        : "",
+      PATH: dockerBin ? `${dockerBin}:${process.env.PATH}` : process.env.PATH,
+      XDG_STATE_HOME: stateHome,
+    },
+    stderr: "pipe",
+    stdout: "pipe",
+  });
 }
 
 async function lifecycle(context, ...args) {
@@ -154,19 +194,33 @@ async function runtimeBun(context) {
     `#!${process.execPath}
 import { appendFile } from "node:fs/promises";
 
+const runtime = {
+  args: process.argv.slice(2),
+  database:
+    process.argv.includes("db:migrate") && process.env.DATABASE_URL
+      ? (() => {
+          const url = new URL(process.env.DATABASE_URL);
+          return { host: url.host, name: url.pathname.slice(1) };
+        })()
+      : undefined,
+  environment: {
+    BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
+    CORS_ORIGIN: process.env.CORS_ORIGIN,
+    PORT: process.env.PORT,
+    SERVER_URL: process.env.SERVER_URL,
+    VITE_SERVER_URL: process.env.VITE_SERVER_URL,
+  },
+  pid:
+    process.env.LIRNA_RUNTIME_WAITS_FOR_TERMINATION === "true"
+      ? process.pid
+      : undefined,
+};
 await appendFile(
   process.env.LIRNA_RUNTIME_LOG,
-  JSON.stringify({
-    args: process.argv.slice(2),
-    environment: {
-      BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
-      CORS_ORIGIN: process.env.CORS_ORIGIN,
-      PORT: process.env.PORT,
-      SERVER_URL: process.env.SERVER_URL,
-      VITE_SERVER_URL: process.env.VITE_SERVER_URL,
-    },
-  }) + "\\n",
+  JSON.stringify(runtime) + "\\n",
 );
+if (process.env.LIRNA_RUNTIME_WAITS_FOR_TERMINATION === "true")
+  await new Promise(() => {});
 `,
     { mode: 0o755 },
   );
@@ -579,7 +633,12 @@ test("runs each managed service with its generated environment and allocated por
       };
       return [
         {
-          args: ["--hot", "apps/server/src/index.ts"],
+          args: [
+            "--cwd",
+            join(environment.checkoutPath, "apps/server"),
+            "--watch",
+            "src/index.ts",
+          ],
           environment: {
             ...baseEnvironment,
             PORT: String(environment.ports.server),
@@ -589,6 +648,7 @@ test("runs each managed service with its generated environment and allocated por
           args: [
             "x",
             "vite",
+            "apps/web",
             "--host",
             "127.0.0.1",
             "--port",
@@ -626,6 +686,61 @@ test("runs each managed service with its generated environment and allocated por
       .split("\n")
       .map((line) => JSON.parse(line)),
   ).toEqual(expected);
+});
+
+test("migrates the managed database instead of an inherited database URL", async () => {
+  const context = {
+    ...(await runtimeBun(await sandbox())),
+    databaseUrl: "postgresql://wrong:wrong@wrong.example/inherited_database",
+  };
+  const registration = await lifecycle(context, "register");
+  expect(registration.exitCode).toBe(0);
+  const identity = JSON.parse(registration.stdout).identity;
+
+  const result = await lifecycle(context, "database", "migrate");
+
+  expect(result).toEqual({ exitCode: 0, stderr: "", stdout: "" });
+  expect(JSON.parse(await readFile(context.runtimeLog, "utf8"))).toEqual({
+    args: ["run", "--cwd", "packages/db", "db:migrate"],
+    database: {
+      host: "127.0.0.1:5433",
+      name: `lirna_${identity.replaceAll("-", "")}`,
+    },
+    environment: {},
+  });
+});
+
+test("stops its service when the lifecycle command is terminated", async () => {
+  const context = {
+    ...(await runtimeBun(await sandbox())),
+    runtimeWaitsForTermination: true,
+  };
+  expect((await lifecycle(context, "register")).exitCode).toBe(0);
+
+  const lifecycleProcess = startLifecycle(
+    [process.execPath, lifecycleScript, "run", "server"],
+    context,
+  );
+  let runtime: { pid: number } | undefined;
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    try {
+      runtime = JSON.parse(await readFile(context.runtimeLog, "utf8"));
+      break;
+    } catch {
+      await Bun.sleep(20);
+    }
+  }
+  expect(runtime).toBeDefined();
+
+  lifecycleProcess.kill();
+  await Promise.race([
+    lifecycleProcess.exited,
+    Bun.sleep(1_000).then(() => {
+      throw new Error("Lifecycle command did not stop after SIGTERM.");
+    }),
+  ]);
+  await Bun.sleep(50);
+  expect(() => process.kill(runtime?.pid ?? 0, 0)).toThrow();
 });
 
 test("rejects inherited object names as managed services", async () => {
@@ -939,7 +1054,8 @@ test("refuses an arbitrary provisioning target", async () => {
 
   expect(result).toEqual({
     exitCode: 1,
-    stderr: "usage: bun run lifecycle database <start|diagnose|provision>\n",
+    stderr:
+      "usage: bun run lifecycle database <start|diagnose|migrate|provision>\n",
     stdout: "",
   });
 });

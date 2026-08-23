@@ -1,18 +1,16 @@
 import { type RefObject, useEffect } from "react";
 
-import type { Annotation, SelectionDraft } from "./dom-utils";
-import { paintAnnotations, paintDraftSelection } from "./dom-utils";
+import type { Annotation } from "./dom-utils";
+import { paintAnnotations } from "./dom-utils";
 
 export function useAnnotationDomEffects({
   articleRef,
   annotations,
-  selection,
   componentIdentity,
   plainText,
 }: {
   articleRef: RefObject<HTMLElement | null>;
   annotations: Annotation[];
-  selection: SelectionDraft | undefined;
   componentIdentity: string;
   plainText: string;
 }): void {
@@ -27,10 +25,4 @@ export function useAnnotationDomEffects({
       plainText,
     );
   }, [annotations, articleRef, componentIdentity, plainText]);
-
-  useEffect(() => {
-    const article = articleRef.current;
-    if (!article || !selection) return;
-    return paintDraftSelection(article, selection, plainText);
-  }, [selection, articleRef, plainText]);
 }

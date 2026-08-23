@@ -91,8 +91,10 @@ function collectInlineNodes(
   const wrapperKind = inlineWrapperKinds[node.tagName];
   if (wrapperKind)
     return children.length ? [{ kind: wrapperKind, children }] : [];
-  if (node.tagName === "a") return inlineFromLink(node, children, context);
-  return children;
+  const values =
+    node.tagName === "a" ? inlineFromLink(node, children, context) : children;
+  const id = node.tagName === "a" ? elementId(node) : undefined;
+  return id ? [{ kind: "anchor", id, children: values }] : values;
 }
 
 function inlineFromLink(
@@ -102,18 +104,19 @@ function inlineFromLink(
 ): ReadingInline[] {
   const href = attribute(node, "href");
   if (!href) return children;
-  const internal = href.startsWith("#");
-  if (
-    (internal && context.ids.has(href.slice(1))) ||
-    (!internal && isSafeLink(href))
-  )
+  const authoredInternal = href.startsWith("#");
+  const fragment = authoredInternal
+    ? href.slice(1)
+    : safeUrl(href)?.hash.slice(1);
+  const internal = Boolean(fragment && context.ids.has(fragment));
+  if ((authoredInternal && internal) || (!authoredInternal && isSafeLink(href)))
     return children.length ? [{ kind: "link", href, internal, children }] : [];
   context.diagnostics.push(
     diagnostic(
       context.componentIdentity,
       node,
-      internal ? "missing-internal-target" : "unsafe-link",
-      internal
+      authoredInternal ? "missing-internal-target" : "unsafe-link",
+      authoredInternal
         ? `The authored link target ${href} was not captured.`
         : `The authored link ${href} is not safe to open.`,
     ),
@@ -168,12 +171,15 @@ function texSource(
 }
 
 function isSafeLink(href: string) {
+  return Boolean(safeUrl(href));
+}
+
+function safeUrl(href: string) {
   try {
-    return safeLinkProtocols.has(
-      new URL(href, "https://plato.stanford.edu").protocol,
-    );
+    const url = new URL(href, "https://plato.stanford.edu");
+    return safeLinkProtocols.has(url.protocol) ? url : undefined;
   } catch {
-    return false;
+    return undefined;
   }
 }
 

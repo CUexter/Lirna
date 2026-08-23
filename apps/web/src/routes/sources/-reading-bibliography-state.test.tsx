@@ -1,6 +1,12 @@
 import { afterEach, expect, mock, test } from "bun:test";
 import { createRootRoute, createRoute } from "@tanstack/react-router";
-import { act, cleanup, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { readingFixture, sourceId, stateId } from "./-reading-test-fixtures";
@@ -120,19 +126,27 @@ test("restores an unfinished annotation draft after visiting a Citation", async 
     await user.click(
       view().getByRole("button", { name: "Citation: [1] (resolved)" }),
     );
-    await waitFor(() => view().getByRole("heading", { name: "Bibliography" }));
+    await waitFor(() => view().getByRole("region", { name: "Bibliography" }));
     expect(
       view().queryByRole("textbox", { name: "Annotation note" }),
     ).toBeNull();
-    await user.click(view().getByRole("button", { name: "Back to citation" }));
-
+    const articleEntry = document.getElementById("article:entry-one");
+    expect(articleEntry).not.toBeNull();
+    await user.click(
+      within(articleEntry as HTMLElement).getByRole("button", {
+        name: "Show in article",
+      }),
+    );
+    expect(
+      view().getByRole("complementary", { name: "Reading tools" }),
+    ).toBeTruthy();
+    expect(returnedTo).toBe("citation-one");
     const restored = await view().findByRole("textbox", {
       name: "Annotation note",
     });
     expect((restored as HTMLTextAreaElement).value).toBe(
       "Unfinished synthesis",
     );
-    expect(returnedTo).toBe("citation-one");
   } finally {
     HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
   }
@@ -149,7 +163,7 @@ test("restores bibliography and Citation context from route search", async () =>
     const router = await renderReading(
       "?component=article&view=bibliography&citation=entry-one",
     );
-    await waitFor(() => view().getByRole("heading", { name: "Bibliography" }));
+    await waitFor(() => view().getByRole("region", { name: "Bibliography" }));
     expect(router.state.location.search).toEqual({
       component: "article",
       view: "bibliography",
@@ -159,12 +173,135 @@ test("restores bibliography and Citation context from route search", async () =>
       view().getByText("Ada Lovelace. Synthetic publisher entry."),
     ).toBeTruthy();
 
-    await user.click(view().getByRole("button", { name: "Back to citation" }));
-    await waitFor(() =>
-      view().getByRole("button", { name: "Citation: [1] (resolved)" }),
+    expect(
+      view().getByText(
+        "Synthetic publication content [note 1][note 4][note 7][proposition 1][1]",
+      ),
+    ).toBeTruthy();
+    const articleEntry = document.getElementById("article:entry-one");
+    expect(articleEntry).not.toBeNull();
+    await user.click(
+      within(articleEntry as HTMLElement).getByRole("button", {
+        name: "Show in article",
+      }),
     );
-    expect(router.state.location.search).toEqual({ component: "article" });
+    expect(router.state.location.search).toEqual({
+      component: "article",
+    });
+    expect(
+      view().getByRole("complementary", { name: "Reading tools" }),
+    ).toBeTruthy();
     expect(returnedTo).toBe("citation-one");
+    expect(
+      document
+        .getElementById("citation-one")
+        ?.classList.contains("authored-target-highlight"),
+    ).toBe(true);
+  } finally {
+    HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+  }
+});
+
+test("opens and focuses a Citation on the first click", async () => {
+  const user = userEvent.setup();
+  const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+  const originalScrollTo = HTMLElement.prototype.scrollTo;
+  const originalWindowScrollTo = window.scrollTo;
+  let browserScrollRequests = 0;
+  let articleScrollRequests = 0;
+  let panelScrollRequests = 0;
+  let pageScrollRequests = 0;
+  HTMLElement.prototype.scrollIntoView = function () {
+    if (this.closest('[aria-label="Reading tools"]'))
+      browserScrollRequests += 1;
+    else articleScrollRequests += 1;
+  };
+  HTMLElement.prototype.scrollTo = function () {
+    if (this.closest('[aria-label="Reading tools"]')) panelScrollRequests += 1;
+  };
+  try {
+    const router = await renderReading("?component=article");
+    const citation = await view().findByRole("button", {
+      name: "Citation: [1] (resolved)",
+    });
+    expect(
+      view()
+        .getByRole("tab", { name: "Contents" })
+        .getAttribute("aria-selected"),
+    ).toBe("true");
+    window.scrollTo = () => {
+      pageScrollRequests += 1;
+    };
+    await user.click(citation);
+    const articleEntry = document.getElementById("article:entry-one");
+    expect(articleEntry).not.toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(articleEntry));
+    expect(
+      view()
+        .getByRole("tab", { name: "Bibliography" })
+        .getAttribute("aria-selected"),
+    ).toBe("true");
+
+    expect(browserScrollRequests).toBe(0);
+    expect(panelScrollRequests).toBeGreaterThan(0);
+    expect(pageScrollRequests).toBe(0);
+    const previousPanelScrollRequests = panelScrollRequests;
+    const bibliography = view().getByRole("region", { name: "Bibliography" });
+    if (!(bibliography.parentElement instanceof HTMLElement))
+      throw new Error("Missing Bibliography scroll container");
+    bibliography.parentElement.scrollTop = 500;
+
+    await user.click(citation);
+    await waitFor(() => {
+      expect(panelScrollRequests).toBeGreaterThan(previousPanelScrollRequests);
+      expect(document.activeElement).toBe(articleEntry);
+    });
+    expect(browserScrollRequests).toBe(0);
+    articleScrollRequests = 0;
+    await user.click(view().getByRole("tab", { name: "Contents" }));
+    await waitFor(() =>
+      expect(router.state.location.search).toEqual({ component: "article" }),
+    );
+    expect(articleScrollRequests).toBe(0);
+  } finally {
+    HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+    HTMLElement.prototype.scrollTo = originalScrollTo;
+    window.scrollTo = originalWindowScrollTo;
+  }
+});
+
+test("keeps the Reading tools panel persistent and changes views with tabs", async () => {
+  const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+  HTMLElement.prototype.scrollIntoView = () => undefined;
+  try {
+    const router = await renderReading(
+      "?component=article&view=bibliography&citation=entry-one",
+    );
+    await view().findByRole("complementary", {
+      name: "Reading tools",
+    });
+    expect(view().getByText("A synthetic Source state passage.")).toBeTruthy();
+
+    const panel = view().getByRole("complementary", { name: "Reading tools" });
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    });
+    expect(view().getByRole("complementary", { name: "Reading tools" })).toBe(
+      panel,
+    );
+    expect(router.state.location.search).toEqual({
+      component: "article",
+      view: "bibliography",
+      citation: "entry-one",
+    });
+
+    fireEvent.click(view().getByRole("tab", { name: "Contents" }));
+    await waitFor(() =>
+      expect(router.state.location.search).toEqual({ component: "article" }),
+    );
+    expect(
+      view().getByRole("complementary", { name: "Reading tools" }),
+    ).toBeTruthy();
   } finally {
     HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
   }

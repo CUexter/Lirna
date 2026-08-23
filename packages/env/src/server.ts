@@ -14,6 +14,10 @@ export const env = createEnv({
     LOG_LEVEL: z
       .enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"])
       .default("info"),
+    DEBUG_ERRORS: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),

@@ -1,12 +1,12 @@
 import type { ReadingDiagnostic, ReadingFigure } from "./sep-reading-contract";
 import {
-  ancestorsContain,
   attribute,
   childElements,
   descendants,
   elementId,
   type HtmlElement,
   type HtmlNode,
+  hasClass,
 } from "./sep-reading-dom";
 import {
   diagnostic,
@@ -48,14 +48,22 @@ export function extractFigures({
 } {
   let count = 0;
   const byElement = new Map<HtmlElement, ReadingFigure>();
-  const figures = descendants(root)
-    .filter(
-      (element) => element.tagName === "figure" || element.tagName === "img",
-    )
+  const elements = descendants(root);
+  const containers = elements.filter(
+    (element) =>
+      element.tagName === "figure" ||
+      (element.tagName === "div" && hasClass(element, "figure")),
+  );
+  const nestedImages = new Set(
+    containers.flatMap((container) =>
+      descendants(container).filter((element) => element.tagName === "img"),
+    ),
+  );
+  const figures = elements
     .filter(
       (element) =>
-        element.tagName === "figure" ||
-        !ancestorsContain(root, element, "figure"),
+        containers.includes(element) ||
+        (element.tagName === "img" && !nestedImages.has(element)),
     )
     .flatMap((element) => {
       count += 1;
@@ -153,7 +161,13 @@ function figureCaption(element: HtmlElement, context: InlineContext) {
   const caption =
     element.tagName === "figure"
       ? childElements(element).find((child) => child.tagName === "figcaption")
-      : undefined;
+      : element.tagName === "div" && hasClass(element, "figure")
+        ? descendants(element).find(
+            (child) =>
+              child.tagName === "p" &&
+              !descendants(child).some((nested) => nested.tagName === "img"),
+          )
+        : undefined;
   return caption ? inlineNodes(caption, context) : [];
 }
 

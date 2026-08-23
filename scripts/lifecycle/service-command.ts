@@ -11,11 +11,17 @@ import {
 
 const serviceDefinitions = {
   server: {
-    command: () => ["bun", "--hot", "apps/server/src/index.ts"],
+    command: (_port, checkoutPath) => [
+      "bun",
+      "--cwd",
+      join(checkoutPath, "apps/server"),
+      "--watch",
+      "src/index.ts",
+    ],
     port: (environment) => environment.ports.server,
   },
   studio: {
-    command: (port) => [
+    command: (port, _checkoutPath) => [
       "bun",
       "run",
       "--cwd",
@@ -30,10 +36,11 @@ const serviceDefinitions = {
     port: (environment) => environment.ports.tools.studio,
   },
   web: {
-    command: (port) => [
+    command: (port, _checkoutPath) => [
       "bun",
       "x",
       "vite",
+      "apps/web",
       "--host",
       "127.0.0.1",
       "--port",
@@ -94,12 +101,22 @@ export async function runService(args: string[]) {
       "The generated lifecycle environment has no allocated studio port. Allocate one from the primary checkout with `bun run lifecycle allocate <checkout-path> --tool studio`.",
     );
   }
-  const child = Bun.spawn(service.command(port), {
+  const child = Bun.spawn(service.command(port, checkoutPath), {
     cwd: checkoutPath,
     env: { ...process.env, ...values, PORT: String(port) },
     stderr: "inherit",
     stdin: "inherit",
     stdout: "inherit",
   });
-  process.exitCode = await child.exited;
+  const signalHandlers = [
+    ["SIGINT", () => child.kill("SIGINT")],
+    ["SIGTERM", () => child.kill("SIGTERM")],
+  ] as const;
+  for (const [signal, handler] of signalHandlers) process.once(signal, handler);
+  try {
+    process.exitCode = await child.exited;
+  } finally {
+    for (const [signal, handler] of signalHandlers)
+      process.off(signal, handler);
+  }
 }

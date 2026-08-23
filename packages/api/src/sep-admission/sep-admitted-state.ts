@@ -27,6 +27,9 @@ export interface SepLibrarySource {
   id: string;
   title: string;
   admittedAt: string;
+  authors: string[];
+  publisher: string;
+  publicationHistory: string[];
   states: Array<
     Pick<
       SepAdmittedState,

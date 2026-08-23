@@ -1,7 +1,7 @@
 // biome-ignore lint/style/noExcessiveLinesPerFile: This end-to-end proof keeps concurrent setup, request isolation, and cleanup in one auditable fixture.
 import { expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { Client } from "pg";
@@ -97,11 +97,11 @@ async function assertPortIsAvailable(url: string) {
   expect(result.exitCode, result.stderr).toBe(1);
 }
 
-async function waitForServer(url: string, server: Server) {
+async function waitForServer(url: string, server: Server, expectedBody = "OK") {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     try {
       const response = await fetch(url);
-      if (response.ok) return;
+      if (response.ok && (await response.text()) === expectedBody) return;
     } catch {}
     await Bun.sleep(100);
   }
@@ -332,6 +332,13 @@ postgresTest(
       ]);
       servers.push(startServer(firstPath));
       await waitForServer(first.urls.server, servers[0]);
+      const firstServerEntry = join(firstPath, "apps/server/src/index.ts");
+      const firstServerSource = await readFile(firstServerEntry, "utf8");
+      await writeFile(
+        firstServerEntry,
+        firstServerSource.replace('c.text("OK")', 'c.text("HOT_RELOAD_OK")'),
+      );
+      await waitForServer(first.urls.server, servers[0], "HOT_RELOAD_OK");
       await Bun.sleep(1_000);
       servers.push(startServer(secondPath));
       await Promise.all([
