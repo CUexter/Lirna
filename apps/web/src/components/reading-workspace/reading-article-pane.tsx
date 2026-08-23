@@ -208,7 +208,6 @@ function ArticleAnnotations({
   return (
     <ReadingAnnotations
       articleRef={articleRef}
-      componentIdentity={component.identity}
       editAnnotationId={editingAnnotationId}
       navigateToAnnotation={navigateToAnnotation}
       key={component.identity}
