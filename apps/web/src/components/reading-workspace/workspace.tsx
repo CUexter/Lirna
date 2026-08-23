@@ -1,15 +1,16 @@
-import { buttonVariants } from "@lirna/ui/components/button";
-import { Link } from "@tanstack/react-router";
-import { ArrowLeftIcon } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { createReferenceJumper } from "./authored-navigation";
 import { ComponentUnavailable } from "./component-unavailable";
 import type { SepReadingData } from "./content";
 import { useReadingNavigationObservations } from "./navigation-observer";
-import { ReadingArticlePane } from "./reading-article-pane";
+import {
+  useExplicitFragmentNavigation,
+  useReadingNavigationScope,
+} from "./reading-navigation-hooks";
 import { useReadingResume } from "./reading-resume";
-import { ReadingToolsPanel, type ReadingToolTab } from "./reading-tools-panel";
+import type { ReadingToolTab } from "./reading-tools-panel";
+import { ReadingWorkspaceView } from "./reading-workspace-view";
 import { createReferenceIndex, type ReadingReference } from "./references";
 import {
   activeReadingToolTab,
@@ -39,6 +40,7 @@ export function SepReadingWorkspace({
   view,
   selectedCitation,
   onComponentChange,
+  onFragmentChange,
   onViewChange,
 }: {
   reading: SepReadingData;
@@ -47,6 +49,7 @@ export function SepReadingWorkspace({
   view: "article" | "bibliography";
   selectedCitation?: string;
   onComponentChange: (identity: string) => void;
+  onFragmentChange: (fragment: string) => void;
   onViewChange: (view: "article" | "bibliography", citation?: string) => void;
 }) {
   const { component, parent, previous, next } = useComponentTree(
@@ -66,6 +69,7 @@ export function SepReadingWorkspace({
     <AvailableReadingWorkspace
       initialFragment={initialFragment}
       onComponentChange={onComponentChange}
+      onFragmentChange={onFragmentChange}
       onViewChange={onViewChange}
       reading={reading}
       selectedCitation={selectedCitation}
@@ -78,6 +82,7 @@ export function SepReadingWorkspace({
 type AvailableReadingWorkspaceProps = {
   initialFragment?: string;
   onComponentChange: (identity: string) => void;
+  onFragmentChange: (fragment: string) => void;
   onViewChange: (view: "article" | "bibliography", citation?: string) => void;
   reading: SepReadingData;
   selectedCitation?: string;
@@ -97,6 +102,7 @@ function AvailableReadingWorkspace(props: AvailableReadingWorkspaceProps) {
 function useReadingWorkspaceViewProps({
   initialFragment,
   onComponentChange,
+  onFragmentChange,
   onViewChange,
   reading,
   selectedCitation,
@@ -106,8 +112,8 @@ function useReadingWorkspaceViewProps({
   typeof ReadingWorkspaceView
 > {
   const { capture, source } = reading;
-  const articleRef = useRef<HTMLElement>(null);
-  const toolsScrollRef = useRef<HTMLDivElement>(null);
+  const { articleRef, navigation, toolsScrollRef } =
+    useReadingNavigationScope();
   const pendingFragment = useRef<string | undefined>(undefined);
   const highlightPendingFragment = useRef(false);
   const [notesIdentity, setNotesIdentity] = useState<string>();
@@ -119,12 +125,20 @@ function useReadingWorkspaceViewProps({
   );
   const [citationScrollRequest, setCitationScrollRequest] = useState(0);
 
+  const activateFragment = useExplicitFragmentNavigation({
+    componentIdentity: component.identity,
+    fragment: initialFragment,
+    navigation,
+    onFragmentChange,
+  });
+
   useReadingNavigationObservations({
     componentIdentity: component.identity,
-    initialFragment,
+    navigation,
     notesIdentity,
     selectedCitation,
     selectedReference,
+    toolsScrollRef,
     view,
   });
   const notes = reading.components.find(
@@ -144,16 +158,17 @@ function useReadingWorkspaceViewProps({
   });
 
   const resumeStatus = useReadingResume({
+    articleRef,
     component,
     ephemeralScrollTop,
-    explicitFragment: initialFragment,
+    navigation,
     sourceId: source.id,
     stateId: source.stateId,
   });
   usePendingFragmentScroll({
     componentIdentity: component.identity,
     highlightPendingFragment,
-    initialFragment,
+    initialFragment: undefined,
     notesIdentity,
     pendingFragment,
     toolsScrollRef,
@@ -280,39 +295,6 @@ function useReadingWorkspaceViewProps({
         selectedReference,
       },
     },
+    onFragmentActivate: activateFragment,
   };
-}
-
-function ReadingWorkspaceView({
-  articlePaneProps,
-  readingToolsProps,
-}: {
-  articlePaneProps: React.ComponentProps<typeof ReadingArticlePane>;
-  readingToolsProps: React.ComponentProps<typeof ReadingToolsPanel>;
-}) {
-  return (
-    <main className="min-h-full bg-background">
-      <header className="border-b px-4 sm:px-6 lg:px-10">
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center 2xl:max-w-[104rem]">
-          <Link
-            className={buttonVariants({ size: "sm", variant: "ghost" })}
-            hash="source-information"
-            to="."
-          >
-            <ArrowLeftIcon data-icon="inline-start" />
-            Source information
-          </Link>
-          <span className="ml-auto font-semibold font-serif text-xl">
-            Lirna
-          </span>
-        </div>
-      </header>
-      <div className="mx-auto grid w-full max-w-[104rem] gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_26rem] lg:px-10 lg:py-12 2xl:grid-cols-[minmax(0,1fr)_28rem] 2xl:gap-12">
-        <ReadingArticlePane {...articlePaneProps} />
-        <div className="z-20 self-start lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1">
-          <ReadingToolsPanel {...readingToolsProps} />
-        </div>
-      </div>
-    </main>
-  );
 }

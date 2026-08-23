@@ -63,3 +63,43 @@ test("labels reader-driven scrolling separately from programmatic movement", () 
     owner: "article",
   });
 });
+
+test("reader scroll controls cancel only their affected owner before movement", () => {
+  const tools = document.createElement("div");
+  document.body.append(tools);
+  const canceled: string[] = [];
+  const stop = observeDirectReaderScroll({
+    onReaderControl: (owner) => canceled.push(owner),
+    toolsScrollElement: tools,
+  });
+
+  tools.dispatchEvent(new WheelEvent("wheel", { bubbles: true }));
+  window.dispatchEvent(new Event("scroll"));
+  window.dispatchEvent(new KeyboardEvent("keydown", { key: "PageDown" }));
+  window.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" }));
+
+  stop();
+  tools.remove();
+  expect(canceled).toEqual(["reading-tools", "article", "article"]);
+});
+
+test("reader scrollbar control cancels its scroll owner", () => {
+  const tools = document.createElement("div");
+  document.body.append(tools);
+  Object.defineProperty(tools, "clientWidth", { value: 80 });
+  tools.getBoundingClientRect = () =>
+    ({ left: 10 }) as ReturnType<HTMLElement["getBoundingClientRect"]>;
+  const canceled: string[] = [];
+  const stop = observeDirectReaderScroll({
+    onReaderControl: (owner) => canceled.push(owner),
+    toolsScrollElement: tools,
+  });
+
+  tools.dispatchEvent(
+    new PointerEvent("pointerdown", { bubbles: true, clientX: 95 }),
+  );
+
+  stop();
+  tools.remove();
+  expect(canceled).toEqual(["reading-tools"]);
+});

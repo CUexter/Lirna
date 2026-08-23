@@ -1,76 +1,15 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
-const sourceId = "10000000-0000-4000-8000-000000000000";
-const stateId = "20000000-0000-4000-8000-000000000000";
-
-type NavigationObservation = {
-  cause: string;
-  order: number;
-  owner: "article" | "reading-tools";
-  target: string;
-};
-
-async function installNavigationTrace(page: Page) {
-  await page.addInitScript(() => {
-    const global = window as typeof window & {
-      __readingNavigationObservations?: unknown[];
-    };
-    global.__readingNavigationObservations = [];
-    window.addEventListener("lirna:reading-navigation", (event) => {
-      global.__readingNavigationObservations?.push(
-        (event as CustomEvent).detail,
-      );
-    });
-  });
-}
-
-async function retainArticlePosition(page: Page, scrollTop: number) {
-  await page.evaluate(() => {
-    document.body.style.minHeight = "5000px";
-    window.location.hash = "knowledge";
-  });
-  await expect(page).toHaveURL(/#knowledge$/);
-  await expect
-    .poll(() => page.evaluate(() => window.scrollY))
-    .toBeGreaterThan(0);
-  await page.evaluate((retainedScrollTop) => {
-    window.scrollTo({ top: retainedScrollTop });
-  }, scrollTop);
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(scrollTop);
-  await page.waitForTimeout(600);
-}
-
-async function navigationTrace(page: Page): Promise<NavigationObservation[]> {
-  return page.evaluate(() => {
-    const global = window as typeof window & {
-      __readingNavigationObservations?: NavigationObservation[];
-    };
-    return global.__readingNavigationObservations ?? [];
-  });
-}
-
-function expectOrderedTrace(
-  observations: NavigationObservation[],
-  expected: Array<Pick<NavigationObservation, "cause" | "owner" | "target">>,
-) {
-  let after = -1;
-  for (const observation of expected) {
-    const index = observations.findIndex(
-      (record, recordIndex) =>
-        recordIndex > after &&
-        record.cause === observation.cause &&
-        record.owner === observation.owner &&
-        record.target === observation.target,
-    );
-    expect(index).toBeGreaterThan(after);
-    after = index;
-  }
-  expect(observations.map((observation) => observation.order)).toEqual(
-    [...observations]
-      .sort((left, right) => left.order - right.order)
-      .map((observation) => observation.order),
-  );
-}
+import {
+  clearNavigationTrace,
+  expectOrderedTrace,
+  installNavigationTrace,
+  navigationTimeline,
+  navigationTrace,
+  retainArticlePosition,
+  sourceId,
+  stateId,
+} from "./reading-navigation-helpers";
 
 test("traces competing reading navigation commands in a real browser", async ({
   page,
@@ -160,7 +99,7 @@ test("traces competing reading navigation commands in a real browser", async ({
   );
 });
 
-test("records the deterministic explicit-fragment winner over resume", async ({
+test("commits an initial fragment before movement and suppresses delayed resume", async ({
   page,
 }) => {
   await installNavigationTrace(page);
@@ -175,6 +114,9 @@ test("records the deterministic explicit-fragment winner over resume", async ({
   await expect
     .poll(() => page.evaluate(() => window.scrollY))
     .toBeGreaterThan(0);
+  const committedScrollTop = await page.evaluate(() => window.scrollY);
+  await page.waitForTimeout(1200);
+  expect(await page.evaluate(() => window.scrollY)).toBe(committedScrollTop);
 
   const observations = await navigationTrace(page);
   expectOrderedTrace(observations, [
@@ -183,15 +125,120 @@ test("records the deterministic explicit-fragment winner over resume", async ({
       owner: "article",
       target: "#notation",
     },
-    {
-      cause: "pending-fragment",
-      owner: "article",
-      target: "#notation",
-    },
   ]);
   expect(
     observations.filter((observation) => observation.cause === "resume"),
   ).toEqual([]);
+  const timeline = await navigationTimeline(page);
+  const explicitIntent = timeline.findIndex(
+    (entry) =>
+      entry.type === "navigation" &&
+      entry.cause === "explicit-fragment-arrival" &&
+      entry.target === "#notation",
+  );
+  const firstMovement = timeline.findIndex((entry) => entry.type === "scroll");
+  expect(explicitIntent).toBeGreaterThanOrEqual(0);
+  expect(firstMovement, JSON.stringify(timeline)).toBeGreaterThan(
+    explicitIntent,
+  );
+});
+
+test("intercepts and replays an authored fragment before movement", async ({
+  page,
+}) => {
+  await installNavigationTrace(page);
+  await page.goto(`/sources/${sourceId}/${stateId}`);
+  const link = page
+    .getByRole("link", { name: "Review Source information" })
+    .first();
+  await expect(link).toHaveAttribute("href", "#source-information");
+  await expect(link).toBeVisible();
+  await page.evaluate(() => {
+    document.body.style.minHeight = "5000px";
+    window.scrollTo({ top: 1000 });
+  });
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(1000);
+  await page.waitForTimeout(100);
+  await clearNavigationTrace(page);
+
+  await page.evaluate(() => {
+    const link = document.querySelector<HTMLAnchorElement>(
+      'a[href="#source-information"]',
+    );
+    if (!link) throw new Error("Authored fragment link missing");
+    link.click();
+  });
+
+  await expect(page).toHaveURL(/#source-information$/);
+  await expect
+    .poll(() => navigationTimeline(page))
+    .toEqual(
+      expect.arrayContaining([expect.objectContaining({ type: "scroll" })]),
+    );
+  const timeline = await navigationTimeline(page);
+  const explicitIntent = timeline.findIndex(
+    (entry) =>
+      entry.type === "navigation" &&
+      entry.cause === "explicit-fragment-arrival" &&
+      entry.target === "#source-information",
+  );
+  const firstMovement = timeline.findIndex((entry) => entry.type === "scroll");
+  expect(explicitIntent).toBeGreaterThanOrEqual(0);
+  expect(firstMovement, JSON.stringify(timeline)).toBeGreaterThan(
+    explicitIntent,
+  );
+
+  await page.goBack();
+  await expect(page).not.toHaveURL(/#source-information$/);
+});
+
+test("a late fragment cannot move after a newer article fragment wins", async ({
+  page,
+}) => {
+  await installNavigationTrace(page);
+  await page.goto(`/sources/${sourceId}/${stateId}`);
+  await expect(page.getByText("Visible typed paragraph.")).toBeVisible();
+  await page.evaluate(() => {
+    const link = document.createElement("a");
+    link.href = "#late-fragment";
+    link.textContent = "Delayed fragment";
+    document.querySelector("main")?.append(link);
+  });
+
+  await page.evaluate(() => {
+    const link = [...document.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (anchor) => anchor.textContent === "Delayed fragment",
+    );
+    if (!link) throw new Error("Delayed fragment link missing");
+    link.click();
+  });
+  await page
+    .getByRole("link", { name: "Source information", exact: true })
+    .click();
+  await expect(page).toHaveURL(/#source-information$/);
+  const winningScrollTop = await page.evaluate(() => window.scrollY);
+  await page.evaluate(() => {
+    const lateTarget = document.createElement("div");
+    lateTarget.id = "late-fragment";
+    lateTarget.style.marginTop = "4000px";
+    lateTarget.textContent = "Late target";
+    document.querySelector("main")?.append(lateTarget);
+  });
+  await page.waitForTimeout(300);
+
+  expect(await page.evaluate(() => window.scrollY)).toBe(winningScrollTop);
+  const observations = await navigationTrace(page);
+  expect(observations).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        cause: "explicit-fragment-arrival",
+        target: "#source-information",
+      }),
+    ]),
+  );
+  expect(observations.some((entry) => entry.target === "#late-fragment")).toBe(
+    false,
+  );
 });
 
 test("records a delayed citation command winning over note navigation", async ({

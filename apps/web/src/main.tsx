@@ -6,6 +6,16 @@ import Loader from "./components/app-shell/loader";
 import { routeTree } from "./routeTree.gen";
 import { queryClient } from "./utils/query-client";
 
+if (
+  /^\/sources\/[^/]+\/[^/]+\/?$/.test(window.location.pathname) &&
+  window.location.hash
+) {
+  window.history.replaceState(
+    { ...window.history.state, __hashScrollIntoViewOptions: false },
+    "",
+  );
+}
+
 const router = createRouter({
   routeTree,
   defaultPreload: "intent",

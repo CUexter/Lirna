@@ -1,9 +1,14 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 
 import { inquiry } from "@/clients/inquiry";
 import type { SepReadingData } from "./content";
 import { observeReadingNavigation } from "./navigation-observations";
+import type {
+  ReadingNavigation,
+  ReadingNavigationHandle,
+} from "./reading-navigation";
+import { isReadingTargetReady } from "./reading-navigation-hooks";
 
 const historyPositionsKey = "lirnaReadingPositions";
 const historyNavigationPositionsKey = "lirnaReadingNavigationPositions";
@@ -109,15 +114,17 @@ function writeHistoryScrollTop(key: string, scrollTop: number) {
 }
 
 export function useReadingResume({
+  articleRef,
   component,
   ephemeralScrollTop,
-  explicitFragment,
+  navigation,
   sourceId,
   stateId,
 }: {
+  articleRef: RefObject<HTMLElement | null>;
   component: SepReadingData["components"][number] | undefined;
   ephemeralScrollTop: number | undefined;
-  explicitFragment?: string;
+  navigation: ReadingNavigation;
   sourceId: string;
   stateId: string;
 }) {
@@ -136,6 +143,28 @@ export function useReadingResume({
     enabled: Boolean(component),
   });
   const [status, setStatus] = useState<"saving" | "saved" | "error">("saving");
+  const resumeIntent = useRef<{
+    componentIdentity: string;
+    handle: ReadingNavigationHandle;
+  } | null>(null);
+  const componentIdentity = component?.identity;
+
+  useEffect(() => {
+    if (!componentIdentity) return;
+    const intent = {
+      componentIdentity,
+      handle: navigation.request({
+        cause: "resume",
+        owner: "article",
+        target: `resume-position:${componentIdentity}`,
+      }),
+    };
+    resumeIntent.current = intent;
+    return () => {
+      intent.handle.cancel();
+      if (resumeIntent.current === intent) resumeIntent.current = null;
+    };
+  }, [componentIdentity, navigation]);
 
   useEffect(() => {
     if (!component) return;
@@ -143,9 +172,6 @@ export function useReadingResume({
       sourceId,
       stateId,
       component.identity,
-    );
-    const initialNavigationScrollTop = historyNavigationScrollTop(
-      historyPositionKey(sourceId, stateId, component.identity),
     );
     if (
       isPending &&
@@ -155,8 +181,8 @@ export function useReadingResume({
       return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let restoreTimer: ReturnType<typeof setTimeout> | undefined;
-    let correctionTimer: ReturnType<typeof setTimeout> | undefined;
     let firstFrame = 0;
+    let readinessFrame = 0;
     let secondFrame = 0;
     let started = false;
     const save = (requestedScrollTop = window.scrollY) => {
@@ -192,54 +218,42 @@ export function useReadingResume({
       setStatus("saving");
       save();
     };
-    const cancelCorrection = () => {
-      if (correctionTimer) clearTimeout(correctionTimer);
-      correctionTimer = undefined;
-    };
+    const entryScrollTop =
+      historyScrollTop(sourceId, stateId, component.identity) ??
+      initialEntryScrollTop;
+    const persistedScrollTop =
+      resume?.sourceId === sourceId &&
+      resume.stateId === stateId &&
+      resume.componentIdentity === component.identity
+        ? resume.scrollTop
+        : 0;
+    const desiredScrollTop =
+      entryScrollTop ?? ephemeralScrollTop ?? persistedScrollTop;
+    const intent = resumeIntent.current;
+    if (!intent || intent.componentIdentity !== component.identity) return;
+    const { handle } = intent;
     const start = () => {
-      const entryScrollTop =
-        historyScrollTop(sourceId, stateId, component.identity) ??
-        initialEntryScrollTop;
-      const persistedScrollTop =
-        resume?.sourceId === sourceId &&
-        resume.stateId === stateId &&
-        resume.componentIdentity === component.identity
-          ? resume.scrollTop
-          : 0;
-      const desiredScrollTop =
-        entryScrollTop ?? ephemeralScrollTop ?? persistedScrollTop;
       started = true;
       window.addEventListener("scroll", handleScroll, { passive: true });
-      if (!explicitFragment) {
-        observeReadingNavigation({
-          cause: "resume",
-          owner: "article",
-          target: `scroll-top:${desiredScrollTop}`,
-        });
-        window.scrollTo({ top: desiredScrollTop });
-      }
-      if (
-        !explicitFragment &&
-        initialNavigationScrollTop !== undefined &&
-        window.location.hash.length > 0
-      ) {
-        correctionTimer = setTimeout(() => {
+      const commitWhenReady = () => {
+        if (!handle.active()) return;
+        const article = articleRef.current;
+        if (!article || !isReadingTargetReady(article)) {
+          readinessFrame = requestAnimationFrame(commitWhenReady);
+          return;
+        }
+        handle.commit(() => {
           observeReadingNavigation({
-            cause: "resume-correction",
+            cause: "resume",
             owner: "article",
             target: `scroll-top:${desiredScrollTop}`,
           });
           window.scrollTo({ top: desiredScrollTop });
-        }, 1000);
-      }
+        });
+      };
+      commitWhenReady();
       setStatus("saved");
-      window.addEventListener("keydown", cancelCorrection);
       window.addEventListener("pagehide", saveImmediately);
-      window.addEventListener("pointerdown", cancelCorrection);
-      window.addEventListener("touchstart", cancelCorrection, {
-        passive: true,
-      });
-      window.addEventListener("wheel", cancelCorrection, { passive: true });
       document.addEventListener("visibilitychange", saveImmediately);
     };
 
@@ -252,9 +266,9 @@ export function useReadingResume({
     });
     return () => {
       cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(readinessFrame);
       cancelAnimationFrame(secondFrame);
       if (restoreTimer) clearTimeout(restoreTimer);
-      cancelCorrection();
       if (!started) return;
       if (timer) clearTimeout(timer);
       save(
@@ -262,17 +276,13 @@ export function useReadingResume({
           window.scrollY,
       );
       window.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("keydown", cancelCorrection);
       window.removeEventListener("pagehide", saveImmediately);
-      window.removeEventListener("pointerdown", cancelCorrection);
-      window.removeEventListener("touchstart", cancelCorrection);
-      window.removeEventListener("wheel", cancelCorrection);
       document.removeEventListener("visibilitychange", saveImmediately);
     };
   }, [
+    articleRef,
     component,
     ephemeralScrollTop,
-    explicitFragment,
     isPending,
     mutate,
     resume,

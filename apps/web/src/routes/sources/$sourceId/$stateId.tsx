@@ -47,6 +47,13 @@ function RouteComponent() {
       selectedComponent={component}
       view={view ?? "article"}
       selectedCitation={citation}
+      onFragmentChange={(fragment) =>
+        navigate({
+          hash: fragment,
+          hashScrollIntoView: false,
+          resetScroll: false,
+        })
+      }
       onComponentChange={(identity) =>
         navigate({
           search: {
