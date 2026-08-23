@@ -40,7 +40,12 @@ await mock.module("@/clients/library", () => ({
   },
 }));
 
-const { ReadingAnnotations } = await import("./annotations");
+const { ReadingAnnotations, useAnnotationNavigation } = await import(
+  "./annotations"
+);
+const { createReadingNavigation } = await import(
+  "../reading-workspace/reading-navigation"
+);
 export const { queryClient } = await import("@/utils/query-client");
 
 export {
@@ -62,15 +67,25 @@ export function view() {
 
 function AnnotationSurface() {
   const articleRef = useRef<HTMLElement>(null);
+  const navigation = useRef(createReadingNavigation()).current;
+  const navigateToAnnotation = useAnnotationNavigation({
+    articleRef,
+    componentIdentity,
+    navigation,
+    plainText: "A synthetic Source state passage.",
+  });
   return (
     <>
       <article ref={articleRef}>A synthetic Source state passage.</article>
       <ReadingAnnotations
         articleRef={articleRef}
-        componentIdentity={componentIdentity}
-        plainText="A synthetic Source state passage."
-        sourceId={sourceId}
-        stateId={stateId}
+        navigateToAnnotation={navigateToAnnotation}
+        reading={{
+          componentIdentity,
+          plainText: "A synthetic Source state passage.",
+          sourceId,
+          stateId,
+        }}
       />
     </>
   );

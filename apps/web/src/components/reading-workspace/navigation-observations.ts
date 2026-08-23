@@ -4,6 +4,7 @@ export type ReadingScrollOwner =
   | `reading-tools:${"contents" | "bibliography" | "notes" | "supplementary"}`;
 
 export type ReadingNavigationCause =
+  | "annotation-return"
   | "bibliography-opening"
   | "bibliography-selection"
   | "citation-return"

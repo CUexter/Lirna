@@ -655,6 +655,51 @@ reading.components = [
   },
 ];
 
+const annotations = [
+  {
+    id: "annotation-intro",
+    sourceId: reading.source.id,
+    sourceStateId: reading.source.stateId,
+    componentIdentity: "active:/",
+    kind: "note",
+    publisherAnchor: null,
+    offsetBasis: "normalized-derivative-text-v1",
+    normalizedStartOffset: reading.plainText.indexOf("typed introductory"),
+    normalizedEndOffset:
+      reading.plainText.indexOf("typed introductory") +
+      "typed introductory".length,
+    exactText: "typed introductory",
+    prefix: "A ",
+    suffix: " paragraph.",
+    color: "yellow",
+    body: "Return to introductory paragraph.",
+    createdAt: "2026-08-20T00:00:00.000Z",
+    updatedAt: "2026-08-20T00:00:00.000Z",
+  },
+  {
+    id: "annotation-visible",
+    sourceId: reading.source.id,
+    sourceStateId: reading.source.stateId,
+    componentIdentity: "active:/",
+    kind: "note",
+    publisherAnchor: null,
+    offsetBasis: "normalized-derivative-text-v1",
+    normalizedStartOffset: reading.plainText.indexOf(
+      "Visible typed paragraph.",
+    ),
+    normalizedEndOffset:
+      reading.plainText.indexOf("Visible typed paragraph.") +
+      "Visible typed paragraph.".length,
+    exactText: "Visible typed paragraph.",
+    prefix: "Knowledge\n\n",
+    suffix: "",
+    color: "green",
+    body: "Return to visible paragraph.",
+    createdAt: "2026-08-20T00:00:00.000Z",
+    updatedAt: "2026-08-20T00:00:00.000Z",
+  },
+];
+
 function sendJson(response, status, body) {
   response.writeHead(status, {
     ...corsHeaders,
@@ -691,7 +736,7 @@ function orpcError(message, code = "BAD_REQUEST") {
 const orpcPostRoutes = {
   "sources/reading": () => orpcSuccess(reading),
   "sources/resume": () => orpcSuccess(resumePosition),
-  "annotations/list": () => orpcSuccess([]),
+  "annotations/list": () => orpcSuccess(annotations),
   "sepAdmission/get": () => orpcSuccess(preview),
   healthCheck: () => orpcSuccess("OK"),
   "sepAdmission/submit": (body) =>
@@ -766,7 +811,7 @@ const server = createServer(async (request, response) => {
     request.method === "GET" &&
     request.url?.startsWith("/orpc/annotations/list")
   ) {
-    sendJson(response, 200, orpcSuccess([]));
+    sendJson(response, 200, orpcSuccess(annotations));
     return;
   }
 

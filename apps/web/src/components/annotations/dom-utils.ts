@@ -6,6 +6,7 @@ export type AnnotationColor = Annotation["color"];
 export const colors: AnnotationColor[] = ["yellow", "green", "blue", "pink"];
 
 const highlightNames = colors.map((color) => `lirna-annotation-${color}`);
+const targetHighlightName = "lirna-annotation-target";
 
 const highlightStyles = colors
   .map(
@@ -22,7 +23,7 @@ const annotationCalloutGap = 16;
 const annotationCalloutInset = 12;
 
 export function annotationStyleContent(color: AnnotationColor) {
-  return `${highlightStyles}\n::highlight(${draftHighlightName}) { background-color: var(--annotation-${color}); }`;
+  return `${highlightStyles}\n::highlight(${draftHighlightName}) { background-color: var(--annotation-${color}); }\n::highlight(${targetHighlightName}) { background-color: var(--primary); color: var(--primary-foreground); }`;
 }
 
 export interface SelectionDraft {
@@ -190,6 +191,17 @@ export function paintAnnotations(
   return () => {
     for (const name of highlightNames) registry.delete(name);
   };
+}
+
+export function paintAnnotationTarget(range: Range) {
+  const registry = customHighlightRegistry();
+  const HighlightConstructor = customHighlightConstructor();
+  if (!registry || !HighlightConstructor) return;
+  registry.set(targetHighlightName, new HighlightConstructor(range));
+}
+
+export function clearAnnotationTarget() {
+  customHighlightRegistry()?.delete(targetHighlightName);
 }
 
 export function paintDraftSelection(

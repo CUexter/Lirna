@@ -1,4 +1,7 @@
-import { ReadingAnnotations } from "../annotations/annotations";
+import {
+  ReadingAnnotations,
+  useAnnotationNavigation,
+} from "../annotations/annotations";
 import { SepReadingBreadcrumb } from "./breadcrumb";
 import { SepReadingCaptureStatus } from "./capture-status";
 import { SepReadingComponentNav } from "./component-nav";
@@ -11,6 +14,7 @@ import {
   ReadingSection,
   type SepReadingData,
 } from "./content";
+import type { ReadingNavigation } from "./reading-navigation";
 import {
   type ReadingReference,
   ReferenceActions,
@@ -33,6 +37,7 @@ export function ReadingArticlePane({
 }: {
   annotations: {
     editingId?: string;
+    navigation: ReadingNavigation;
     onEditHandled: () => void;
     view: "article" | "bibliography";
   };
@@ -56,7 +61,12 @@ export function ReadingArticlePane({
   resumeStatus: "saving" | "saved" | "error";
   source: SepReadingData["source"];
 }) {
-  const { editingId, onEditHandled, view } = annotations;
+  const {
+    editingId,
+    navigation: annotationNavigation,
+    onEditHandled,
+    view,
+  } = annotations;
   const {
     onOpenAuthoredLink,
     onOpenCitation,
@@ -99,6 +109,8 @@ export function ReadingArticlePane({
         articleRef={articleRef}
         component={component}
         editingAnnotationId={editingId}
+        key={component.identity}
+        navigation={annotationNavigation}
         onEditAnnotationHandled={onEditHandled}
         readingView={view}
         source={source}
@@ -173,6 +185,7 @@ function ArticleAnnotations({
   articleRef,
   component,
   editingAnnotationId,
+  navigation,
   onEditAnnotationHandled,
   readingView,
   source,
@@ -180,22 +193,33 @@ function ArticleAnnotations({
   articleRef: React.RefObject<HTMLElement | null>;
   component: Component;
   editingAnnotationId?: string;
+  navigation: ReadingNavigation;
   onEditAnnotationHandled: () => void;
   readingView: "article" | "bibliography";
   source: SepReadingData["source"];
 }) {
+  const navigateToAnnotation = useAnnotationNavigation({
+    articleRef,
+    componentIdentity: component.identity,
+    navigation,
+    plainText: component.plainText,
+  });
   if (readingView !== "article") return null;
   return (
     <ReadingAnnotations
       articleRef={articleRef}
       componentIdentity={component.identity}
       editAnnotationId={editingAnnotationId}
+      navigateToAnnotation={navigateToAnnotation}
       key={component.identity}
       onEditAnnotationHandled={onEditAnnotationHandled}
-      plainText={component.plainText}
+      reading={{
+        componentIdentity: component.identity,
+        plainText: component.plainText,
+        sourceId: source.id,
+        stateId: source.stateId,
+      }}
       resting={{ showTools: false }}
-      sourceId={source.id}
-      stateId={source.stateId}
     />
   );
 }

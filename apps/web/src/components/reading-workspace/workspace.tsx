@@ -468,6 +468,7 @@ function useReadingWorkspaceViewProps({
     articlePaneProps: {
       annotations: {
         editingId: editingAnnotationId,
+        navigation,
         onEditHandled: clearEditingAnnotation,
         view,
       },
