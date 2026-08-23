@@ -7,6 +7,10 @@ import {
   readingToolsOwnerFor,
 } from "./navigation-observations";
 import type { ReadingNavigation } from "./reading-navigation";
+import {
+  type ReadingSceneTopology,
+  resolveReadingSceneDestination,
+} from "./reading-scene-topology";
 import { type ReadingReference, referenceTarget } from "./references";
 
 export function authoredTarget(
@@ -73,16 +77,28 @@ export function createReferenceJumper({
   componentIdentity,
   navigation,
   notesIdentity,
+  onPublisherNoteActivate,
+  topology,
   toolsScrollRef,
 }: {
   articleRef: RefObject<HTMLElement | null>;
   componentIdentity: string;
   navigation: ReadingNavigation;
   notesIdentity?: string;
+  onPublisherNoteActivate?: () => void;
+  topology: ReadingSceneTopology;
   toolsScrollRef: RefObject<HTMLElement | null>;
 }) {
   return (reference: ReadingReference) => {
-    const isPublisherNote = reference.componentIdentity === notesIdentity;
+    const destination = resolveReadingSceneDestination(topology, {
+      sceneIdentity: reference.componentIdentity,
+      target: referenceTarget(reference),
+    });
+    if (destination.movement === "none") return;
+    const isPublisherNote = destination.owner === "publisher-note";
+    if (isPublisherNote && reference.componentIdentity !== notesIdentity)
+      return;
+    if (isPublisherNote) onPublisherNoteActivate?.();
     const root = isPublisherNote ? toolsScrollRef.current : articleRef.current;
     if (
       !root ||
@@ -93,11 +109,10 @@ export function createReferenceJumper({
       (element) => element.id === reference.targetId,
     );
     if (!target) return;
-    const owner = isPublisherNote ? "publisher-note" : "article";
-    const targetIdentity = referenceTarget(reference);
+    const targetIdentity = destination.target;
     const handle = navigation.request({
       cause: "reference-target",
-      owner,
+      owner: destination.owner,
       target: targetIdentity,
     });
     handle.commit(() => {

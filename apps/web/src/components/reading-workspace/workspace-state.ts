@@ -5,35 +5,42 @@ import type { SepReadingData } from "./content";
 import { observeReadingNavigation } from "./navigation-observations";
 import type { ReadingNavigation } from "./reading-navigation";
 import { saveReadingHistoryScrollTop } from "./reading-resume";
+import type { ReadingSceneTopology } from "./reading-scene-topology";
 
 export function useComponentTree(
   reading: SepReadingData,
   selectedComponent: string | undefined,
+  topology: ReadingSceneTopology,
 ) {
-  const component = selectedComponent
-    ? reading.components.find((item) => item.identity === selectedComponent)
-    : (reading.components.find(
-        (item) => item.identity === reading.mainComponent.identity,
-      ) ?? reading.components[0]);
-  const parent = component
+  const sceneIdentity = selectedComponent ?? topology.mainSceneIdentity;
+  const selectedScene = topology.scenes.find(
+    (item) => item.identity === sceneIdentity,
+  );
+  const scene =
+    selectedScene?.presentationRegion === "article"
+      ? selectedScene
+      : selectedScene
+        ? topology.scenes.find(
+            (item) => item.identity === topology.mainSceneIdentity,
+          )
+        : undefined;
+  const component = scene
     ? reading.components.find(
-        (item) => item.identity === component.parentIdentity,
+        (item) => item.identity === scene.componentIdentity,
       )
     : undefined;
-  const siblings = component
-    ? reading.components.filter(
-        (item) => item.parentIdentity === component.parentIdentity,
-      )
-    : [];
-  const siblingIndex = component
-    ? siblings.findIndex((item) => item.identity === component.identity)
-    : -1;
-  const previous = siblingIndex > 0 ? siblings[siblingIndex - 1] : undefined;
-  const next =
-    siblingIndex >= 0 && siblingIndex < siblings.length - 1
-      ? siblings[siblingIndex + 1]
+  const componentForScene = (identity?: string) =>
+    identity
+      ? reading.components.find((item) => item.identity === identity)
       : undefined;
-  return { component, parent, previous, next };
+  const parent = componentForScene(scene?.parentSceneIdentity);
+  const previous = componentForScene(scene?.previousSceneIdentity);
+  const next = componentForScene(scene?.nextSceneIdentity);
+  const publisherNoteIdentity =
+    selectedScene?.presentationRegion === "reading-tools:supplementary"
+      ? selectedScene.componentIdentity
+      : undefined;
+  return { component, next, parent, previous, publisherNoteIdentity };
 }
 
 export function usePreservedScroll() {

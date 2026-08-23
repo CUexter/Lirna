@@ -525,6 +525,12 @@ test("opens publisher notes beside the article and follows their backlinks", asy
     ).toBeTruthy();
     expect(within(notes).getByText("Publisher footnote")).toBeTruthy();
     expect(notes.textContent).toContain("Publisher-authored note.");
+    expect(document.querySelectorAll("article")).toHaveLength(2);
+    expect(
+      notes
+        .querySelector("[data-reading-scroll-owner]")
+        ?.getAttribute("data-reading-scroll-owner"),
+    ).toBe("reading-tools:supplementary");
     expect(window.scrollY).toBe(640);
     expect(router.state.location.search).toEqual({ component: "article" });
     await user.click(view().getByText("[note 4]"));
@@ -540,6 +546,13 @@ test("opens publisher notes beside the article and follows their backlinks", asy
     expect(scrolledTo).toBe("proposition-1");
     await user.click(
       within(notes).getByRole("button", { name: "Show in publisher notes" }),
+    );
+    await waitFor(() =>
+      expect(
+        notes
+          .querySelector("[data-reading-scroll-owner]")
+          ?.getAttribute("data-reading-scroll-owner"),
+      ).toBe("publisher-note"),
     );
     expect(
       document
@@ -582,4 +595,21 @@ test("opens publisher notes beside the article and follows their backlinks", asy
   } finally {
     HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
   }
+});
+
+test("presents a publisher-note deep link inside Reading tools", async () => {
+  resetActions();
+
+  const router = await renderReading("?component=notes");
+
+  await waitFor(() => view().getByText("A synthetic Source state passage."));
+  const tools = view().getByRole("complementary", { name: "Reading tools" });
+  expect(within(tools).getByText("Publisher-authored note.")).toBeTruthy();
+  expect(document.querySelectorAll("article")).toHaveLength(2);
+  expect(
+    tools
+      .querySelector("[data-reading-scroll-owner]")
+      ?.getAttribute("data-reading-scroll-owner"),
+  ).toBe("publisher-note");
+  expect(router.state.location.search).toEqual({ component: "notes" });
 });

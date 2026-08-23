@@ -1,5 +1,9 @@
 import { authoredTarget, scrollToPendingFragment } from "./authored-navigation";
 import type { SepReadingData } from "./content";
+import {
+  type ReadingSceneTopology,
+  resolveReadingSceneDestination,
+} from "./reading-scene-topology";
 import type { ReadingToolTab } from "./reading-tools-panel";
 import {
   type ReadingReference,
@@ -25,6 +29,7 @@ export function navigateAuthoredLink({
   setReadingToolTab,
   setSelectedReference,
   toolsScrollRef,
+  topology,
   view,
 }: {
   component: SepReadingData["components"][number];
@@ -44,30 +49,38 @@ export function navigateAuthoredLink({
   setReadingToolTab: (tab: ReadingToolTab) => void;
   setSelectedReference: (reference: ReadingReference | undefined) => void;
   toolsScrollRef: React.RefObject<HTMLDivElement | null>;
+  topology: ReadingSceneTopology;
   view: "article" | "bibliography";
 }) {
   const target = authoredTarget(reading, from, href);
   if (!target) return false;
+  const destination = resolveReadingSceneDestination(topology, {
+    sceneIdentity: target.component.identity,
+    target: target.fragment ? `fragment:${target.fragment}` : "component",
+  });
+  if (destination.movement === "none") return false;
   const authoredReference = referenceForAuthoredLink(
     referenceIndex,
     target,
     label,
+    topology,
   );
   if (authoredReference) {
-    if (target.component.role === "notes")
-      setNotesIdentity(target.component.identity);
+    if (destination.owner === "publisher-note")
+      setNotesIdentity(destination.scene.componentIdentity);
     openReference(authoredReference);
     return true;
   }
   setSelectedReference(undefined);
   pendingFragment.current = target.fragment;
   highlightPendingFragment.current = true;
-  if (target.component.role === "notes") {
-    const notesAlreadyOpen = notesIdentity === target.component.identity;
+  if (destination.owner === "publisher-note") {
+    const notesAlreadyOpen =
+      notesIdentity === destination.scene.componentIdentity;
     preserveScroll();
     setReadingToolTab("supplementary");
     if (view === "bibliography") onViewChange("article");
-    setNotesIdentity(target.component.identity);
+    setNotesIdentity(destination.scene.componentIdentity);
     if (notesAlreadyOpen) {
       scrollToPendingFragment(pendingFragment, {
         container: toolsScrollRef,
@@ -93,11 +106,11 @@ export function navigateToCitation({
   onViewChange,
   pendingFragment,
   preserveScroll,
-  reading,
   returnToCitation,
   setNotesIdentity,
   setReadingToolTab,
   targetComponentIdentity,
+  topology,
   view,
 }: {
   component: SepReadingData["components"][number];
@@ -107,23 +120,25 @@ export function navigateToCitation({
   onViewChange: (view: "article" | "bibliography", citation?: string) => void;
   pendingFragment: React.RefObject<string | undefined>;
   preserveScroll: () => void;
-  reading: SepReadingData;
   returnToCitation: (mentionId: string) => void;
   setNotesIdentity: (identity: string | undefined) => void;
   setReadingToolTab: (tab: ReadingToolTab) => void;
   targetComponentIdentity: string;
+  topology: ReadingSceneTopology;
   view: "article" | "bibliography";
 }) {
-  const targetComponent = reading.components.find(
-    (candidate) => candidate.identity === targetComponentIdentity,
-  );
-  if (targetComponent?.role === "notes") {
+  const destination = resolveReadingSceneDestination(topology, {
+    sceneIdentity: targetComponentIdentity,
+    target: `citation:${mentionId}`,
+  });
+  if (destination.movement === "none") return;
+  if (destination.owner === "publisher-note") {
     pendingFragment.current = mentionId;
     highlightPendingFragment.current = true;
     preserveScroll();
     setReadingToolTab("supplementary");
     if (view === "bibliography") onViewChange("article");
-    setNotesIdentity(targetComponent.identity);
+    setNotesIdentity(destination.scene.componentIdentity);
     return;
   }
   if (targetComponentIdentity === component.identity) {

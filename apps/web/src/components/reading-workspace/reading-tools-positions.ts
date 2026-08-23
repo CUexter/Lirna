@@ -1,19 +1,24 @@
 import { useLayoutEffect, useRef } from "react";
 
 import type { ReadingScrollOwner } from "./navigation-observations";
+import type { ReadingSceneScrollOwner } from "./reading-scene-topology";
 import type { ReadingToolTab } from "./reading-tools-panel";
 
 export function readingToolsScrollOwner({
   activeTab,
   hasSelectedReference,
-  notesIdentity,
+  publisherNotesOwner,
 }: {
   activeTab: ReadingToolTab;
   hasSelectedReference?: boolean;
-  notesIdentity?: string;
+  publisherNotesOwner?: ReadingSceneScrollOwner;
 }): ReadingScrollOwner {
-  if (activeTab === "supplementary" && notesIdentity && !hasSelectedReference)
-    return "publisher-note";
+  if (
+    activeTab === "supplementary" &&
+    publisherNotesOwner &&
+    !hasSelectedReference
+  )
+    return publisherNotesOwner;
   return `reading-tools:${activeTab}`;
 }
 
@@ -34,18 +39,18 @@ export function useReadingToolsLocation(
   {
     activeTab,
     hasSelectedReference,
-    notesIdentity,
+    publisherNotesOwner,
   }: {
     activeTab: ReadingToolTab;
     hasSelectedReference?: boolean;
-    notesIdentity?: string;
+    publisherNotesOwner?: ReadingSceneScrollOwner;
   },
 ) {
   const locations = useRef(createReadingToolsLocations());
   const owner = readingToolsScrollOwner({
     activeTab,
     hasSelectedReference,
-    notesIdentity,
+    publisherNotesOwner,
   });
 
   useLayoutEffect(() => {

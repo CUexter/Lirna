@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { fireEvent, render } from "@testing-library/react";
 
 import { readingFixture } from "../../routes/sources/-reading-test-fixtures";
+import { createReadingSceneTopology } from "./reading-scene-topology";
 import {
   AutoReferencedText,
   createReferenceIndex,
@@ -62,6 +63,7 @@ test("jumps section references and opens numbered references", () => {
 });
 
 test("resolves authored numbered labels through the reference index", () => {
+  const reading = readingFixture();
   const article = articleFixture();
   const index = createReferenceIndex(article);
 
@@ -69,12 +71,14 @@ test("resolves authored numbered labels through the reference index", () => {
     index,
     { component: article, fragment: "unrelated-authored-target" },
     "(1)",
+    createReadingSceneTopology(reading),
   );
 
   expect(reference?.targetId).toBe("reading-reference-number-1");
 });
 
 test("leaves authored section labels to anchor navigation", () => {
+  const reading = readingFixture();
   const article = articleFixture();
   const index = createReferenceIndex(article);
 
@@ -83,6 +87,7 @@ test("leaves authored section labels to anchor navigation", () => {
       index,
       { component: article, fragment: "nested-claim" },
       "§2.1",
+      createReadingSceneTopology(reading),
     ),
   ).toBeUndefined();
 });

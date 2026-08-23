@@ -11,6 +11,11 @@ import {
   useReadingNavigationScope,
 } from "./reading-navigation-hooks";
 import { useReadingResume } from "./reading-resume";
+import {
+  createReadingSceneTopology,
+  type ReadingSceneTopology,
+  resolveReadingSceneDestination,
+} from "./reading-scene-topology";
 import type { ReadingToolTab } from "./reading-tools-panel";
 import { ReadingWorkspaceView } from "./reading-workspace-view";
 import { createReferenceIndex, type ReadingReference } from "./references";
@@ -54,10 +59,9 @@ export function SepReadingWorkspace({
   onFragmentChange: (fragment: string) => void;
   onViewChange: (view: "article" | "bibliography", citation?: string) => void;
 }) {
-  const { component, parent, previous, next } = useComponentTree(
-    reading,
-    selectedComponent,
-  );
+  const topology = createReadingSceneTopology(reading);
+  const { component, parent, previous, next, publisherNoteIdentity } =
+    useComponentTree(reading, selectedComponent, topology);
   if (!component) {
     return (
       <ComponentUnavailable
@@ -75,7 +79,14 @@ export function SepReadingWorkspace({
       onViewChange={onViewChange}
       reading={reading}
       selectedCitation={selectedCitation}
-      tree={{ component, next, parent, previous }}
+      tree={{
+        component,
+        next,
+        parent,
+        previous,
+        publisherNoteIdentity,
+        topology,
+      }}
       view={view}
     />
   );
@@ -93,6 +104,8 @@ type AvailableReadingWorkspaceProps = {
     next?: SepReadingData["components"][number];
     parent?: SepReadingData["components"][number];
     previous?: SepReadingData["components"][number];
+    publisherNoteIdentity?: string;
+    topology: ReadingSceneTopology;
   };
   view: "article" | "bibliography";
 };
@@ -109,7 +122,14 @@ function useReadingWorkspaceViewProps({
   onViewChange,
   reading,
   selectedCitation,
-  tree: { component, next, parent, previous },
+  tree: {
+    component,
+    next,
+    parent,
+    previous,
+    publisherNoteIdentity: initialPublisherNoteIdentity,
+    topology,
+  },
   view,
 }: AvailableReadingWorkspaceProps): React.ComponentProps<
   typeof ReadingWorkspaceView
@@ -127,12 +147,18 @@ function useReadingWorkspaceViewProps({
     | undefined
   >(undefined);
   const highlightPendingFragment = useRef(false);
-  const [notesIdentity, setNotesIdentity] = useState<string>();
+  const [notesIdentity, setNotesIdentity] = useState<string | undefined>(
+    initialPublisherNoteIdentity,
+  );
   const [selectedReference, setSelectedReference] =
     useState<ReadingReference>();
   const [editingAnnotationId, setEditingAnnotationId] = useState<string>();
   const [readingToolTab, setReadingToolTab] = useState<ReadingToolTab>(
-    view === "bibliography" ? "bibliography" : "contents",
+    view === "bibliography"
+      ? "bibliography"
+      : initialPublisherNoteIdentity
+        ? "supplementary"
+        : "contents",
   );
   const [citationScrollRequest, setCitationScrollRequest] = useState(0);
 
@@ -146,6 +172,12 @@ function useReadingWorkspaceViewProps({
   const notes = reading.components.find(
     (item) => item.identity === notesIdentity,
   );
+  const notesDestination = notes
+    ? resolveReadingSceneDestination(topology, {
+        sceneIdentity: notes.identity,
+        target: "component",
+      })
+    : undefined;
   const preserveScroll = usePreservedScroll();
   const {
     ephemeralScrollTop,
@@ -192,6 +224,8 @@ function useReadingWorkspaceViewProps({
     componentIdentity: component.identity,
     navigation,
     notesIdentity,
+    onPublisherNoteActivate: () => setSelectedReference(undefined),
+    topology,
     toolsScrollRef,
   });
 
@@ -224,6 +258,7 @@ function useReadingWorkspaceViewProps({
     setReadingToolTab,
     setSelectedReference,
     toolsScrollRef,
+    topology,
     view,
   });
   const openCitation = createOpenCitationHandler({
@@ -260,19 +295,21 @@ function useReadingWorkspaceViewProps({
     mentionId: string,
     targetComponentIdentity: string,
   ) => {
-    const targetComponent = reading.components.find(
-      (candidate) => candidate.identity === targetComponentIdentity,
-    );
-    if (targetComponent?.role === "notes") {
+    const destination = resolveReadingSceneDestination(topology, {
+      sceneIdentity: targetComponentIdentity,
+      target: `citation:${mentionId}`,
+    });
+    if (destination.movement === "none") return;
+    if (destination.owner === "publisher-note") {
       pendingCitation.current = {
         componentIdentity: targetComponentIdentity,
         mentionId,
-        owner: "publisher-note",
+        owner: destination.owner,
       };
       preserveScroll();
       setReadingToolTab("supplementary");
       if (view === "bibliography") onViewChange("article");
-      setNotesIdentity(targetComponent.identity);
+      setNotesIdentity(destination.scene.componentIdentity);
       return;
     }
     if (targetComponentIdentity === component.identity) {
@@ -283,7 +320,7 @@ function useReadingWorkspaceViewProps({
     pendingCitation.current = {
       componentIdentity: targetComponentIdentity,
       mentionId,
-      owner: "article",
+      owner: destination.owner,
     };
     handleComponentChange(targetComponentIdentity);
   };
@@ -332,6 +369,7 @@ function useReadingWorkspaceViewProps({
       },
       component,
       components: reading.components,
+      topology,
       navigation: {
         activeTab: activeReadingToolTab(view, readingToolTab),
         onActiveTabChange: handleReadingToolTabChange,
@@ -349,6 +387,10 @@ function useReadingWorkspaceViewProps({
         onOpenCitation: openCitationFrom,
         onOpenReference: openReference,
         publisherNotes: notes,
+        publisherNotesOwner:
+          notesDestination?.movement === "move"
+            ? notesDestination.owner
+            : undefined,
         referenceIndex,
         selectedReference,
       },

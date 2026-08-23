@@ -19,6 +19,10 @@ import type { SepReadingData } from "./content";
 import { PublisherNotes } from "./publisher-notes";
 import { ReadingEmptyState } from "./reading-empty-state";
 import type { ReadingNavigation } from "./reading-navigation";
+import type {
+  ReadingSceneScrollOwner,
+  ReadingSceneTopology,
+} from "./reading-scene-topology";
 import { useReadingToolsLocation } from "./reading-tools-positions";
 import {
   createReferenceIndex,
@@ -39,6 +43,7 @@ export function ReadingToolsPanel({
   bibliography,
   component,
   components,
+  topology,
   navigation,
   notes,
   scrollContainerRef,
@@ -54,6 +59,7 @@ export function ReadingToolsPanel({
   };
   component: ReadingComponent;
   components: SepReadingData["components"];
+  topology: ReadingSceneTopology;
   navigation: {
     activeTab: ReadingToolTab;
     onActiveTabChange: (tab: ReadingToolTab) => void;
@@ -79,6 +85,7 @@ export function ReadingToolsPanel({
     ) => void;
     onOpenReference: (reference: ReadingReference) => void;
     publisherNotes?: ReadingComponent;
+    publisherNotesOwner?: ReadingSceneScrollOwner;
     referenceIndex: ReferenceIndex;
     selectedReference?: ReadingReference;
   };
@@ -86,7 +93,7 @@ export function ReadingToolsPanel({
   const saveToolsLocation = useReadingToolsLocation(scrollContainerRef, {
     activeTab: navigation.activeTab,
     hasSelectedReference: Boolean(supplementary.selectedReference),
-    notesIdentity: supplementary.publisherNotes?.identity,
+    publisherNotesOwner: supplementary.publisherNotesOwner,
   });
 
   return (
@@ -163,6 +170,7 @@ export function ReadingToolsPanel({
               component={component}
               components={components}
               onComponentChange={navigation.onComponentChange}
+              topology={topology}
               publisherNotes={{
                 component: supplementary.publisherNotes,
                 onOpenAuthoredLink: supplementary.onOpenAuthoredLink,
@@ -256,6 +264,7 @@ function SupplementaryTab({
   onComponentChange,
   publisherNotes,
   references,
+  topology,
 }: {
   component: ReadingComponent;
   components: SepReadingData["components"];
@@ -279,6 +288,7 @@ function SupplementaryTab({
     onOpen: (reference: ReadingReference) => void;
     selected?: ReadingReference;
   };
+  topology: ReadingSceneTopology;
 }) {
   const selectedReference = references.selected;
   const publisherNoteReferenceIndex = publisherNotes.component
@@ -298,6 +308,7 @@ function SupplementaryTab({
         component={component}
         components={components}
         onComponentChange={onComponentChange}
+        topology={topology}
       />
       {publisherNotes.component ? (
         <PublisherNotes
@@ -321,20 +332,28 @@ function SourceComponents({
   component,
   components,
   onComponentChange,
+  topology,
 }: {
   component: SepReadingData["components"][number];
   components: SepReadingData["components"];
   onComponentChange: (identity: string) => void;
+  topology: ReadingSceneTopology;
 }) {
   return (
     <div className="space-y-2">
       <p className="font-medium text-sm">Source components</p>
-      {components
+      {topology.scenes
         .filter(
-          (candidate) =>
-            candidate.role !== "notes" &&
-            candidate.identity !== component.identity,
+          (scene) =>
+            scene.presentationRegion === "article" &&
+            scene.componentIdentity !== component.identity,
         )
+        .map((scene) =>
+          components.find(
+            (candidate) => candidate.identity === scene.componentIdentity,
+          ),
+        )
+        .filter((candidate) => candidate !== undefined)
         .map((candidate) => (
           <Button
             className="h-auto w-full justify-start whitespace-normal text-left"

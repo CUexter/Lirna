@@ -16,7 +16,7 @@ describe("Reading tools locations", () => {
     });
     const publisherNote = readingToolsScrollOwner({
       activeTab: "supplementary",
-      notesIdentity: "notes",
+      publisherNotesOwner: "publisher-note",
     });
 
     locations.save(contents, 100);
@@ -52,7 +52,7 @@ describe("Reading tools locations", () => {
       readingToolsScrollOwner({
         activeTab: "supplementary",
         hasSelectedReference: true,
-        notesIdentity: "notes",
+        publisherNotesOwner: "publisher-note",
       }),
     ).toBe("reading-tools:supplementary");
   });
