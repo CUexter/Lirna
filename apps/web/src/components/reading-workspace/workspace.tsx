@@ -197,6 +197,7 @@ function useReadingWorkspaceViewProps({
     active:
       activeToolTab === "supplementary" && Boolean(notes) && !selectedReference,
     component: notes,
+    navigation,
     scrollContainerRef: toolsScrollRef,
     sourceId: source.id,
     stateId: source.stateId,

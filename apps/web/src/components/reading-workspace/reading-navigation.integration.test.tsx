@@ -40,9 +40,11 @@ const { useReadingNavigationObservations } = await import(
 const { useReadingNavigationScope } = await import(
   "./reading-navigation-hooks"
 );
-const { useReadingResume } = await import("./reading-resume");
+const { saveReadingHistoryScrollTop, useReadingResume } = await import(
+  "./reading-resume"
+);
 
-function Harness() {
+function Harness({ resumeStateId = stateId }: { resumeStateId?: string }) {
   const component = readingFixture().components[0];
   const { articleRef, navigation, toolsScrollRef } =
     useReadingNavigationScope();
@@ -58,7 +60,7 @@ function Harness() {
     ephemeralScrollTop: undefined,
     navigation,
     sourceId,
-    stateId,
+    stateId: resumeStateId,
   });
   return (
     <>
@@ -98,5 +100,40 @@ test("reader control cancels a pending resume before it resolves", async () => {
     expect(locations).toEqual([]);
   } finally {
     window.scrollTo = originalScrollTo;
+  }
+});
+
+test("the same scene resumes independently after a Source-state change", async () => {
+  const nextStateId = "20000000-0000-4000-8000-000000000001";
+  const locations: number[] = [];
+  const originalScrollTo = window.scrollTo;
+  window.history.replaceState({}, "");
+  saveReadingHistoryScrollTop(sourceId, stateId, "article", 120);
+  saveReadingHistoryScrollTop(sourceId, nextStateId, "article", 760);
+  window.scrollTo = (options) => {
+    if (typeof options === "object" && options.top !== undefined)
+      locations.push(options.top);
+  };
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+
+  try {
+    const rendered = render(
+      <QueryClientProvider client={queryClient}>
+        <Harness />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(locations).toContain(120));
+
+    rendered.rerender(
+      <QueryClientProvider client={queryClient}>
+        <Harness resumeStateId={nextStateId} />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(locations).toContain(760));
+  } finally {
+    window.scrollTo = originalScrollTo;
+    window.history.replaceState({}, "");
   }
 });

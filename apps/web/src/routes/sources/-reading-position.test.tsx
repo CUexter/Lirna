@@ -306,7 +306,7 @@ test("persists publisher-note semantics with its tools-container pixels", async 
   );
 });
 
-test("restores publisher-note progress in Reading tools", async () => {
+test("restores publisher-note progress after explicit note navigation yields", async () => {
   resetActions();
   getResume = async (input) => {
     calls.resumeGet.push(input);
@@ -353,6 +353,9 @@ test("restores publisher-note progress in Reading tools", async () => {
   );
   if (!container) throw new Error("Publisher-note scroll owner is unavailable");
 
+  expect(container.scrollTop).toBe(0);
+  await user.click(view().getByRole("tab", { name: "Contents" }));
+  await user.click(view().getByRole("tab", { name: "Supplementary" }));
   await waitFor(() => expect(container.scrollTop).toBe(720));
   expect(calls.resumeGet).toContainEqual({
     sourceId,
@@ -563,7 +566,11 @@ test("preserves article and publisher-note progress through a Bibliography round
       }),
     );
     await view().findByText("Publisher-authored note.");
-    await waitFor(() => expect(container.scrollTop).toBe(480));
+    await waitFor(() => expect(container.scrollTop).toBe(0));
+    expect(historySemanticLocation(sourceId, stateId, "notes")).toMatchObject({
+      scene: { identity: "notes", owner: "publisher-note" },
+      fallback: { scrollTop: 480 },
+    });
     expect(window.scrollY).toBe(540);
   } finally {
     if (scrollY) Object.defineProperty(window, "scrollY", scrollY);

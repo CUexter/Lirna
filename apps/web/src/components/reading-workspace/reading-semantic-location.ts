@@ -101,18 +101,17 @@ export function resolveReadingSemanticLocation({
     semantic.scene.owner !== owner
   )
     return undefined;
-  if (!root || semantic.block.strategy === "scene-fallback")
-    return semantic.fallback.scrollTop;
+  if (!root || semantic.block.strategy === "scene-fallback") return undefined;
 
   const blocks = readingBlocks(root);
   const block = blocks.find(
     (_candidate, index) =>
       semanticBlockIdentity(blocks, index) === semantic.block.identity,
   );
-  if (!block) return semantic.fallback.scrollTop;
+  if (!block) return undefined;
 
   const rect = block.getBoundingClientRect();
-  if (rect.height <= 0) return semantic.fallback.scrollTop;
+  if (rect.height <= 0) return undefined;
   const readingLine = Math.max(0, viewportHeight) * 0.25;
   return Math.max(
     0,

@@ -1,28 +1,34 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { type RefObject, useEffect } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 
 import { inquiry } from "@/clients/inquiry";
 import type { SepReadingData } from "./content";
+import { observeReadingNavigation } from "./navigation-observations";
 import {
   historyPositionKey,
   historyScrollTop,
   historySemanticLocation,
   writeReadingHistoryPosition,
 } from "./reading-history-position";
-import {
-  createReadingSemanticLocation,
-  resolveReadingSemanticLocation,
-} from "./reading-semantic-location";
+import type {
+  ReadingNavigation,
+  ReadingNavigationHandle,
+} from "./reading-navigation";
+import { isReadingTargetReady } from "./reading-navigation-hooks";
+import { resolveReadingResumeLocation } from "./reading-resume-location";
+import { createReadingSemanticLocation } from "./reading-semantic-location";
 
 export function usePublisherNoteProgress({
   active,
   component,
+  navigation,
   scrollContainerRef,
   sourceId,
   stateId,
 }: {
   active: boolean;
   component?: SepReadingData["components"][number];
+  navigation: ReadingNavigation;
   scrollContainerRef: RefObject<HTMLElement | null>;
   sourceId: string;
   stateId: string;
@@ -37,6 +43,31 @@ export function usePublisherNoteProgress({
     ...resumeQuery,
     enabled: active && Boolean(component),
   });
+  const resumeIntent = useRef<{
+    handle: ReadingNavigationHandle;
+    key: string;
+  } | null>(null);
+  const componentIdentity = active ? component?.identity : undefined;
+  const resumeKey = componentIdentity
+    ? historyPositionKey(sourceId, stateId, componentIdentity)
+    : undefined;
+
+  useEffect(() => {
+    if (!(componentIdentity && resumeKey)) return;
+    const intent = {
+      handle: navigation.request({
+        cause: "resume",
+        owner: "publisher-note",
+        target: `resume-position:${componentIdentity}`,
+      }),
+      key: resumeKey,
+    };
+    resumeIntent.current = intent;
+    return () => {
+      intent.handle.cancel();
+      if (resumeIntent.current === intent) resumeIntent.current = null;
+    };
+  }, [componentIdentity, navigation, resumeKey]);
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -52,12 +83,25 @@ export function usePublisherNoteProgress({
       resume.componentIdentity === component.identity
         ? resume
         : undefined;
+    let readinessFrame = 0;
     if (!isPending || historyScroll !== undefined) {
-      const root = sceneRoot(container, component.identity);
-      const fallbackScrollTop = historyScroll ?? persisted?.scrollTop ?? 0;
-      const desiredScrollTop =
-        resolveReadingSemanticLocation({
+      const intent = resumeIntent.current;
+      const commitWhenReady = () => {
+        if (
+          !intent ||
+          intent.key !==
+            historyPositionKey(sourceId, stateId, component.identity) ||
+          !intent.handle.active()
+        )
+          return;
+        const root = sceneRoot(container, component.identity);
+        if (!root || !isReadingTargetReady(root)) {
+          readinessFrame = requestAnimationFrame(commitWhenReady);
+          return;
+        }
+        const destination = resolveReadingResumeLocation({
           componentIdentity: component.identity,
+          legacyScrollTop: historyScroll ?? persisted?.scrollTop ?? 0,
           location:
             historySemanticLocation(sourceId, stateId, component.identity) ??
             persisted?.semanticLocation,
@@ -68,8 +112,19 @@ export function usePublisherNoteProgress({
           stateId,
           viewportHeight: container.clientHeight,
           viewportTop: container.getBoundingClientRect().top,
-        }) ?? fallbackScrollTop;
-      container.scrollTo({ top: desiredScrollTop });
+        });
+        intent.handle.commit(() => {
+          observeReadingNavigation({
+            cause: destination.cause,
+            owner: "publisher-note",
+            target: destination.target,
+          });
+          container.scrollTo({ top: destination.scrollTop });
+        });
+      };
+      readinessFrame = requestAnimationFrame(() => {
+        readinessFrame = requestAnimationFrame(commitWhenReady);
+      });
     }
     let timer: ReturnType<typeof setTimeout> | undefined;
     let dirty = false;
@@ -109,6 +164,7 @@ export function usePublisherNoteProgress({
     window.addEventListener("pagehide", saveImmediately);
     document.addEventListener("visibilitychange", saveImmediately);
     return () => {
+      cancelAnimationFrame(readinessFrame);
       if (timer) clearTimeout(timer);
       if (dirty) save();
       container.removeEventListener("scroll", handleScroll);

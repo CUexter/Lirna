@@ -7,6 +7,7 @@ import { observeReadingNavigation } from "./navigation-observations";
 import {
   historyPositionKey,
   historyScrollTop,
+  historySemanticLocation,
   writeReadingHistoryPosition,
 } from "./reading-history-position";
 import type {
@@ -14,6 +15,7 @@ import type {
   ReadingNavigationHandle,
 } from "./reading-navigation";
 import { isReadingTargetReady } from "./reading-navigation-hooks";
+import { resolveReadingResumeLocation } from "./reading-resume-location";
 import { createReadingSemanticLocation } from "./reading-semantic-location";
 
 export { saveReadingHistoryScrollTop } from "./reading-history-position";
@@ -49,27 +51,30 @@ export function useReadingResume({
   });
   const [status, setStatus] = useState<"saving" | "saved" | "error">("saving");
   const resumeIntent = useRef<{
-    componentIdentity: string;
     handle: ReadingNavigationHandle;
+    key: string;
   } | null>(null);
   const componentIdentity = component?.identity;
+  const resumeKey = componentIdentity
+    ? historyPositionKey(sourceId, stateId, componentIdentity)
+    : undefined;
 
   useEffect(() => {
-    if (!componentIdentity) return;
+    if (!(componentIdentity && resumeKey)) return;
     const intent = {
-      componentIdentity,
       handle: navigation.request({
         cause: "resume",
         owner: "article",
         target: `resume-position:${componentIdentity}`,
       }),
+      key: resumeKey,
     };
     resumeIntent.current = intent;
     return () => {
       intent.handle.cancel();
       if (resumeIntent.current === intent) resumeIntent.current = null;
     };
-  }, [componentIdentity, navigation]);
+  }, [componentIdentity, navigation, resumeKey]);
 
   useEffect(() => {
     if (!component) return;
@@ -141,16 +146,23 @@ export function useReadingResume({
     const entryScrollTop =
       historyScrollTop(sourceId, stateId, component.identity) ??
       initialEntryScrollTop;
-    const persistedScrollTop =
+    const persisted =
       resume?.sourceId === sourceId &&
       resume.stateId === stateId &&
       resume.componentIdentity === component.identity
-        ? resume.scrollTop
-        : 0;
-    const desiredScrollTop =
-      entryScrollTop ?? ephemeralScrollTop ?? persistedScrollTop;
+        ? resume
+        : undefined;
+    const legacyScrollTop =
+      entryScrollTop ?? ephemeralScrollTop ?? persisted?.scrollTop ?? 0;
+    const resumeLocation =
+      historySemanticLocation(sourceId, stateId, component.identity) ??
+      persisted?.semanticLocation;
     const intent = resumeIntent.current;
-    if (!intent || intent.componentIdentity !== component.identity) return;
+    if (
+      !intent ||
+      intent.key !== historyPositionKey(sourceId, stateId, component.identity)
+    )
+      return;
     const { handle } = intent;
     const start = () => {
       started = true;
@@ -162,13 +174,24 @@ export function useReadingResume({
           readinessFrame = requestAnimationFrame(commitWhenReady);
           return;
         }
+        const destination = resolveReadingResumeLocation({
+          componentIdentity: component.identity,
+          legacyScrollTop,
+          location: resumeLocation,
+          owner: "article",
+          root: article,
+          scrollTop: window.scrollY,
+          sourceId,
+          stateId,
+          viewportHeight: window.innerHeight,
+        });
         handle.commit(() => {
           observeReadingNavigation({
-            cause: "resume",
+            cause: destination.cause,
             owner: "article",
-            target: `scroll-top:${desiredScrollTop}`,
+            target: destination.target,
           });
-          window.scrollTo({ top: desiredScrollTop });
+          window.scrollTo({ top: destination.scrollTop });
         });
       };
       commitWhenReady();

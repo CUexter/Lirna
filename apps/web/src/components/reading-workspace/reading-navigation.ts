@@ -38,16 +38,22 @@ export function createReadingNavigation(): ReadingNavigation {
       const epoch = (epochs.get(intent.owner) ?? 0) + 1;
       epochs.set(intent.owner, epoch);
       const current = activeByOwner.get(intent.owner);
-      const rejectedByExplicitFragment =
+      const rejectedByExplicitNavigation =
         intent.cause === "resume" &&
-        current?.cause === "explicit-fragment-arrival";
+        current !== undefined &&
+        [
+          "citation-return",
+          "explicit-fragment-arrival",
+          "pending-fragment",
+          "reference-target",
+        ].includes(current.cause);
       const ownerIntent: OwnerIntent = {
         cause: intent.cause,
         committed: false,
         epoch,
       };
 
-      if (!rejectedByExplicitFragment) {
+      if (!rejectedByExplicitNavigation) {
         activeByOwner.set(intent.owner, ownerIntent);
       }
 
@@ -66,6 +72,12 @@ export function createReadingNavigation(): ReadingNavigation {
           }
           ownerIntent.committed = true;
           move();
+          if (
+            ownerIntent.cause !== "explicit-fragment-arrival" &&
+            activeByOwner.get(intent.owner)?.epoch === ownerIntent.epoch
+          ) {
+            activeByOwner.delete(intent.owner);
+          }
           return true;
         },
       };

@@ -72,6 +72,31 @@ describe("ReadingNavigation", () => {
     expect(resume.active()).toBe(false);
   });
 
+  test("target-specific publisher-note navigation rejects a later resume", () => {
+    const navigation = createReadingNavigation();
+    const citation = navigation.request({
+      owner: "publisher-note",
+      cause: "citation-return",
+      target: "citation:notes:one",
+    });
+
+    const resume = navigation.request({
+      owner: "publisher-note",
+      cause: "resume",
+      target: "resume-position:notes",
+    });
+
+    expect(resume.active()).toBe(false);
+    expect(citation.commit(() => undefined)).toBe(true);
+
+    const laterResume = navigation.request({
+      owner: "publisher-note",
+      cause: "resume",
+      target: "resume-position:notes",
+    });
+    expect(laterResume.active()).toBe(true);
+  });
+
   test("a winning intent commits at most once", () => {
     const navigation = createReadingNavigation();
     const handle = navigation.request({
