@@ -39,6 +39,7 @@ export function parseSource(sourcePath, source) {
   );
   const imports = [];
   const nativeControls = [];
+  const scrollCommands = [];
   let createsRoute = false;
   const routeCreators = new Set(["createFileRoute", "createRootRoute", "createRootRouteWithContext", "createRoute"]);
   const nativeControl = /^(button|dialog|input|optgroup|option|select|textarea)$/;
@@ -56,6 +57,32 @@ export function parseSource(sourcePath, source) {
         imports.push(node.arguments[0].text);
       }
       if (ts.isIdentifier(node.expression) && (routeCreators.has(node.expression.text) || node.expression.text.startsWith("createFileRoute"))) createsRoute = true;
+      if (
+        ts.isPropertyAccessExpression(node.expression) &&
+        ["scroll", "scrollBy", "scrollIntoView", "scrollTo"].includes(
+          node.expression.name.text,
+        )
+      )
+        scrollCommands.push(node.expression.name.text);
+    }
+    if (
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+      node.operatorToken.kind <= ts.SyntaxKind.LastAssignment &&
+      ts.isPropertyAccessExpression(node.left) &&
+      node.left.name.text === "scrollTop"
+    ) {
+      scrollCommands.push("scrollTop assignment");
+    }
+    if (
+      (ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node)) &&
+      [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(
+        node.operator,
+      ) &&
+      ts.isPropertyAccessExpression(node.operand) &&
+      node.operand.name.text === "scrollTop"
+    ) {
+      scrollCommands.push("scrollTop assignment");
     }
     if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
       const tag = ts.isJsxElement(node)
@@ -66,7 +93,7 @@ export function parseSource(sourcePath, source) {
     ts.forEachChild(node, visit);
   }
   visit(sourceFile);
-  return { imports, createsRoute, nativeControls };
+  return { imports, createsRoute, nativeControls, scrollCommands };
 }
 
 function workspaceForPath(workspaces, path) {
@@ -104,6 +131,19 @@ export function evaluatePolicy({ workspaces, files }) {
     for (const control of file.nativeControls ?? []) {
       const allowed = primitiveControls.get(file.path)?.has(control);
       if (!allowed) violations.push(`${file.path} uses native <${control}>; import an owned UI primitive instead`);
+    }
+    const readingAuthorityScope =
+      file.path.startsWith("apps/web/src/") &&
+      !/\.(?:test|spec)\.[jt]sx?$/.test(file.path);
+    if (
+      readingAuthorityScope &&
+      file.path !==
+        "apps/web/src/components/reading-workspace/reading-navigation.ts"
+    ) {
+      for (const command of file.scrollCommands ?? [])
+        violations.push(
+          `${file.path} uses ${command} outside ReadingNavigation`,
+        );
     }
     for (const specifier of file.imports) {
       const dependency = packageImport(specifier, workspaces);

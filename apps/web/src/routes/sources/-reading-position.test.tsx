@@ -566,7 +566,7 @@ test("preserves article and publisher-note progress through a Bibliography round
       }),
     );
     await view().findByText("Publisher-authored note.");
-    await waitFor(() => expect(container.scrollTop).toBe(0));
+    await waitFor(() => expect(container.scrollTop).toBe(480));
     expect(historySemanticLocation(sourceId, stateId, "notes")).toMatchObject({
       scene: { identity: "notes", owner: "publisher-note" },
       fallback: { scrollTop: 480 },

@@ -1,8 +1,9 @@
 import type { ReadingSemanticLocation } from "./reading-semantic-location";
 
-const historyPositionsKey = "lirnaReadingPositions";
-const historyNavigationPositionsKey = "lirnaReadingNavigationPositions";
-const historySemanticPositionsKey = "lirnaReadingSemanticPositions";
+const legacyHistoryPositionsKey = "lirnaReadingPositions";
+const legacyHistoryNavigationPositionsKey = "lirnaReadingNavigationPositions";
+const legacyHistorySemanticPositionsKey = "lirnaReadingSemanticPositions";
+const historyLocationsKey = "lirnaReadingLocations";
 
 export function historyPositionKey(
   sourceId: string,
@@ -21,8 +22,9 @@ export function historyScrollTop(
   const state = window.history.state;
   if (!state || typeof state !== "object") return undefined;
   return (
-    historyNavigationScrollTop(key) ??
-    stateScrollTop(state[historyPositionsKey], key)
+    historyLocation(state, key)?.fallback.scrollTop ??
+    legacyNavigationScrollTop(state, key) ??
+    stateScrollTop(state[legacyHistoryPositionsKey], key)
   );
 }
 
@@ -34,7 +36,9 @@ export function historySemanticLocation(
   const key = historyPositionKey(sourceId, stateId, componentIdentity);
   const state = window.history.state;
   if (!state || typeof state !== "object") return undefined;
-  const positions = state[historySemanticPositionsKey];
+  const current = historyLocation(state, key);
+  if (current) return current;
+  const positions = state[legacyHistorySemanticPositionsKey];
   if (!positions || typeof positions !== "object") return undefined;
   const location = (positions as Record<string, unknown>)[key];
   return location && typeof location === "object"
@@ -42,49 +46,43 @@ export function historySemanticLocation(
     : undefined;
 }
 
-export function saveReadingHistoryScrollTop(
-  sourceId: string,
-  stateId: string,
-  componentIdentity: string,
-  scrollTop: number,
-) {
-  const key = historyPositionKey(sourceId, stateId, componentIdentity);
-  writeNavigationScrollTop(key, scrollTop);
-}
-
 export function writeReadingHistoryPosition(
   key: string,
-  scrollTop: number,
   semanticLocation: ReadingSemanticLocation,
 ) {
   const state = historyState();
-  const positions = objectState(state[historyPositionsKey]);
-  const semanticPositions = objectState(state[historySemanticPositionsKey]);
+  const locations = objectState(state[historyLocationsKey]);
   window.history.replaceState(
     {
       ...state,
-      __hashScrollIntoViewOptions: false,
-      [historyPositionsKey]: { ...positions, [key]: scrollTop },
-      [historySemanticPositionsKey]: {
-        ...semanticPositions,
-        [key]: semanticLocation,
-      },
+      [historyLocationsKey]: { ...locations, [key]: semanticLocation },
     },
     "",
   );
 }
 
-function historyNavigationScrollTop(key: string) {
-  const state = window.history.state;
-  if (!state || typeof state !== "object") return undefined;
-  const snapshot = state[historyNavigationPositionsKey];
+function historyLocation(state: Record<string, unknown>, key: string) {
+  const locations = state[historyLocationsKey];
+  if (!locations || typeof locations !== "object") return undefined;
+  const location = (locations as Record<string, unknown>)[key];
+  return location && typeof location === "object"
+    ? (location as ReadingSemanticLocation)
+    : undefined;
+}
+
+function legacyNavigationScrollTop(
+  state: Record<string, unknown>,
+  key: string,
+) {
+  const snapshot = state[legacyHistoryNavigationPositionsKey];
   if (!snapshot || typeof snapshot !== "object") return undefined;
   const { href, positions } = snapshot as {
     href?: unknown;
     positions?: unknown;
   };
-  if (href !== window.location.href) return undefined;
-  return stateScrollTop(positions, key);
+  return href === window.location.href
+    ? stateScrollTop(positions, key)
+    : undefined;
 }
 
 function stateScrollTop(positions: unknown, key: string) {
@@ -93,27 +91,6 @@ function stateScrollTop(positions: unknown, key: string) {
   return typeof scrollTop === "number" && Number.isFinite(scrollTop)
     ? Math.max(0, scrollTop)
     : undefined;
-}
-
-function writeNavigationScrollTop(key: string, scrollTop: number) {
-  const state = historyState();
-  const current = state[historyNavigationPositionsKey];
-  const positions =
-    current &&
-    typeof current === "object" &&
-    (current as { href?: unknown }).href === window.location.href
-      ? (current as { positions?: Record<string, number> }).positions
-      : undefined;
-  window.history.replaceState(
-    {
-      ...state,
-      [historyNavigationPositionsKey]: {
-        href: window.location.href,
-        positions: { ...positions, [key]: scrollTop },
-      },
-    },
-    "",
-  );
 }
 
 function historyState(): Record<string, unknown> {

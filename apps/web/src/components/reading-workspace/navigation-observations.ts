@@ -17,8 +17,7 @@ export type ReadingNavigationCause =
   | "reference-opening"
   | "reference-target"
   | "resume"
-  | "resume-legacy-fallback"
-  | "resume-correction";
+  | "resume-legacy-fallback";
 
 export type ReadingNavigationObservation = {
   cause: ReadingNavigationCause;

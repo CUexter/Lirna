@@ -4,6 +4,8 @@ import {
   clearNavigationTrace,
   installNavigationTrace,
   navigationTrace,
+  setToolsPosition,
+  toolsPosition,
 } from "./reading-navigation-helpers";
 
 const sourceId = "10000000-0000-4000-8000-000000000000";
@@ -165,7 +167,7 @@ test("cancels a pending Annotation return when newer article navigation wins", a
       expect.objectContaining({
         cause: "explicit-fragment-arrival",
         owner: "article",
-        target: "#source-information",
+        target: "fragment:source-information",
       }),
     ]),
   );
@@ -182,6 +184,13 @@ test("keeps Annotation movement independent from Reading-tools navigation", asyn
 }) => {
   await installNavigationTrace(page);
   await page.goto(`/sources/${sourceId}/${stateId}`);
+  await page
+    .getByRole("tab", { name: "Notes" })
+    .evaluate((element) => element.click());
+  await setToolsPosition(page, 260);
+  await page
+    .getByRole("tab", { name: "Contents" })
+    .evaluate((element) => element.click());
   await openAnnotationNotes(page);
   await clearNavigationTrace(page);
 
@@ -211,6 +220,11 @@ test("keeps Annotation movement independent from Reading-tools navigation", asyn
         }),
       ]),
     );
+  await page
+    .getByRole("complementary", { name: "Reading tools" })
+    .getByRole("tab", { name: "Notes" })
+    .evaluate((element) => element.click());
+  await expect.poll(() => toolsPosition(page)).toBe(260);
 });
 
 test("direct reader control cancels a pending Annotation return", async ({

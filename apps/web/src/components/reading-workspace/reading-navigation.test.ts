@@ -17,8 +17,8 @@ describe("ReadingNavigation", () => {
       target: "component:identity",
     });
 
-    expect(stale.commit(() => movements.push("stale"))).toBe(false);
-    expect(winner.commit(() => movements.push("winner"))).toBe(true);
+    expect(stale.commitTransition(() => movements.push("stale"))).toBe(false);
+    expect(winner.commitTransition(() => movements.push("winner"))).toBe(true);
     expect(movements).toEqual(["winner"]);
   });
 
@@ -36,7 +36,7 @@ describe("ReadingNavigation", () => {
     });
 
     expect(delayedResume.active()).toBe(false);
-    expect(fragment.commit(() => undefined)).toBe(true);
+    expect(fragment.commitTransition(() => undefined)).toBe(true);
 
     const navigationWithResumeFirst = createReadingNavigation();
     const resume = navigationWithResumeFirst.request({
@@ -62,7 +62,7 @@ describe("ReadingNavigation", () => {
       target: "fragment:notation",
     });
 
-    expect(fragment.commit(() => undefined)).toBe(true);
+    expect(fragment.commitTransition(() => undefined)).toBe(true);
 
     const resume = navigation.request({
       owner: "article",
@@ -87,7 +87,7 @@ describe("ReadingNavigation", () => {
     });
 
     expect(resume.active()).toBe(false);
-    expect(citation.commit(() => undefined)).toBe(true);
+    expect(citation.commitTransition(() => undefined)).toBe(true);
 
     const laterResume = navigation.request({
       owner: "publisher-note",
@@ -106,8 +106,8 @@ describe("ReadingNavigation", () => {
     });
     let movements = 0;
 
-    expect(handle.commit(() => movements++)).toBe(true);
-    expect(handle.commit(() => movements++)).toBe(false);
+    expect(handle.commitTransition(() => movements++)).toBe(true);
+    expect(handle.commitTransition(() => movements++)).toBe(false);
     expect(movements).toBe(1);
   });
 
@@ -126,8 +126,8 @@ describe("ReadingNavigation", () => {
 
     expect(article.active()).toBe(true);
     expect(tools.active()).toBe(true);
-    expect(article.commit(() => undefined)).toBe(true);
-    expect(tools.commit(() => undefined)).toBe(true);
+    expect(article.commitTransition(() => undefined)).toBe(true);
+    expect(tools.commitTransition(() => undefined)).toBe(true);
   });
 
   test("owner cancellation does not affect another owner", () => {
@@ -193,7 +193,7 @@ describe("ReadingNavigation", () => {
       cause: "explicit-fragment-arrival",
       target: "fragment:notation",
     });
-    expect(fragment.commit(() => undefined)).toBe(true);
+    expect(fragment.commitTransition(() => undefined)).toBe(true);
 
     fragment.cancel();
 

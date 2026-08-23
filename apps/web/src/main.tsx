@@ -19,7 +19,8 @@ if (
 const router = createRouter({
   routeTree,
   defaultPreload: "intent",
-  scrollRestoration: true,
+  scrollRestoration: ({ location }) =>
+    !/^\/sources\/[^/]+\/[^/]+\/?$/.test(location.pathname),
   defaultPendingComponent: () => <Loader />,
   context: { queryClient },
   Wrap: function WrapComponent({ children }: { children: React.ReactNode }) {

@@ -62,7 +62,11 @@ export async function setToolsPosition(page: Page, scrollTop: number) {
         '[data-reading-scroll-owner]::after { content: ""; display: block; height: 2000px; }';
       document.head.append(style);
     }
+    element.dispatchEvent(
+      new WheelEvent("wheel", { bubbles: true, deltaY: position }),
+    );
     element.scrollTo({ top: position });
+    element.dispatchEvent(new Event("scroll"));
   }, scrollTop);
   await expect
     .poll(() => tools.evaluate((element) => element.scrollTop))

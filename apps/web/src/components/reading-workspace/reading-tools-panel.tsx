@@ -90,11 +90,15 @@ export function ReadingToolsPanel({
     selectedReference?: ReadingReference;
   };
 }) {
-  const saveToolsLocation = useReadingToolsLocation(scrollContainerRef, {
-    activeTab: navigation.activeTab,
-    hasSelectedReference: Boolean(supplementary.selectedReference),
-    publisherNotesOwner: supplementary.publisherNotesOwner,
-  });
+  const saveToolsLocation = useReadingToolsLocation(
+    scrollContainerRef,
+    bibliography.navigation,
+    {
+      activeTab: navigation.activeTab,
+      hasSelectedReference: Boolean(supplementary.selectedReference),
+      publisherNotesOwner: supplementary.publisherNotesOwner,
+    },
+  );
 
   return (
     <aside

@@ -3,7 +3,6 @@ import { type RefObject, useEffect, useRef } from "react";
 
 import { inquiry } from "@/clients/inquiry";
 import type { SepReadingData } from "./content";
-import { observeReadingNavigation } from "./navigation-observations";
 import {
   historyPositionKey,
   historyScrollTop,
@@ -113,14 +112,18 @@ export function usePublisherNoteProgress({
           viewportHeight: container.clientHeight,
           viewportTop: container.getBoundingClientRect().top,
         });
-        intent.handle.commit(() => {
-          observeReadingNavigation({
+        intent.handle.commit(
+          {
+            kind: "position",
+            scrollContainer: container,
+            top: destination.scrollTop,
+          },
+          {
             cause: destination.cause,
             owner: "publisher-note",
             target: destination.target,
-          });
-          container.scrollTo({ top: destination.scrollTop });
-        });
+          },
+        );
       };
       readinessFrame = requestAnimationFrame(() => {
         readinessFrame = requestAnimationFrame(commitWhenReady);
@@ -132,7 +135,6 @@ export function usePublisherNoteProgress({
     const save = () => {
       writeReadingHistoryPosition(
         historyPositionKey(sourceId, stateId, component.identity),
-        latest.scrollTop,
         latest.semanticLocation,
       );
       mutate({
@@ -149,7 +151,6 @@ export function usePublisherNoteProgress({
       latest = position(container, component.identity, sourceId, stateId);
       writeReadingHistoryPosition(
         historyPositionKey(sourceId, stateId, component.identity),
-        latest.scrollTop,
         latest.semanticLocation,
       );
       if (timer) clearTimeout(timer);

@@ -1,11 +1,14 @@
-import { type RefObject, useLayoutEffect, useRef } from "react";
+import { type RefObject, useLayoutEffect } from "react";
 
-import { highlightTarget, scrollTarget } from "./authored-navigation";
+import { highlightTarget } from "./authored-navigation";
 import type { SepReadingData } from "./content";
-import { observeReadingNavigation } from "./navigation-observations";
+import {
+  historyPositionKey,
+  writeReadingHistoryPosition,
+} from "./reading-history-position";
 import type { ReadingNavigation } from "./reading-navigation";
-import { saveReadingHistoryScrollTop } from "./reading-resume";
 import type { ReadingSceneTopology } from "./reading-scene-topology";
+import { createReadingSemanticLocation } from "./reading-semantic-location";
 
 export function useComponentTree(
   reading: SepReadingData,
@@ -41,23 +44,6 @@ export function useComponentTree(
       ? selectedScene.componentIdentity
       : undefined;
   return { component, next, parent, previous, publisherNoteIdentity };
-}
-
-export function usePreservedScroll() {
-  const scrollTop = useRef<number | undefined>(undefined);
-  useLayoutEffect(() => {
-    if (scrollTop.current === undefined) return;
-    observeReadingNavigation({
-      cause: "preserved-scroll",
-      owner: "article",
-      target: `scroll-top:${scrollTop.current}`,
-    });
-    window.scrollTo({ top: scrollTop.current });
-    scrollTop.current = undefined;
-  });
-  return () => {
-    scrollTop.current = window.scrollY;
-  };
 }
 
 export function usePendingCitationReturn({
@@ -108,14 +94,11 @@ export function usePendingCitationReturn({
       ].find((element) => element.id === pending.mentionId);
       if (!citation) return;
       if (
-        handle.commit(() =>
-          scrollTarget(
-            citation,
-            inNotes ? toolsScrollRef.current : undefined,
-            "citation-return",
-            target,
-          ),
-        )
+        handle.commit({
+          kind: "target",
+          scrollContainer: inNotes ? toolsScrollRef.current : undefined,
+          target: citation,
+        })
       ) {
         highlightTarget(citation);
         pendingCitation.current = undefined;
@@ -155,19 +138,20 @@ export function useScrollRestore({
   stateId: string;
   onViewChange: (view: "article" | "bibliography", citation?: string) => void;
 }) {
-  const locations = useRef(new Map<string, number>());
-  const ephemeralScrollTop = component
-    ? locations.current.get(component.identity)
-    : undefined;
-
   const saveLocation = () => {
     if (!component) return;
-    locations.current.set(component.identity, window.scrollY);
-    saveReadingHistoryScrollTop(
-      sourceId,
-      stateId,
-      component.identity,
-      window.scrollY,
+    const scrollTop = Math.max(0, Math.round(window.scrollY));
+    writeReadingHistoryPosition(
+      historyPositionKey(sourceId, stateId, component.identity),
+      createReadingSemanticLocation({
+        componentIdentity: component.identity,
+        owner: "article",
+        root: articleRef.current,
+        scrollTop,
+        sourceId,
+        stateId,
+        viewportHeight: window.innerHeight,
+      }),
     );
   };
   const openBibliography = (entryId: string | undefined) => {
@@ -185,13 +169,10 @@ export function useScrollRestore({
       owner: "article",
       target,
     });
-    handle.commit(() =>
-      scrollTarget(citation, undefined, "citation-return", target),
-    );
-    highlightTarget(citation);
+    if (handle.commit({ kind: "target", target: citation }))
+      highlightTarget(citation);
   };
   return {
-    ephemeralScrollTop,
     openBibliography,
     returnToCitation,
     saveLocation,

@@ -21,9 +21,11 @@ test("routes authored scenes through their declared owners and retains both lane
     document.body.style.minHeight = "5000px";
   });
   await clearNavigationTrace(page);
+  await setToolsPosition(page, 220);
 
   await page.getByRole("link", { name: "Same scene target" }).click();
   await expect(page.getByRole("heading", { name: "Notation" })).toBeVisible();
+  await expect.poll(() => toolsPosition(page)).toBe(220);
   await expect
     .poll(() => navigationTrace(page))
     .toEqual(
@@ -115,6 +117,10 @@ test("routes authored scenes through their declared owners and retains both lane
       ]),
     );
 
+  await page.goto(
+    `/sources/${sourceId}/${stateId}?component=${encodeURIComponent("active:/supplement-one.html")}`,
+  );
+  await expect(page.getByText("Typed supplement one content.")).toBeVisible();
   await retainArticlePosition(page, 640);
   await page.getByRole("button", { name: "Next: Supplement two" }).click();
   await expect(page.getByText("Typed supplement two content.")).toBeVisible();

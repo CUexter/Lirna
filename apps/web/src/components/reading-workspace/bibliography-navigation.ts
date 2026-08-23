@@ -1,6 +1,5 @@
 import { type RefObject, useEffect } from "react";
 
-import { scrollTarget } from "./authored-navigation";
 import type { ReadingNavigation } from "./reading-navigation";
 
 export function useBibliographySelection({
@@ -30,10 +29,15 @@ export function useBibliographySelection({
     });
     const frame = requestAnimationFrame(() => {
       if (!handle.active()) return;
-      handle.commit(() => {
-        scrollTarget(entry, scrollContainer, "bibliography-selection", target);
+      if (
+        handle.commit({
+          kind: "target",
+          scrollContainer,
+          target: entry,
+        })
+      ) {
         entry.focus({ preventScroll: true });
-      });
+      }
     });
     return () => cancelAnimationFrame(frame);
   }, [

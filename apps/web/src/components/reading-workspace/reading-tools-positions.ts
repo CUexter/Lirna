@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef } from "react";
 
 import type { ReadingScrollOwner } from "./navigation-observations";
+import type { ReadingNavigation } from "./reading-navigation";
 import type { ReadingSceneScrollOwner } from "./reading-scene-topology";
 import type { ReadingToolTab } from "./reading-tools-panel";
 
@@ -36,6 +37,7 @@ export function createReadingToolsLocations() {
 
 export function useReadingToolsLocation(
   scrollContainerRef: React.RefObject<HTMLElement | null>,
+  navigation: ReadingNavigation,
   {
     activeTab,
     hasSelectedReference,
@@ -61,16 +63,25 @@ export function useReadingToolsLocation(
     const scrollTop = locations.current.read(owner);
     const saveLocation = () =>
       locations.current.save(owner, container.scrollTop);
-    container.scrollTo({ top: scrollTop });
+    const handle = navigation.request({
+      cause: "preserved-scroll",
+      owner,
+      target: `scroll-top:${scrollTop}`,
+    });
     container.addEventListener("scroll", saveLocation, { passive: true });
     const frame = requestAnimationFrame(() =>
-      container.scrollTo({ top: scrollTop }),
+      handle.commit({
+        kind: "position",
+        scrollContainer: container,
+        top: scrollTop,
+      }),
     );
     return () => {
       cancelAnimationFrame(frame);
+      handle.cancel();
       container.removeEventListener("scroll", saveLocation);
     };
-  }, [owner, scrollContainerRef]);
+  }, [navigation, owner, scrollContainerRef]);
 
   return () => {
     const container = scrollContainerRef.current;

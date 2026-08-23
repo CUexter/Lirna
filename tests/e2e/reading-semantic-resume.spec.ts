@@ -115,7 +115,7 @@ test("restores both reading owners semantically across layout changes with obser
   expect(Math.round(await toolsPosition(page))).not.toBe(0);
 
   await page.getByRole("tab", { name: "Contents" }).click();
-  await expect.poll(() => toolsPosition(page)).toBe(90);
+  await expect.poll(async () => Math.round(await toolsPosition(page))).toBe(90);
 
   articleResume = persistedPosition(articleIdentity, articleLocation, 40);
   notesResume = persistedPosition(notesIdentity, notesLocation, 0);
@@ -167,7 +167,7 @@ async function semanticLocation(page: Page, owner: string) {
 
 function readSemanticLocation(page: Page, owner: string) {
   return page.evaluate((requestedOwner) => {
-    const positions = history.state?.lirnaReadingSemanticPositions;
+    const positions = history.state?.lirnaReadingLocations;
     return Object.values(positions ?? {}).find(
       (value) =>
         (value as { scene?: { owner?: string } }).scene?.owner ===
@@ -178,7 +178,7 @@ function readSemanticLocation(page: Page, owner: string) {
 
 async function semanticProgressMatches(page: Page, owner: string) {
   return page.evaluate((requestedOwner) => {
-    const positions = history.state?.lirnaReadingSemanticPositions;
+    const positions = history.state?.lirnaReadingLocations;
     const semantic = Object.values(positions ?? {}).find(
       (value) =>
         (value as { scene?: { owner?: string } }).scene?.owner ===
@@ -232,8 +232,8 @@ function seedPosition(
             ...(state.lirnaReadingPositions ?? {}),
             [key]: legacyScrollTop,
           },
-          lirnaReadingSemanticPositions: {
-            ...(state.lirnaReadingSemanticPositions ?? {}),
+          lirnaReadingLocations: {
+            ...(state.lirnaReadingLocations ?? {}),
             [key]: location,
           },
         },

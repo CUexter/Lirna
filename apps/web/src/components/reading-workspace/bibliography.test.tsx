@@ -55,7 +55,11 @@ test("waits for layout before scrolling to a selected entry", async () => {
     const scrollContainerRef = createRef<HTMLDivElement>();
     const reading = readingFixture();
     render(
-      <div data-scroll-container ref={scrollContainerRef}>
+      <div
+        data-reading-scroll-owner="reading-tools:bibliography"
+        data-scroll-container
+        ref={scrollContainerRef}
+      >
         <Bibliography
           bibliographyComponents={{
             all: reading.components,
@@ -118,7 +122,10 @@ test("cancels a bibliography target before its scheduled movement", async () => 
     const navigation = createReadingNavigation();
     const reading = readingFixture();
     render(
-      <div ref={scrollContainerRef}>
+      <div
+        data-reading-scroll-owner="reading-tools:bibliography"
+        ref={scrollContainerRef}
+      >
         <Bibliography
           bibliographyComponents={{
             all: reading.components,

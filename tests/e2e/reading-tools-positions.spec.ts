@@ -1,6 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
 
 import {
+  installNavigationTrace,
+  navigationTrace,
   retainArticlePosition,
   setToolsPosition,
   sourceId,
@@ -11,6 +13,7 @@ import {
 test("keeps article, named tabs, and publisher notes in independent locations", async ({
   page,
 }) => {
+  await installNavigationTrace(page);
   await page.goto(`/sources/${sourceId}/${stateId}`);
   await expect(page.getByText("Visible typed paragraph.")).toBeVisible();
   await retainArticlePosition(page, 640);
@@ -52,6 +55,21 @@ test("keeps article, named tabs, and publisher notes in independent locations", 
   await expect
     .poll(async () => (await publisherNoteLocation(page)).matches)
     .toBe(true);
+  await expect
+    .poll(async () =>
+      (await navigationTrace(page))
+        .filter((entry) => entry.cause === "direct-reader-scroll")
+        .map((entry) => entry.owner),
+    )
+    .toEqual(
+      expect.arrayContaining([
+        "reading-tools:contents",
+        "reading-tools:bibliography",
+        "reading-tools:notes",
+        "reading-tools:supplementary",
+        "publisher-note",
+      ]),
+    );
 
   await retainArticlePosition(page, 640);
   await page.evaluate(() => {
@@ -89,7 +107,7 @@ test("keeps article, named tabs, and publisher notes in independent locations", 
 
 async function publisherNoteLocation(page: Page) {
   return page.locator("[data-reading-scroll-owner]").evaluate((container) => {
-    const positions = window.history.state?.lirnaReadingSemanticPositions;
+    const positions = window.history.state?.lirnaReadingLocations;
     const semantic = Object.values(positions ?? {}).find(
       (location) =>
         (location as { scene?: { owner?: string } }).scene?.owner ===

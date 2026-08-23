@@ -36,10 +36,10 @@ test("returns to only the winning Annotation mention through ReadingNavigation",
     ).detail;
     observations.push(detail);
   };
-  const originalScrollBy = window.scrollBy;
+  const originalScrollTo = window.scrollTo;
   const moves: ScrollToOptions[] = [];
   window.addEventListener("lirna:reading-navigation", onNavigation);
-  window.scrollBy = (options) => {
+  window.scrollTo = (options) => {
     if (typeof options === "object") moves.push(options);
   };
 
@@ -69,7 +69,7 @@ test("returns to only the winning Annotation mention through ReadingNavigation",
       highlights.registry.get("lirna-annotation-target")?.ranges[0]?.toString(),
     ).toBe("Source");
   } finally {
-    window.scrollBy = originalScrollBy;
+    window.scrollTo = originalScrollTo;
     window.removeEventListener("lirna:reading-navigation", onNavigation);
     highlights.restore();
   }

@@ -43,10 +43,10 @@ test("lists notes and highlights, navigates from an item, and edits explicitly",
 test("jumps from a side-panel note to its exact highlighted passage", async () => {
   resetActions(queryClient);
   setAnnotations([annotation({ body: "A saved note." })]);
-  const scrollBy = mock(() => undefined);
-  const scrollByDescriptor = Object.getOwnPropertyDescriptor(
+  const scrollTo = mock(() => undefined);
+  const scrollToDescriptor = Object.getOwnPropertyDescriptor(
     window,
-    "scrollBy",
+    "scrollTo",
   );
   const rangeRectDescriptor = Object.getOwnPropertyDescriptor(
     Range.prototype,
@@ -56,9 +56,9 @@ test("jumps from a side-panel note to its exact highlighted passage", async () =
     window,
     "innerHeight",
   );
-  Object.defineProperty(window, "scrollBy", {
+  Object.defineProperty(window, "scrollTo", {
     configurable: true,
-    value: scrollBy,
+    value: scrollTo,
   });
   Object.defineProperty(window, "innerHeight", {
     configurable: true,
@@ -70,15 +70,19 @@ test("jumps from a side-panel note to its exact highlighted passage", async () =
   });
 
   try {
+    const initialScrollY = window.scrollY;
     const user = userEvent.setup();
     await renderAnnotations();
     await user.click(view().getByRole("button", { name: "View notes" }));
     await user.click(view().getByRole("button", { name: /A saved note/ }));
 
-    expect(scrollBy).toHaveBeenCalledWith({ behavior: "smooth", top: 210 });
+    expect(scrollTo).toHaveBeenCalledWith({
+      behavior: "smooth",
+      top: initialScrollY + 210,
+    });
   } finally {
-    if (scrollByDescriptor)
-      Object.defineProperty(window, "scrollBy", scrollByDescriptor);
+    if (scrollToDescriptor)
+      Object.defineProperty(window, "scrollTo", scrollToDescriptor);
     if (rangeRectDescriptor)
       Object.defineProperty(
         Range.prototype,

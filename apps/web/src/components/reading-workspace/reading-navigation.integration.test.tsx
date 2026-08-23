@@ -40,9 +40,8 @@ const { useReadingNavigationObservations } = await import(
 const { useReadingNavigationScope } = await import(
   "./reading-navigation-hooks"
 );
-const { saveReadingHistoryScrollTop, useReadingResume } = await import(
-  "./reading-resume"
-);
+const { historyPositionKey } = await import("./reading-history-position");
+const { useReadingResume } = await import("./reading-resume");
 
 function Harness({ resumeStateId = stateId }: { resumeStateId?: string }) {
   const component = readingFixture().components[0];
@@ -57,7 +56,6 @@ function Harness({ resumeStateId = stateId }: { resumeStateId?: string }) {
   useReadingResume({
     articleRef,
     component,
-    ephemeralScrollTop: undefined,
     navigation,
     sourceId,
     stateId: resumeStateId,
@@ -108,8 +106,15 @@ test("the same scene resumes independently after a Source-state change", async (
   const locations: number[] = [];
   const originalScrollTo = window.scrollTo;
   window.history.replaceState({}, "");
-  saveReadingHistoryScrollTop(sourceId, stateId, "article", 120);
-  saveReadingHistoryScrollTop(sourceId, nextStateId, "article", 760);
+  window.history.replaceState(
+    {
+      lirnaReadingPositions: {
+        [historyPositionKey(sourceId, stateId, "article")]: 120,
+        [historyPositionKey(sourceId, nextStateId, "article")]: 760,
+      },
+    },
+    "",
+  );
   window.scrollTo = (options) => {
     if (typeof options === "object" && options.top !== undefined)
       locations.push(options.top);

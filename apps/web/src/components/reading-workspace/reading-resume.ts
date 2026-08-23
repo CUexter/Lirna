@@ -3,7 +3,6 @@ import { type RefObject, useEffect, useRef, useState } from "react";
 
 import { inquiry } from "@/clients/inquiry";
 import type { SepReadingData } from "./content";
-import { observeReadingNavigation } from "./navigation-observations";
 import {
   historyPositionKey,
   historyScrollTop,
@@ -18,19 +17,15 @@ import { isReadingTargetReady } from "./reading-navigation-hooks";
 import { resolveReadingResumeLocation } from "./reading-resume-location";
 import { createReadingSemanticLocation } from "./reading-semantic-location";
 
-export { saveReadingHistoryScrollTop } from "./reading-history-position";
-
 export function useReadingResume({
   articleRef,
   component,
-  ephemeralScrollTop,
   navigation,
   sourceId,
   stateId,
 }: {
   articleRef: RefObject<HTMLElement | null>;
   component: SepReadingData["components"][number] | undefined;
-  ephemeralScrollTop: number | undefined;
   navigation: ReadingNavigation;
   sourceId: string;
   stateId: string;
@@ -55,6 +50,7 @@ export function useReadingResume({
     key: string;
   } | null>(null);
   const componentIdentity = component?.identity;
+  const componentLabel = component?.label;
   const resumeKey = componentIdentity
     ? historyPositionKey(sourceId, stateId, componentIdentity)
     : undefined;
@@ -77,27 +73,18 @@ export function useReadingResume({
   }, [componentIdentity, navigation, resumeKey]);
 
   useEffect(() => {
-    if (!component) return;
+    if (!(componentIdentity && componentLabel)) return;
     const initialEntryScrollTop = historyScrollTop(
       sourceId,
       stateId,
-      component.identity,
+      componentIdentity,
     );
-    if (
-      isPending &&
-      initialEntryScrollTop === undefined &&
-      ephemeralScrollTop === undefined
-    )
-      return;
+    if (isPending && initialEntryScrollTop === undefined) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    let restoreTimer: ReturnType<typeof setTimeout> | undefined;
-    let firstFrame = 0;
     let readinessFrame = 0;
-    let secondFrame = 0;
-    let started = false;
     const semanticLocation = (scrollTop: number) =>
       createReadingSemanticLocation({
-        componentIdentity: component.identity,
+        componentIdentity,
         owner: "article",
         root: articleRef.current,
         scrollTop,
@@ -109,14 +96,13 @@ export function useReadingResume({
       const scrollTop = Math.max(0, Math.round(requestedScrollTop));
       const semantic = semanticLocation(scrollTop);
       writeReadingHistoryPosition(
-        historyPositionKey(sourceId, stateId, component.identity),
-        scrollTop,
+        historyPositionKey(sourceId, stateId, componentIdentity),
         semantic,
       );
       mutate(
         {
-          componentIdentity: component.identity,
-          componentLabel: component.label,
+          componentIdentity,
+          componentLabel,
           scrollTop,
           semanticLocation: semantic,
           sourceId,
@@ -131,8 +117,7 @@ export function useReadingResume({
     const handleScroll = () => {
       const scrollTop = Math.max(0, Math.round(window.scrollY));
       writeReadingHistoryPosition(
-        historyPositionKey(sourceId, stateId, component.identity),
-        scrollTop,
+        historyPositionKey(sourceId, stateId, componentIdentity),
         semanticLocation(scrollTop),
       );
       if (timer) clearTimeout(timer);
@@ -144,78 +129,62 @@ export function useReadingResume({
       save();
     };
     const entryScrollTop =
-      historyScrollTop(sourceId, stateId, component.identity) ??
+      historyScrollTop(sourceId, stateId, componentIdentity) ??
       initialEntryScrollTop;
     const persisted =
       resume?.sourceId === sourceId &&
       resume.stateId === stateId &&
-      resume.componentIdentity === component.identity
+      resume.componentIdentity === componentIdentity
         ? resume
         : undefined;
-    const legacyScrollTop =
-      entryScrollTop ?? ephemeralScrollTop ?? persisted?.scrollTop ?? 0;
+    const legacyScrollTop = entryScrollTop ?? persisted?.scrollTop ?? 0;
     const resumeLocation =
-      historySemanticLocation(sourceId, stateId, component.identity) ??
+      historySemanticLocation(sourceId, stateId, componentIdentity) ??
       persisted?.semanticLocation;
     const intent = resumeIntent.current;
     if (
       !intent ||
-      intent.key !== historyPositionKey(sourceId, stateId, component.identity)
+      intent.key !== historyPositionKey(sourceId, stateId, componentIdentity)
     )
       return;
     const { handle } = intent;
-    const start = () => {
-      started = true;
-      window.addEventListener("scroll", handleScroll, { passive: true });
-      const commitWhenReady = () => {
-        if (!handle.active()) return;
-        const article = articleRef.current;
-        if (!article || !isReadingTargetReady(article)) {
-          readinessFrame = requestAnimationFrame(commitWhenReady);
-          return;
-        }
-        const destination = resolveReadingResumeLocation({
-          componentIdentity: component.identity,
-          legacyScrollTop,
-          location: resumeLocation,
-          owner: "article",
-          root: article,
-          scrollTop: window.scrollY,
-          sourceId,
-          stateId,
-          viewportHeight: window.innerHeight,
-        });
-        handle.commit(() => {
-          observeReadingNavigation({
-            cause: destination.cause,
-            owner: "article",
-            target: destination.target,
-          });
-          window.scrollTo({ top: destination.scrollTop });
-        });
-      };
-      commitWhenReady();
-      setStatus("saved");
-      window.addEventListener("pagehide", saveImmediately);
-      document.addEventListener("visibilitychange", saveImmediately);
-    };
-
-    // Native and router fragment scrolling run after the component is painted.
-    // Let both settle so history can keep the fragment without losing position.
-    firstFrame = requestAnimationFrame(() => {
-      secondFrame = requestAnimationFrame(() => {
-        restoreTimer = setTimeout(start, 100);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    const commitWhenReady = () => {
+      if (!handle.active()) return;
+      const article = articleRef.current;
+      if (!article || !isReadingTargetReady(article)) {
+        readinessFrame = requestAnimationFrame(commitWhenReady);
+        return;
+      }
+      const destination = resolveReadingResumeLocation({
+        componentIdentity,
+        legacyScrollTop,
+        location: resumeLocation,
+        owner: "article",
+        root: article,
+        scrollTop: window.scrollY,
+        sourceId,
+        stateId,
+        viewportHeight: window.innerHeight,
       });
-    });
+      handle.commit(
+        { kind: "position", top: destination.scrollTop },
+        {
+          cause: destination.cause,
+          owner: "article",
+          target: destination.target,
+        },
+      );
+    };
+    commitWhenReady();
+    setStatus("saved");
+    window.addEventListener("pagehide", saveImmediately);
+    document.addEventListener("visibilitychange", saveImmediately);
     return () => {
-      cancelAnimationFrame(firstFrame);
       cancelAnimationFrame(readinessFrame);
-      cancelAnimationFrame(secondFrame);
-      if (restoreTimer) clearTimeout(restoreTimer);
-      if (!started) return;
       if (timer) clearTimeout(timer);
       save(
-        historyScrollTop(sourceId, stateId, component.identity) ??
+        historyScrollTop(sourceId, stateId, componentIdentity) ??
           window.scrollY,
       );
       window.removeEventListener("scroll", handleScroll);
@@ -224,8 +193,8 @@ export function useReadingResume({
     };
   }, [
     articleRef,
-    component,
-    ephemeralScrollTop,
+    componentIdentity,
+    componentLabel,
     isPending,
     mutate,
     resume,

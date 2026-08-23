@@ -1,11 +1,7 @@
 import type { RefObject } from "react";
 
 import type { SepReadingData } from "./content";
-import {
-  observeReadingNavigation,
-  type ReadingNavigationCause,
-  readingToolsOwnerFor,
-} from "./navigation-observations";
+import type { ReadingNavigationCause } from "./navigation-observations";
 import type { ReadingNavigation } from "./reading-navigation";
 import {
   type ReadingSceneTopology,
@@ -115,20 +111,19 @@ export function scrollToPendingFragment(
         )
       : document.getElementById(fragment);
     if (!targetElement) return;
-    const move = () => {
-      scrollTarget(targetElement, container?.current, cause, target);
-      if (highlight) highlightTarget(targetElement);
-    };
     if (navigation && cause && target) {
-      navigation
+      const moved = navigation
         .request({
           cause,
           owner: container ? "publisher-note" : "article",
           target,
         })
-        .commit(move);
-    } else {
-      move();
+        .commit({
+          kind: "target",
+          scrollContainer: container?.current,
+          target: targetElement,
+        });
+      if (moved && highlight) highlightTarget(targetElement);
     }
     ref.current = undefined;
   });
@@ -192,50 +187,15 @@ export function createReferenceJumper({
       owner: destination.owner,
       target: targetIdentity,
     });
-    handle.commit(() => {
-      scrollTarget(
+    if (
+      handle.commit({
+        kind: "target",
+        scrollContainer: isPublisherNote ? toolsScrollRef.current : undefined,
         target,
-        isPublisherNote ? toolsScrollRef.current : undefined,
-        "reference-target",
-        targetIdentity,
-      );
+      })
+    )
       highlightTarget(target);
-    });
   };
-}
-
-export function scrollTarget(
-  target: HTMLElement,
-  scrollContainer?: HTMLElement | null,
-  cause: ReadingNavigationCause = "pending-fragment",
-  targetIdentity?: string,
-) {
-  const targetName =
-    targetIdentity ??
-    (target.id ? `#${target.id}` : target.tagName.toLowerCase());
-  if (!scrollContainer?.contains(target)) {
-    observeReadingNavigation({
-      cause,
-      owner: "article",
-      target: targetName,
-    });
-    target.scrollIntoView({ block: "center" });
-    return;
-  }
-  observeReadingNavigation({
-    cause,
-    owner: readingToolsOwnerFor(scrollContainer),
-    target: targetName,
-  });
-  const containerRect = scrollContainer.getBoundingClientRect();
-  const targetRect = target.getBoundingClientRect();
-  scrollContainer.scrollTo({
-    top:
-      scrollContainer.scrollTop +
-      targetRect.top -
-      containerRect.top -
-      (scrollContainer.clientHeight - targetRect.height) / 2,
-  });
 }
 
 function comparableComponentUrl(value: string | URL) {

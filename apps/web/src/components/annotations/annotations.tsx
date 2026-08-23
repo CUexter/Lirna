@@ -1,5 +1,4 @@
 import { type ReactNode, type RefObject, useEffect, useRef } from "react";
-import { observeReadingNavigation } from "../reading-workspace/navigation-observations";
 import type {
   ReadingNavigation,
   ReadingNavigationHandle,
@@ -184,16 +183,14 @@ export function useAnnotationNavigation({
       }
       const rect = range.getBoundingClientRect();
       if (
-        handle.commit(() => {
-          observeReadingNavigation({
-            cause: "annotation-return",
-            owner: "article",
-            target,
-          });
-          window.scrollBy({
-            behavior: "smooth",
-            top: rect.top + rect.height / 2 - window.innerHeight / 2,
-          });
+        handle.commit({
+          behavior: "smooth",
+          kind: "position",
+          top:
+            window.scrollY +
+            rect.top +
+            rect.height / 2 -
+            window.innerHeight / 2,
         })
       ) {
         paintAnnotationTarget(range);

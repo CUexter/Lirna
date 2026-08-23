@@ -95,6 +95,44 @@ test("traces competing reading navigation commands in a real browser", async ({
       }),
     ]),
   );
+
+  const articleScrollTop = await page.evaluate(() => window.scrollY);
+  const tools = page.locator("[data-reading-scroll-owner]");
+  await tools.evaluate((element) => {
+    const spacer = document.createElement("div");
+    spacer.style.height = "2000px";
+    element.append(spacer);
+  });
+  await tools.evaluate((element) => {
+    element.dispatchEvent(
+      new WheelEvent("wheel", { bubbles: true, deltaY: 320 }),
+    );
+    element.scrollTop = 320;
+    element.dispatchEvent(new Event("scroll"));
+  });
+  await expect
+    .poll(() => tools.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+  expect(await page.evaluate(() => window.scrollY)).toBe(articleScrollTop);
+  await expect
+    .poll(async () =>
+      (await navigationTrace(page)).some(
+        (record) =>
+          record.cause === "direct-reader-scroll" &&
+          record.owner === "publisher-note",
+      ),
+    )
+    .toBe(true);
+
+  for (const cause of [
+    "bibliography-selection",
+    "citation-return",
+    "reference-target",
+  ]) {
+    expect(
+      initialObservations.filter((observation) => observation.cause === cause),
+    ).toHaveLength(1);
+  }
 });
 
 test("commits an initial fragment before movement and suppresses delayed resume", async ({
@@ -121,7 +159,7 @@ test("commits an initial fragment before movement and suppresses delayed resume"
     {
       cause: "explicit-fragment-arrival",
       owner: "article",
-      target: "#notation",
+      target: "fragment:notation",
     },
   ]);
   expect(
@@ -132,7 +170,7 @@ test("commits an initial fragment before movement and suppresses delayed resume"
     (entry) =>
       entry.type === "navigation" &&
       entry.cause === "explicit-fragment-arrival" &&
-      entry.target === "#notation",
+      entry.target === "fragment:notation",
   );
   const firstMovement = timeline.findIndex((entry) => entry.type === "scroll");
   expect(explicitIntent).toBeGreaterThanOrEqual(0);
@@ -178,7 +216,7 @@ test("intercepts and replays an authored fragment before movement", async ({
     (entry) =>
       entry.type === "navigation" &&
       entry.cause === "explicit-fragment-arrival" &&
-      entry.target === "#source-information",
+      entry.target === "fragment:source-information",
   );
   const firstMovement = timeline.findIndex((entry) => entry.type === "scroll");
   expect(explicitIntent).toBeGreaterThanOrEqual(0);
@@ -230,56 +268,11 @@ test("a late fragment cannot move after a newer article fragment wins", async ({
     expect.arrayContaining([
       expect.objectContaining({
         cause: "explicit-fragment-arrival",
-        target: "#source-information",
+        target: "fragment:source-information",
       }),
     ]),
   );
   expect(observations.some((entry) => entry.target === "#late-fragment")).toBe(
     false,
   );
-});
-
-test("records a delayed citation command winning over note navigation", async ({
-  page,
-}) => {
-  await installNavigationTrace(page);
-  await page.goto(`/sources/${sourceId}/${stateId}`);
-  await expect(page.getByText("Visible typed paragraph.")).toBeVisible();
-  await page.evaluate(() => {
-    const note = document.querySelector<HTMLAnchorElement>(
-      'a[href="notes.html#1"]',
-    );
-    const citation = [
-      ...document.querySelectorAll<HTMLButtonElement>("button"),
-    ].find((button) =>
-      button.getAttribute("aria-label")?.startsWith("Citation:"),
-    );
-    if (!(note && citation))
-      throw new Error("Reading navigation controls missing");
-    note.click();
-    window.setTimeout(() => citation.click(), 0);
-  });
-  await expect(page.getByRole("tab", { name: "Bibliography" })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
-
-  const observations = await navigationTrace(page);
-  expectOrderedTrace(observations, [
-    {
-      cause: "publisher-note-navigation",
-      owner: "publisher-note",
-      target: "component:active:/notes.html",
-    },
-    {
-      cause: "bibliography-opening",
-      owner: "reading-tools:bibliography",
-      target: "bibliography:active:/:steup-2023",
-    },
-    {
-      cause: "bibliography-selection",
-      owner: "reading-tools:bibliography",
-      target: "bibliography:active:/:steup-2023",
-    },
-  ]);
 });

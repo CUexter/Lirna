@@ -34,12 +34,10 @@ import {
   createOpenReferenceHandler,
   createReadingToolTabChangeHandler,
   selectedCitationForView,
-  usePendingFragmentScroll,
 } from "./workspace-controller";
 import {
   useComponentTree,
   usePendingCitationReturn,
-  usePreservedScroll,
   useScrollRestore,
 } from "./workspace-state";
 
@@ -142,7 +140,6 @@ function useReadingWorkspaceViewProps({
   const { capture, source } = reading;
   const { articleRef, navigation, toolsScrollRef } =
     useReadingNavigationScope();
-  const pendingFragment = useRef<string | undefined>(undefined);
   const pendingSceneFragment = useRef<
     | {
         fragment: string;
@@ -160,7 +157,6 @@ function useReadingWorkspaceViewProps({
       }
     | undefined
   >(undefined);
-  const highlightPendingFragment = useRef(false);
   const [notesIdentity, setNotesIdentity] = useState<string | undefined>(
     initialPublisherNoteIdentity,
   );
@@ -202,36 +198,23 @@ function useReadingWorkspaceViewProps({
     sourceId: source.id,
     stateId: source.stateId,
   });
-  const preserveScroll = usePreservedScroll();
-  const {
-    ephemeralScrollTop,
-    openBibliography,
-    returnToCitation,
-    saveLocation,
-  } = useScrollRestore({
-    articleRef,
-    component,
-    navigation,
-    sourceId: source.id,
-    stateId: source.stateId,
-    onViewChange,
-  });
+  const { openBibliography, returnToCitation, saveLocation } = useScrollRestore(
+    {
+      articleRef,
+      component,
+      navigation,
+      sourceId: source.id,
+      stateId: source.stateId,
+      onViewChange,
+    },
+  );
 
   const resumeStatus = useReadingResume({
     articleRef,
     component,
-    ephemeralScrollTop,
     navigation,
     sourceId: source.id,
     stateId: source.stateId,
-  });
-  usePendingFragmentScroll({
-    componentIdentity: component.identity,
-    highlightPendingFragment,
-    initialFragment: undefined,
-    notesIdentity,
-    pendingFragment,
-    toolsScrollRef,
   });
   useSceneFragmentNavigation({
     articleRef,
@@ -270,7 +253,7 @@ function useReadingWorkspaceViewProps({
   });
   const openReference = createOpenReferenceHandler({
     onViewChange,
-    preserveScroll,
+    preserveScroll: saveLocation,
     setReadingToolTab,
     setSelectedReference,
     view,
@@ -297,12 +280,12 @@ function useReadingWorkspaceViewProps({
         owner: destination.owner,
         target: destination.target,
       })
-      .commit(() => {
+      .commitTransition(() => {
         if (destination.scene.presentationRegion === "article") {
           changeArticleScene(destination.scene.componentIdentity);
           return;
         }
-        preserveScroll();
+        saveLocation();
         setReadingToolTab("supplementary");
         if (view === "bibliography") onViewChange("article");
         setNotesIdentity(destination.scene.componentIdentity);
@@ -348,7 +331,7 @@ function useReadingWorkspaceViewProps({
           owner: destination.owner,
           target: destination.target,
         })
-        .commit(() => {
+        .commitTransition(() => {
           queueFragment();
           if (fromDestination.owner === "publisher-note") {
             changeArticleScene(destination.scene.componentIdentity, true);
@@ -365,8 +348,8 @@ function useReadingWorkspaceViewProps({
         owner: destination.owner,
         target: destination.target,
       })
-      .commit(() => {
-        preserveScroll();
+      .commitTransition(() => {
+        saveLocation();
         setReadingToolTab("supplementary");
         if (view === "bibliography") onViewChange("article");
         setNotesIdentity(destination.scene.componentIdentity);
@@ -439,7 +422,7 @@ function useReadingWorkspaceViewProps({
         mentionId,
         owner: destination.owner,
       };
-      preserveScroll();
+      saveLocation();
       setReadingToolTab("supplementary");
       if (view === "bibliography") onViewChange("article");
       setNotesIdentity(destination.scene.componentIdentity);

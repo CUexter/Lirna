@@ -6,7 +6,7 @@ import {
   useRef,
 } from "react";
 
-import { scrollTarget, scrollToPendingFragment } from "./authored-navigation";
+import { scrollToPendingFragment } from "./authored-navigation";
 import {
   createReadingNavigation,
   type ReadingNavigation,
@@ -80,9 +80,7 @@ export function useExplicitFragmentNavigation({
           active.frame = requestAnimationFrame(commitWhenReady);
           return;
         }
-        handle.commit(() =>
-          scrollTarget(target, null, "explicit-fragment-arrival"),
-        );
+        handle.commit({ kind: "target", target });
       };
       active.frame = requestAnimationFrame(commitWhenReady);
     },

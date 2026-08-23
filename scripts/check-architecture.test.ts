@@ -145,4 +145,44 @@ describe("architecture policy fixtures", () => {
       "packages/ui/src/components/nested/input.tsx uses native <input>; import an owned UI primitive instead",
     ]);
   });
+
+  test("keeps Reading owner commands behind ReadingNavigation", () => {
+    const files = [
+      {
+        path: "apps/web/src/components/reading-workspace/reading-navigation.ts",
+        ...parseSource(
+          "reading-navigation.ts",
+          "target.scrollIntoView(); container.scrollTo({ top: 10 });",
+        ),
+      },
+      {
+        path: "apps/web/src/components/reading-workspace/reference.ts",
+        ...parseSource("reference.ts", "target.scrollIntoView();"),
+      },
+      {
+        path: "apps/web/src/components/annotations/annotations.tsx",
+        ...parseSource("annotations.tsx", "window.scrollBy(0, 10);"),
+      },
+      {
+        path: "apps/web/src/components/reading-workspace/resume.ts",
+        ...parseSource("resume.ts", "container.scrollTop = 10;"),
+      },
+      {
+        path: "apps/web/src/routes/sources/$sourceId.tsx",
+        ...parseSource(
+          "$sourceId.tsx",
+          'createFileRoute("/sources/$sourceId")({}); element.scroll({ top: 10 }); element.scrollTop += 10; element.scrollTop++;',
+        ),
+      },
+    ];
+
+    expect(evaluatePolicy({ workspaces, files })).toEqual([
+      "apps/web/src/components/reading-workspace/reference.ts uses scrollIntoView outside ReadingNavigation",
+      "apps/web/src/components/annotations/annotations.tsx uses scrollBy outside ReadingNavigation",
+      "apps/web/src/components/reading-workspace/resume.ts uses scrollTop assignment outside ReadingNavigation",
+      "apps/web/src/routes/sources/$sourceId.tsx uses scroll outside ReadingNavigation",
+      "apps/web/src/routes/sources/$sourceId.tsx uses scrollTop assignment outside ReadingNavigation",
+      "apps/web/src/routes/sources/$sourceId.tsx uses scrollTop assignment outside ReadingNavigation",
+    ]);
+  });
 });
