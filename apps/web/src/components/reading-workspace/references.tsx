@@ -9,6 +9,7 @@ type Block = Component["introductoryBlocks"][number];
 type Inline = Component["sections"][number]["title"][number];
 
 export interface ReadingReference {
+  componentIdentity: string;
   context: string;
   jumpLabel?: string;
   label: string;
@@ -39,6 +40,7 @@ export function createReferenceIndex(component: Component): ReferenceIndex {
       const label = numberedBlockLabel(block);
       if (label && !byLabel.has(label)) {
         const reference = {
+          componentIdentity: component.identity,
           context,
           label,
           targetId: `reading-reference-number-${label.slice(1, -1)}`,
@@ -51,6 +53,7 @@ export function createReferenceIndex(component: Component): ReferenceIndex {
       for (const targetId of blockAnchorIds(block)) {
         if (byTargetId.has(targetId)) continue;
         byTargetId.set(targetId, {
+          componentIdentity: component.identity,
           context,
           label: targetId,
           targetId,
@@ -67,6 +70,7 @@ export function createReferenceIndex(component: Component): ReferenceIndex {
       const sectionNumber = [...parentNumber, index + 1];
       const label = `§${sectionNumber.join(".")}`;
       const reference = {
+        componentIdentity: component.identity,
         context: section.blocks.map(blockText).filter(Boolean).join(" "),
         label,
         targetId: section.id,
@@ -87,6 +91,10 @@ export function createReferenceIndex(component: Component): ReferenceIndex {
     byTargetId,
     componentIdentity: component.identity,
   };
+}
+
+export function referenceTarget(reference: ReadingReference) {
+  return `reference:${reference.componentIdentity}:${reference.targetId}`;
 }
 
 export function referenceForAuthoredLink(

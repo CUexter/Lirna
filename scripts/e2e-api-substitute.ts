@@ -342,6 +342,23 @@ const reading = {
         {
           kind: "paragraph",
           children: [
+            { kind: "text", text: "Confirmed again by " },
+            {
+              kind: "citation",
+              mentionId: "citation-mention-2",
+              label: "(Steup, 2023)",
+              state: "resolved",
+              candidates: ["steup-2023"],
+              rule: "authored-author-year",
+              evidence: "(Steup, 2023)",
+              entryId: "steup-2023",
+            },
+            { kind: "text", text: "." },
+          ],
+        },
+        {
+          kind: "paragraph",
+          children: [
             { kind: "text", text: "(1) A numbered assertion. Compare (1). " },
             {
               kind: "link",
@@ -515,7 +532,20 @@ reading.components = [
     introductoryBlocks: [
       {
         kind: "paragraph",
-        children: [{ kind: "text", text: "Typed Notes content." }],
+        children: [
+          { kind: "text", text: "Typed Notes content. See " },
+          {
+            kind: "citation",
+            mentionId: "citation-note-1",
+            label: "(Steup, 2023)",
+            state: "resolved",
+            candidates: ["steup-2023"],
+            rule: "authored-author-year",
+            evidence: "(Steup, 2023)",
+            entryId: "steup-2023",
+          },
+          { kind: "text", text: "." },
+        ],
       },
     ],
     sections: [],

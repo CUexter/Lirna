@@ -23,12 +23,13 @@ test("traces competing reading navigation commands in a real browser", async ({
 
   await page
     .getByRole("button", { name: "Citation: (Steup, 2023) (resolved)" })
+    .first()
     .click();
   await expect(page.getByRole("tab", { name: "Bibliography" })).toHaveAttribute(
     "aria-selected",
     "true",
   );
-  await page.getByText("Citation context", { exact: true }).click();
+  await page.getByText("Citation context", { exact: true }).first().click();
   await page.getByRole("button", { name: "Show in article" }).click();
 
   await page.getByRole("button", { name: "Reference (1)" }).first().click();
@@ -43,27 +44,27 @@ test("traces competing reading navigation commands in a real browser", async ({
     {
       cause: "bibliography-opening",
       owner: "reading-tools:bibliography",
-      target: "#steup-2023",
+      target: "bibliography:active:/:steup-2023",
     },
     {
       cause: "bibliography-selection",
       owner: "reading-tools:bibliography",
-      target: "#active:/:steup-2023",
+      target: "bibliography:active:/:steup-2023",
     },
     {
       cause: "citation-return",
       owner: "article",
-      target: "#citation-mention-1",
+      target: "citation:active:/:citation-mention-1",
     },
     {
       cause: "reference-opening",
       owner: "reading-tools:supplementary",
-      target: "#reading-reference-number-1",
+      target: "reference:active:/:reading-reference-number-1",
     },
     {
       cause: "reference-target",
       owner: "article",
-      target: "#reading-reference-number-1",
+      target: "reference:active:/:reading-reference-number-1",
     },
     {
       cause: "publisher-note-navigation",
@@ -276,12 +277,12 @@ test("records a delayed citation command winning over note navigation", async ({
     {
       cause: "bibliography-opening",
       owner: "reading-tools:bibliography",
-      target: "#steup-2023",
+      target: "bibliography:active:/:steup-2023",
     },
     {
       cause: "bibliography-selection",
       owner: "reading-tools:bibliography",
-      target: "#active:/:steup-2023",
+      target: "bibliography:active:/:steup-2023",
     },
   ]);
 });

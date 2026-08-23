@@ -21,8 +21,21 @@ test("indexes nested sections with hierarchical labels", () => {
   const index = createReferenceIndex(articleFixture());
 
   expect(index.byLabel.get("§2")?.targetId).toBe("referenced-claim");
+  expect(index.byLabel.get("§2")?.componentIdentity).toBe("article");
   expect(index.byLabel.get("§2.1")?.targetId).toBe("nested-claim");
   expect(index.byLabel.get("§2.1.1")?.targetId).toBe("deeply-nested-claim");
+});
+
+test("scopes equivalent reference targets to their component", () => {
+  const article = articleFixture();
+  const notes = { ...article, identity: "notes" };
+
+  expect(
+    createReferenceIndex(article).byLabel.get("§2")?.componentIdentity,
+  ).toBe("article");
+  expect(createReferenceIndex(notes).byLabel.get("§2")?.componentIdentity).toBe(
+    "notes",
+  );
 });
 
 test("jumps section references and opens numbered references", () => {

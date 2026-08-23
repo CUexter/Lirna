@@ -473,9 +473,9 @@ test("filters publisher bibliography and preserves component search when returni
     const selectedEntry = document.getElementById("article:entry-one");
     expect(selectedEntry).not.toBeNull();
     await user.click(
-      within(selectedEntry as HTMLElement).getByRole("button", {
-        name: "Show in article",
-      }),
+      within(selectedEntry as HTMLElement)
+        .getAllByRole("button", { name: "Show in article" })
+        .at(0) as HTMLElement,
     );
     expect(
       view().getByRole("complementary", { name: "Reading tools" }),

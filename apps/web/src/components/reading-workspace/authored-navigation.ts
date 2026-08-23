@@ -6,6 +6,8 @@ import {
   type ReadingNavigationCause,
   readingToolsOwnerFor,
 } from "./navigation-observations";
+import type { ReadingNavigation } from "./reading-navigation";
+import { type ReadingReference, referenceTarget } from "./references";
 
 export function authoredTarget(
   reading: SepReadingData,
@@ -66,33 +68,64 @@ export function highlightTarget(target: HTMLElement) {
   );
 }
 
-export function jumpToReference(
-  reference: { targetId: string },
-  container?: RefObject<HTMLElement | null>,
-) {
-  const target = document.getElementById(reference.targetId);
-  if (!target) return;
-  scrollTarget(target, container?.current, "reference-target");
-  highlightTarget(target);
-}
-
-export function createReferenceJumper(
-  container: RefObject<HTMLElement | null>,
-) {
-  return (reference: { targetId: string }) =>
-    jumpToReference(reference, container);
+export function createReferenceJumper({
+  articleRef,
+  componentIdentity,
+  navigation,
+  notesIdentity,
+  toolsScrollRef,
+}: {
+  articleRef: RefObject<HTMLElement | null>;
+  componentIdentity: string;
+  navigation: ReadingNavigation;
+  notesIdentity?: string;
+  toolsScrollRef: RefObject<HTMLElement | null>;
+}) {
+  return (reference: ReadingReference) => {
+    const isPublisherNote = reference.componentIdentity === notesIdentity;
+    const root = isPublisherNote ? toolsScrollRef.current : articleRef.current;
+    if (
+      !root ||
+      (!isPublisherNote && reference.componentIdentity !== componentIdentity)
+    )
+      return;
+    const target = [...root.querySelectorAll<HTMLElement>("[id]")].find(
+      (element) => element.id === reference.targetId,
+    );
+    if (!target) return;
+    const owner = isPublisherNote ? "publisher-note" : "article";
+    const targetIdentity = referenceTarget(reference);
+    const handle = navigation.request({
+      cause: "reference-target",
+      owner,
+      target: targetIdentity,
+    });
+    handle.commit(() => {
+      scrollTarget(
+        target,
+        isPublisherNote ? toolsScrollRef.current : undefined,
+        "reference-target",
+        targetIdentity,
+      );
+      highlightTarget(target);
+    });
+  };
 }
 
 export function scrollTarget(
   target: HTMLElement,
   scrollContainer?: HTMLElement | null,
   cause: ReadingNavigationCause = "pending-fragment",
+  targetIdentity?: string,
 ) {
+  const targetName =
+    targetIdentity ??
+    (target.id ? `#${target.id}` : target.tagName.toLowerCase());
   if (!scrollContainer?.contains(target)) {
     observeReadingNavigation({
       cause,
       owner: "article",
-      target: target.id ? `#${target.id}` : target.tagName.toLowerCase(),
+      target: targetName,
     });
     target.scrollIntoView({ block: "center" });
     return;
@@ -100,7 +133,7 @@ export function scrollTarget(
   observeReadingNavigation({
     cause,
     owner: readingToolsOwnerFor(scrollContainer),
-    target: target.id ? `#${target.id}` : target.tagName.toLowerCase(),
+    target: targetName,
   });
   const containerRect = scrollContainer.getBoundingClientRect();
   const targetRect = target.getBoundingClientRect();

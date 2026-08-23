@@ -4,6 +4,7 @@ import { createRef } from "react";
 
 import { readingFixture } from "../../routes/sources/-reading-test-fixtures";
 import { Bibliography } from "./bibliography";
+import { createReadingNavigation } from "./reading-navigation";
 
 afterEach(cleanup);
 
@@ -56,8 +57,12 @@ test("waits for layout before scrolling to a selected entry", async () => {
     render(
       <div data-scroll-container ref={scrollContainerRef}>
         <Bibliography
+          bibliographyComponents={{
+            all: reading.components,
+            mainIdentity: reading.mainComponent.identity,
+          }}
           citationScrollRequest={1}
-          components={reading.components}
+          navigation={createReadingNavigation()}
           onReturn={() => undefined}
           scrollContainerRef={scrollContainerRef}
           selectedComponentIdentity="article"
@@ -90,5 +95,55 @@ test("waits for layout before scrolling to a selected entry", async () => {
         "clientHeight",
         clientHeight,
       );
+  }
+});
+
+test("cancels a bibliography target before its scheduled movement", async () => {
+  const originalAnimationFrame = window.requestAnimationFrame;
+  const originalCancelAnimationFrame = window.cancelAnimationFrame;
+  const originalScrollTo = HTMLElement.prototype.scrollTo;
+  const animationFrames = new Map<number, FrameRequestCallback>();
+  let nextFrameId = 0;
+  let movements = 0;
+  window.requestAnimationFrame = (callback) => {
+    nextFrameId += 1;
+    animationFrames.set(nextFrameId, callback);
+    return nextFrameId;
+  };
+  window.cancelAnimationFrame = (id) => animationFrames.delete(id);
+  HTMLElement.prototype.scrollTo = () => movements++;
+
+  try {
+    const scrollContainerRef = createRef<HTMLDivElement>();
+    const navigation = createReadingNavigation();
+    const reading = readingFixture();
+    render(
+      <div ref={scrollContainerRef}>
+        <Bibliography
+          bibliographyComponents={{
+            all: reading.components,
+            mainIdentity: reading.mainComponent.identity,
+          }}
+          citationScrollRequest={1}
+          navigation={navigation}
+          onReturn={() => undefined}
+          scrollContainerRef={scrollContainerRef}
+          selectedComponentIdentity="article"
+          selectedEntry="entry-one"
+        />
+      </div>,
+    );
+    navigation.cancel("reading-tools:bibliography");
+
+    await act(async () => {
+      for (const callback of animationFrames.values())
+        callback(performance.now());
+    });
+
+    expect(movements).toBe(0);
+  } finally {
+    window.requestAnimationFrame = originalAnimationFrame;
+    window.cancelAnimationFrame = originalCancelAnimationFrame;
+    HTMLElement.prototype.scrollTo = originalScrollTo;
   }
 });

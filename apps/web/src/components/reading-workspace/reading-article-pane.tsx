@@ -1,5 +1,4 @@
 import { ReadingAnnotations } from "../annotations/annotations";
-import { jumpToReference } from "./authored-navigation";
 import { SepReadingBreadcrumb } from "./breadcrumb";
 import { SepReadingCaptureStatus } from "./capture-status";
 import { SepReadingComponentNav } from "./component-nav";
@@ -43,6 +42,7 @@ export function ReadingArticlePane({
   contentActions: {
     onOpenAuthoredLink: (href: string, label: string) => boolean;
     onOpenCitation: (entryId: string | undefined, mentionId: string) => void;
+    onJumpReference: (reference: ReadingReference) => void;
     onOpenReference: (reference: ReadingReference) => void;
     referenceIndex: ReferenceIndex;
   };
@@ -60,6 +60,7 @@ export function ReadingArticlePane({
   const {
     onOpenAuthoredLink,
     onOpenCitation,
+    onJumpReference,
     onOpenReference,
     referenceIndex,
   } = contentActions;
@@ -84,7 +85,7 @@ export function ReadingArticlePane({
       <ReferenceActions.Provider
         value={{
           index: referenceIndex,
-          jump: jumpToReference,
+          jump: onJumpReference,
           open: onOpenReference,
         }}
       >

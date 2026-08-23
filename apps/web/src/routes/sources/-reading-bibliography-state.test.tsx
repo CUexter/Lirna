@@ -133,9 +133,9 @@ test("restores an unfinished annotation draft after visiting a Citation", async 
     const articleEntry = document.getElementById("article:entry-one");
     expect(articleEntry).not.toBeNull();
     await user.click(
-      within(articleEntry as HTMLElement).getByRole("button", {
-        name: "Show in article",
-      }),
+      within(articleEntry as HTMLElement)
+        .getAllByRole("button", { name: "Show in article" })
+        .at(0) as HTMLElement,
     );
     expect(
       view().getByRole("complementary", { name: "Reading tools" }),
@@ -181,9 +181,9 @@ test("restores bibliography and Citation context from route search", async () =>
     const articleEntry = document.getElementById("article:entry-one");
     expect(articleEntry).not.toBeNull();
     await user.click(
-      within(articleEntry as HTMLElement).getByRole("button", {
-        name: "Show in article",
-      }),
+      within(articleEntry as HTMLElement)
+        .getAllByRole("button", { name: "Show in article" })
+        .at(0) as HTMLElement,
     );
     expect(router.state.location.search).toEqual({
       component: "article",

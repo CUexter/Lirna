@@ -6,13 +6,14 @@ import {
   readingToolsOwnerFor,
 } from "./navigation-observations";
 import type { ReadingNavigation } from "./reading-navigation";
-import type { ReadingReference } from "./references";
+import { type ReadingReference, referenceTarget } from "./references";
 
 export function useReadingNavigationObservations({
   componentIdentity,
   navigation,
   notesIdentity,
   selectedCitation,
+  selectedCitationComponentIdentity,
   selectedReference,
   toolsScrollRef,
   view,
@@ -21,6 +22,7 @@ export function useReadingNavigationObservations({
   navigation: ReadingNavigation;
   notesIdentity?: string;
   selectedCitation?: string;
+  selectedCitationComponentIdentity?: string;
   selectedReference?: ReadingReference;
   toolsScrollRef: RefObject<HTMLDivElement | null>;
   view: "article" | "bibliography";
@@ -45,7 +47,7 @@ export function useReadingNavigationObservations({
     observeReadingNavigation({
       cause: "reference-opening",
       owner: readingToolsOwnerFor(toolsScrollRef.current),
-      target: `#${selectedReference.targetId}`,
+      target: referenceTarget(selectedReference),
     });
   }, [selectedReference, toolsScrollRef]);
   useEffect(() => {
@@ -53,9 +55,17 @@ export function useReadingNavigationObservations({
     observeReadingNavigation({
       cause: "bibliography-opening",
       owner: readingToolsOwnerFor(toolsScrollRef.current),
-      target: selectedCitation ? `#${selectedCitation}` : "bibliography",
+      target: selectedCitation
+        ? `bibliography:${selectedCitationComponentIdentity ?? componentIdentity}:${selectedCitation}`
+        : "bibliography",
     });
-  }, [selectedCitation, toolsScrollRef, view]);
+  }, [
+    componentIdentity,
+    selectedCitation,
+    selectedCitationComponentIdentity,
+    toolsScrollRef,
+    view,
+  ]);
   useEffect(() => {
     if (!notesIdentity) return;
     observeReadingNavigation({

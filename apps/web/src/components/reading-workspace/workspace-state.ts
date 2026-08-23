@@ -1,8 +1,9 @@
-import { useLayoutEffect, useRef } from "react";
+import { type RefObject, useLayoutEffect, useRef } from "react";
 
-import { highlightTarget } from "./authored-navigation";
+import { highlightTarget, scrollTarget } from "./authored-navigation";
 import type { SepReadingData } from "./content";
 import { observeReadingNavigation } from "./navigation-observations";
+import type { ReadingNavigation } from "./reading-navigation";
 import { saveReadingHistoryScrollTop } from "./reading-resume";
 
 export function useComponentTree(
@@ -52,13 +53,97 @@ export function usePreservedScroll() {
   };
 }
 
+export function usePendingCitationReturn({
+  articleRef,
+  componentIdentity,
+  navigation,
+  notesIdentity,
+  pendingCitation,
+  toolsScrollRef,
+}: {
+  articleRef: RefObject<HTMLElement | null>;
+  componentIdentity: string;
+  navigation: ReadingNavigation;
+  notesIdentity?: string;
+  pendingCitation: RefObject<
+    | {
+        componentIdentity: string;
+        mentionId: string;
+        owner: "article" | "publisher-note";
+      }
+    | undefined
+  >;
+  toolsScrollRef: RefObject<HTMLDivElement | null>;
+}) {
+  useLayoutEffect(() => {
+    const pending = pendingCitation.current;
+    const inNotes = pending?.owner === "publisher-note";
+    if (
+      !pending ||
+      (inNotes
+        ? pending.componentIdentity !== notesIdentity
+        : pending.componentIdentity !== componentIdentity)
+    )
+      return;
+    const target = `citation:${pending.componentIdentity}:${pending.mentionId}`;
+    const handle = navigation.request({
+      cause: "citation-return",
+      owner: pending.owner,
+      target,
+    });
+    const returnToCitation = () => {
+      if (!handle.active()) return;
+      const citation = [
+        ...((inNotes
+          ? toolsScrollRef.current
+          : articleRef.current
+        )?.querySelectorAll<HTMLElement>("[id]") ?? []),
+      ].find((element) => element.id === pending.mentionId);
+      if (!citation) return;
+      if (
+        handle.commit(() =>
+          scrollTarget(
+            citation,
+            inNotes ? toolsScrollRef.current : undefined,
+            "citation-return",
+            target,
+          ),
+        )
+      ) {
+        highlightTarget(citation);
+        pendingCitation.current = undefined;
+      }
+    };
+    if (!inNotes) {
+      returnToCitation();
+      return;
+    }
+    const frame = requestAnimationFrame(returnToCitation);
+    return () => {
+      cancelAnimationFrame(frame);
+      handle.cancel();
+    };
+  }, [
+    articleRef,
+    componentIdentity,
+    navigation,
+    notesIdentity,
+    pendingCitation,
+    toolsScrollRef,
+  ]);
+}
+
 export function useScrollRestore({
+  articleRef,
   component,
+  navigation,
   sourceId,
   stateId,
   onViewChange,
 }: {
+  articleRef: RefObject<HTMLElement | null>;
   component: SepReadingData["components"][number] | undefined;
+  navigation: ReadingNavigation;
   sourceId: string;
   stateId: string;
   onViewChange: (view: "article" | "bibliography", citation?: string) => void;
@@ -82,15 +167,21 @@ export function useScrollRestore({
     onViewChange("bibliography", entryId);
   };
   const returnToCitation = (mentionId: string) => {
-    const citation = document.getElementById(mentionId);
-    if (citation)
-      observeReadingNavigation({
-        cause: "citation-return",
-        owner: "article",
-        target: `#${mentionId}`,
-      });
-    citation?.scrollIntoView({ block: "center" });
-    if (citation) highlightTarget(citation);
+    if (!component) return;
+    const citation = [
+      ...(articleRef.current?.querySelectorAll<HTMLElement>("[id]") ?? []),
+    ].find((element) => element.id === mentionId);
+    if (!citation) return;
+    const target = `citation:${component.identity}:${mentionId}`;
+    const handle = navigation.request({
+      cause: "citation-return",
+      owner: "article",
+      target,
+    });
+    handle.commit(() =>
+      scrollTarget(citation, undefined, "citation-return", target),
+    );
+    highlightTarget(citation);
   };
   return {
     ephemeralScrollTop,

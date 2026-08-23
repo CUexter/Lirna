@@ -15,17 +15,14 @@ import {
 
 import { library } from "@/clients/library";
 import { Bibliography } from "./bibliography";
-import {
-  AuthoredLinkActions,
-  Blocks,
-  CitationActions,
-  ReadingSection,
-  type SepReadingData,
-} from "./content";
+import type { SepReadingData } from "./content";
+import { PublisherNotes } from "./publisher-notes";
+import { ReadingEmptyState } from "./reading-empty-state";
+import type { ReadingNavigation } from "./reading-navigation";
 import { useReadingToolsLocation } from "./reading-tools-positions";
 import {
+  createReferenceIndex,
   type ReadingReference,
-  ReferenceActions,
   type ReferenceIndex,
   ReferencePreview,
 } from "./references";
@@ -36,7 +33,6 @@ export type ReadingToolTab =
   | "bibliography"
   | "notes"
   | "supplementary";
-
 type ReadingComponent = SepReadingData["components"][number];
 
 export function ReadingToolsPanel({
@@ -50,7 +46,10 @@ export function ReadingToolsPanel({
 }: {
   bibliography: {
     citationScrollRequest: number;
+    mainComponentIdentity: string;
+    navigation: ReadingNavigation;
     onReturnCitation: (mentionId: string, componentIdentity: string) => void;
+    selectedComponentIdentity?: string;
     selectedEntry?: string;
   };
   component: ReadingComponent;
@@ -73,7 +72,11 @@ export function ReadingToolsPanel({
       href: string,
       label: string,
     ) => boolean;
-    onOpenCitation: (entryId: string | undefined, mentionId: string) => void;
+    onOpenCitation: (
+      from: ReadingComponent,
+      entryId: string | undefined,
+      mentionId: string,
+    ) => void;
     onOpenReference: (reference: ReadingReference) => void;
     publisherNotes?: ReadingComponent;
     referenceIndex: ReferenceIndex;
@@ -132,12 +135,18 @@ export function ReadingToolsPanel({
           </TabsContent>
           <TabsContent value="bibliography">
             <Bibliography
+              bibliographyComponents={{
+                all: components,
+                mainIdentity: bibliography.mainComponentIdentity,
+              }}
               compact
               citationScrollRequest={bibliography.citationScrollRequest}
-              components={components}
+              navigation={bibliography.navigation}
               onReturn={bibliography.onReturnCitation}
               scrollContainerRef={scrollContainerRef}
-              selectedComponentIdentity={component.identity}
+              selectedComponentIdentity={
+                bibliography.selectedComponentIdentity ?? component.identity
+              }
               selectedEntry={bibliography.selectedEntry}
             />
           </TabsContent>
@@ -180,7 +189,9 @@ function ContentsTab({
 }) {
   if (!component.toc.length) {
     return (
-      <EmptyState>No contents are available for this component.</EmptyState>
+      <ReadingEmptyState>
+        No contents are available for this component.
+      </ReadingEmptyState>
     );
   }
   return (
@@ -216,7 +227,7 @@ function NotesTab({
         Select text in the article to add a note or highlight.
       </p>
       {annotations.isPending ? (
-        <EmptyState>Loading notes...</EmptyState>
+        <ReadingEmptyState>Loading notes...</ReadingEmptyState>
       ) : notes.length ? (
         notes.map((note) => (
           <Button
@@ -233,7 +244,7 @@ function NotesTab({
           </Button>
         ))
       ) : (
-        <EmptyState>No notes in this component yet.</EmptyState>
+        <ReadingEmptyState>No notes in this component yet.</ReadingEmptyState>
       )}
     </>
   );
@@ -256,7 +267,11 @@ function SupplementaryTab({
       href: string,
       label: string,
     ) => boolean;
-    onOpenCitation: (entryId: string | undefined, mentionId: string) => void;
+    onOpenCitation: (
+      from: ReadingComponent,
+      entryId: string | undefined,
+      mentionId: string,
+    ) => void;
   };
   references: {
     index: ReferenceIndex;
@@ -266,6 +281,9 @@ function SupplementaryTab({
   };
 }) {
   const selectedReference = references.selected;
+  const publisherNoteReferenceIndex = publisherNotes.component
+    ? createReferenceIndex(publisherNotes.component)
+    : references.index;
 
   return (
     <>
@@ -288,12 +306,12 @@ function SupplementaryTab({
           onOpenAuthoredLink={publisherNotes.onOpenAuthoredLink}
           onOpenCitation={publisherNotes.onOpenCitation}
           onOpenReference={references.onOpen}
-          referenceIndex={references.index}
+          referenceIndex={publisherNoteReferenceIndex}
         />
       ) : (
-        <EmptyState>
+        <ReadingEmptyState>
           Open a publisher footnote to read it here without leaving the article.
-        </EmptyState>
+        </ReadingEmptyState>
       )}
     </>
   );
@@ -329,66 +347,5 @@ function SourceComponents({
           </Button>
         ))}
     </div>
-  );
-}
-
-function PublisherNotes({
-  component,
-  onJumpReference,
-  onOpenAuthoredLink,
-  onOpenCitation,
-  onOpenReference,
-  referenceIndex,
-}: {
-  component: SepReadingData["components"][number];
-  onJumpReference: (reference: ReadingReference) => void;
-  onOpenAuthoredLink: (
-    from: SepReadingData["components"][number],
-    href: string,
-    label: string,
-  ) => boolean;
-  onOpenCitation: (entryId: string | undefined, mentionId: string) => void;
-  onOpenReference: (reference: ReadingReference) => void;
-  referenceIndex: ReferenceIndex;
-}) {
-  return (
-    <section className="space-y-4 border-t pt-5">
-      <div>
-        <p className="font-medium text-sm">{component.label}</p>
-        <p className="text-muted-foreground text-xs">
-          Publisher-authored notes for this reading.
-        </p>
-      </div>
-      <ReferenceActions.Provider
-        value={{
-          index: referenceIndex,
-          jump: onJumpReference,
-          open: onOpenReference,
-        }}
-      >
-        <CitationActions.Provider value={{ open: onOpenCitation }}>
-          <AuthoredLinkActions.Provider
-            value={{
-              open: (href, label) => onOpenAuthoredLink(component, href, label),
-            }}
-          >
-            <article className="flex flex-col gap-5 font-serif text-base leading-7">
-              <Blocks blocks={component.introductoryBlocks} />
-              {component.sections.map((section) => (
-                <ReadingSection key={section.id} section={section} />
-              ))}
-            </article>
-          </AuthoredLinkActions.Provider>
-        </CitationActions.Provider>
-      </ReferenceActions.Provider>
-    </section>
-  );
-}
-
-function EmptyState({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="rounded-md border border-dashed p-4 text-muted-foreground text-xs">
-      {children}
-    </p>
   );
 }

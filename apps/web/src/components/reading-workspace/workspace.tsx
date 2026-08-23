@@ -1,6 +1,8 @@
+// biome-ignore lint/style/noExcessiveLinesPerFile: This hook composes the owner-scoped workspace dependencies.
 import { useRef, useState } from "react";
 
 import { createReferenceJumper } from "./authored-navigation";
+import { useCitationOpening } from "./citation-opening";
 import { ComponentUnavailable } from "./component-unavailable";
 import type { SepReadingData } from "./content";
 import { useReadingNavigationObservations } from "./navigation-observer";
@@ -21,12 +23,12 @@ import {
   createOpenCitationHandler,
   createOpenReferenceHandler,
   createReadingToolTabChangeHandler,
-  createReturnToCitationHandler,
   selectedCitationForView,
   usePendingFragmentScroll,
 } from "./workspace-controller";
 import {
   useComponentTree,
+  usePendingCitationReturn,
   usePreservedScroll,
   useScrollRestore,
 } from "./workspace-state";
@@ -99,6 +101,7 @@ function AvailableReadingWorkspace(props: AvailableReadingWorkspaceProps) {
   return <ReadingWorkspaceView {...useReadingWorkspaceViewProps(props)} />;
 }
 
+// fallow-ignore-next-line complexity
 function useReadingWorkspaceViewProps({
   initialFragment,
   onComponentChange,
@@ -115,6 +118,14 @@ function useReadingWorkspaceViewProps({
   const { articleRef, navigation, toolsScrollRef } =
     useReadingNavigationScope();
   const pendingFragment = useRef<string | undefined>(undefined);
+  const pendingCitation = useRef<
+    | {
+        componentIdentity: string;
+        mentionId: string;
+        owner: "article" | "publisher-note";
+      }
+    | undefined
+  >(undefined);
   const highlightPendingFragment = useRef(false);
   const [notesIdentity, setNotesIdentity] = useState<string>();
   const [selectedReference, setSelectedReference] =
@@ -132,15 +143,6 @@ function useReadingWorkspaceViewProps({
     onFragmentChange,
   });
 
-  useReadingNavigationObservations({
-    componentIdentity: component.identity,
-    navigation,
-    notesIdentity,
-    selectedCitation,
-    selectedReference,
-    toolsScrollRef,
-    view,
-  });
   const notes = reading.components.find(
     (item) => item.identity === notesIdentity,
   );
@@ -151,7 +153,9 @@ function useReadingWorkspaceViewProps({
     returnToCitation,
     saveLocation,
   } = useScrollRestore({
+    articleRef,
     component,
+    navigation,
     sourceId: source.id,
     stateId: source.stateId,
     onViewChange,
@@ -173,8 +177,23 @@ function useReadingWorkspaceViewProps({
     pendingFragment,
     toolsScrollRef,
   });
+  usePendingCitationReturn({
+    articleRef,
+    componentIdentity: component.identity,
+    navigation,
+    notesIdentity,
+    pendingCitation,
+    toolsScrollRef,
+  });
 
   const referenceIndex = createReferenceIndex(component);
+  const jumpToReference = createReferenceJumper({
+    articleRef,
+    componentIdentity: component.identity,
+    navigation,
+    notesIdentity,
+    toolsScrollRef,
+  });
 
   const handleComponentChange = createComponentChangeHandler({
     onComponentChange,
@@ -214,25 +233,60 @@ function useReadingWorkspaceViewProps({
     setReadingToolTab,
     setSelectedReference,
   });
+  const { citationComponentIdentity, openCitationFrom, openCurrentCitation } =
+    useCitationOpening(
+      component,
+      reading.components,
+      reading.mainComponent.identity,
+      openCitation,
+    );
+  useReadingNavigationObservations({
+    componentIdentity: component.identity,
+    navigation,
+    notesIdentity,
+    selectedCitation,
+    selectedCitationComponentIdentity: citationComponentIdentity,
+    selectedReference,
+    toolsScrollRef,
+    view,
+  });
   const handleReadingToolTabChange = createReadingToolTabChangeHandler({
     onViewChange,
     saveLocation,
     setReadingToolTab,
     view,
   });
-  const returnToCitationTarget = createReturnToCitationHandler({
-    component,
-    handleComponentChange,
-    highlightPendingFragment,
-    onViewChange,
-    pendingFragment,
-    preserveScroll,
-    reading,
-    returnToCitation,
-    setNotesIdentity,
-    setReadingToolTab,
-    view,
-  });
+  const returnToCitationTarget = (
+    mentionId: string,
+    targetComponentIdentity: string,
+  ) => {
+    const targetComponent = reading.components.find(
+      (candidate) => candidate.identity === targetComponentIdentity,
+    );
+    if (targetComponent?.role === "notes") {
+      pendingCitation.current = {
+        componentIdentity: targetComponentIdentity,
+        mentionId,
+        owner: "publisher-note",
+      };
+      preserveScroll();
+      setReadingToolTab("supplementary");
+      if (view === "bibliography") onViewChange("article");
+      setNotesIdentity(targetComponent.identity);
+      return;
+    }
+    if (targetComponentIdentity === component.identity) {
+      returnToCitation(mentionId);
+      onViewChange("article");
+      return;
+    }
+    pendingCitation.current = {
+      componentIdentity: targetComponentIdentity,
+      mentionId,
+      owner: "article",
+    };
+    handleComponentChange(targetComponentIdentity);
+  };
   const clearEditingAnnotation = createClearEditingAnnotationHandler(
     setEditingAnnotationId,
   );
@@ -252,7 +306,8 @@ function useReadingWorkspaceViewProps({
       component,
       contentActions: {
         onOpenAuthoredLink: openCurrentAuthoredLink,
-        onOpenCitation: openCitation,
+        onOpenCitation: openCurrentCitation,
+        onJumpReference: jumpToReference,
         onOpenReference: openReference,
         referenceIndex,
       },
@@ -269,7 +324,10 @@ function useReadingWorkspaceViewProps({
     readingToolsProps: {
       bibliography: {
         citationScrollRequest,
+        mainComponentIdentity: reading.mainComponent.identity,
+        navigation,
         onReturnCitation: returnToCitationTarget,
+        selectedComponentIdentity: citationComponentIdentity,
         selectedEntry: selectedCitationForView(view, selectedCitation),
       },
       component,
@@ -286,9 +344,9 @@ function useReadingWorkspaceViewProps({
       },
       scrollContainerRef: toolsScrollRef,
       supplementary: {
-        onJumpReference: createReferenceJumper(toolsScrollRef),
+        onJumpReference: jumpToReference,
         onOpenAuthoredLink: openAuthoredLink,
-        onOpenCitation: openCitation,
+        onOpenCitation: openCitationFrom,
         onOpenReference: openReference,
         publisherNotes: notes,
         referenceIndex,

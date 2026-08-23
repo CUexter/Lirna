@@ -1,27 +1,37 @@
+// biome-ignore lint/style/noExcessiveLinesPerFile: This keeps bibliography display and citation-context resolution colocated.
 import { Button } from "@lirna/ui/components/button";
 import { Input } from "@lirna/ui/components/input";
 import { LocateFixedIcon } from "lucide-react";
-import { type RefObject, useEffect, useRef, useState } from "react";
-import { scrollTarget } from "./authored-navigation";
+import { type RefObject, useRef, useState } from "react";
+import { useBibliographySelection } from "./bibliography-navigation";
 import type { SepReadingData } from "./content";
+import type { ReadingNavigation } from "./reading-navigation";
 
+// fallow-ignore-next-line complexity
 export function Bibliography({
+  bibliographyComponents,
   citationScrollRequest,
-  components,
   selectedComponentIdentity,
   selectedEntry,
   scrollContainerRef,
   onReturn,
+  navigation,
   compact = false,
 }: {
+  bibliographyComponents: {
+    all: SepReadingData["components"];
+    mainIdentity: string;
+  };
   citationScrollRequest: number;
-  components: SepReadingData["components"];
   selectedComponentIdentity: string;
   selectedEntry?: string;
   scrollContainerRef: RefObject<HTMLDivElement | null>;
   onReturn: (mentionId: string, componentIdentity: string) => void;
+  navigation: ReadingNavigation;
   compact?: boolean;
 }) {
+  const { all: components, mainIdentity: mainComponentIdentity } =
+    bibliographyComponents;
   const [query, setQuery] = useState("");
   const selectedEntryRef = useRef<HTMLLIElement>(null);
   const selectedEntryKey = selectedEntry
@@ -30,23 +40,21 @@ export function Bibliography({
   const selectedEntryRequest = selectedEntryKey
     ? `${selectedEntryKey}:${citationScrollRequest}`
     : undefined;
-  const mentions = citationMentions(components);
+  const mentions = citationMentions(components, mainComponentIdentity);
   const groups = groupBibliographyByAuthor(
     components,
     query,
     selectedComponentIdentity,
     selectedEntry,
   );
-  useEffect(() => {
-    const entry = selectedEntryRef.current;
-    const scrollContainer = scrollContainerRef.current;
-    if (!(selectedEntryRequest && entry && scrollContainer)) return;
-    const frame = requestAnimationFrame(() => {
-      scrollTarget(entry, scrollContainer, "bibliography-selection");
-      entry.focus({ preventScroll: true });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [scrollContainerRef, selectedEntryRequest]);
+  useBibliographySelection({
+    navigation,
+    scrollContainerRef,
+    selectedComponentIdentity,
+    selectedEntry,
+    selectedEntryRef,
+    selectedEntryRequest,
+  });
   return (
     <section
       aria-label={compact ? "Bibliography" : undefined}
@@ -275,7 +283,10 @@ function normalize(value: string) {
     .trim();
 }
 
-function citationMentions(components: SepReadingData["components"]) {
+function citationMentions(
+  components: SepReadingData["components"],
+  mainComponentIdentity: string,
+) {
   const mentions = new Map<
     string,
     Array<{ id: string; context: string; componentIdentity: string }>
@@ -286,7 +297,14 @@ function citationMentions(components: SepReadingData["components"]) {
   ) => {
     for (const value of values) {
       if (value.kind === "citation" && value.entryId && component) {
-        const entryKey = `${component.identity}:${value.entryId}`;
+        const bibliographyComponent = bibliographyComponentFor(
+          components,
+          component,
+          value.entryId,
+          mainComponentIdentity,
+        );
+        if (!bibliographyComponent) continue;
+        const entryKey = `${bibliographyComponent.identity}:${value.entryId}`;
         mentions.set(entryKey, [
           ...(mentions.get(entryKey) ?? []),
           {
@@ -318,6 +336,23 @@ function citationMentions(components: SepReadingData["components"]) {
     visitSections(component.sections);
   }
   return mentions;
+}
+
+function bibliographyComponentFor(
+  components: SepReadingData["components"],
+  citingComponent: SepReadingData["components"][number],
+  entryId: string,
+  mainComponentIdentity: string,
+) {
+  if (
+    citingComponent.bibliography.some((group) =>
+      group.entries.some((entry) => entry.id === entryId),
+    )
+  )
+    return citingComponent;
+  return components.find(
+    (component) => component.identity === mainComponentIdentity,
+  );
 }
 
 function visitBlockInlines(
