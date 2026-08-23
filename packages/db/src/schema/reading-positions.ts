@@ -1,5 +1,6 @@
 import {
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   text,
@@ -18,6 +19,7 @@ export const readingPositions = pgTable(
     componentIdentity: text("component_identity").notNull(),
     componentLabel: text("component_label").notNull(),
     scrollTop: integer("scroll_top").notNull(),
+    semanticLocation: jsonb("semantic_location"),
     savedAt: timestamp("saved_at", { withTimezone: true }).notNull(),
   },
   (table) => [

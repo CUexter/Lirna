@@ -1,0 +1,1 @@
+ALTER TABLE "reading_positions" ADD COLUMN "semantic_location" jsonb;

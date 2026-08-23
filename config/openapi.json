@@ -6258,6 +6258,143 @@
                           "minimum": 0,
                           "maximum": 9007199254740991
                         },
+                        "semanticLocation": {
+                          "type": "object",
+                          "properties": {
+                            "version": {
+                              "type": "number",
+                              "const": 1
+                            },
+                            "source": {
+                              "type": "object",
+                              "properties": {
+                                "sourceId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "stateId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                }
+                              },
+                              "required": [
+                                "sourceId",
+                                "stateId"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "scene": {
+                              "type": "object",
+                              "properties": {
+                                "identity": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 2000
+                                },
+                                "componentIdentity": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 2000
+                                },
+                                "owner": {
+                                  "type": "string",
+                                  "enum": [
+                                    "article",
+                                    "publisher-note"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "identity",
+                                "componentIdentity",
+                                "owner"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "block": {
+                              "type": "object",
+                              "properties": {
+                                "identity": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 2000
+                                },
+                                "strategy": {
+                                  "type": "string",
+                                  "enum": [
+                                    "authored-anchor",
+                                    "content-fingerprint",
+                                    "scene-fallback"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "identity",
+                                "strategy"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "progress": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            },
+                            "fallback": {
+                              "type": "object",
+                              "properties": {
+                                "scrollTop": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "blockIndex": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "blockTag": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 100
+                                },
+                                "textExcerpt": {
+                                  "type": "string",
+                                  "maxLength": 500
+                                },
+                                "authoredAnchor": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 2000
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "scrollTop",
+                                "blockIndex",
+                                "blockTag",
+                                "textExcerpt",
+                                "authoredAnchor"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "version",
+                            "source",
+                            "scene",
+                            "block",
+                            "progress",
+                            "fallback"
+                          ],
+                          "additionalProperties": false
+                        },
                         "savedAt": {
                           "type": "string",
                           "format": "date-time",
@@ -6322,6 +6459,138 @@
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 9007199254740991
+                  },
+                  "semanticLocation": {
+                    "type": "object",
+                    "properties": {
+                      "version": {
+                        "type": "number",
+                        "const": 1
+                      },
+                      "source": {
+                        "type": "object",
+                        "properties": {
+                          "sourceId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "stateId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          }
+                        },
+                        "required": [
+                          "sourceId",
+                          "stateId"
+                        ]
+                      },
+                      "scene": {
+                        "type": "object",
+                        "properties": {
+                          "identity": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 2000
+                          },
+                          "componentIdentity": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 2000
+                          },
+                          "owner": {
+                            "type": "string",
+                            "enum": [
+                              "article",
+                              "publisher-note"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "identity",
+                          "componentIdentity",
+                          "owner"
+                        ]
+                      },
+                      "block": {
+                        "type": "object",
+                        "properties": {
+                          "identity": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 2000
+                          },
+                          "strategy": {
+                            "type": "string",
+                            "enum": [
+                              "authored-anchor",
+                              "content-fingerprint",
+                              "scene-fallback"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "identity",
+                          "strategy"
+                        ]
+                      },
+                      "progress": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "fallback": {
+                        "type": "object",
+                        "properties": {
+                          "scrollTop": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "blockIndex": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "blockTag": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          },
+                          "textExcerpt": {
+                            "type": "string",
+                            "maxLength": 500
+                          },
+                          "authoredAnchor": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 2000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "scrollTop",
+                          "blockIndex",
+                          "blockTag",
+                          "textExcerpt",
+                          "authoredAnchor"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "version",
+                      "source",
+                      "scene",
+                      "block",
+                      "progress",
+                      "fallback"
+                    ]
                   }
                 },
                 "required": [
@@ -6366,6 +6635,143 @@
                       "type": "integer",
                       "minimum": 0,
                       "maximum": 9007199254740991
+                    },
+                    "semanticLocation": {
+                      "type": "object",
+                      "properties": {
+                        "version": {
+                          "type": "number",
+                          "const": 1
+                        },
+                        "source": {
+                          "type": "object",
+                          "properties": {
+                            "sourceId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "stateId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            }
+                          },
+                          "required": [
+                            "sourceId",
+                            "stateId"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "scene": {
+                          "type": "object",
+                          "properties": {
+                            "identity": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000
+                            },
+                            "componentIdentity": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000
+                            },
+                            "owner": {
+                              "type": "string",
+                              "enum": [
+                                "article",
+                                "publisher-note"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "identity",
+                            "componentIdentity",
+                            "owner"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "block": {
+                          "type": "object",
+                          "properties": {
+                            "identity": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000
+                            },
+                            "strategy": {
+                              "type": "string",
+                              "enum": [
+                                "authored-anchor",
+                                "content-fingerprint",
+                                "scene-fallback"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "identity",
+                            "strategy"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "progress": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "fallback": {
+                          "type": "object",
+                          "properties": {
+                            "scrollTop": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "blockIndex": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "blockTag": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            },
+                            "textExcerpt": {
+                              "type": "string",
+                              "maxLength": 500
+                            },
+                            "authoredAnchor": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 2000
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "scrollTop",
+                            "blockIndex",
+                            "blockTag",
+                            "textExcerpt",
+                            "authoredAnchor"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "version",
+                        "source",
+                        "scene",
+                        "block",
+                        "progress",
+                        "fallback"
+                      ],
+                      "additionalProperties": false
                     },
                     "savedAt": {
                       "type": "string",

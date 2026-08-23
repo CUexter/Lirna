@@ -1,7 +1,10 @@
 import { openapi } from "@orpc/openapi";
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
-
+import {
+  readingSemanticLocationSchema,
+  semanticLocationMatchesPosition,
+} from "../../reading-position/reading-position-contract";
 import { sepObservationKeySchema } from "../../sep-admission/sep-admission-builders";
 import { sepReadingContractSchema } from "../../sep-admission/sep-reading-contract";
 import { publicProcedure } from "../init";
@@ -36,6 +39,7 @@ const readingPosition = z.object({
   componentIdentity: z.string(),
   componentLabel: z.string(),
   scrollTop: z.number().int().nonnegative(),
+  semanticLocation: readingSemanticLocationSchema.optional(),
   savedAt: z.string().datetime(),
 });
 
@@ -159,11 +163,24 @@ export const sourcesRouter = {
       ),
     save: publicProcedure
       .input(
-        sourceStateInput.extend({
-          componentIdentity: z.string().trim().min(1).max(2_000),
-          componentLabel: z.string().trim().min(1).max(2_000),
-          scrollTop: z.number().int().nonnegative(),
-        }),
+        sourceStateInput
+          .extend({
+            componentIdentity: z.string().trim().min(1).max(2_000),
+            componentLabel: z.string().trim().min(1).max(2_000),
+            scrollTop: z.number().int().nonnegative(),
+            semanticLocation: readingSemanticLocationSchema.optional(),
+          })
+          .superRefine((input, context) => {
+            const semantic = input.semanticLocation;
+            if (!semantic) return;
+            if (!semanticLocationMatchesPosition(semantic, input)) {
+              context.addIssue({
+                code: "custom",
+                message:
+                  "Semantic and pixel positions must describe the same scene",
+              });
+            }
+          }),
       )
       .output(readingPosition)
       .errors(notFoundError)

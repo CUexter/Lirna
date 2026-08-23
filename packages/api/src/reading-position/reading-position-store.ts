@@ -12,11 +12,14 @@ import {
   readSepReadingDerivative,
   sepReadingDerivativeKind,
 } from "../sep-admission/sep-reading-contract";
-
 import type {
   ReadingPositionOperations,
   ReadingPositionRecord,
   SaveReadingPositionInput,
+} from "./reading-position-contract";
+import {
+  readingSemanticLocationSchema,
+  semanticLocationMatchesPosition,
 } from "./reading-position-contract";
 
 export class DrizzleReadingPositionStore implements ReadingPositionOperations {
@@ -85,6 +88,8 @@ export class DrizzleReadingPositionStore implements ReadingPositionOperations {
         )
       : undefined;
     if (!existing || !component) return undefined;
+    if (input.semanticLocation && !semanticMatches(input, component.role))
+      return undefined;
 
     const [position] = await this.database
       .insert(readingPositions)
@@ -93,6 +98,7 @@ export class DrizzleReadingPositionStore implements ReadingPositionOperations {
         componentIdentity: input.componentIdentity,
         componentLabel: component.label,
         scrollTop: input.scrollTop,
+        semanticLocation: input.semanticLocation ?? null,
         savedAt: new Date(),
       })
       .onConflictDoUpdate({
@@ -103,12 +109,30 @@ export class DrizzleReadingPositionStore implements ReadingPositionOperations {
         set: {
           componentLabel: component.label,
           scrollTop: input.scrollTop,
+          semanticLocation: input.semanticLocation ?? null,
           savedAt: new Date(),
         },
       })
       .returning();
     return position ? serialize(position, existing.source) : undefined;
   }
+}
+
+function semanticMatches(
+  input: SaveReadingPositionInput,
+  role:
+    | "main"
+    | "supplement"
+    | "notes"
+    | "figure-description"
+    | "unknown-component",
+) {
+  const semantic = input.semanticLocation;
+  if (!semantic) return true;
+  return (
+    semanticLocationMatchesPosition(semantic, input) &&
+    semantic.scene.owner === (role === "notes" ? "publisher-note" : "article")
+  );
 }
 
 function serialize(
@@ -120,6 +144,13 @@ function serialize(
     componentLabel: position.componentLabel,
     savedAt: position.savedAt.toISOString(),
     scrollTop: position.scrollTop,
+    ...(position.semanticLocation
+      ? {
+          semanticLocation: readingSemanticLocationSchema.parse(
+            position.semanticLocation,
+          ),
+        }
+      : {}),
     sourceId: source.id,
     sourceTitle: source.title,
     stateId: position.sourceStateId,

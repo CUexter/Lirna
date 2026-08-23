@@ -9,6 +9,7 @@ import { useCitationOpening } from "./citation-opening";
 import { ComponentUnavailable } from "./component-unavailable";
 import type { SepReadingData } from "./content";
 import { useReadingNavigationObservations } from "./navigation-observer";
+import { usePublisherNoteProgress } from "./publisher-note-progress";
 import {
   useExplicitFragmentNavigation,
   useReadingNavigationScope,
@@ -191,6 +192,15 @@ function useReadingWorkspaceViewProps({
         target: "component",
       })
     : undefined;
+  const activeToolTab = activeReadingToolTab(view, readingToolTab);
+  usePublisherNoteProgress({
+    active:
+      activeToolTab === "supplementary" && Boolean(notes) && !selectedReference,
+    component: notes,
+    scrollContainerRef: toolsScrollRef,
+    sourceId: source.id,
+    stateId: source.stateId,
+  });
   const preserveScroll = usePreservedScroll();
   const {
     ephemeralScrollTop,
@@ -493,7 +503,7 @@ function useReadingWorkspaceViewProps({
       components: reading.components,
       topology,
       navigation: {
-        activeTab: activeReadingToolTab(view, readingToolTab),
+        activeTab: activeToolTab,
         onActiveTabChange: handleReadingToolTabChange,
         onComponentChange: navigateComponentScene,
       },

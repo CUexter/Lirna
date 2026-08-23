@@ -60,7 +60,11 @@ export function PublisherNotes({
               open: (href, label) => onOpenAuthoredLink(component, href, label),
             }}
           >
-            <article className="flex flex-col gap-5 font-serif text-base leading-7">
+            <article
+              className="flex flex-col gap-5 font-serif text-base leading-7"
+              data-reading-scene-identity={component.identity}
+              data-reading-scene-owner="publisher-note"
+            >
               <Blocks blocks={component.introductoryBlocks} />
               {component.sections.map((section) => (
                 <ReadingSection key={section.id} section={section} />

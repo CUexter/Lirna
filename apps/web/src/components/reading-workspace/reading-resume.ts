@@ -4,114 +4,19 @@ import { type RefObject, useEffect, useRef, useState } from "react";
 import { inquiry } from "@/clients/inquiry";
 import type { SepReadingData } from "./content";
 import { observeReadingNavigation } from "./navigation-observations";
+import {
+  historyPositionKey,
+  historyScrollTop,
+  writeReadingHistoryPosition,
+} from "./reading-history-position";
 import type {
   ReadingNavigation,
   ReadingNavigationHandle,
 } from "./reading-navigation";
 import { isReadingTargetReady } from "./reading-navigation-hooks";
+import { createReadingSemanticLocation } from "./reading-semantic-location";
 
-const historyPositionsKey = "lirnaReadingPositions";
-const historyNavigationPositionsKey = "lirnaReadingNavigationPositions";
-
-function historyPositionKey(
-  sourceId: string,
-  stateId: string,
-  componentIdentity: string,
-) {
-  return JSON.stringify([sourceId, stateId, componentIdentity]);
-}
-
-function historyScrollTop(
-  sourceId: string,
-  stateId: string,
-  componentIdentity: string,
-) {
-  const key = historyPositionKey(sourceId, stateId, componentIdentity);
-  const state = window.history.state;
-  if (!state || typeof state !== "object") return undefined;
-  return (
-    historyNavigationScrollTop(key) ??
-    stateScrollTop(state[historyPositionsKey], key)
-  );
-}
-
-function historyNavigationScrollTop(key: string) {
-  const state = window.history.state;
-  if (!state || typeof state !== "object") return undefined;
-  const snapshot = state[historyNavigationPositionsKey];
-  if (!snapshot || typeof snapshot !== "object") return undefined;
-  const { href, positions } = snapshot as {
-    href?: unknown;
-    positions?: unknown;
-  };
-  if (href !== window.location.href) return undefined;
-  return stateScrollTop(positions, key);
-}
-
-function stateScrollTop(positions: unknown, key: string) {
-  if (!positions || typeof positions !== "object") return undefined;
-  const scrollTop = (positions as Record<string, unknown>)[key];
-  return typeof scrollTop === "number" && Number.isFinite(scrollTop)
-    ? Math.max(0, scrollTop)
-    : undefined;
-}
-
-export function saveReadingHistoryScrollTop(
-  sourceId: string,
-  stateId: string,
-  componentIdentity: string,
-  scrollTop: number,
-) {
-  const key = historyPositionKey(sourceId, stateId, componentIdentity);
-  writeNavigationScrollTop(key, scrollTop);
-  writeHistoryScrollTop(key, scrollTop);
-}
-
-function writeNavigationScrollTop(key: string, scrollTop: number) {
-  const state =
-    window.history.state && typeof window.history.state === "object"
-      ? window.history.state
-      : {};
-  const current = state[historyNavigationPositionsKey];
-  const positions =
-    current &&
-    typeof current === "object" &&
-    (current as { href?: unknown }).href === window.location.href
-      ? (current as { positions?: Record<string, number> }).positions
-      : undefined;
-  window.history.replaceState(
-    {
-      ...state,
-      [historyNavigationPositionsKey]: {
-        href: window.location.href,
-        positions: { ...positions, [key]: scrollTop },
-      },
-    },
-    "",
-  );
-}
-
-function writeHistoryScrollTop(key: string, scrollTop: number) {
-  const state =
-    window.history.state && typeof window.history.state === "object"
-      ? window.history.state
-      : {};
-  const positions =
-    state[historyPositionsKey] && typeof state[historyPositionsKey] === "object"
-      ? state[historyPositionsKey]
-      : {};
-  window.history.replaceState(
-    {
-      ...state,
-      __hashScrollIntoViewOptions: false,
-      [historyPositionsKey]: {
-        ...positions,
-        [key]: scrollTop,
-      },
-    },
-    "",
-  );
-}
+export { saveReadingHistoryScrollTop } from "./reading-history-position";
 
 export function useReadingResume({
   articleRef,
@@ -185,17 +90,30 @@ export function useReadingResume({
     let readinessFrame = 0;
     let secondFrame = 0;
     let started = false;
+    const semanticLocation = (scrollTop: number) =>
+      createReadingSemanticLocation({
+        componentIdentity: component.identity,
+        owner: "article",
+        root: articleRef.current,
+        scrollTop,
+        sourceId,
+        stateId,
+        viewportHeight: window.innerHeight,
+      });
     const save = (requestedScrollTop = window.scrollY) => {
       const scrollTop = Math.max(0, Math.round(requestedScrollTop));
-      writeHistoryScrollTop(
+      const semantic = semanticLocation(scrollTop);
+      writeReadingHistoryPosition(
         historyPositionKey(sourceId, stateId, component.identity),
         scrollTop,
+        semantic,
       );
       mutate(
         {
           componentIdentity: component.identity,
           componentLabel: component.label,
           scrollTop,
+          semanticLocation: semantic,
           sourceId,
           stateId,
         },
@@ -206,9 +124,11 @@ export function useReadingResume({
       );
     };
     const handleScroll = () => {
-      writeHistoryScrollTop(
+      const scrollTop = Math.max(0, Math.round(window.scrollY));
+      writeReadingHistoryPosition(
         historyPositionKey(sourceId, stateId, component.identity),
-        Math.max(0, Math.round(window.scrollY)),
+        scrollTop,
+        semanticLocation(scrollTop),
       );
       if (timer) clearTimeout(timer);
       timer = setTimeout(save, 500);

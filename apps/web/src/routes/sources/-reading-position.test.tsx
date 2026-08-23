@@ -1,3 +1,4 @@
+// biome-ignore lint/style/noExcessiveLinesPerFile: Reading-position journeys share one route mock and lifecycle.
 import { afterEach, expect, mock, test } from "bun:test";
 import { createRootRoute, createRoute } from "@tanstack/react-router";
 import { act, cleanup, waitFor, within } from "@testing-library/react";
@@ -176,6 +177,14 @@ test("restores and saves positions for the selected Source component", async () 
           sourceId,
           stateId,
           componentIdentity: "supplement-one",
+          semanticLocation: expect.objectContaining({
+            source: { sourceId, stateId },
+            scene: expect.objectContaining({
+              identity: "supplement-one",
+              owner: "article",
+            }),
+            fallback: expect.objectContaining({ scrollTop: 0 }),
+          }),
         }),
       ),
     );
@@ -253,6 +262,45 @@ test("starts an unseen Source component at the top before saving it", async () =
     if (scrollY) Object.defineProperty(window, "scrollY", scrollY);
     else delete (window as { scrollY?: number }).scrollY;
   }
+});
+
+test("persists publisher-note semantics with its tools-container pixels", async () => {
+  resetActions();
+  const user = userEvent.setup();
+  await renderReading();
+  await waitFor(() => view().getByText("[note 1]"));
+
+  await user.click(view().getByText("[note 1]"));
+  await waitFor(() => view().getByText("Publisher-authored note."));
+  const container = document.querySelector<HTMLElement>(
+    '[data-reading-scroll-owner="publisher-note"]',
+  );
+  if (!container) throw new Error("Publisher-note scroll owner is unavailable");
+  container.scrollTop = 360;
+  act(() => container.dispatchEvent(new Event("scroll")));
+
+  await waitFor(
+    () =>
+      expect(calls.resumeSave).toContainEqual(
+        expect.objectContaining({
+          componentIdentity: "notes",
+          scrollTop: 360,
+          semanticLocation: expect.objectContaining({
+            source: { sourceId, stateId },
+            scene: {
+              identity: "notes",
+              componentIdentity: "notes",
+              owner: "publisher-note",
+            },
+            fallback: expect.objectContaining({
+              scrollTop: 360,
+              textExcerpt: expect.stringContaining("publisher-authored note"),
+            }),
+          }),
+        }),
+      ),
+    { timeout: 2_000 },
+  );
 });
 
 test("preserves the article position when opening Bibliography", async () => {
