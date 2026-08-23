@@ -18,7 +18,7 @@ export function ReadingWorkspaceView({
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: delegated anchor clicks retain native keyboard activation.
     <main
-      className="min-h-full bg-background"
+      className="reading-workspace min-h-full bg-background"
       onClick={(event) => {
         const fragment = authoredFragmentFromClick(event);
         if (!fragment) return;

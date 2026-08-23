@@ -1,5 +1,13 @@
 @import "@lirna/ui/globals.css";
 
+html:has(.reading-workspace) {
+  scrollbar-gutter: stable;
+}
+
+.reading-tools-scroll-container {
+  scrollbar-gutter: stable;
+}
+
 @keyframes authored-target-highlight {
   0%,
   20% {

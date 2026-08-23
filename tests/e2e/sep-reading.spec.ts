@@ -138,3 +138,134 @@ test("does not substitute the article for an unavailable component", async ({
   await page.getByRole("button", { name: "Open main article" }).click();
   await expect(page.getByText("Visible typed paragraph.")).toBeVisible();
 });
+
+test("keeps the reading workspace stable across page and tool scrollbar changes", async ({
+  page,
+}) => {
+  for (const width of [768, 1024, 1280, 1536]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`/sources/${sourceId}/${stateId}`);
+    await expect(page.getByText("Visible typed paragraph.")).toBeVisible();
+
+    const position = () =>
+      page.evaluate(() => {
+        const article = document.querySelector("article");
+        const tools = document.querySelector('[aria-label="Reading tools"]');
+        if (!(article && tools)) throw new Error("Reading workspace missing");
+        const articleBox = article.getBoundingClientRect();
+        const toolsBox = tools.getBoundingClientRect();
+        return {
+          articleLeft: articleBox.left,
+          articleRight: articleBox.right,
+          articleWidth: articleBox.width,
+          toolsLeft: toolsBox.left,
+          toolsRight: toolsBox.right,
+          toolsWidth: toolsBox.width,
+        };
+      });
+
+    const pageScrollbarState = () =>
+      page.evaluate(() => ({
+        hasScrollbar:
+          getComputedStyle(document.documentElement).overflowY !== "hidden" &&
+          document.documentElement.scrollHeight >
+            document.documentElement.clientHeight,
+        overflowY: getComputedStyle(document.documentElement).overflowY,
+        scrollHeight: document.documentElement.scrollHeight,
+        scrollY: window.scrollY,
+      }));
+
+    const switchComponent = async (value: string, text: string) => {
+      await page.goto(
+        value === "article"
+          ? `/sources/${sourceId}/${stateId}`
+          : `/sources/${sourceId}/${stateId}?component=${encodeURIComponent(value)}`,
+      );
+      await expect(
+        page.getByText(text, { exact: false }).first(),
+      ).toBeVisible();
+    };
+
+    const beforeComponentSwitch = await position();
+    await page.evaluate(() => {
+      document.body.style.minHeight = "2000px";
+      document.documentElement.style.overflowY = "scroll";
+    });
+    const articleState = await pageScrollbarState();
+    expect(articleState.hasScrollbar).toBe(true);
+    await switchComponent("active:/notes.html", "Typed Notes content.");
+    await page.evaluate(() => {
+      document.body.style.minHeight = "0px";
+      document.documentElement.style.overflowY = "hidden";
+    });
+    const notesState = await pageScrollbarState();
+    expect(notesState.hasScrollbar).toBe(false);
+    expect(notesState.scrollY).toBe(articleState.scrollY);
+    await expect.poll(position).toEqual(beforeComponentSwitch);
+
+    await switchComponent("article", "Visible typed paragraph.");
+    await page.evaluate(() => {
+      document.body.style.minHeight = "2000px";
+      document.documentElement.style.overflowY = "scroll";
+      window.scrollTo(0, 0);
+    });
+    await expect.poll(position).toEqual(beforeComponentSwitch);
+
+    await page.evaluate(() => {
+      document.documentElement.style.overflowY = "hidden";
+    });
+    const withoutPageScrollbar = await position();
+    expect((await pageScrollbarState()).overflowY).toBe("hidden");
+
+    await page.evaluate(() => {
+      document.documentElement.style.overflowY = "scroll";
+    });
+    expect((await pageScrollbarState()).overflowY).toBe("scroll");
+    await expect.poll(position).toEqual(withoutPageScrollbar);
+
+    const withoutToolsScrollbar = await position();
+    for (const tab of ["Contents", "Bibliography", "Notes", "Supplementary"]) {
+      await page.getByRole("tab", { name: tab, exact: true }).click();
+      const pageScrollYBeforeTools = (await pageScrollbarState()).scrollY;
+      const container = page.locator(".reading-tools-scroll-container");
+      await expect(container).toHaveCSS("overflow-y", "auto");
+      await page.evaluate(() => {
+        const container = document.querySelector<HTMLElement>(
+          ".reading-tools-scroll-container",
+        );
+        if (!container)
+          throw new Error("Reading tools scroll container missing");
+        const spacer = document.createElement("div");
+        spacer.dataset.scrollbarTestSpacer = "true";
+        spacer.style.height = "2000px";
+        container.append(spacer);
+      });
+      await expect
+        .poll(() =>
+          container.evaluate((element) => ({
+            clientHeight: element.clientHeight,
+            scrollHeight: element.scrollHeight,
+          })),
+        )
+        .toEqual(expect.objectContaining({ clientHeight: expect.any(Number) }));
+      const scrollMetrics = await container.evaluate((element) => ({
+        clientHeight: element.clientHeight,
+        scrollHeight: element.scrollHeight,
+      }));
+      expect(scrollMetrics.scrollHeight).toBeGreaterThan(
+        scrollMetrics.clientHeight,
+      );
+      await container.evaluate((element) => {
+        element.scrollTop = element.scrollHeight;
+      });
+      await expect
+        .poll(() => container.evaluate((element) => element.scrollTop))
+        .toBeGreaterThan(0);
+      expect((await pageScrollbarState()).scrollY).toBe(pageScrollYBeforeTools);
+      await expect.poll(position).toEqual(withoutToolsScrollbar);
+      await page.evaluate(() => {
+        document.querySelector('[data-scrollbar-test-spacer="true"]')?.remove();
+      });
+    }
+  }
+});
