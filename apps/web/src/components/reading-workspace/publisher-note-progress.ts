@@ -1,13 +1,18 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { type RefObject, useEffect } from "react";
 
 import { inquiry } from "@/clients/inquiry";
 import type { SepReadingData } from "./content";
 import {
   historyPositionKey,
+  historyScrollTop,
+  historySemanticLocation,
   writeReadingHistoryPosition,
 } from "./reading-history-position";
-import { createReadingSemanticLocation } from "./reading-semantic-location";
+import {
+  createReadingSemanticLocation,
+  resolveReadingSemanticLocation,
+} from "./reading-semantic-location";
 
 export function usePublisherNoteProgress({
   active,
@@ -23,11 +28,51 @@ export function usePublisherNoteProgress({
   stateId: string;
 }) {
   const { mutate } = useMutation(inquiry.sources.resume.save.mutationOptions());
+  const resumeQuery = inquiry.sources.resume.get.queryOptions({
+    input: component
+      ? { sourceId, stateId, componentIdentity: component.identity }
+      : {},
+  });
+  const { data: resume, isPending } = useQuery({
+    ...resumeQuery,
+    enabled: active && Boolean(component),
+  });
 
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!active || !component || !container) return;
+    const historyScroll = historyScrollTop(
+      sourceId,
+      stateId,
+      component.identity,
+    );
+    const persisted =
+      resume?.sourceId === sourceId &&
+      resume.stateId === stateId &&
+      resume.componentIdentity === component.identity
+        ? resume
+        : undefined;
+    if (!isPending || historyScroll !== undefined) {
+      const root = sceneRoot(container, component.identity);
+      const fallbackScrollTop = historyScroll ?? persisted?.scrollTop ?? 0;
+      const desiredScrollTop =
+        resolveReadingSemanticLocation({
+          componentIdentity: component.identity,
+          location:
+            historySemanticLocation(sourceId, stateId, component.identity) ??
+            persisted?.semanticLocation,
+          owner: "publisher-note",
+          root: root ?? null,
+          scrollTop: container.scrollTop,
+          sourceId,
+          stateId,
+          viewportHeight: container.clientHeight,
+          viewportTop: container.getBoundingClientRect().top,
+        }) ?? fallbackScrollTop;
+      container.scrollTo({ top: desiredScrollTop });
+    }
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let dirty = false;
     let latest = position(container, component.identity, sourceId, stateId);
     const save = () => {
       writeReadingHistoryPosition(
@@ -45,6 +90,7 @@ export function usePublisherNoteProgress({
       });
     };
     const handleScroll = () => {
+      dirty = true;
       latest = position(container, component.identity, sourceId, stateId);
       writeReadingHistoryPosition(
         historyPositionKey(sourceId, stateId, component.identity),
@@ -55,6 +101,7 @@ export function usePublisherNoteProgress({
       timer = setTimeout(save, 500);
     };
     const saveImmediately = () => {
+      if (isPending && historyScroll === undefined && !dirty) return;
       if (timer) clearTimeout(timer);
       save();
     };
@@ -63,12 +110,21 @@ export function usePublisherNoteProgress({
     document.addEventListener("visibilitychange", saveImmediately);
     return () => {
       if (timer) clearTimeout(timer);
-      save();
+      if (dirty) save();
       container.removeEventListener("scroll", handleScroll);
       window.removeEventListener("pagehide", saveImmediately);
       document.removeEventListener("visibilitychange", saveImmediately);
     };
-  }, [active, component, mutate, scrollContainerRef, sourceId, stateId]);
+  }, [
+    active,
+    component,
+    isPending,
+    mutate,
+    resume,
+    scrollContainerRef,
+    sourceId,
+    stateId,
+  ]);
 }
 
 function position(
@@ -77,11 +133,7 @@ function position(
   sourceId: string,
   stateId: string,
 ) {
-  const root = Array.from(
-    container.querySelectorAll<HTMLElement>("[data-reading-scene-identity]"),
-  ).find(
-    (candidate) => candidate.dataset.readingSceneIdentity === componentIdentity,
-  );
+  const root = sceneRoot(container, componentIdentity);
   const scrollTop = Math.max(0, Math.round(container.scrollTop));
   return {
     scrollTop,
@@ -96,4 +148,12 @@ function position(
       viewportTop: container.getBoundingClientRect().top,
     }),
   };
+}
+
+function sceneRoot(container: HTMLElement, componentIdentity: string) {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>("[data-reading-scene-identity]"),
+  ).find(
+    (candidate) => candidate.dataset.readingSceneIdentity === componentIdentity,
+  );
 }

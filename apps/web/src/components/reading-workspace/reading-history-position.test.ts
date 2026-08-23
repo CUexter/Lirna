@@ -2,6 +2,7 @@ import { beforeEach, expect, test } from "bun:test";
 
 import {
   historyPositionKey,
+  historySemanticLocation,
   writeReadingHistoryPosition,
 } from "./reading-history-position";
 import type { ReadingSemanticLocation } from "./reading-semantic-location";
@@ -18,6 +19,26 @@ test("writes semantic and unchanged legacy pixels in one history update", () => 
     lirnaReadingPositions: { [key]: 240 },
     lirnaReadingSemanticPositions: { [key]: semanticLocation },
   });
+});
+
+test("reads a publisher-note semantic location by its scene identity", () => {
+  const key = historyPositionKey("source", "state", "notes-two");
+  const semanticLocation = {
+    ...location(480),
+    scene: {
+      identity: "notes-two",
+      componentIdentity: "notes-two",
+      owner: "publisher-note" as const,
+    },
+  };
+  writeReadingHistoryPosition(key, 480, semanticLocation);
+
+  expect(historySemanticLocation("source", "state", "notes-two")).toEqual(
+    semanticLocation,
+  );
+  expect(
+    historySemanticLocation("source", "state", "notes-one"),
+  ).toBeUndefined();
 });
 
 function location(scrollTop: number): ReadingSemanticLocation {

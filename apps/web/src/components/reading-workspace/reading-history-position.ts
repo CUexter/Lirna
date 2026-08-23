@@ -26,6 +26,22 @@ export function historyScrollTop(
   );
 }
 
+export function historySemanticLocation(
+  sourceId: string,
+  stateId: string,
+  componentIdentity: string,
+) {
+  const key = historyPositionKey(sourceId, stateId, componentIdentity);
+  const state = window.history.state;
+  if (!state || typeof state !== "object") return undefined;
+  const positions = state[historySemanticPositionsKey];
+  if (!positions || typeof positions !== "object") return undefined;
+  const location = (positions as Record<string, unknown>)[key];
+  return location && typeof location === "object"
+    ? (location as ReadingSemanticLocation)
+    : undefined;
+}
+
 export function saveReadingHistoryScrollTop(
   sourceId: string,
   stateId: string,

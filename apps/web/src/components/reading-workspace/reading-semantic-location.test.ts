@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { createReadingSemanticLocation } from "./reading-semantic-location";
+import {
+  createReadingSemanticLocation,
+  type ReadingSemanticLocation,
+  resolveReadingSemanticLocation,
+} from "./reading-semantic-location";
 
 const sourceId = "10000000-0000-4000-8000-000000000000";
 const stateId = "20000000-0000-4000-8000-000000000000";
@@ -72,6 +76,74 @@ describe("semantic Reading locations", () => {
       progress: 0,
       fallback: { blockIndex: 0, blockTag: "scene", textExcerpt: "" },
     });
+  });
+
+  test("resolves an authored publisher-note block in changed geometry", () => {
+    const root = scene(
+      '<p><span id="note-4"></span>Publisher note</p>',
+      [300, 200],
+    );
+    const location: ReadingSemanticLocation = {
+      version: 1,
+      source: { sourceId, stateId },
+      scene: {
+        identity: "notes",
+        componentIdentity: "notes",
+        owner: "publisher-note",
+      },
+      block: {
+        identity: "anchor:12244f3df7d4f46c",
+        strategy: "authored-anchor",
+      },
+      progress: 0.5,
+      fallback: {
+        scrollTop: 900,
+        blockIndex: 0,
+        blockTag: "p",
+        textExcerpt: "Publisher note",
+        authoredAnchor: "note-4",
+      },
+    };
+
+    expect(
+      resolveReadingSemanticLocation({
+        componentIdentity: "notes",
+        location,
+        owner: "publisher-note",
+        root,
+        scrollTop: 100,
+        sourceId,
+        stateId,
+        viewportHeight: 400,
+        viewportTop: 50,
+      }),
+    ).toBe(350);
+  });
+
+  test("rejects a semantic location owned by another scene", () => {
+    const root = scene("<p>Publisher note</p>", [300, 200]);
+    const location = createReadingSemanticLocation({
+      componentIdentity: "other-notes",
+      owner: "publisher-note",
+      root,
+      scrollTop: 100,
+      sourceId,
+      stateId,
+      viewportHeight: 400,
+    });
+
+    expect(
+      resolveReadingSemanticLocation({
+        componentIdentity: "notes",
+        location,
+        owner: "publisher-note",
+        root,
+        scrollTop: 100,
+        sourceId,
+        stateId,
+        viewportHeight: 400,
+      }),
+    ).toBeUndefined();
   });
 });
 

@@ -49,13 +49,6 @@ export function createReadingSemanticLocation({
   const block = blocks[blockIndex] as HTMLElement;
   const authoredAnchor = blockAnchor(block);
   const textExcerpt = normalizedBlockText(block).slice(0, 500);
-  const contentFingerprint = fingerprint(blockSignature(block));
-  const duplicateIndex = blocks
-    .slice(0, blockIndex)
-    .filter(
-      (candidate) =>
-        fingerprint(blockSignature(candidate)) === contentFingerprint,
-    ).length;
   const rect = block.getBoundingClientRect();
   const progress =
     rect.height > 0
@@ -64,9 +57,7 @@ export function createReadingSemanticLocation({
 
   return location({
     authoredAnchor,
-    blockIdentity: authoredAnchor
-      ? `anchor:${fingerprint(authoredAnchor)}`
-      : `content:${contentFingerprint}:${duplicateIndex}`,
+    blockIdentity: semanticBlockIdentity(blocks, blockIndex),
     blockIndex,
     blockTag: block.tagName.toLowerCase(),
     componentIdentity,
@@ -78,6 +69,75 @@ export function createReadingSemanticLocation({
     strategy: authoredAnchor ? "authored-anchor" : "content-fingerprint",
     textExcerpt,
   });
+}
+
+export function resolveReadingSemanticLocation({
+  componentIdentity,
+  location: semantic,
+  owner,
+  root,
+  scrollTop,
+  sourceId,
+  stateId,
+  viewportHeight,
+  viewportTop = 0,
+}: {
+  componentIdentity: string;
+  location?: ReadingSemanticLocation;
+  owner: "article" | "publisher-note";
+  root: HTMLElement | null;
+  scrollTop: number;
+  sourceId: string;
+  stateId: string;
+  viewportHeight: number;
+  viewportTop?: number;
+}) {
+  if (
+    !semantic ||
+    semantic.source.sourceId !== sourceId ||
+    semantic.source.stateId !== stateId ||
+    semantic.scene.identity !== componentIdentity ||
+    semantic.scene.componentIdentity !== componentIdentity ||
+    semantic.scene.owner !== owner
+  )
+    return undefined;
+  if (!root || semantic.block.strategy === "scene-fallback")
+    return semantic.fallback.scrollTop;
+
+  const blocks = readingBlocks(root);
+  const block = blocks.find(
+    (_candidate, index) =>
+      semanticBlockIdentity(blocks, index) === semantic.block.identity,
+  );
+  if (!block) return semantic.fallback.scrollTop;
+
+  const rect = block.getBoundingClientRect();
+  if (rect.height <= 0) return semantic.fallback.scrollTop;
+  const readingLine = Math.max(0, viewportHeight) * 0.25;
+  return Math.max(
+    0,
+    Math.round(
+      scrollTop +
+        rect.top -
+        viewportTop +
+        semantic.progress * rect.height -
+        readingLine,
+    ),
+  );
+}
+
+function semanticBlockIdentity(blocks: HTMLElement[], blockIndex: number) {
+  const block = blocks[blockIndex] as HTMLElement;
+  const anchor = blockAnchor(block);
+  if (anchor) return `anchor:${fingerprint(anchor)}`;
+  const contentFingerprint = fingerprint(blockSignature(block));
+  const duplicateIndex = blocks
+    .slice(0, blockIndex)
+    .filter(
+      (candidate) =>
+        fingerprint(blockSignature(candidate)) === contentFingerprint,
+    ).length;
+  return `content:${contentFingerprint}:${duplicateIndex}`;
 }
 
 function readingBlocks(root: HTMLElement) {

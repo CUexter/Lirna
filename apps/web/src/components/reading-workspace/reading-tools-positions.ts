@@ -57,6 +57,7 @@ export function useReadingToolsLocation(
     const container = scrollContainerRef.current;
     if (!container) return;
     container.dataset.readingScrollOwner = owner;
+    if (owner === "publisher-note") return;
     const scrollTop = locations.current.read(owner);
     const saveLocation = () =>
       locations.current.save(owner, container.scrollTop);

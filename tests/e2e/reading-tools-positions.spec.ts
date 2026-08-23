@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
 import {
   retainArticlePosition,
@@ -41,12 +41,17 @@ test("keeps article, named tabs, and publisher notes in independent locations", 
     "data-reading-scroll-owner",
     "publisher-note",
   );
-  await setToolsPosition(page, 500);
+  await page.waitForTimeout(100);
+  await setToolsPosition(page, 200);
+  await page.locator("[data-reading-scroll-owner]").dispatchEvent("scroll");
+  await expect
+    .poll(async () => (await publisherNoteLocation(page)).fallbackScrollTop)
+    .toBe(200);
   await page.getByRole("tab", { name: "Contents" }).click();
   await page.getByRole("tab", { name: "Supplementary" }).click();
   await expect
-    .poll(async () => Math.round(await toolsPosition(page)))
-    .toBe(500);
+    .poll(async () => (await publisherNoteLocation(page)).matches)
+    .toBe(true);
 
   await retainArticlePosition(page, 640);
   await page.evaluate(() => {
@@ -81,3 +86,47 @@ test("keeps article, named tabs, and publisher notes in independent locations", 
   );
   expect(await page.evaluate(() => window.scrollY)).toBe(640);
 });
+
+async function publisherNoteLocation(page: Page) {
+  return page.locator("[data-reading-scroll-owner]").evaluate((container) => {
+    const positions = window.history.state?.lirnaReadingSemanticPositions;
+    const semantic = Object.values(positions ?? {}).find(
+      (location) =>
+        (location as { scene?: { owner?: string } }).scene?.owner ===
+        "publisher-note",
+    ) as
+      | {
+          block: { identity: string };
+          fallback: { blockIndex: number; scrollTop: number };
+          progress: number;
+        }
+      | undefined;
+    const root = container.querySelector<HTMLElement>(
+      '[data-reading-scene-owner="publisher-note"]',
+    );
+    const blocks = root?.querySelectorAll<HTMLElement>(
+      "h2,h3,h4,h5,h6,p,blockquote,ol,ul,table,figure,aside",
+    );
+    const block = semantic ? blocks?.item(semantic.fallback.blockIndex) : null;
+    if (!semantic || !block || block.getBoundingClientRect().height <= 0) {
+      return {
+        fallbackScrollTop: semantic?.fallback.scrollTop,
+        matches: false,
+      };
+    }
+    const containerRect = container.getBoundingClientRect();
+    const blockRect = block.getBoundingClientRect();
+    const actualProgress = Math.min(
+      1,
+      Math.max(
+        0,
+        (containerRect.top + container.clientHeight * 0.25 - blockRect.top) /
+          blockRect.height,
+      ),
+    );
+    return {
+      fallbackScrollTop: semantic.fallback.scrollTop,
+      matches: Math.abs(actualProgress - semantic.progress) < 0.01,
+    };
+  });
+}
