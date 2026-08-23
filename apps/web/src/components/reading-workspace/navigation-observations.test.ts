@@ -21,7 +21,7 @@ test("emits ordered navigation observations with owner, cause, and target", () =
   });
   observeReadingNavigation({
     cause: "bibliography-selection",
-    owner: "reading-tools",
+    owner: "reading-tools:bibliography",
     target: "#steup-2023",
   });
 
@@ -36,7 +36,7 @@ test("emits ordered navigation observations with owner, cause, and target", () =
     {
       cause: "bibliography-selection",
       order: observations[1]?.order,
-      owner: "reading-tools",
+      owner: "reading-tools:bibliography",
       target: "#steup-2023",
     },
   ]);
@@ -66,6 +66,7 @@ test("labels reader-driven scrolling separately from programmatic movement", () 
 
 test("reader scroll controls cancel only their affected owner before movement", () => {
   const tools = document.createElement("div");
+  tools.dataset.readingScrollOwner = "reading-tools:notes";
   document.body.append(tools);
   const canceled: string[] = [];
   const stop = observeDirectReaderScroll({
@@ -80,11 +81,30 @@ test("reader scroll controls cancel only their affected owner before movement", 
 
   stop();
   tools.remove();
-  expect(canceled).toEqual(["reading-tools", "article", "article"]);
+  expect(canceled).toEqual(["reading-tools:notes", "article"]);
+});
+
+test("a reader action does not cancel another owner's programmatic movement", () => {
+  const tools = document.createElement("div");
+  tools.dataset.readingScrollOwner = "reading-tools:bibliography";
+  document.body.append(tools);
+  const canceled: string[] = [];
+  const stop = observeDirectReaderScroll({
+    onReaderControl: (owner) => canceled.push(owner),
+    toolsScrollElement: tools,
+  });
+
+  window.dispatchEvent(new WheelEvent("wheel"));
+  tools.dispatchEvent(new Event("scroll"));
+
+  stop();
+  tools.remove();
+  expect(canceled).toEqual(["article"]);
 });
 
 test("reader scrollbar control cancels its scroll owner", () => {
   const tools = document.createElement("div");
+  tools.dataset.readingScrollOwner = "publisher-note";
   document.body.append(tools);
   Object.defineProperty(tools, "clientWidth", { value: 80 });
   tools.getBoundingClientRect = () =>
@@ -101,5 +121,5 @@ test("reader scrollbar control cancels its scroll owner", () => {
 
   stop();
   tools.remove();
-  expect(canceled).toEqual(["reading-tools"]);
+  expect(canceled).toEqual(["publisher-note"]);
 });

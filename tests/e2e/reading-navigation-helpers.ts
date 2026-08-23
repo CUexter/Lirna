@@ -6,7 +6,7 @@ export const stateId = "20000000-0000-4000-8000-000000000000";
 export type NavigationObservation = {
   cause: string;
   order: number;
-  owner: "article" | "reading-tools";
+  owner: string;
   target: string;
 };
 
@@ -50,6 +50,29 @@ export async function retainArticlePosition(page: Page, scrollTop: number) {
   }, scrollTop);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(scrollTop);
   await page.waitForTimeout(100);
+}
+
+export async function setToolsPosition(page: Page, scrollTop: number) {
+  const tools = page.locator("[data-reading-scroll-owner]");
+  await tools.evaluate((element, position) => {
+    if (!document.getElementById("reading-tools-scroll-test-spacer")) {
+      const style = document.createElement("style");
+      style.id = "reading-tools-scroll-test-spacer";
+      style.textContent =
+        '[data-reading-scroll-owner]::after { content: ""; display: block; height: 2000px; }';
+      document.head.append(style);
+    }
+    element.scrollTo({ top: position });
+  }, scrollTop);
+  await expect
+    .poll(() => tools.evaluate((element) => element.scrollTop))
+    .toBe(scrollTop);
+}
+
+export async function toolsPosition(page: Page) {
+  return page
+    .locator("[data-reading-scroll-owner]")
+    .evaluate((element) => element.scrollTop);
 }
 
 export async function navigationTrace(

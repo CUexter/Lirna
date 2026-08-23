@@ -1,4 +1,7 @@
-export type ReadingScrollOwner = "article" | "reading-tools";
+export type ReadingScrollOwner =
+  | "article"
+  | "publisher-note"
+  | `reading-tools:${"contents" | "bibliography" | "notes" | "supplementary"}`;
 
 export type ReadingNavigationCause =
   | "bibliography-opening"
@@ -40,6 +43,21 @@ export function observeReadingNavigation({
   return detail;
 }
 
+export function readingToolsOwnerFor(
+  toolsScrollElement?: HTMLElement | null,
+): ReadingScrollOwner {
+  const owner = toolsScrollElement?.dataset.readingScrollOwner;
+  if (
+    owner === "publisher-note" ||
+    owner === "reading-tools:contents" ||
+    owner === "reading-tools:bibliography" ||
+    owner === "reading-tools:notes" ||
+    owner === "reading-tools:supplementary"
+  )
+    return owner;
+  return "reading-tools:contents";
+}
+
 export function observeDirectReaderScroll({
   onReaderControl,
   toolsScrollElement,
@@ -50,7 +68,7 @@ export function observeDirectReaderScroll({
   const readerInputAt = new Map<ReadingScrollOwner, number>();
   const ownerForEvent = (event: Event): ReadingScrollOwner =>
     event.target instanceof Node && toolsScrollElement?.contains(event.target)
-      ? "reading-tools"
+      ? readingToolsOwnerFor(toolsScrollElement)
       : "article";
   const recordInput = (event: Event) => {
     const owner = ownerForEvent(event);
@@ -81,9 +99,9 @@ export function observeDirectReaderScroll({
     recordInput(event);
   };
   const recordScroll = (owner: ReadingScrollOwner, scrollTop: number) => {
-    const recentInput = Array.from(readerInputAt.values()).some(
-      (inputAt) => performance.now() - inputAt <= 250,
-    );
+    const inputAt = readerInputAt.get(owner);
+    const recentInput =
+      inputAt !== undefined && performance.now() - inputAt <= 250;
     if (!recentInput) return;
     onReaderControl?.(owner);
     observeReadingNavigation({
@@ -94,11 +112,14 @@ export function observeDirectReaderScroll({
   };
   const recordArticleScroll = () => recordScroll("article", window.scrollY);
   const recordToolsScroll = () =>
-    recordScroll("reading-tools", toolsScrollElement?.scrollTop ?? 0);
+    recordScroll(
+      readingToolsOwnerFor(toolsScrollElement),
+      toolsScrollElement?.scrollTop ?? 0,
+    );
   const recordScrollbarInput = (event: PointerEvent) => {
     const owner = ownerForEvent(event);
     const element =
-      owner === "reading-tools" ? toolsScrollElement : document.documentElement;
+      owner === "article" ? document.documentElement : toolsScrollElement;
     if (
       !element ||
       event.clientX < element.getBoundingClientRect().left + element.clientWidth

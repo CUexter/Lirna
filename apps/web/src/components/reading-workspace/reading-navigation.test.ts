@@ -86,7 +86,7 @@ describe("ReadingNavigation", () => {
     expect(movements).toBe(1);
   });
 
-  test("article and reading-tools owners arbitrate independently", () => {
+  test("article and named Reading-tools owners arbitrate independently", () => {
     const navigation = createReadingNavigation();
     const article = navigation.request({
       owner: "article",
@@ -94,7 +94,7 @@ describe("ReadingNavigation", () => {
       target: "article:640",
     });
     const tools = navigation.request({
-      owner: "reading-tools",
+      owner: "reading-tools:supplementary",
       cause: "reference-opening",
       target: "reference:42",
     });
@@ -113,7 +113,7 @@ describe("ReadingNavigation", () => {
       target: "article:640",
     });
     const tools = navigation.request({
-      owner: "reading-tools",
+      owner: "reading-tools:bibliography",
       cause: "reference-opening",
       target: "reference:42",
     });
@@ -122,6 +122,25 @@ describe("ReadingNavigation", () => {
 
     expect(article.active()).toBe(false);
     expect(tools.active()).toBe(true);
+  });
+
+  test("publisher-note and supplementary lanes do not supersede each other", () => {
+    const navigation = createReadingNavigation();
+    const publisherNote = navigation.request({
+      owner: "publisher-note",
+      cause: "publisher-note-navigation",
+      target: "component:notes",
+    });
+    const supplementary = navigation.request({
+      owner: "reading-tools:supplementary",
+      cause: "reference-opening",
+      target: "reference:42",
+    });
+
+    navigation.cancel("reading-tools:supplementary");
+
+    expect(publisherNote.active()).toBe(true);
+    expect(supplementary.active()).toBe(false);
   });
 
   test("canceling a stale handle cannot cancel its newer winner", () => {

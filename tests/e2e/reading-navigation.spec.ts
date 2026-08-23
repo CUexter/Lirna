@@ -42,12 +42,12 @@ test("traces competing reading navigation commands in a real browser", async ({
   expectOrderedTrace(initialObservations, [
     {
       cause: "bibliography-opening",
-      owner: "reading-tools",
+      owner: "reading-tools:bibliography",
       target: "#steup-2023",
     },
     {
       cause: "bibliography-selection",
-      owner: "reading-tools",
+      owner: "reading-tools:bibliography",
       target: "#active:/:steup-2023",
     },
     {
@@ -57,7 +57,7 @@ test("traces competing reading navigation commands in a real browser", async ({
     },
     {
       cause: "reference-opening",
-      owner: "reading-tools",
+      owner: "reading-tools:supplementary",
       target: "#reading-reference-number-1",
     },
     {
@@ -67,7 +67,7 @@ test("traces competing reading navigation commands in a real browser", async ({
     },
     {
       cause: "publisher-note-navigation",
-      owner: "reading-tools",
+      owner: "publisher-note",
       target: "component:active:/notes.html",
     },
   ]);
@@ -270,17 +270,17 @@ test("records a delayed citation command winning over note navigation", async ({
   expectOrderedTrace(observations, [
     {
       cause: "publisher-note-navigation",
-      owner: "reading-tools",
+      owner: "publisher-note",
       target: "component:active:/notes.html",
     },
     {
       cause: "bibliography-opening",
-      owner: "reading-tools",
+      owner: "reading-tools:bibliography",
       target: "#steup-2023",
     },
     {
       cause: "bibliography-selection",
-      owner: "reading-tools",
+      owner: "reading-tools:bibliography",
       target: "#active:/:steup-2023",
     },
   ]);

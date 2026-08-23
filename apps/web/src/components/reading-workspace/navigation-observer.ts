@@ -3,6 +3,7 @@ import { type RefObject, useEffect } from "react";
 import {
   observeDirectReaderScroll,
   observeReadingNavigation,
+  readingToolsOwnerFor,
 } from "./navigation-observations";
 import type { ReadingNavigation } from "./reading-navigation";
 import type { ReadingReference } from "./references";
@@ -43,24 +44,24 @@ export function useReadingNavigationObservations({
     if (!selectedReference) return;
     observeReadingNavigation({
       cause: "reference-opening",
-      owner: "reading-tools",
+      owner: readingToolsOwnerFor(toolsScrollRef.current),
       target: `#${selectedReference.targetId}`,
     });
-  }, [selectedReference]);
+  }, [selectedReference, toolsScrollRef]);
   useEffect(() => {
     if (view !== "bibliography") return;
     observeReadingNavigation({
       cause: "bibliography-opening",
-      owner: "reading-tools",
+      owner: readingToolsOwnerFor(toolsScrollRef.current),
       target: selectedCitation ? `#${selectedCitation}` : "bibliography",
     });
-  }, [selectedCitation, view]);
+  }, [selectedCitation, toolsScrollRef, view]);
   useEffect(() => {
     if (!notesIdentity) return;
     observeReadingNavigation({
       cause: "publisher-note-navigation",
-      owner: "reading-tools",
+      owner: readingToolsOwnerFor(toolsScrollRef.current),
       target: `component:${notesIdentity}`,
     });
-  }, [notesIdentity]);
+  }, [notesIdentity, toolsScrollRef]);
 }

@@ -4,6 +4,7 @@ import type { SepReadingData } from "./content";
 import {
   observeReadingNavigation,
   type ReadingNavigationCause,
+  readingToolsOwnerFor,
 } from "./navigation-observations";
 
 export function authoredTarget(
@@ -98,7 +99,7 @@ export function scrollTarget(
   }
   observeReadingNavigation({
     cause,
-    owner: "reading-tools",
+    owner: readingToolsOwnerFor(scrollContainer),
     target: target.id ? `#${target.id}` : target.tagName.toLowerCase(),
   });
   const containerRect = scrollContainer.getBoundingClientRect();

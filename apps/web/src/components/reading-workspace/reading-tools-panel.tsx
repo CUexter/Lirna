@@ -22,6 +22,7 @@ import {
   ReadingSection,
   type SepReadingData,
 } from "./content";
+import { useReadingToolsLocation } from "./reading-tools-positions";
 import {
   type ReadingReference,
   ReferenceActions,
@@ -79,6 +80,12 @@ export function ReadingToolsPanel({
     selectedReference?: ReadingReference;
   };
 }) {
+  const saveToolsLocation = useReadingToolsLocation(scrollContainerRef, {
+    activeTab: navigation.activeTab,
+    hasSelectedReference: Boolean(supplementary.selectedReference),
+    notesIdentity: supplementary.publisherNotes?.identity,
+  });
+
   return (
     <aside
       aria-label="Reading tools"
@@ -92,9 +99,10 @@ export function ReadingToolsPanel({
       </header>
       <Tabs
         className="flex min-h-0 flex-1 flex-col"
-        onValueChange={(value) =>
-          navigation.onActiveTabChange(value as ReadingToolTab)
-        }
+        onValueChange={(value) => {
+          saveToolsLocation();
+          navigation.onActiveTabChange(value as ReadingToolTab);
+        }}
         value={navigation.activeTab}
       >
         <TabsList className="grid h-10 w-full grid-cols-4 border-b bg-transparent p-0">
