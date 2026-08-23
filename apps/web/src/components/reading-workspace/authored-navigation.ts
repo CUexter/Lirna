@@ -20,12 +20,13 @@ export function authoredTarget(
 ) {
   try {
     const url = new URL(href, from.finalUrl);
-    const component = reading.components.find((candidate) =>
+    const components = reading.components.filter((candidate) =>
       [candidate.requestedUrl, candidate.finalUrl].some(
         (value) =>
           comparableComponentUrl(value) === comparableComponentUrl(url),
       ),
     );
+    const component = components.length === 1 ? components[0] : undefined;
     return component
       ? { component, fragment: fragmentFromUrl(url) }
       : undefined;
@@ -34,25 +35,101 @@ export function authoredTarget(
   }
 }
 
+export function componentHasFragment(
+  component: SepReadingData["components"][number],
+  fragment: string,
+) {
+  const ids = new Set<string>(component.figures.map((figure) => figure.id));
+  const visitInlines = (
+    values: SepReadingData["components"][number]["sections"][number]["title"],
+  ) => {
+    for (const value of values) {
+      if (value.kind === "anchor") ids.add(value.id);
+      if ("children" in value) visitInlines(value.children);
+    }
+  };
+  const visitBlocks = (blocks: typeof component.introductoryBlocks) => {
+    for (const block of blocks) visitBlock(block);
+  };
+  const visitBlock = (block: (typeof component.introductoryBlocks)[number]) => {
+    if (block.kind === "statement") {
+      visitInlines(block.label);
+      visitInlines(block.body);
+      return;
+    }
+    if (block.kind === "list") {
+      for (const item of block.items) visitInlines(item);
+      return;
+    }
+    if (block.kind === "table") {
+      visitInlines(block.caption);
+      for (const row of [...block.head, ...block.body])
+        for (const cell of row.cells) visitInlines(cell);
+      return;
+    }
+    if (block.kind === "figure") {
+      ids.add(block.figure.id);
+      visitInlines(block.figure.caption);
+      visitInlines(block.figure.description.text);
+      return;
+    }
+    if (block.kind !== "diagnostic") visitInlines(block.children);
+  };
+  const visitSections = (sections: typeof component.sections) => {
+    for (const section of sections) {
+      ids.add(section.id);
+      visitInlines(section.title);
+      visitBlocks(section.blocks);
+      visitSections(section.children);
+    }
+  };
+  visitBlocks(component.introductoryBlocks);
+  visitSections(component.sections);
+  return ids.has(fragment);
+}
+
 export function scrollToPendingFragment(
   ref: RefObject<string | undefined>,
   {
     cause,
     container,
     highlight = false,
+    navigation,
+    target,
+    targetRoot,
   }: {
     container?: RefObject<HTMLElement | null>;
     cause?: ReadingNavigationCause;
     highlight?: boolean;
+    navigation?: ReadingNavigation;
+    target?: string;
+    targetRoot?: RefObject<HTMLElement | null>;
   } = {},
 ) {
   requestAnimationFrame(() => {
     const fragment = ref.current;
     if (!fragment) return;
-    const target = document.getElementById(fragment);
-    if (!target) return;
-    scrollTarget(target, container?.current, cause);
-    if (highlight) highlightTarget(target);
+    const targetElement = targetRoot?.current
+      ? [...targetRoot.current.querySelectorAll<HTMLElement>("[id]")].find(
+          (element) => element.id === fragment,
+        )
+      : document.getElementById(fragment);
+    if (!targetElement) return;
+    const move = () => {
+      scrollTarget(targetElement, container?.current, cause, target);
+      if (highlight) highlightTarget(targetElement);
+    };
+    if (navigation && cause && target) {
+      navigation
+        .request({
+          cause,
+          owner: container ? "publisher-note" : "article",
+          target,
+        })
+        .commit(move);
+    } else {
+      move();
+    }
     ref.current = undefined;
   });
 }

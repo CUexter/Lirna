@@ -224,6 +224,10 @@ export function readingFixture(): Reading {
         label: "Supplement one",
         parentIdentity: "article",
         order: 1,
+        requestedUrl:
+          "https://plato.stanford.edu/entries/synthetic/supplement-one.html",
+        finalUrl:
+          "https://plato.stanford.edu/entries/synthetic/supplement-one.html",
         bibliography: [
           {
             id: "supplement-references",
@@ -281,6 +285,10 @@ export function readingFixture(): Reading {
         label: "Supplement two",
         parentIdentity: "article",
         order: 2,
+        requestedUrl:
+          "https://plato.stanford.edu/entries/synthetic/supplement-two.html",
+        finalUrl:
+          "https://plato.stanford.edu/entries/synthetic/supplement-two.html",
         bibliography: [],
         figures: [],
         introductoryBlocks: [

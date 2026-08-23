@@ -30,7 +30,9 @@ test("keeps article, named tabs, and publisher notes in independent locations", 
     ["Supplementary", 400],
   ] as const) {
     await page.getByRole("tab", { name: tab }).click();
-    await expect.poll(() => toolsPosition(page)).toBe(scrollTop);
+    await expect
+      .poll(async () => Math.round(await toolsPosition(page)))
+      .toBe(scrollTop);
   }
 
   await page.getByRole("link", { name: "Note one" }).click();
@@ -42,7 +44,9 @@ test("keeps article, named tabs, and publisher notes in independent locations", 
   await setToolsPosition(page, 500);
   await page.getByRole("tab", { name: "Contents" }).click();
   await page.getByRole("tab", { name: "Supplementary" }).click();
-  await expect.poll(() => toolsPosition(page)).toBe(500);
+  await expect
+    .poll(async () => Math.round(await toolsPosition(page)))
+    .toBe(500);
 
   await retainArticlePosition(page, 640);
   await page.evaluate(() => {

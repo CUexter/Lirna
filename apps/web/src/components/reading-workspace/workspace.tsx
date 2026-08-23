@@ -1,7 +1,10 @@
 // biome-ignore lint/style/noExcessiveLinesPerFile: This hook composes the owner-scoped workspace dependencies.
 import { useRef, useState } from "react";
 
-import { createReferenceJumper } from "./authored-navigation";
+import {
+  createReferenceJumper,
+  scrollToPendingFragment,
+} from "./authored-navigation";
 import { useCitationOpening } from "./citation-opening";
 import { ComponentUnavailable } from "./component-unavailable";
 import type { SepReadingData } from "./content";
@@ -9,6 +12,7 @@ import { useReadingNavigationObservations } from "./navigation-observer";
 import {
   useExplicitFragmentNavigation,
   useReadingNavigationScope,
+  useSceneFragmentNavigation,
 } from "./reading-navigation-hooks";
 import { useReadingResume } from "./reading-resume";
 import {
@@ -138,6 +142,15 @@ function useReadingWorkspaceViewProps({
   const { articleRef, navigation, toolsScrollRef } =
     useReadingNavigationScope();
   const pendingFragment = useRef<string | undefined>(undefined);
+  const pendingSceneFragment = useRef<
+    | {
+        fragment: string;
+        owner: "article" | "publisher-note";
+        sceneIdentity: string;
+        target: string;
+      }
+    | undefined
+  >(undefined);
   const pendingCitation = useRef<
     | {
         componentIdentity: string;
@@ -209,6 +222,14 @@ function useReadingWorkspaceViewProps({
     pendingFragment,
     toolsScrollRef,
   });
+  useSceneFragmentNavigation({
+    articleRef,
+    componentIdentity: component.identity,
+    navigation,
+    notesIdentity,
+    pendingFragment: pendingSceneFragment,
+    toolsScrollRef,
+  });
   usePendingCitationReturn({
     articleRef,
     componentIdentity: component.identity,
@@ -243,23 +264,124 @@ function useReadingWorkspaceViewProps({
     setSelectedReference,
     view,
   });
+  const changeArticleScene = (
+    identity: string,
+    retainPublisherNotes = false,
+  ) => {
+    setEditingAnnotationId(undefined);
+    if (!retainPublisherNotes) setNotesIdentity(undefined);
+    setSelectedReference(undefined);
+    saveLocation();
+    onComponentChange(identity);
+  };
+  const navigateComponentScene = (identity: string) => {
+    const destination = resolveReadingSceneDestination(topology, {
+      sceneIdentity: identity,
+      target: "component",
+    });
+    if (destination.movement === "none") return false;
+    return navigation
+      .request({
+        cause: "component-transition",
+        owner: destination.owner,
+        target: destination.target,
+      })
+      .commit(() => {
+        if (destination.scene.presentationRegion === "article") {
+          changeArticleScene(destination.scene.componentIdentity);
+          return;
+        }
+        preserveScroll();
+        setReadingToolTab("supplementary");
+        if (view === "bibliography") onViewChange("article");
+        setNotesIdentity(destination.scene.componentIdentity);
+      });
+  };
+  const navigateAuthoredScene = ({
+    destination,
+    from,
+    fragment,
+  }: Parameters<
+    Parameters<typeof createAuthoredLinkHandler>[0]["navigateScene"]
+  >[0]) => {
+    const fromDestination = resolveReadingSceneDestination(topology, {
+      sceneIdentity: from.identity,
+      target: "component",
+    });
+    if (fromDestination.movement === "none") return false;
+    const queueFragment = () => {
+      if (!fragment) return;
+      pendingSceneFragment.current = {
+        fragment,
+        owner: destination.owner,
+        sceneIdentity: destination.scene.componentIdentity,
+        target: destination.target,
+      };
+    };
+    if (destination.scene.presentationRegion === "article") {
+      if (destination.scene.componentIdentity === component.identity) {
+        if (!fragment) return true;
+        const pending = { current: fragment };
+        scrollToPendingFragment(pending, {
+          cause: "pending-fragment",
+          highlight: true,
+          navigation,
+          target: destination.target,
+          targetRoot: articleRef,
+        });
+        return true;
+      }
+      return navigation
+        .request({
+          cause: "component-transition",
+          owner: destination.owner,
+          target: destination.target,
+        })
+        .commit(() => {
+          queueFragment();
+          if (fromDestination.owner === "publisher-note") {
+            changeArticleScene(destination.scene.componentIdentity, true);
+            return;
+          }
+          changeArticleScene(destination.scene.componentIdentity);
+        });
+    }
+    const notesAlreadyOpen =
+      notesIdentity === destination.scene.componentIdentity;
+    return navigation
+      .request({
+        cause: "publisher-note-navigation",
+        owner: destination.owner,
+        target: destination.target,
+      })
+      .commit(() => {
+        preserveScroll();
+        setReadingToolTab("supplementary");
+        if (view === "bibliography") onViewChange("article");
+        setNotesIdentity(destination.scene.componentIdentity);
+        if (!fragment) return;
+        if (!notesAlreadyOpen) {
+          queueFragment();
+          return;
+        }
+        const pending = { current: fragment };
+        scrollToPendingFragment(pending, {
+          cause: "pending-fragment",
+          container: toolsScrollRef,
+          highlight: true,
+          navigation,
+          target: destination.target,
+          targetRoot: toolsScrollRef,
+        });
+      });
+  };
   const openAuthoredLink = createAuthoredLinkHandler({
-    component,
-    handleComponentChange,
-    highlightPendingFragment,
-    notesIdentity,
-    onViewChange,
+    navigateScene: navigateAuthoredScene,
     openReference,
-    pendingFragment,
-    preserveScroll,
     reading,
     referenceIndex,
-    setNotesIdentity,
-    setReadingToolTab,
     setSelectedReference,
-    toolsScrollRef,
     topology,
-    view,
   });
   const openCitation = createOpenCitationHandler({
     openBibliography,
@@ -351,7 +473,7 @@ function useReadingWorkspaceViewProps({
       navigation: {
         mainComponentIdentity: reading.mainComponent.identity,
         next,
-        onComponentChange: handleComponentChange,
+        onComponentChange: navigateComponentScene,
         parent,
         previous,
       },
@@ -373,7 +495,7 @@ function useReadingWorkspaceViewProps({
       navigation: {
         activeTab: activeReadingToolTab(view, readingToolTab),
         onActiveTabChange: handleReadingToolTabChange,
-        onComponentChange: handleComponentChange,
+        onComponentChange: navigateComponentScene,
       },
       notes: {
         onOpenAnnotation: setEditingAnnotationId,

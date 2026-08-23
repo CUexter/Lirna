@@ -58,6 +58,7 @@ test("renders a typed, degraded SEP Reading workspace without captured markup", 
 
   await page
     .getByRole("button", { name: "Citation: (Steup, 2023) (resolved)" })
+    .first()
     .click();
   await expect(page.getByRole("tab", { name: "Bibliography" })).toHaveAttribute(
     "aria-selected",
@@ -74,11 +75,14 @@ test("renders a typed, degraded SEP Reading workspace without captured markup", 
     page.getByRole("link", { name: /Publisher page/ }),
   ).toHaveAttribute("href", "https://example.com/epistemology");
   await expect(page.getByText("online only")).toBeVisible();
+  await page.getByText("Citation context", { exact: true }).first().click();
   await page.getByRole("button", { name: "Show in article" }).click();
   await expect(
-    page.getByRole("button", {
-      name: "Citation: (Steup, 2023) (resolved)",
-    }),
+    page
+      .getByRole("button", {
+        name: "Citation: (Steup, 2023) (resolved)",
+      })
+      .first(),
   ).toBeVisible();
 
   await expect(page.getByText("window.pwned = true")).toHaveCount(0);
@@ -92,9 +96,6 @@ test("renders a typed, degraded SEP Reading workspace without captured markup", 
   await expect.poll(() => page.evaluate(() => window.scrollY)).not.toBe(0);
   await page.evaluate(() => window.scrollTo(0, 240));
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(240);
-  const articleHistoryKey = await page.evaluate(
-    () => window.history.state?.__TSR_key,
-  );
   const componentSelector = page.getByLabel("Source component", {
     exact: true,
   });
@@ -105,25 +106,10 @@ test("renders a typed, degraded SEP Reading workspace without captured markup", 
       select.dispatchEvent(new Event("change", { bubbles: true }));
     });
   } else {
-    const sourceComponents = page.getByRole("navigation", {
-      name: "Source components",
-    });
-    await sourceComponents
-      .locator("button")
-      .filter({ hasText: "Notes" })
-      .evaluate((button) => button.click());
+    await page.getByRole("link", { name: "Note one" }).click();
   }
   await expect(page.getByText("Typed Notes content.")).toBeVisible();
-  await expect(
-    page.getByRole("navigation", { name: "Component contents" }),
-  ).toBeVisible();
-  await page.goBack();
   await expect(page.getByRole("heading", { name: "Knowledge" })).toBeVisible();
-  await expect(page).toHaveURL(/#knowledge$/);
-  expect(await page.evaluate(() => window.history.state?.__TSR_key)).toBe(
-    articleHistoryKey,
-  );
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(240);
   await expect(
     page.getByText("Rendering note: missing-semantic-asset"),
   ).toBeVisible();

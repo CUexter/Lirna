@@ -1,6 +1,12 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react";
 
-import { scrollTarget } from "./authored-navigation";
+import { scrollTarget, scrollToPendingFragment } from "./authored-navigation";
 import {
   createReadingNavigation,
   type ReadingNavigation,
@@ -105,6 +111,56 @@ export function isReadingTargetReady(target: Element) {
   return Array.from(article.querySelectorAll("img")).every(
     (image) => image.complete,
   );
+}
+
+export function useSceneFragmentNavigation({
+  articleRef,
+  componentIdentity,
+  navigation,
+  notesIdentity,
+  pendingFragment,
+  toolsScrollRef,
+}: {
+  articleRef: RefObject<HTMLElement | null>;
+  componentIdentity: string;
+  navigation: ReadingNavigation;
+  notesIdentity?: string;
+  pendingFragment: RefObject<
+    | {
+        fragment: string;
+        owner: "article" | "publisher-note";
+        sceneIdentity: string;
+        target: string;
+      }
+    | undefined
+  >;
+  toolsScrollRef: RefObject<HTMLElement | null>;
+}) {
+  useEffect(() => {
+    const pending = pendingFragment.current;
+    if (!pending) return;
+    const activeIdentity =
+      pending.owner === "publisher-note" ? notesIdentity : componentIdentity;
+    if (pending.sceneIdentity !== activeIdentity) return;
+    const fragment = { current: pending.fragment };
+    scrollToPendingFragment(fragment, {
+      cause: "pending-fragment",
+      ...(pending.owner === "publisher-note"
+        ? { container: toolsScrollRef, targetRoot: toolsScrollRef }
+        : { targetRoot: articleRef }),
+      highlight: true,
+      navigation,
+      target: pending.target,
+    });
+    pendingFragment.current = undefined;
+  }, [
+    articleRef,
+    componentIdentity,
+    navigation,
+    notesIdentity,
+    pendingFragment,
+    toolsScrollRef,
+  ]);
 }
 
 function decodeFragment(fragment: string) {

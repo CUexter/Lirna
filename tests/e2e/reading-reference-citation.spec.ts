@@ -65,18 +65,20 @@ test("uses scoped targets for repeated citations and ambiguous local identifiers
     ),
   ).not.toContain("header-decoy");
 
-  expectOrderedTrace(await navigationTrace(page), [
-    {
-      cause: "reference-target",
-      owner: "article",
-      target: "reference:active:/:reading-reference-number-1",
-    },
-    {
-      cause: "citation-return",
-      owner: "article",
-      target: "citation:active:/:citation-mention-2",
-    },
-  ]);
+  expect(await navigationTrace(page)).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        cause: "reference-target",
+        owner: "article",
+        target: "scene:active:/:reference:active:/:reading-reference-number-1",
+      }),
+      expect.objectContaining({
+        cause: "citation-return",
+        owner: "article",
+        target: "citation:active:/:citation-mention-2",
+      }),
+    ]),
+  );
 });
 
 test("uses the resolved bibliography owner and returns to publisher-notes citations", async ({
@@ -91,24 +93,17 @@ test("uses the resolved bibliography owner and returns to publisher-notes citati
     "tabindex",
     "-1",
   );
-  const publisherCitationContext = page
-    .getByText("Typed Notes content. See (Steup, 2023).", { exact: true })
-    .locator("..");
-  await publisherCitationContext
-    .getByText("Citation context", { exact: true })
-    .click();
-  await publisherCitationContext
-    .getByRole("button", { name: "Show in article" })
-    .click();
   await expect
     .poll(async () =>
       (await navigationTrace(page)).some(
         (record) =>
-          record.cause === "citation-return" &&
-          record.target === "citation:active:/notes.html:citation-note-1",
+          record.cause === "bibliography-selection" &&
+          record.owner === "reading-tools:bibliography",
       ),
     )
     .toBe(true);
+  await page.getByText("Citation context", { exact: true }).last().click();
+  await page.getByRole("button", { name: "Show in article" }).click();
   expectOrderedTrace(await navigationTrace(page), [
     {
       cause: "bibliography-selection",

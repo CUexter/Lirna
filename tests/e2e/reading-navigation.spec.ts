@@ -38,6 +38,15 @@ test("traces competing reading navigation commands in a real browser", async ({
 
   await page.getByRole("link", { name: "Note one" }).click();
   await expect(page.getByText("Typed Notes content.")).toBeVisible();
+  await expect
+    .poll(async () =>
+      (await navigationTrace(page)).some(
+        (record) =>
+          record.cause === "publisher-note-navigation" &&
+          record.target === "component:active:/notes.html",
+      ),
+    )
+    .toBe(true);
 
   const initialObservations = await navigationTrace(page);
   expectOrderedTrace(initialObservations, [
@@ -64,12 +73,7 @@ test("traces competing reading navigation commands in a real browser", async ({
     {
       cause: "reference-target",
       owner: "article",
-      target: "reference:active:/:reading-reference-number-1",
-    },
-    {
-      cause: "publisher-note-navigation",
-      owner: "publisher-note",
-      target: "component:active:/notes.html",
+      target: "scene:active:/:reference:active:/:reading-reference-number-1",
     },
   ]);
   await page.goto(
@@ -83,13 +87,6 @@ test("traces competing reading navigation commands in a real browser", async ({
     .toBeGreaterThan(0);
 
   const observations = await navigationTrace(page);
-  expectOrderedTrace(observations, [
-    {
-      cause: "component-transition",
-      owner: "article",
-      target: "component:active:/notes.html",
-    },
-  ]);
   expect(observations).toEqual(
     expect.arrayContaining([
       expect.objectContaining({

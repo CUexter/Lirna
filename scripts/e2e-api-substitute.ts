@@ -362,9 +362,23 @@ const reading = {
             { kind: "text", text: "(1) A numbered assertion. Compare (1). " },
             {
               kind: "link",
+              href: "#notation",
+              internal: true,
+              children: [{ kind: "text", text: "Same scene target" }],
+            },
+            { kind: "text", text: " or " },
+            {
+              kind: "link",
               href: "notes.html#1",
               internal: true,
               children: [{ kind: "text", text: "Note one" }],
+            },
+            { kind: "text", text: " or " },
+            {
+              kind: "link",
+              href: "supplement-one.html#supplement-one-target",
+              internal: false,
+              children: [{ kind: "text", text: "Supplement one" }],
             },
           ],
         },
@@ -519,11 +533,73 @@ reading.components = [
     plainText: reading.plainText,
   },
   {
+    identity: "active:/supplement-one.html",
+    role: "supplement",
+    label: "Supplement one",
+    parentIdentity: "active:/",
+    order: 1,
+    requestedUrl:
+      "https://plato.stanford.edu/entries/epistemology/supplement-one.html",
+    finalUrl:
+      "https://plato.stanford.edu/entries/epistemology/supplement-one.html",
+    retrievedAt: "2026-08-17T12:00:00.000Z",
+    sha256: "e".repeat(64),
+    toc: [
+      {
+        id: "supplement-one-target",
+        title: "Supplement one target",
+        children: [],
+      },
+    ],
+    introductoryBlocks: [
+      {
+        kind: "paragraph",
+        children: [{ kind: "text", text: "Typed supplement one content." }],
+      },
+    ],
+    sections: [
+      {
+        id: "supplement-one-target",
+        title: [{ kind: "text", text: "Supplement one target" }],
+        level: 2,
+        blocks: [],
+        children: [],
+      },
+    ],
+    figures: [],
+    bibliography: [],
+    plainText: "Typed supplement one content.",
+  },
+  {
+    identity: "active:/supplement-two.html",
+    role: "supplement",
+    label: "Supplement two",
+    parentIdentity: "active:/",
+    order: 2,
+    requestedUrl:
+      "https://plato.stanford.edu/entries/epistemology/supplement-two.html",
+    finalUrl:
+      "https://plato.stanford.edu/entries/epistemology/supplement-two.html",
+    retrievedAt: "2026-08-17T12:00:00.000Z",
+    sha256: "f".repeat(64),
+    toc: [],
+    introductoryBlocks: [
+      {
+        kind: "paragraph",
+        children: [{ kind: "text", text: "Typed supplement two content." }],
+      },
+    ],
+    sections: [],
+    figures: [],
+    bibliography: [],
+    plainText: "Typed supplement two content.",
+  },
+  {
     identity: "active:/notes.html",
     role: "notes",
     label: "Notes",
     parentIdentity: "active:/",
-    order: 1,
+    order: 3,
     requestedUrl: "https://plato.stanford.edu/entries/epistemology/notes.html",
     finalUrl: "https://plato.stanford.edu/entries/epistemology/notes.html",
     retrievedAt: "2026-08-17T12:00:00.000Z",
@@ -533,7 +609,11 @@ reading.components = [
       {
         kind: "paragraph",
         children: [
-          { kind: "text", text: "Typed Notes content. See " },
+          {
+            kind: "anchor",
+            id: "1",
+            children: [{ kind: "text", text: "Typed Notes content. See " }],
+          },
           {
             kind: "citation",
             mentionId: "citation-note-1",
@@ -545,6 +625,26 @@ reading.components = [
             entryId: "steup-2023",
           },
           { kind: "text", text: "." },
+          {
+            kind: "link",
+            href: "index.html#knowledge",
+            internal: false,
+            children: [{ kind: "text", text: "Back to article" }],
+          },
+          { kind: "text", text: " or " },
+          {
+            kind: "link",
+            href: "supplement-one.html#supplement-one-target",
+            internal: false,
+            children: [{ kind: "text", text: "Open supplement" }],
+          },
+          { kind: "text", text: " or " },
+          {
+            kind: "link",
+            href: "#1",
+            internal: true,
+            children: [{ kind: "text", text: "Same note" }],
+          },
         ],
       },
     ],
