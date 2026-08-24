@@ -7,9 +7,13 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { mutationOptions } from "@/test-support/mutation-options";
-
+import {
+  citationResolutionStyleContent,
+  useCitationResolutionHighlights,
+} from "./citation-resolution-dom";
+import type { CitationResolution } from "./dom-utils";
 import {
   actions,
   annotationInput,
@@ -22,6 +26,18 @@ import {
 
 await mock.module("@/clients/library", () => ({
   library: {
+    citationResolutions: {
+      list: {
+        key: ({ input }: { input: typeof annotationInput }) => [
+          "citation-resolutions",
+          input,
+        ],
+        queryOptions: ({ input }: { input: typeof annotationInput }) => ({
+          queryKey: ["citation-resolutions", input],
+          queryFn: async () => [],
+        }),
+      },
+    },
     annotations: {
       list: {
         key: ({ input }: { input: typeof annotationInput }) => [
@@ -65,8 +81,21 @@ export function view() {
   return within(document.body);
 }
 
-function AnnotationSurface() {
+function AnnotationSurface({
+  citationResolutions,
+  onOpenCitationResolution,
+  unmountAnnotationsOnOpen,
+}: {
+  citationResolutions?: CitationResolution[];
+  onOpenCitationResolution?: (
+    entryId: string,
+    resolutionId: string,
+    bibliographyComponentIdentity: string,
+  ) => void;
+  unmountAnnotationsOnOpen?: boolean;
+}) {
   const articleRef = useRef<HTMLElement>(null);
+  const [showAnnotations, setShowAnnotations] = useState(true);
   const navigation = useRef(createReadingNavigation()).current;
   const navigateToAnnotation = useAnnotationNavigation({
     articleRef,
@@ -74,27 +103,51 @@ function AnnotationSurface() {
     navigation,
     plainText: "A synthetic Source state passage.",
   });
+  useCitationResolutionHighlights({
+    articleRef,
+    componentIdentity,
+    plainText: "A synthetic Source state passage.",
+    resolutions: citationResolutions ?? [],
+  });
   return (
     <>
+      <style>{citationResolutionStyleContent}</style>
       <article ref={articleRef}>A synthetic Source state passage.</article>
-      <ReadingAnnotations
-        articleRef={articleRef}
-        navigateToAnnotation={navigateToAnnotation}
-        reading={{
-          componentIdentity,
-          plainText: "A synthetic Source state passage.",
-          sourceId,
-          stateId,
-        }}
-      />
+      {showAnnotations ? (
+        <ReadingAnnotations
+          articleRef={articleRef}
+          navigateToAnnotation={navigateToAnnotation}
+          reading={{
+            componentIdentity,
+            citationResolutions,
+            plainText: "A synthetic Source state passage.",
+            sourceId,
+            stateId,
+          }}
+          onOpenCitationResolution={(...arguments_) => {
+            onOpenCitationResolution?.(...arguments_);
+            if (unmountAnnotationsOnOpen) setShowAnnotations(false);
+          }}
+        />
+      ) : null}
     </>
   );
 }
 
-export async function renderAnnotations() {
+export async function renderAnnotations(
+  options: {
+    citationResolutions?: CitationResolution[];
+    onOpenCitationResolution?: (
+      entryId: string,
+      resolutionId: string,
+      bibliographyComponentIdentity: string,
+    ) => void;
+    unmountAnnotationsOnOpen?: boolean;
+  } = {},
+) {
   render(
     <QueryClientProvider client={queryClient}>
-      <AnnotationSurface />
+      <AnnotationSurface {...options} />
     </QueryClientProvider>,
   );
   await waitFor(() => {

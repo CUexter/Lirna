@@ -1,6 +1,8 @@
 import type { LibraryOutputs } from "@/clients/library";
 
 export type Annotation = LibraryOutputs["annotations"]["list"][number];
+export type CitationResolution =
+  LibraryOutputs["citationResolutions"]["list"][number];
 export type AnnotationColor = Annotation["color"];
 
 export const colors: AnnotationColor[] = ["yellow", "green", "blue", "pink"];
@@ -18,9 +20,6 @@ const highlightStyles = colors
 const draftHighlightName = "lirna-annotation-draft";
 export const annotationMenuHeight = 42;
 const annotationMenuInset = 8;
-const annotationCalloutWidth = 224;
-const annotationCalloutGap = 16;
-const annotationCalloutInset = 12;
 
 export function annotationStyleContent(color: AnnotationColor) {
   return `${highlightStyles}\n::highlight(${draftHighlightName}) { background-color: var(--annotation-${color}); }\n::highlight(${targetHighlightName}) { background-color: var(--primary); color: var(--primary-foreground); }`;
@@ -103,7 +102,8 @@ export function rangeFromAnchor(
   anchor: Pick<
     SelectionDraft,
     "normalizedStartOffset" | "normalizedEndOffset" | "exactText"
-  >,
+  > &
+    Partial<Pick<SelectionDraft, "prefix" | "suffix">>,
 ) {
   const { normalizedStartOffset, normalizedEndOffset, exactText } = anchor;
   if (
@@ -111,12 +111,25 @@ export function rangeFromAnchor(
   ) {
     return undefined;
   }
+  const domText = article.textContent ?? "";
+  const domOccurrences = occurrences(domText, exactText);
+  const contextualStart = domOccurrences.find((offset) => {
+    const prefixMatches = anchor.prefix
+      ? domText.slice(Math.max(0, offset - anchor.prefix.length), offset) ===
+        anchor.prefix
+      : true;
+    const suffixMatches = anchor.suffix
+      ? domText.slice(
+          offset + exactText.length,
+          offset + exactText.length + anchor.suffix.length,
+        ) === anchor.suffix
+      : true;
+    return prefixMatches && suffixMatches;
+  });
   const occurrence = occurrences(plainText, exactText).indexOf(
     normalizedStartOffset,
   );
-  const domStart = occurrences(article.textContent ?? "", exactText)[
-    occurrence
-  ];
+  const domStart = contextualStart ?? domOccurrences[occurrence];
   return domStart === undefined
     ? undefined
     : rangeFromOffsets(article, domStart, domStart + exactText.length);
@@ -293,22 +306,4 @@ export function menuPosition(rect: DOMRect): MenuPosition {
       : rect.top - annotationMenuInset,
     below,
   };
-}
-
-export function calloutPosition(
-  articleRect: Pick<DOMRect, "left" | "right">,
-  viewportWidth: number,
-) {
-  const right = articleRect.right + annotationCalloutGap;
-  if (
-    right + annotationCalloutWidth <=
-    viewportWidth - annotationCalloutInset
-  ) {
-    return { left: right, side: "right" as const };
-  }
-
-  const left = articleRect.left - annotationCalloutGap - annotationCalloutWidth;
-  return left >= annotationCalloutInset
-    ? { left, side: "left" as const }
-    : undefined;
 }

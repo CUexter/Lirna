@@ -106,6 +106,83 @@ describe("server HTTP API", () => {
     });
   });
 
+  test("includes a handled client-failure cause in the completion record", async () => {
+    const records: Array<Record<string, unknown>> = [];
+    const logger = pino(
+      { level: "info" },
+      { write: (line) => records.push(JSON.parse(line)) },
+    );
+    const observedApp = createApp({
+      logger,
+      createRequestId: () => "req-bad-input",
+    });
+    observedApp.get("/bad-input", (c) => {
+      c.get("requestObservation").fail(
+        new Error("Selected passage does not match the active derivative"),
+      );
+      return c.json({ message: "Bad Request" }, 400);
+    });
+
+    const response = await observedApp.request("/bad-input");
+
+    expect(response.status).toBe(400);
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({
+      event: "request.completed",
+      requestId: "req-bad-input",
+      status: 400,
+      outcome: "failure",
+      err: {
+        type: "Error",
+        message: "Selected passage does not match the active derivative",
+      },
+    });
+  });
+
+  test("derives a safe cause for framework validation failures", async () => {
+    const records: Array<Record<string, unknown>> = [];
+    const logger = pino(
+      { level: "info" },
+      { write: (line) => records.push(JSON.parse(line)) },
+    );
+    const observedApp = createApp({
+      logger,
+      createRequestId: () => "req-validation",
+    });
+    observedApp.get("/validation", (c) =>
+      c.json(
+        {
+          json: {
+            code: "BAD_REQUEST",
+            message: "Input validation failed",
+            data: {
+              issues: [
+                {
+                  path: ["sourceId"],
+                  message: "Invalid UUID",
+                  received: "private-input",
+                },
+              ],
+            },
+          },
+        },
+        400,
+      ),
+    );
+
+    await observedApp.request("/validation");
+
+    expect(records[0]).toMatchObject({
+      status: 400,
+      outcome: "failure",
+      err: {
+        message:
+          "BAD_REQUEST: Input validation failed (sourceId: Invalid UUID)",
+      },
+    });
+    expect(JSON.stringify(records[0])).not.toContain("private-input");
+  });
+
   test("never exposes debug errors in production", () => {
     expect(shouldExposeDebugErrors(true, "development")).toBe(true);
     expect(shouldExposeDebugErrors(true, "production")).toBe(false);

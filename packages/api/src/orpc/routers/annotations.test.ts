@@ -194,6 +194,8 @@ function context(annotations: AnnotationOperations): Context {
     auth: null,
     session: {} as NonNullable<Context["session"]>,
     annotations,
+    citationResolutions: {} as Context["citationResolutions"],
+    readingPositions: {} as Context["readingPositions"],
     sepAdmissions: {} as Context["sepAdmissions"],
     admittedSourceStates: {} as Context["admittedSourceStates"],
   };

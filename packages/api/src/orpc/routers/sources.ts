@@ -7,7 +7,8 @@ import {
 } from "../../reading-position/reading-position-contract";
 import { sepObservationKeySchema } from "../../sep-admission/sep-admission-builders";
 import { sepReadingContractSchema } from "../../sep-admission/sep-reading-contract";
-import { publicProcedure } from "../init";
+import { authenticatedProcedure, publicProcedure } from "../init";
+import { citationResolutionSchema } from "./citation-resolution-schema";
 import { sepAdmittedStateSchema } from "./sep-admission-schemas";
 
 const sourceStateInput = z.object({
@@ -121,6 +122,33 @@ export const sourcesRouter = {
       );
       if (!reading) throw notFound("SEP Reading Derivative is unavailable");
       return reading;
+    }),
+
+  readingWorkspace: authenticatedProcedure
+    .input(sourceStateInput)
+    .output(
+      z.object({
+        reading: sepReadingContractSchema,
+        citationResolutions: z.array(citationResolutionSchema),
+      }),
+    )
+    .errors(notFoundError)
+    .meta(
+      openapi({
+        method: "GET",
+        path: "/sources/reading-workspace",
+        operationId: "sources.readingWorkspace",
+        summary: "Get a Reading workspace projection",
+        tags: ["Sources"],
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      const [reading, citationResolutions] = await Promise.all([
+        context.admittedSourceStates.getReading(input.sourceId, input.stateId),
+        context.citationResolutions.list(input.sourceId, input.stateId),
+      ]);
+      if (!reading) throw notFound("SEP Reading Derivative is unavailable");
+      return { reading, citationResolutions };
     }),
 
   resume: {

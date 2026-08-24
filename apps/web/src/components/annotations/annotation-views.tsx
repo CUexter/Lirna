@@ -1,12 +1,11 @@
 import { Button } from "@lirna/ui/components/button";
 import { StickyNoteIcon } from "lucide-react";
 import { type ReactNode, type RefObject, useEffect, useState } from "react";
-
+import { calloutPosition } from "./callout-position";
 import { AnnotationColorPicker } from "./color-picker";
 import {
   type Annotation,
   annotationStyleContent,
-  calloutPosition,
   colors,
   rangeFromAnchor,
 } from "./dom-utils";
@@ -23,6 +22,7 @@ interface AnnotationView {
   articleRef: RefObject<HTMLElement | null>;
   navigateToAnnotation: (annotation: Annotation) => void;
   notes: Annotation[];
+  onLinkBibliography?: () => void;
   plainText: string;
   queries: AnnotationQueries;
   restingTools?: ReactNode;
@@ -131,6 +131,7 @@ export function AnnotationSelectionView({ view }: { view: AnnotationView }) {
         }}
         menuRef={menuRef}
         onClose={actions.closeMenu}
+        onLinkBibliography={view.onLinkBibliography}
         onOpenPanel={actions.openPanel}
         pending={queries.pending}
         position={state.position}

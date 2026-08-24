@@ -1,3 +1,4 @@
+// biome-ignore lint/style/noExcessiveLinesPerFile: The panel keeps its tab composition and shared navigation state together.
 import { Button } from "@lirna/ui/components/button";
 import {
   Tabs,
@@ -14,7 +15,9 @@ import {
 } from "lucide-react";
 
 import { library } from "@/clients/library";
+import type { CitationResolution } from "../annotations/dom-utils";
 import { Bibliography } from "./bibliography";
+import type { BibliographyMention } from "./bibliography-mentions";
 import type { SepReadingData } from "./content";
 import { PublisherNotes } from "./publisher-notes";
 import { ReadingEmptyState } from "./reading-empty-state";
@@ -51,9 +54,11 @@ export function ReadingToolsPanel({
 }: {
   bibliography: {
     citationScrollRequest: number;
+    citationResolutions: CitationResolution[];
     mainComponentIdentity: string;
     navigation: ReadingNavigation;
-    onReturnCitation: (mentionId: string, componentIdentity: string) => void;
+    resolution?: React.ComponentProps<typeof Bibliography>["resolution"];
+    onReturnCitation: (mention: BibliographyMention) => void;
     selectedComponentIdentity?: string;
     selectedEntry?: string;
   };
@@ -148,17 +153,20 @@ export function ReadingToolsPanel({
             <Bibliography
               bibliographyComponents={{
                 all: components,
+                citationResolutions: bibliography.citationResolutions,
                 mainIdentity: bibliography.mainComponentIdentity,
               }}
               compact
-              citationScrollRequest={bibliography.citationScrollRequest}
               navigation={bibliography.navigation}
+              resolution={bibliography.resolution}
               onReturn={bibliography.onReturnCitation}
               scrollContainerRef={scrollContainerRef}
-              selectedComponentIdentity={
-                bibliography.selectedComponentIdentity ?? component.identity
-              }
-              selectedEntry={bibliography.selectedEntry}
+              selection={{
+                componentIdentity:
+                  bibliography.selectedComponentIdentity ?? component.identity,
+                entry: bibliography.selectedEntry,
+                request: bibliography.citationScrollRequest,
+              }}
             />
           </TabsContent>
           <TabsContent className="space-y-3" value="notes">

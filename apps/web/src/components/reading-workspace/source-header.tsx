@@ -1,3 +1,4 @@
+import { env } from "@lirna/env/web";
 import { Badge } from "@lirna/ui/components/badge";
 
 import type { SepReadingData } from "./content";
@@ -29,13 +30,15 @@ export function SepReadingSourceHeader({
             ? "Active capture"
             : "Archived capture"}
         </Badge>
-        <Badge
-          variant={
-            capture.readingReadiness === "ready" ? "secondary" : "outline"
-          }
-        >
-          Reading {capture.readingReadiness}
-        </Badge>
+        {env.VITE_SHOW_DIAGNOSTICS ? (
+          <Badge
+            variant={
+              capture.readingReadiness === "ready" ? "secondary" : "outline"
+            }
+          >
+            Reading {capture.readingReadiness}
+          </Badge>
+        ) : null}
       </div>
       <h1 className="font-serif text-3xl leading-tight tracking-tight sm:text-5xl">
         {source.title}

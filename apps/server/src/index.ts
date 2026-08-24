@@ -36,6 +36,46 @@ function toLogError(error: unknown) {
     : new Error(`Non-Error exception: ${String(error)}`);
 }
 
+async function responseFailure(response: Response, status: number) {
+  try {
+    if (!response.headers.get("content-type")?.includes("application/json")) {
+      return new Error(`HTTP ${status} response`);
+    }
+    type ErrorBody = {
+      code?: unknown;
+      message?: unknown;
+      data?: { issues?: Array<{ message?: unknown; path?: unknown }> };
+    };
+    const payload = (await response.clone().json()) as ErrorBody & {
+      json?: ErrorBody;
+    };
+    const error = payload.json ?? payload;
+    const code = typeof error.code === "string" ? error.code : `HTTP ${status}`;
+    const message =
+      typeof error.message === "string" ? error.message : "Request failed";
+    const issue = error.data?.issues?.find(
+      (candidate) => typeof candidate.message === "string",
+    );
+    const path = Array.isArray(issue?.path)
+      ? issue.path
+          .filter(
+            (part): part is string | number =>
+              typeof part === "string" || typeof part === "number",
+          )
+          .join(".")
+      : "";
+    const issueMessage =
+      typeof issue?.message === "string"
+        ? `${path ? `${path}: ` : ""}${issue.message}`
+        : undefined;
+    return new Error(
+      `${code}: ${message}${issueMessage ? ` (${issueMessage})` : ""}`,
+    );
+  } catch {
+    return new Error(`HTTP ${status} response`);
+  }
+}
+
 function writeLog(
   logger: Logger,
   level: "info" | "warn" | "error",
@@ -87,12 +127,17 @@ export function createApp(
     let thrownError: unknown;
     c.header("X-Request-ID", requestId);
     c.set("requestError", undefined);
-    c.set("requestObservation", {
+    const requestObservation: RequestObservation = {
       requestId,
+      failure: undefined,
       emit(level, record) {
         writeLog(requestLogger, level, record);
       },
-    });
+      fail(error) {
+        this.failure = error;
+      },
+    };
+    c.set("requestObservation", requestObservation);
     try {
       await next();
     } catch (error) {
@@ -101,9 +146,14 @@ export function createApp(
       throw error;
     } finally {
       const handledError = c.get("requestError");
-      const requestError = thrown ? thrownError : handledError;
+      const recordedError = thrown
+        ? thrownError
+        : (handledError ?? requestObservation.failure);
       const failedWithException = thrown || handledError !== undefined;
       const status = failedWithException ? 500 : c.res.status;
+      const requestError =
+        recordedError ??
+        (status >= 400 ? await responseFailure(c.res, status) : undefined);
       const level = status >= 500 ? "error" : "info";
       writeLog(requestLogger, level, {
         event: "request.completed",
@@ -115,7 +165,9 @@ export function createApp(
           Math.round(performance.now() - startedAt),
         ),
         outcome: status >= 400 ? "failure" : "success",
-        ...(failedWithException ? { err: toLogError(requestError) } : {}),
+        ...(requestError !== undefined
+          ? { err: toLogError(requestError) }
+          : {}),
       });
     }
   });

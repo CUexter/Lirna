@@ -10,7 +10,7 @@ const missingAssetDiagnostic = {
   source: { componentIdentity: "active:/", locator: "<img>" },
 };
 
-test("shows semantic diagnostics for images that were not retained", () => {
+test("hides semantic diagnostics while preserving figure content", () => {
   const view = render(
     <Figure
       figure={{
@@ -26,7 +26,7 @@ test("shows semantic diagnostics for images that were not retained", () => {
   );
 
   expect(view.getByText("SEP man icon")).toBeTruthy();
-  expect(view.getByText("Rendering note: missing-semantic-asset")).toBeTruthy();
+  expect(view.queryByText("Rendering note: missing-semantic-asset")).toBeNull();
 });
 
 test("renders supported TeX as accessible mathematical notation", () => {
@@ -55,6 +55,29 @@ test("renders supported TeX as accessible mathematical notation", () => {
   expect(view.container.querySelector(".katex-display")).toBeTruthy();
   expect(view.queryByTitle("Original TeX source")).toBeNull();
   expect(view.container.querySelector("math")).toBeTruthy();
+});
+
+test("places section link targets on their headings", () => {
+  const view = render(
+    <ReadingSection
+      section={{
+        id: "linked-section",
+        title: [{ kind: "text", text: "Linked section" }],
+        level: 2,
+        blocks: [
+          {
+            kind: "paragraph",
+            children: [{ kind: "text", text: "Section body." }],
+          },
+        ],
+        children: [],
+      }}
+    />,
+  );
+
+  const heading = view.getByRole("heading", { name: "Linked section" });
+  expect(heading.id).toBe("linked-section");
+  expect(heading.parentElement?.id).toBe("");
 });
 
 test("preserves TeX source when mathematical notation cannot be rendered", () => {

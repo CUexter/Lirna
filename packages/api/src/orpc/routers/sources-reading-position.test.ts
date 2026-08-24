@@ -66,6 +66,7 @@ function context(overrides: Partial<ReadingPositionOperations> = {}): Context {
     auth: null,
     session: {} as NonNullable<Context["session"]>,
     annotations: {} as Context["annotations"],
+    citationResolutions: {} as Context["citationResolutions"],
     readingPositions: {
       async get() {
         return undefined;

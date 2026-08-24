@@ -4,6 +4,12 @@ import { env } from "@lirna/env/server";
 import type { Context as HonoContext } from "hono";
 import type { AnnotationOperations } from "./annotations/annotation-contract";
 import { DrizzleAnnotationStore } from "./annotations/annotation-store";
+import { createOpenRouterCitationInference } from "./citation-resolutions/citation-inference";
+import type {
+  CitationInferenceOperations,
+  CitationResolutionOperations,
+} from "./citation-resolutions/citation-resolution-contract";
+import { DrizzleCitationResolutionStore } from "./citation-resolutions/citation-resolution-store";
 import type { RequestObservation } from "./observation";
 import type { ReadingPositionOperations } from "./reading-position/reading-position-contract";
 import { DrizzleReadingPositionStore } from "./reading-position/reading-position-store";
@@ -21,6 +27,8 @@ export type CreateContextOptions = {
   sepAdmissions?: SepAdmissionOperations;
   admittedSourceStates?: SepAdmittedStateOperations;
   annotations?: AnnotationOperations;
+  citationResolutions?: CitationResolutionOperations;
+  citationInference?: CitationInferenceOperations;
   readingPositions?: ReadingPositionOperations;
   researchAssistant?: ResearchAssistantOperations;
   observation?: RequestObservation;
@@ -28,6 +36,14 @@ export type CreateContextOptions = {
 };
 
 const annotationStore = new DrizzleAnnotationStore(db);
+const citationResolutionStore = new DrizzleCitationResolutionStore(db);
+const citationInference =
+  env.CITATION_INFERENCE_ENABLED && env.OPENROUTER_API_KEY
+    ? createOpenRouterCitationInference({
+        apiKey: env.OPENROUTER_API_KEY,
+        model: env.OPENROUTER_MODEL,
+      })
+    : undefined;
 const readingPositionStore = new DrizzleReadingPositionStore(db);
 const researchAssistant = env.OPENROUTER_API_KEY
   ? createOpenRouterResearchAssistant({
@@ -41,6 +57,8 @@ export async function createContext({
   sepAdmissions,
   admittedSourceStates,
   annotations,
+  citationResolutions,
+  citationInference: citationInferenceOverride,
   readingPositions,
   researchAssistant: researchAssistantOverride,
   observation,
@@ -55,6 +73,10 @@ export async function createContext({
     sepAdmissions: sepAdmissions ?? sepAdmissionOperations,
     admittedSourceStates: admittedSourceStates ?? sepAdmittedStateOperations,
     annotations: annotations ?? annotationStore,
+    citationResolutions: citationResolutions ?? citationResolutionStore,
+    ...((citationInferenceOverride ?? citationInference)
+      ? { citationInference: citationInferenceOverride ?? citationInference }
+      : {}),
     readingPositions: readingPositions ?? readingPositionStore,
     ...((researchAssistantOverride ?? researchAssistant)
       ? { researchAssistant: researchAssistantOverride ?? researchAssistant }

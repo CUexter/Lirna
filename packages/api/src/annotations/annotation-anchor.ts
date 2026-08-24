@@ -7,34 +7,57 @@ import type {
 
 import type { CreateAnnotationInput } from "./annotation-contract";
 
+type AnchoredSelection = Pick<
+  CreateAnnotationInput,
+  | "exactText"
+  | "normalizedEndOffset"
+  | "normalizedStartOffset"
+  | "offsetBasis"
+  | "prefix"
+  | "publisherAnchor"
+  | "suffix"
+>;
+
 const annotationContextLength = 32;
 
 export class InvalidAnnotationAnchorError extends Error {
-  constructor() {
-    super("Annotation anchor does not match the active Reading derivative");
+  constructor(reason = "anchor") {
+    super(`${reason} does not match the active Reading derivative`);
     this.name = "InvalidAnnotationAnchorError";
   }
 }
 
 export function validateAnnotationAnchor(
   component: ReadingComponent,
-  input: CreateAnnotationInput,
+  input: AnchoredSelection,
 ) {
   const { plainText } = component;
   const start = input.normalizedStartOffset;
   const end = input.normalizedEndOffset;
-  const valid =
-    input.offsetBasis === "normalized-derivative-text-v1" &&
-    start >= 0 &&
-    end > start &&
-    end <= plainText.length &&
-    plainText.slice(start, end) === input.exactText &&
-    plainText.slice(Math.max(0, start - annotationContextLength), start) ===
-      input.prefix &&
-    plainText.slice(end, end + annotationContextLength) === input.suffix &&
-    (!input.publisherAnchor ||
-      publisherAnchorContains(component, input.publisherAnchor, start, end));
-  if (!valid) throw new InvalidAnnotationAnchorError();
+  if (input.offsetBasis !== "normalized-derivative-text-v1") {
+    throw new InvalidAnnotationAnchorError("Selection offset basis");
+  }
+  if (start < 0 || end <= start || end > plainText.length) {
+    throw new InvalidAnnotationAnchorError("Selection offsets");
+  }
+  if (plainText.slice(start, end) !== input.exactText) {
+    throw new InvalidAnnotationAnchorError("Selected passage text");
+  }
+  if (
+    plainText.slice(Math.max(0, start - annotationContextLength), start) !==
+    input.prefix
+  ) {
+    throw new InvalidAnnotationAnchorError("Selected passage prefix");
+  }
+  if (plainText.slice(end, end + annotationContextLength) !== input.suffix) {
+    throw new InvalidAnnotationAnchorError("Selected passage suffix");
+  }
+  if (
+    input.publisherAnchor &&
+    !publisherAnchorContains(component, input.publisherAnchor, start, end)
+  ) {
+    throw new InvalidAnnotationAnchorError("Publisher anchor");
+  }
 }
 
 interface AnchorSpan {

@@ -1,3 +1,4 @@
+import { env } from "@lirna/env/web";
 import { Button } from "@lirna/ui/components/button";
 import katex from "katex";
 import { createContext, useContext } from "react";
@@ -45,7 +46,7 @@ export function Figure({
     !figure.assetDataUrl &&
     figure.caption.length === 0 &&
     figure.description.text.length === 0 &&
-    figure.diagnostics.length === 0
+    (!env.VITE_SHOW_DIAGNOSTICS || figure.diagnostics.length === 0)
   )
     return null;
   return (
@@ -97,8 +98,11 @@ export function ReadingSection({
 }) {
   const Heading = `h${section.level}` as "h2" | "h3" | "h4" | "h5" | "h6";
   return (
-    <section className="flex scroll-mt-6 flex-col gap-5" id={section.id}>
-      <Heading className="font-semibold font-serif text-2xl leading-tight tracking-tight sm:text-3xl">
+    <section className="flex flex-col gap-5">
+      <Heading
+        className="scroll-mt-6 font-semibold font-serif text-2xl leading-tight tracking-tight sm:text-3xl"
+        id={section.id}
+      >
         <Inlines values={section.title} />
       </Heading>
       <Blocks blocks={section.blocks} />
@@ -350,6 +354,7 @@ export function Diagnostic({
 }: {
   diagnostic: SepReadingData["capture"]["diagnostics"][number];
 }) {
+  if (!env.VITE_SHOW_DIAGNOSTICS) return null;
   return (
     <aside
       className="rounded border border-amber-500/50 bg-amber-50 p-3 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100"

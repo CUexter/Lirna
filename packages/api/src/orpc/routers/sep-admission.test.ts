@@ -274,10 +274,13 @@ function context(sepAdmissions: SepAdmissionOperations): Context {
     auth: null,
     session: {} as NonNullable<Context["session"]>,
     annotations: {} as Context["annotations"],
+    citationResolutions: {} as Context["citationResolutions"],
+    readingPositions: {} as Context["readingPositions"],
     sepAdmissions,
     admittedSourceStates: {} as Context["admittedSourceStates"],
     observation: {
       requestId: "req-test",
+      fail() {},
       emit() {},
     },
   };

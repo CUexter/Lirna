@@ -1,3 +1,4 @@
+// biome-ignore lint/style/noExcessiveLinesPerFile: Route-level bibliography state and manual linking share one mocked workspace harness.
 import { afterEach, expect, mock, test } from "bun:test";
 import { createRootRoute, createRoute } from "@tanstack/react-router";
 import {
@@ -12,6 +13,11 @@ import userEvent from "@testing-library/user-event";
 import { readingFixture, sourceId, stateId } from "./-reading-test-fixtures";
 import { renderRoute } from "./-route-test-harness";
 
+const citationResolutionCalls: unknown[] = [];
+let citationResolutions: unknown[] = [];
+let citationEvidence: unknown[] = [];
+let citationResolutionError: Error | undefined;
+
 await mock.module("@/clients/inquiry", () => ({
   inquiry: {
     sources: {
@@ -22,10 +28,13 @@ await mock.module("@/clients/inquiry", () => ({
           }),
         },
       },
-      reading: {
+      readingWorkspace: {
         queryOptions: ({ input }: { input: unknown }) => ({
-          queryKey: ["reading", input],
-          queryFn: async () => readingFixture(),
+          queryKey: ["reading-workspace", input],
+          queryFn: async () => ({
+            reading: readingFixture(),
+            citationResolutions,
+          }),
         }),
       },
       resume: {
@@ -45,6 +54,67 @@ await mock.module("@/clients/inquiry", () => ({
 
 await mock.module("@/clients/library", () => ({
   library: {
+    sources: {
+      readingWorkspace: {
+        key: ({ input }: { input: unknown }) => ["reading-workspace", input],
+      },
+    },
+    citationResolutions: {
+      evidence: {
+        queryOptions: ({ input }: { input: unknown }) => ({
+          queryKey: ["citation-evidence", input],
+          queryFn: async () => citationEvidence,
+        }),
+      },
+      list: {
+        key: ({ input }: { input: unknown }) => ["citation-resolutions", input],
+        queryOptions: ({ input }: { input: unknown }) => ({
+          queryKey: ["citation-resolutions", input],
+          queryFn: async () => citationResolutions,
+        }),
+      },
+      create: {
+        mutationOptions: () => ({
+          mutationFn: async (input: unknown) => {
+            citationResolutionCalls.push(input);
+            if (citationResolutionError) throw citationResolutionError;
+            const resolution = {
+              ...(input as object),
+              id: "50000000-0000-4000-8000-000000000000",
+              sourceStateId: stateId,
+              derivativeId: "60000000-0000-4000-8000-000000000000",
+              publisherAnchor: null,
+              offsetBasis: "normalized-derivative-text-v1",
+              normalizedStartOffset: 0,
+              normalizedEndOffset: 3,
+              exactText: "[1]",
+              prefix: "",
+              suffix: "",
+              actorId: "user-1",
+              confidence: null,
+              reasoning: null,
+              createdAt: "2026-08-24T12:00:00.000Z",
+              updatedAt: "2026-08-24T12:00:00.000Z",
+            };
+            citationResolutions = [resolution];
+            return resolution;
+          },
+        }),
+      },
+      clear: {
+        mutationOptions: () => ({ mutationFn: async () => true }),
+      },
+      infer: {
+        mutationOptions: () => ({
+          mutationFn: async () => ({
+            status: "unavailable",
+            candidateId: null,
+            confidence: null,
+            reasoning: "Provider unavailable",
+          }),
+        }),
+      },
+    },
     annotations: {
       list: {
         key: ({ input }: { input: unknown }) => ["annotations", input],
@@ -72,7 +142,14 @@ function view() {
   return within(document.body);
 }
 
-afterEach(cleanup);
+afterEach(() => {
+  citationResolutionCalls.length = 0;
+  citationResolutions = [];
+  citationEvidence = [];
+  citationResolutionError = undefined;
+  localStorage.clear();
+  cleanup();
+});
 
 async function renderReading(search = "") {
   const rootRoute = createRootRoute();
@@ -150,6 +227,31 @@ test("restores an unfinished annotation draft after visiting a Citation", async 
   } finally {
     HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
   }
+});
+
+test("manually resolves only a server-supplied Citation candidate", async () => {
+  citationEvidence = [mentionEvidence()];
+  const user = userEvent.setup();
+  await renderReading("?component=article");
+  await user.click(
+    await view().findByRole("button", { name: "Citation: [1] (resolved)" }),
+  );
+  await user.click(
+    await view().findByRole("button", {
+      name: "Select this candidate manually",
+    }),
+  );
+
+  await waitFor(() => expect(citationResolutionCalls).toHaveLength(1));
+  expect(citationResolutionCalls[0]).toEqual({
+    sourceId,
+    stateId,
+    componentIdentity: "article",
+    mentionId: "citation-one",
+    bibliographyComponentIdentity: "article",
+    bibliographyEntryId: "entry-one",
+    method: "manual",
+  });
 });
 
 test("restores bibliography and Citation context from route search", async () => {
@@ -306,3 +408,33 @@ test("keeps the Reading tools panel persistent and changes views with tabs", asy
     HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
   }
 });
+
+function mentionEvidence() {
+  return {
+    id: "60000000-0000-4000-8000-000000000000:article:citation-one",
+    sourceId,
+    sourceStateId: stateId,
+    derivativeId: "60000000-0000-4000-8000-000000000000",
+    componentIdentity: "article",
+    mentionId: "citation-one",
+    label: "[1]",
+    context: "Synthetic publication content [1]",
+    state: "ambiguous",
+    deterministicReason: "The authored label has bounded candidates.",
+    candidates: [
+      {
+        id: "article:entry-one",
+        bibliographyComponentIdentity: "article",
+        bibliographyEntryId: "entry-one",
+        label: "[1]",
+        text: "Ada Lovelace. Synthetic publisher entry.",
+        reason: "The authored label matched this candidate.",
+      },
+    ],
+    policy: {
+      rightsBasis: "publicly-accessible",
+      sensitivityLevel: "ordinary-cloud",
+      inferenceEligible: true,
+    },
+  };
+}

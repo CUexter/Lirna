@@ -688,6 +688,16 @@ test("runs each managed service with its generated environment and allocated por
   ).toEqual(expected);
 });
 
+test("allocates a Studio port before starting Studio from the public package command", async () => {
+  const packageJson = JSON.parse(
+    await readFile(join(import.meta.dir, "..", "package.json"), "utf8"),
+  );
+
+  expect(packageJson.scripts["db:studio"]).toBe(
+    "bun run lifecycle allocate . --tool studio && bun run lifecycle run studio",
+  );
+});
+
 test("migrates the managed database instead of an inherited database URL", async () => {
   const context = {
     ...(await runtimeBun(await sandbox())),

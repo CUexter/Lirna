@@ -1,3 +1,4 @@
+import { env } from "@lirna/env/web";
 import {
   Card,
   CardContent,
@@ -14,8 +15,9 @@ export function SepReadingCaptureStatus({
   capture: SepReadingData["capture"];
 }) {
   if (
-    capture.readingReadiness !== "degraded" &&
-    capture.diagnostics.length === 0
+    !env.VITE_SHOW_DIAGNOSTICS ||
+    (capture.readingReadiness !== "degraded" &&
+      capture.diagnostics.length === 0)
   ) {
     return null;
   }

@@ -3,6 +3,7 @@ import { type RefObject, useEffect, useReducer, useRef } from "react";
 import type {
   Annotation,
   AnnotationColor,
+  CitationResolution,
   MenuPosition,
   SelectionDraft,
 } from "./dom-utils";
@@ -126,17 +127,21 @@ export interface UseAnnotationSelectionResult {
 export function useAnnotationSelection({
   articleRef,
   annotations,
+  citationResolutions = [],
   componentIdentity,
   sourceId,
   stateId,
   plainText,
+  onOpenCitationResolution,
 }: {
   articleRef: RefObject<HTMLElement | null>;
   annotations: Annotation[];
+  citationResolutions?: CitationResolution[];
   componentIdentity: string;
   sourceId: string;
   stateId: string;
   plainText: string;
+  onOpenCitationResolution?: (resolution: CitationResolution) => void;
 }): UseAnnotationSelectionResult {
   const storageKey = `lirna:annotation-draft:${sourceId}:${stateId}:${componentIdentity}`;
   const [state, dispatch] = useReducer(
@@ -225,6 +230,17 @@ export function useAnnotationSelection({
         return;
       }
       const offset = textOffsetAtPoint(article, event.clientX, event.clientY);
+      const citationResolution = citationResolutions.find((candidate) => {
+        if (candidate.componentIdentity !== componentIdentity) return false;
+        const range = rangeFromAnchor(article, plainText, candidate);
+        if (!range) return false;
+        const rendered = rangeOffsets(article, range);
+        return rendered.startOffset <= offset && offset < rendered.endOffset;
+      });
+      if (citationResolution && onOpenCitationResolution) {
+        onOpenCitationResolution(citationResolution);
+        return;
+      }
       const annotation = annotations.find((candidate) => {
         if (candidate.componentIdentity !== componentIdentity) return false;
         const range = rangeFromAnchor(article, plainText, candidate);
@@ -237,7 +253,14 @@ export function useAnnotationSelection({
     };
     article.addEventListener("pointerup", openExisting);
     return () => article.removeEventListener("pointerup", openExisting);
-  }, [annotations, articleRef, componentIdentity, plainText]);
+  }, [
+    annotations,
+    articleRef,
+    citationResolutions,
+    componentIdentity,
+    onOpenCitationResolution,
+    plainText,
+  ]);
 
   return { state, dispatch, menuRef, panelRef };
 }

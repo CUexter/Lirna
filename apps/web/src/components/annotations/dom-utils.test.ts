@@ -1,8 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
-
+import { calloutPosition } from "./callout-position";
 import type { Annotation } from "./dom-utils";
 import {
-  calloutPosition,
   menuPosition,
   paintAnnotations,
   paintDraftSelection,

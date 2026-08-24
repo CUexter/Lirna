@@ -1,6 +1,7 @@
+// biome-ignore lint/style/noExcessiveLinesPerFile: Router tests share compact context and operation stubs.
 import { describe, expect, test } from "bun:test";
 import { call } from "@orpc/server";
-
+import type { CitationResolutionOperations } from "../../citation-resolutions/citation-resolution-contract";
 import type { Context } from "../../context";
 import type {
   ReadingPositionOperations,
@@ -120,6 +121,31 @@ describe("Sources oRPC router", () => {
     ).resolves.toBeDefined();
   });
 
+  test("reading workspace composes the Derivative and Citation resolutions", async () => {
+    const resolution = citationResolution();
+    await expect(
+      call(
+        sourcesRouter.readingWorkspace,
+        { sourceId, stateId },
+        {
+          context: {
+            ...context(admittedSourceStatesStub(), readingPositionsStub()),
+            admittedSourceStates: admittedSourceStatesStub({
+              async getReading() {
+                return readingFixture();
+              },
+            }),
+            citationResolutions: citationResolutionsStub({
+              async list() {
+                return [resolution];
+              },
+            }),
+          },
+        },
+      ),
+    ).resolves.toMatchObject({ citationResolutions: [resolution] });
+  });
+
   test("resume returns the latest persisted reading position", async () => {
     const position = readingPosition();
     await expect(
@@ -233,8 +259,9 @@ function context(
 ): Context {
   return {
     auth: null,
-    session: {} as NonNullable<Context["session"]>,
+    session: { user: { id: "user-1" } } as NonNullable<Context["session"]>,
     annotations: {} as Context["annotations"],
+    citationResolutions: {} as Context["citationResolutions"],
     readingPositions,
     sepAdmissions: {} as Context["sepAdmissions"],
     admittedSourceStates,
@@ -264,5 +291,54 @@ function readingPosition(): ReadingPositionRecord {
     componentLabel: "Article",
     scrollTop: 240,
     savedAt: "2026-08-18T12:01:00.000Z",
+  };
+}
+
+function citationResolutionsStub(
+  overrides: Partial<CitationResolutionOperations> = {},
+): CitationResolutionOperations {
+  return {
+    async list() {
+      return [];
+    },
+    async history() {
+      return [];
+    },
+    async evidence() {
+      return [];
+    },
+    async create() {
+      return undefined;
+    },
+    async clear() {
+      return false;
+    },
+    ...overrides,
+  };
+}
+
+function citationResolution() {
+  return {
+    id: "40000000-0000-4000-8000-000000000000",
+    sourceId,
+    sourceStateId: stateId,
+    derivativeId: "50000000-0000-4000-8000-000000000000",
+    componentIdentity: "active:/",
+    mentionId: "citation-one",
+    bibliographyComponentIdentity: "active:/",
+    bibliographyEntryId: "entry-one",
+    publisherAnchor: null,
+    offsetBasis: "normalized-derivative-text-v1" as const,
+    normalizedStartOffset: 0,
+    normalizedEndOffset: 4,
+    exactText: "Test",
+    prefix: "",
+    suffix: "",
+    actorId: "user-1",
+    method: "manual" as const,
+    confidence: null,
+    reasoning: null,
+    createdAt: "2026-08-18T12:01:00.000Z",
+    updatedAt: "2026-08-18T12:01:00.000Z",
   };
 }

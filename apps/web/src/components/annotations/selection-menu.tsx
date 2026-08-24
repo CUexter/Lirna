@@ -4,7 +4,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@lirna/ui/components/popover";
-import { PaletteIcon, StickyNoteIcon } from "lucide-react";
+import { LinkIcon, PaletteIcon, StickyNoteIcon } from "lucide-react";
 import type { CSSProperties, RefObject } from "react";
 
 import {
@@ -24,6 +24,7 @@ interface AnnotationSelectionMenuProps {
   };
   pending: boolean;
   onClose: () => void;
+  onLinkBibliography?: () => void;
   onOpenPanel: () => void;
 }
 
@@ -33,6 +34,7 @@ export function AnnotationSelectionMenu({
   colorPicker,
   pending,
   onClose,
+  onLinkBibliography,
   onOpenPanel,
 }: AnnotationSelectionMenuProps) {
   const menuStyle = {
@@ -98,6 +100,18 @@ export function AnnotationSelectionMenu({
       >
         <StickyNoteIcon />
       </Button>
+      {onLinkBibliography ? (
+        <Button
+          aria-label="Link to bibliography"
+          disabled={pending}
+          onClick={onLinkBibliography}
+          size="icon-sm"
+          type="button"
+          variant="ghost"
+        >
+          <LinkIcon />
+        </Button>
+      ) : null}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { anchorForRange } from "./dom-utils";
+import { anchorForRange, rangeFromAnchor } from "./dom-utils";
 
 test("only supplies a publisher anchor that contains the complete range", () => {
   const article = document.createElement("article");
@@ -24,4 +24,21 @@ test("only supplies a publisher anchor that contains the complete range", () => 
     anchorForRange(article, crossing, article.textContent ?? "")
       ?.publisherAnchor,
   ).toBeUndefined();
+});
+
+test("relocates a repeated passage using its persisted context", () => {
+  const article = document.createElement("article");
+  article.textContent = "First Lewis 1986 context. Later Lewis 1986 evidence.";
+  const plainText = "Lewis 1986 context. Later Lewis 1986 evidence.";
+
+  const range = rangeFromAnchor(article, plainText, {
+    normalizedStartOffset: 26,
+    normalizedEndOffset: 36,
+    exactText: "Lewis 1986",
+    prefix: "context. Later ",
+    suffix: " evidence.",
+  });
+
+  expect(range?.toString()).toBe("Lewis 1986");
+  expect(range?.startOffset).toBe(32);
 });

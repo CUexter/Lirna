@@ -1,37 +1,52 @@
-// biome-ignore lint/style/noExcessiveLinesPerFile: This keeps bibliography display and citation-context resolution colocated.
 import { Button } from "@lirna/ui/components/button";
 import { Input } from "@lirna/ui/components/input";
 import { LocateFixedIcon } from "lucide-react";
 import { type RefObject, useRef, useState } from "react";
+import type { CitationResolution } from "../annotations/dom-utils";
+import {
+  type BibliographyMention,
+  indexBibliographyMentions,
+} from "./bibliography-mentions";
 import { useBibliographySelection } from "./bibliography-navigation";
+import { CitationResolutionPanel } from "./citation-resolution-panel";
 import type { SepReadingData } from "./content";
 import type { ReadingNavigation } from "./reading-navigation";
 
 // fallow-ignore-next-line complexity
 export function Bibliography({
   bibliographyComponents,
-  citationScrollRequest,
-  selectedComponentIdentity,
-  selectedEntry,
+  selection: {
+    componentIdentity: selectedComponentIdentity,
+    entry: selectedEntry,
+    request: citationScrollRequest,
+  },
   scrollContainerRef,
   onReturn,
+  resolution,
   navigation,
   compact = false,
 }: {
   bibliographyComponents: {
     all: SepReadingData["components"];
+    citationResolutions: CitationResolution[];
     mainIdentity: string;
   };
-  citationScrollRequest: number;
-  selectedComponentIdentity: string;
-  selectedEntry?: string;
+  selection: {
+    componentIdentity: string;
+    entry?: string;
+    request: number;
+  };
   scrollContainerRef: RefObject<HTMLDivElement | null>;
-  onReturn: (mentionId: string, componentIdentity: string) => void;
+  onReturn: (mention: BibliographyMention) => void;
+  resolution?: React.ComponentProps<typeof CitationResolutionPanel>;
   navigation: ReadingNavigation;
   compact?: boolean;
 }) {
-  const { all: components, mainIdentity: mainComponentIdentity } =
-    bibliographyComponents;
+  const {
+    all: components,
+    citationResolutions,
+    mainIdentity: mainComponentIdentity,
+  } = bibliographyComponents;
   const [query, setQuery] = useState("");
   const selectedEntryRef = useRef<HTMLLIElement>(null);
   const selectedEntryKey = selectedEntry
@@ -40,7 +55,11 @@ export function Bibliography({
   const selectedEntryRequest = selectedEntryKey
     ? `${selectedEntryKey}:${citationScrollRequest}`
     : undefined;
-  const mentions = citationMentions(components, mainComponentIdentity);
+  const mentions = indexBibliographyMentions(
+    components,
+    mainComponentIdentity,
+    citationResolutions,
+  );
   const groups = groupBibliographyByAuthor(
     components,
     query,
@@ -84,6 +103,12 @@ export function Bibliography({
           onChange={(event) => setQuery(event.target.value)}
           value={query}
         />
+        {resolution ? (
+          <CitationResolutionPanel
+            key={resolution.evidence.id}
+            {...resolution}
+          />
+        ) : null}
       </header>
       {groups.length ? (
         <nav aria-label="Bibliography by author">
@@ -94,6 +119,7 @@ export function Bibliography({
                   className="group rounded border"
                   open={
                     Boolean(query) ||
+                    Boolean(resolution) ||
                     group.entries.some((entry) => entry.selected)
                   }
                 >
@@ -152,9 +178,7 @@ export function Bibliography({
                             </blockquote>
                             <Button
                               className="mt-3"
-                              onClick={() =>
-                                onReturn(mention.id, mention.componentIdentity)
-                              }
+                              onClick={() => onReturn(mention)}
                               type="button"
                               variant="outline"
                             >
@@ -213,6 +237,7 @@ type BibliographyGroup = {
   author: string;
   entries: Array<{
     key: string;
+    id: string;
     text: string;
     links: SepReadingData["components"][number]["bibliography"][number]["entries"][number]["links"];
     component: SepReadingData["components"][number];
@@ -252,6 +277,7 @@ function addBibliographyEntries(
     const group = context.groups.get(key) ?? { key, author, entries: [] };
     group.entries.push({
       key: `${component.identity}:${entry.id}`,
+      id: entry.id,
       text: entry.text,
       links: entry.links,
       component,
@@ -279,122 +305,6 @@ function normalize(value: string) {
     .normalize("NFKD")
     .replace(/\p{M}/gu, "")
     .toLocaleLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function citationMentions(
-  components: SepReadingData["components"],
-  mainComponentIdentity: string,
-) {
-  const mentions = new Map<
-    string,
-    Array<{ id: string; context: string; componentIdentity: string }>
-  >();
-  const visit = (
-    values: SepReadingData["components"][number]["sections"][number]["title"],
-    context = inlineText(values),
-  ) => {
-    for (const value of values) {
-      if (value.kind === "citation" && value.entryId && component) {
-        const bibliographyComponent = bibliographyComponentFor(
-          components,
-          component,
-          value.entryId,
-          mainComponentIdentity,
-        );
-        if (!bibliographyComponent) continue;
-        const entryKey = `${bibliographyComponent.identity}:${value.entryId}`;
-        mentions.set(entryKey, [
-          ...(mentions.get(entryKey) ?? []),
-          {
-            id: value.mentionId,
-            context,
-            componentIdentity: component.identity,
-          },
-        ]);
-      } else if ("children" in value) visit(value.children, context);
-    }
-  };
-  let component: SepReadingData["components"][number] | undefined;
-  const visitBlocks = (
-    blocks: SepReadingData["components"][number]["introductoryBlocks"],
-  ) => {
-    for (const block of blocks) visitBlockInlines(block, visit);
-  };
-  const visitSections = (
-    sections: SepReadingData["components"][number]["sections"],
-  ) => {
-    for (const section of sections) {
-      visit(section.title);
-      visitBlocks(section.blocks);
-      visitSections(section.children);
-    }
-  };
-  for (component of components) {
-    visitBlocks(component.introductoryBlocks);
-    visitSections(component.sections);
-  }
-  return mentions;
-}
-
-function bibliographyComponentFor(
-  components: SepReadingData["components"],
-  citingComponent: SepReadingData["components"][number],
-  entryId: string,
-  mainComponentIdentity: string,
-) {
-  if (
-    citingComponent.bibliography.some((group) =>
-      group.entries.some((entry) => entry.id === entryId),
-    )
-  )
-    return citingComponent;
-  return components.find(
-    (component) => component.identity === mainComponentIdentity,
-  );
-}
-
-function visitBlockInlines(
-  block: SepReadingData["components"][number]["introductoryBlocks"][number],
-  visit: (
-    values: SepReadingData["components"][number]["sections"][number]["title"],
-  ) => void,
-) {
-  if (block.kind === "statement") {
-    visit(block.label);
-    visit(block.body);
-    return;
-  }
-  if (block.kind === "list") {
-    for (const item of block.items) visit(item);
-    return;
-  }
-  if (block.kind === "table") {
-    visit(block.caption);
-    for (const row of [...block.head, ...block.body])
-      for (const cell of row.cells) visit(cell);
-    return;
-  }
-  if (block.kind === "figure") {
-    visit(block.figure.caption);
-    visit(block.figure.description.text);
-    return;
-  }
-  if (block.kind !== "diagnostic") visit(block.children);
-}
-
-function inlineText(
-  values: SepReadingData["components"][number]["sections"][number]["title"],
-): string {
-  return values
-    .map((value) => {
-      if (value.kind === "text") return value.text;
-      if (value.kind === "tex") return value.source;
-      if (value.kind === "citation") return value.label;
-      return inlineText(value.children);
-    })
-    .join("")
     .replace(/\s+/g, " ")
     .trim();
 }

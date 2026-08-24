@@ -1,3 +1,4 @@
+// biome-ignore lint/style/noExcessiveLinesPerFile: Bibliography extraction and citation resolution share one deterministic matching pipeline.
 import {
   authorYearKey,
   authorYearReferences,
@@ -74,11 +75,13 @@ export function resolveSepCitations(
   introductoryBlocks: ReadingBlock[],
   sections: ReadingSection[],
   groups: ReadingBibliographyGroup[],
+  urls: { current: string; bibliography: string },
 ) {
   const context: CitationResolutionContext = {
     entries: groups.flatMap((group) => group.entries),
     authorYearCandidates: indexAuthorYearCandidates(groups),
     mention: 0,
+    urls,
   };
   const resolve = (inline: ReadingInline) => resolveCitation(inline, context);
   transformBlocks(introductoryBlocks, resolve);
@@ -90,6 +93,7 @@ interface CitationResolutionContext {
   entries: BibliographyEntry[];
   authorYearCandidates: ReturnType<typeof indexAuthorYearCandidates>;
   mention: number;
+  urls: { current: string; bibliography: string };
 }
 
 function resolveCitation(
@@ -158,7 +162,7 @@ function resolveCitationLink(
   context: CitationResolutionContext,
 ): ReadingInline {
   const label = inlineText(inline.children);
-  const target = inline.internal ? linkFragment(inline.href) : undefined;
+  const target = linkFragment(inline.href, context.urls);
   const byTarget = target
     ? context.entries.filter((entry) => entry.anchor === target)
     : [];
@@ -194,12 +198,25 @@ function resolveCitationLink(
   };
 }
 
-function linkFragment(href: string) {
+function linkFragment(href: string, urls: CitationResolutionContext["urls"]) {
   try {
-    return new URL(href, "https://plato.stanford.edu").hash.slice(1);
+    const target = new URL(href, urls.current);
+    const bibliography = new URL(urls.bibliography);
+    if (
+      target.origin !== bibliography.origin ||
+      normalizedDocumentPath(target.pathname) !==
+        normalizedDocumentPath(bibliography.pathname) ||
+      target.search !== bibliography.search
+    )
+      return undefined;
+    return target.hash.slice(1) || undefined;
   } catch {
     return undefined;
   }
+}
+
+function normalizedDocumentPath(pathname: string) {
+  return pathname.replace(/\/index\.html$/i, "/");
 }
 
 function citationState(candidates: BibliographyEntry[]) {

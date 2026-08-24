@@ -91,5 +91,15 @@
     "parser": {
       "tailwindDirectives": true
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["docs/**/*.html"],
+      "linter": {
+        "rules": {
+          "style": { "noExcessiveLinesPerFile": "off" }
+        }
+      }
+    }
+  ]
 }

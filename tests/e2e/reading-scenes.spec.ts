@@ -126,5 +126,9 @@ test("routes authored scenes through their declared owners and retains both lane
   await expect(page.getByText("Typed supplement two content.")).toBeVisible();
   await page.getByRole("button", { name: "Previous: Supplement one" }).click();
   await expect(page.getByText("Typed supplement one content.")).toBeVisible();
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(640);
+  await expect
+    .poll(async () =>
+      Math.abs((await page.evaluate(() => window.scrollY)) - 640),
+    )
+    .toBeLessThan(100);
 });

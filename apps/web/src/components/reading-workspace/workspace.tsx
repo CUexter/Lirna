@@ -1,10 +1,15 @@
 // biome-ignore lint/style/noExcessiveLinesPerFile: This hook composes the owner-scoped workspace dependencies.
-import { useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 
+import { type LibraryOutputs, library } from "@/clients/library";
+import { useAnchoredTargetNavigation } from "../annotations/annotations";
+import type { CitationResolution } from "../annotations/dom-utils";
 import {
   createReferenceJumper,
   scrollToPendingFragment,
 } from "./authored-navigation";
+import type { BibliographyMention } from "./bibliography-mentions";
 import { useCitationOpening } from "./citation-opening";
 import { ComponentUnavailable } from "./component-unavailable";
 import type { SepReadingData } from "./content";
@@ -41,10 +46,11 @@ import {
   useScrollRestore,
 } from "./workspace-state";
 
+type ReadingWorkspaceData = LibraryOutputs["sources"]["readingWorkspace"];
+
 export type { SepReadingData };
 
 export function SepReadingWorkspace({
-  reading,
   initialFragment,
   selectedComponent,
   view,
@@ -52,8 +58,8 @@ export function SepReadingWorkspace({
   onComponentChange,
   onFragmentChange,
   onViewChange,
+  workspace,
 }: {
-  reading: SepReadingData;
   initialFragment?: string;
   selectedComponent?: string;
   view: "article" | "bibliography";
@@ -61,7 +67,9 @@ export function SepReadingWorkspace({
   onComponentChange: (identity: string) => void;
   onFragmentChange: (fragment: string) => void;
   onViewChange: (view: "article" | "bibliography", citation?: string) => void;
+  workspace: ReadingWorkspaceData;
 }) {
+  const { reading } = workspace;
   const topology = createReadingSceneTopology(reading);
   const { component, parent, previous, next, publisherNoteIdentity } =
     useComponentTree(reading, selectedComponent, topology);
@@ -80,7 +88,6 @@ export function SepReadingWorkspace({
       onComponentChange={onComponentChange}
       onFragmentChange={onFragmentChange}
       onViewChange={onViewChange}
-      reading={reading}
       selectedCitation={selectedCitation}
       tree={{
         component,
@@ -91,6 +98,7 @@ export function SepReadingWorkspace({
         topology,
       }}
       view={view}
+      workspace={workspace}
     />
   );
 }
@@ -100,7 +108,6 @@ type AvailableReadingWorkspaceProps = {
   onComponentChange: (identity: string) => void;
   onFragmentChange: (fragment: string) => void;
   onViewChange: (view: "article" | "bibliography", citation?: string) => void;
-  reading: SepReadingData;
   selectedCitation?: string;
   tree: {
     component: SepReadingData["components"][number];
@@ -111,6 +118,7 @@ type AvailableReadingWorkspaceProps = {
     topology: ReadingSceneTopology;
   };
   view: "article" | "bibliography";
+  workspace: ReadingWorkspaceData;
 };
 
 function AvailableReadingWorkspace(props: AvailableReadingWorkspaceProps) {
@@ -123,7 +131,6 @@ function useReadingWorkspaceViewProps({
   onComponentChange,
   onFragmentChange,
   onViewChange,
-  reading,
   selectedCitation,
   tree: {
     component,
@@ -134,12 +141,31 @@ function useReadingWorkspaceViewProps({
     topology,
   },
   view,
+  workspace: { citationResolutions, reading },
 }: AvailableReadingWorkspaceProps): React.ComponentProps<
   typeof ReadingWorkspaceView
 > {
   const { capture, source } = reading;
+  const queryClient = useQueryClient();
   const { articleRef, navigation, toolsScrollRef } =
     useReadingNavigationScope();
+  const navigateToCitationResolution = useAnchoredTargetNavigation({
+    articleRef,
+    componentIdentity: component.identity,
+    navigation,
+    plainText: component.plainText,
+    targetKind: "citation-resolution",
+  });
+  const pendingCitationResolution = useRef<CitationResolution | undefined>(
+    undefined,
+  );
+  useEffect(() => {
+    const resolution = pendingCitationResolution.current;
+    if (!resolution || resolution.componentIdentity !== component.identity)
+      return;
+    pendingCitationResolution.current = undefined;
+    navigateToCitationResolution(resolution);
+  }, [component.identity, navigateToCitationResolution]);
   const pendingSceneFragment = useRef<
     | {
         fragment: string;
@@ -171,6 +197,24 @@ function useReadingWorkspaceViewProps({
         : "contents",
   );
   const [citationScrollRequest, setCitationScrollRequest] = useState(0);
+  const [resolvingMention, setResolvingMention] = useState<{
+    componentIdentity: string;
+    mentionId: string;
+  }>();
+  const citationEvidence = useQuery(
+    library.citationResolutions.evidence.queryOptions({
+      input: { sourceId: source.id, stateId: source.stateId },
+    }),
+  );
+  const createCitationResolution = useMutation(
+    library.citationResolutions.create.mutationOptions(),
+  );
+  const clearCitationResolution = useMutation(
+    library.citationResolutions.clear.mutationOptions(),
+  );
+  const inferCitationResolution = useMutation(
+    library.citationResolutions.infer.mutationOptions(),
+  );
 
   const activateFragment = useExplicitFragmentNavigation({
     componentIdentity: component.identity,
@@ -391,6 +435,64 @@ function useReadingWorkspaceViewProps({
       reading.mainComponent.identity,
       openCitation,
     );
+  const beginCitationResolution = (
+    sourceComponentIdentity: string,
+    entryId: string | undefined,
+    mentionId: string,
+    open: (entryId: string | undefined, mentionId: string) => void,
+  ) => {
+    const evidence = citationEvidence.data?.find(
+      (item) =>
+        item.componentIdentity === sourceComponentIdentity &&
+        item.mentionId === mentionId,
+    );
+    const current = citationResolutions.find(
+      (item) =>
+        item.componentIdentity === sourceComponentIdentity &&
+        item.mentionId === mentionId,
+    );
+    if (evidence) {
+      setResolvingMention({
+        componentIdentity: sourceComponentIdentity,
+        mentionId,
+      });
+      inferCitationResolution.reset();
+    }
+    open(current?.bibliographyEntryId ?? entryId, mentionId);
+  };
+  const openCurrentCitationResolution = (
+    entryId: string | undefined,
+    mentionId: string,
+  ) =>
+    beginCitationResolution(
+      component.identity,
+      entryId,
+      mentionId,
+      openCurrentCitation,
+    );
+  const openCitationResolutionFrom = (
+    sourceComponent: SepReadingData["components"][number],
+    entryId: string | undefined,
+    mentionId: string,
+  ) =>
+    beginCitationResolution(
+      sourceComponent.identity,
+      entryId,
+      mentionId,
+      (targetEntryId, targetMentionId) =>
+        openCitationFrom(sourceComponent, targetEntryId, targetMentionId),
+    );
+  const openManualCitationResolution = (
+    entryId: string,
+    resolutionId: string,
+    bibliographyComponentIdentity: string,
+  ) => {
+    const bibliographyComponent = reading.components.find(
+      (candidate) => candidate.identity === bibliographyComponentIdentity,
+    );
+    if (!bibliographyComponent) return;
+    openCitationFrom(bibliographyComponent, entryId, resolutionId);
+  };
   useReadingNavigationObservations({
     componentIdentity: component.identity,
     navigation,
@@ -440,6 +542,20 @@ function useReadingWorkspaceViewProps({
     };
     handleComponentChange(targetComponentIdentity);
   };
+  const returnToBibliographyMention = (mention: BibliographyMention) => {
+    if (mention.origin === "authored") {
+      returnToCitationTarget(mention.id, mention.componentIdentity);
+      return;
+    }
+    const { resolution } = mention;
+    if (resolution.componentIdentity === component.identity) {
+      navigateToCitationResolution(resolution);
+      onViewChange("article");
+      return;
+    }
+    pendingCitationResolution.current = resolution;
+    handleComponentChange(resolution.componentIdentity);
+  };
   const clearEditingAnnotation = createClearEditingAnnotationHandler(
     setEditingAnnotationId,
   );
@@ -447,6 +563,65 @@ function useReadingWorkspaceViewProps({
     component,
     openAuthoredLink,
   );
+  const activeEvidence = citationEvidence.data?.find(
+    (item) =>
+      item.componentIdentity === resolvingMention?.componentIdentity &&
+      item.mentionId === resolvingMention.mentionId,
+  );
+  const activeResolution = citationResolutions.find(
+    (item) =>
+      item.componentIdentity === resolvingMention?.componentIdentity &&
+      item.mentionId === resolvingMention.mentionId,
+  );
+  const updateResolution = (resolution: CitationResolution) => {
+    const queryKey = library.sources.readingWorkspace.key({
+      input: { sourceId: source.id, stateId: source.stateId },
+    });
+    queryClient.setQueryData<ReadingWorkspaceData>(queryKey, (workspace) =>
+      workspace
+        ? {
+            ...workspace,
+            citationResolutions: [
+              ...workspace.citationResolutions.filter(
+                (candidate) =>
+                  candidate.componentIdentity !==
+                    resolution.componentIdentity ||
+                  candidate.mentionId !== resolution.mentionId,
+              ),
+              resolution,
+            ],
+          }
+        : workspace,
+    );
+    queryClient.invalidateQueries({ queryKey });
+  };
+  const selectCitationCandidate = (
+    candidate: NonNullable<typeof activeEvidence>["candidates"][number],
+    inference?: Extract<
+      LibraryOutputs["citationResolutions"]["infer"],
+      { status: "suggested" }
+    >,
+  ) => {
+    if (!activeEvidence) return;
+    createCitationResolution.mutate(
+      {
+        sourceId: source.id,
+        stateId: source.stateId,
+        componentIdentity: activeEvidence.componentIdentity,
+        mentionId: activeEvidence.mentionId,
+        bibliographyComponentIdentity: candidate.bibliographyComponentIdentity,
+        bibliographyEntryId: candidate.bibliographyEntryId,
+        method: inference ? "inferred" : "manual",
+        ...(inference
+          ? {
+              confidence: inference.confidence,
+              reasoning: inference.reasoning,
+            }
+          : {}),
+      },
+      { onSuccess: updateResolution },
+    );
+  };
   return {
     articlePaneProps: {
       annotations: {
@@ -459,8 +634,10 @@ function useReadingWorkspaceViewProps({
       capture,
       component,
       contentActions: {
+        citationResolutions,
         onOpenAuthoredLink: openCurrentAuthoredLink,
-        onOpenCitation: openCurrentCitation,
+        onOpenCitation: openCurrentCitationResolution,
+        onOpenCitationResolution: openManualCitationResolution,
         onJumpReference: jumpToReference,
         onOpenReference: openReference,
         referenceIndex,
@@ -478,9 +655,70 @@ function useReadingWorkspaceViewProps({
     readingToolsProps: {
       bibliography: {
         citationScrollRequest,
+        citationResolutions,
+        resolution: activeEvidence
+          ? {
+              current: activeResolution,
+              evidence: activeEvidence,
+              inference: inferCitationResolution.data,
+              pending: {
+                clear: clearCitationResolution.isPending,
+                infer: inferCitationResolution.isPending,
+                select: createCitationResolution.isPending,
+              },
+              onCancel: () => {
+                inferCitationResolution.reset();
+                setResolvingMention(undefined);
+                onViewChange("article");
+              },
+              onClear: () =>
+                clearCitationResolution.mutate(
+                  {
+                    sourceId: source.id,
+                    stateId: source.stateId,
+                    componentIdentity: activeEvidence.componentIdentity,
+                    mentionId: activeEvidence.mentionId,
+                  },
+                  {
+                    onSuccess: () => {
+                      const queryKey = library.sources.readingWorkspace.key({
+                        input: { sourceId: source.id, stateId: source.stateId },
+                      });
+                      queryClient.setQueryData<ReadingWorkspaceData>(
+                        queryKey,
+                        (workspace) =>
+                          workspace
+                            ? {
+                                ...workspace,
+                                citationResolutions:
+                                  workspace.citationResolutions.filter(
+                                    (candidate) =>
+                                      candidate.componentIdentity !==
+                                        activeEvidence.componentIdentity ||
+                                      candidate.mentionId !==
+                                        activeEvidence.mentionId,
+                                  ),
+                              }
+                            : workspace,
+                      );
+                      queryClient.invalidateQueries({ queryKey });
+                    },
+                  },
+                ),
+              onInfer: () =>
+                inferCitationResolution.mutate({
+                  sourceId: source.id,
+                  stateId: source.stateId,
+                  componentIdentity: activeEvidence.componentIdentity,
+                  mentionId: activeEvidence.mentionId,
+                  consent: true,
+                }),
+              onSelect: selectCitationCandidate,
+            }
+          : undefined,
         mainComponentIdentity: reading.mainComponent.identity,
         navigation,
-        onReturnCitation: returnToCitationTarget,
+        onReturnCitation: returnToBibliographyMention,
         selectedComponentIdentity: citationComponentIdentity,
         selectedEntry: selectedCitationForView(view, selectedCitation),
       },
@@ -501,7 +739,7 @@ function useReadingWorkspaceViewProps({
       supplementary: {
         onJumpReference: jumpToReference,
         onOpenAuthoredLink: openAuthoredLink,
-        onOpenCitation: openCitationFrom,
+        onOpenCitation: openCitationResolutionFrom,
         onOpenReference: openReference,
         publisherNotes: notes,
         publisherNotesOwner:

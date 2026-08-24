@@ -63,14 +63,17 @@ test("waits for layout before scrolling to a selected entry", async () => {
         <Bibliography
           bibliographyComponents={{
             all: reading.components,
+            citationResolutions: [],
             mainIdentity: reading.mainComponent.identity,
           }}
-          citationScrollRequest={1}
           navigation={createReadingNavigation()}
           onReturn={() => undefined}
           scrollContainerRef={scrollContainerRef}
-          selectedComponentIdentity="article"
-          selectedEntry="entry-one"
+          selection={{
+            componentIdentity: "article",
+            entry: "entry-one",
+            request: 1,
+          }}
         />
       </div>,
     );
@@ -129,14 +132,17 @@ test("cancels a bibliography target before its scheduled movement", async () => 
         <Bibliography
           bibliographyComponents={{
             all: reading.components,
+            citationResolutions: [],
             mainIdentity: reading.mainComponent.identity,
           }}
-          citationScrollRequest={1}
           navigation={navigation}
           onReturn={() => undefined}
           scrollContainerRef={scrollContainerRef}
-          selectedComponentIdentity="article"
-          selectedEntry="entry-one"
+          selection={{
+            componentIdentity: "article",
+            entry: "entry-one",
+            request: 1,
+          }}
         />
       </div>,
     );

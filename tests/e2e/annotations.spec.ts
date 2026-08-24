@@ -152,7 +152,7 @@ test("cancels a pending Annotation return when newer article navigation wins", a
       .find((button) => button.textContent?.includes("visible paragraph"))
       ?.click();
     document
-      .querySelector<HTMLAnchorElement>('a[href="#source-information"]')
+      .querySelector<HTMLAnchorElement>('a[href$="#source-information"]')
       ?.click();
     (
       window as typeof window & { __annotationImageReady?: boolean }
@@ -183,15 +183,25 @@ test("keeps Annotation movement independent from Reading-tools navigation", asyn
   page,
 }) => {
   await installNavigationTrace(page);
+  await page.route("**/orpc/sources/resume**", (route) =>
+    route.fulfill({
+      body: JSON.stringify({ json: null, meta: [] }),
+      contentType: "application/json",
+      status: 200,
+    }),
+  );
   await page.goto(`/sources/${sourceId}/${stateId}`);
-  await page
+  await openAnnotationNotes(page);
+  const readingTools = page.getByRole("complementary", {
+    name: "Reading tools",
+  });
+  await readingTools
     .getByRole("tab", { name: "Notes" })
     .evaluate((element) => element.click());
   await setToolsPosition(page, 260);
-  await page
+  await readingTools
     .getByRole("tab", { name: "Contents" })
     .evaluate((element) => element.click());
-  await openAnnotationNotes(page);
   await clearNavigationTrace(page);
 
   await page.evaluate(() => {

@@ -9,6 +9,7 @@ import {
   AnnotationRestingView,
   AnnotationSelectionView,
 } from "./annotation-views";
+import type { CitationResolution, SelectionDraft } from "./dom-utils";
 import {
   type Annotation,
   clearAnnotationTarget,
@@ -27,6 +28,8 @@ export function ReadingAnnotations({
   resting,
   editAnnotationId,
   onEditAnnotationHandled,
+  onLinkBibliography,
+  onOpenCitationResolution,
 }: {
   articleRef: RefObject<HTMLElement | null>;
   navigateToAnnotation: (annotation: Annotation) => void;
@@ -35,6 +38,7 @@ export function ReadingAnnotations({
     plainText: string;
     sourceId: string;
     stateId: string;
+    citationResolutions?: CitationResolution[];
   };
   resting?: {
     tools?: ReactNode;
@@ -42,18 +46,35 @@ export function ReadingAnnotations({
   };
   editAnnotationId?: string;
   onEditAnnotationHandled?: () => void;
+  onLinkBibliography?: (selection: SelectionDraft) => void;
+  onOpenCitationResolution?: (
+    entryId: string,
+    resolutionId: string,
+    bibliographyComponentIdentity: string,
+  ) => void;
 }) {
-  const { componentIdentity, plainText, sourceId, stateId } = reading;
+  const {
+    citationResolutions = [],
+    componentIdentity,
+    plainText,
+    sourceId,
+    stateId,
+  } = reading;
   const { tools: restingTools, showTools: showRestingTools = true } =
     resting ?? {};
   const q = useAnnotationQueries({ sourceId, stateId });
+  const openCitationResolution = citationResolutionOpener(
+    onOpenCitationResolution,
+  );
   const selection = useAnnotationSelection({
     articleRef,
     annotations: q.annotations,
+    citationResolutions,
     componentIdentity,
     sourceId,
     stateId,
     plainText,
+    onOpenCitationResolution: openCitationResolution,
   });
   const { state, dispatch } = selection;
   useAnnotationDomEffects({
@@ -62,7 +83,6 @@ export function ReadingAnnotations({
     componentIdentity,
     plainText,
   });
-
   const {
     closeMenu,
     closePanel,
@@ -85,6 +105,7 @@ export function ReadingAnnotations({
   const notes = annotations.filter((annotation) =>
     Boolean(annotation.body?.trim()),
   );
+  const selectedForBibliography = state.selection;
 
   useEffect(() => {
     if (!editAnnotationId) return;
@@ -112,6 +133,11 @@ export function ReadingAnnotations({
     articleRef,
     navigateToAnnotation,
     notes,
+    onLinkBibliography: bibliographyLinkAction(
+      onLinkBibliography,
+      selectedForBibliography,
+      dispatch,
+    ),
     plainText,
     queries: q,
     restingTools,
@@ -119,27 +145,73 @@ export function ReadingAnnotations({
     selection,
   };
 
-  if (state.panelOpen) {
-    return <AnnotationPanelView view={view} />;
-  }
+  return annotationView(view, state);
+}
 
+function citationResolutionOpener(
+  open:
+    | ((
+        entryId: string,
+        resolutionId: string,
+        bibliographyComponentIdentity: string,
+      ) => void)
+    | undefined,
+) {
+  if (!open) return undefined;
+  return (resolution: CitationResolution) =>
+    open(
+      resolution.bibliographyEntryId,
+      resolution.id,
+      resolution.bibliographyComponentIdentity,
+    );
+}
+
+function bibliographyLinkAction(
+  link: ((selection: SelectionDraft) => void) | undefined,
+  selected: SelectionDraft | undefined,
+  dispatch: ReturnType<typeof useAnnotationSelection>["dispatch"],
+) {
+  if (!link || !selected) return undefined;
+  return () => {
+    link(selected);
+    dispatch({ type: "CLOSE_MENU" });
+  };
+}
+
+function annotationView(
+  view: Parameters<typeof AnnotationPanelView>[0]["view"],
+  state: ReturnType<typeof useAnnotationSelection>["state"],
+) {
+  if (state.panelOpen) return <AnnotationPanelView view={view} />;
   if (!state.selection || !state.position) {
     return <AnnotationRestingView view={view} />;
   }
-
   return <AnnotationSelectionView view={view} />;
 }
 
 export function useAnnotationNavigation({
-  articleRef,
-  componentIdentity,
-  navigation,
-  plainText,
+  ...options
 }: {
   articleRef: RefObject<HTMLElement | null>;
   componentIdentity: string;
   navigation: ReadingNavigation;
   plainText: string;
+}) {
+  return useAnchoredTargetNavigation({ ...options, targetKind: "annotation" });
+}
+
+export function useAnchoredTargetNavigation({
+  articleRef,
+  componentIdentity,
+  navigation,
+  plainText,
+  targetKind,
+}: {
+  articleRef: RefObject<HTMLElement | null>;
+  componentIdentity: string;
+  navigation: ReadingNavigation;
+  plainText: string;
+  targetKind: "annotation" | "citation-resolution";
 }) {
   const annotationNavigation = useRef<ReadingNavigationHandle | undefined>(
     undefined,
@@ -155,10 +227,10 @@ export function useAnnotationNavigation({
     [],
   );
 
-  return (annotation: Annotation) => {
+  return (annotation: Annotation | CitationResolution) => {
     cancelAnimationFrame(navigationFrame.current);
     annotationNavigation.current?.cancel();
-    const target = `annotation:${componentIdentity}:${annotation.id}`;
+    const target = `${targetKind}:${componentIdentity}:${annotation.id}`;
     const handle = navigation.request({
       cause: "annotation-return",
       owner: "article",

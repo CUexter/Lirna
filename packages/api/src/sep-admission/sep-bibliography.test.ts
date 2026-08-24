@@ -41,6 +41,53 @@ function derivative(html: string) {
   });
 }
 
+function derivativeWithSupplement(mainHtml: string, supplementHtml: string) {
+  const retrievedAt = new Date("2026-08-17T12:00:00.000Z");
+  const main = {
+    identity: "active:/",
+    requestedUrl: source.canonicalUrl,
+    finalUrl: source.canonicalUrl,
+    retrievedAt,
+    sha256: "a".repeat(64),
+    charset: "utf-8",
+    body: Buffer.from(mainHtml),
+  };
+  const supplement = {
+    identity: "active:/supplement.html",
+    role: "supplement" as const,
+    requestedUrl: `${source.canonicalUrl}supplement.html`,
+    finalUrl: `${source.canonicalUrl}supplement.html`,
+    retrievedAt,
+    sha256: "c".repeat(64),
+    charset: "utf-8",
+    body: Buffer.from(supplementHtml),
+    discoveryEdge: "authored:active:/",
+  };
+  return createSepReadingDerivative({
+    source,
+    main,
+    resources: [
+      { identity: "citation-information:logic", sha256: "b".repeat(64) },
+      { identity: main.identity, sha256: main.sha256 },
+      { identity: supplement.identity, sha256: supplement.sha256 },
+    ],
+    components: [
+      {
+        ...main,
+        role: "main",
+        discoveryEdge: "submitted-entry",
+      },
+      supplement,
+    ],
+    capture: {
+      completeness: "complete",
+      readingReadiness: "ready",
+      readinessReasons: [],
+      diagnostics: [],
+    },
+  });
+}
+
 test("preserves authored bibliography subgroup headings", () => {
   const result = derivative(
     `<main><h2>Article</h2><p>Text.</p><section id="bibliography"><h2>Bibliography</h2><h3 id="primary">Primary works</h3><ul><li id="locke">Locke, 1689.</li></ul><h3 id="secondary">Secondary works</h3><ul><li id="ada">Ada, 2024.</li></ul></section></main>`,
@@ -116,4 +163,27 @@ test("extracts plain author-year citation formats and links only unique entries"
     { label: "1986a", entryId: "armstrong-1986a" },
   ]);
   expect(readSepReadingDerivative(result)).toEqual(result);
+});
+
+test("resolves supplementary links to the main component bibliography", () => {
+  const result = derivativeWithSupplement(
+    `<main><h2>Article</h2><section id="bibliography"><h2>Bibliography</h2><ul><li id="ada-2024">Ada, Augusta. 2024. Notes on engines.</li></ul></section></main>`,
+    `<main><h2>Supplement</h2><p>See <a href="./#ada-2024">Ada, 2024</a>.</p></main>`,
+  );
+
+  const supplement = result.components.find(
+    (component) => component.role === "supplement",
+  );
+  const paragraph = supplement?.sections[0]?.blocks[0];
+  expect(paragraph?.kind).toBe("paragraph");
+  if (paragraph?.kind !== "paragraph") throw new Error("Missing paragraph");
+  expect(paragraph.children).toContainEqual(
+    expect.objectContaining({
+      kind: "citation",
+      label: "Ada, 2024",
+      state: "resolved",
+      entryId: "ada-2024",
+      rule: "authored-fragment-target",
+    }),
+  );
 });

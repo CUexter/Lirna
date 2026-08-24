@@ -9,6 +9,7 @@ function observationRecords() {
   return {
     observation: {
       requestId: "req-test",
+      fail() {},
       emit(level: "info" | "warn" | "error", record: Record<string, unknown>) {
         records.push({ level, record });
       },

@@ -34,8 +34,8 @@ export function createComponentChangeHandler({
     setEditingAnnotationId(undefined);
     setNotesIdentity(undefined);
     setSelectedReference(undefined);
-    saveLocation();
     onComponentChange(identity);
+    saveLocation();
   };
 }
 

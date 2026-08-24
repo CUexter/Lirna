@@ -25,10 +25,13 @@ await mock.module("@/clients/inquiry", () => ({
           }),
         },
       },
-      reading: {
+      readingWorkspace: {
         queryOptions: ({ input }: { input: unknown }) => ({
-          queryKey: ["reading", input],
-          queryFn: () => getReading(input),
+          queryKey: ["reading-workspace", input],
+          queryFn: async () => ({
+            reading: await getReading(input),
+            citationResolutions: [],
+          }),
         }),
       },
       resume: {
@@ -50,6 +53,35 @@ await mock.module("@/clients/inquiry", () => ({
 
 await mock.module("@/clients/library", () => ({
   library: {
+    sources: {
+      readingWorkspace: {
+        key: ({ input }: { input: unknown }) => ["reading-workspace", input],
+      },
+    },
+    citationResolutions: {
+      evidence: {
+        queryOptions: ({ input }: { input: unknown }) => ({
+          queryKey: ["citation-evidence", input],
+          queryFn: async () => [],
+        }),
+      },
+      list: {
+        key: ({ input }: { input: unknown }) => ["citation-resolutions", input],
+        queryOptions: ({ input }: { input: unknown }) => ({
+          queryKey: ["citation-resolutions", input],
+          queryFn: async () => [],
+        }),
+      },
+      create: {
+        mutationOptions: () => ({ mutationFn: async () => undefined }),
+      },
+      clear: {
+        mutationOptions: () => ({ mutationFn: async () => false }),
+      },
+      infer: {
+        mutationOptions: () => ({ mutationFn: async () => undefined }),
+      },
+    },
     annotations: {
       list: {
         key: ({ input }: { input: unknown }) => ["annotations", input],
@@ -148,13 +180,14 @@ test("renders source-state scholarly apparatus and navigates components", async 
 
   expect(view().getByText("Ada Lovelace, Grace Hopper")).toBeTruthy();
   expect(view().getByText("Synthetic Publisher")).toBeTruthy();
-  expect(view().getByText("Capture and rendering status")).toBeTruthy();
-  expect(view().getByText("Synthetic capture warning.")).toBeTruthy();
+  expect(view().queryByText("Reading degraded")).toBeNull();
+  expect(view().queryByText("Capture and rendering status")).toBeNull();
+  expect(view().queryByText("Synthetic capture warning.")).toBeNull();
   expect(view().getByText("Synthetic figure")).toBeTruthy();
   expect(view().getAllByText("Synthetic figure")).toHaveLength(1);
   expect(
-    view().getByText("Rendering note: missing-semantic-asset"),
-  ).toBeTruthy();
+    view().queryByText("Rendering note: missing-semantic-asset"),
+  ).toBeNull();
   const figure = document.getElementById("synthetic-figure");
   const followingParagraph = view().getByText("After the synthetic figure.");
   expect(figure?.compareDocumentPosition(followingParagraph) ?? 0).toBe(
@@ -415,6 +448,45 @@ test("clears component-local fragments when switching components", async () => {
   await user.click(view().getByRole("button", { name: "Supplement one" }));
   await waitFor(() => view().getByText("First supplement content."));
   expect(router.state.location.hash).toBe("");
+});
+
+test("keeps the selected Source component when following its contents", async () => {
+  resetActions();
+  const reading = readingFixture();
+  const supplement = reading.components.find(
+    (component) => component.identity === "supplement-one",
+  );
+  if (!supplement) throw new Error("Supplement fixture missing");
+  supplement.toc = [
+    { id: "supplement-section", title: "Supplement section", children: [] },
+  ];
+  supplement.sections = [
+    {
+      id: "supplement-section",
+      title: [{ kind: "text", text: "Supplement section" }],
+      level: 2,
+      blocks: [],
+      children: [],
+    },
+  ];
+  getReading = async () => reading;
+  const user = userEvent.setup();
+  const router = await renderReading();
+  await waitFor(() => view().getByText("A synthetic Source state passage."));
+
+  await user.click(view().getByRole("tab", { name: "Supplementary" }));
+  await user.click(view().getByRole("button", { name: "Supplement one" }));
+  await waitFor(() => view().getByText("First supplement content."));
+  await user.click(view().getByRole("tab", { name: "Contents" }));
+  await user.click(view().getByRole("link", { name: "Supplement section" }));
+
+  await waitFor(() =>
+    expect(router.state.location.search).toEqual({
+      component: "supplement-one",
+    }),
+  );
+  expect(router.state.location.hash).toBe("supplement-section");
+  expect(view().getByText("First supplement content.")).toBeTruthy();
 });
 
 test("filters publisher bibliography and preserves component search when returning from a Citation", async () => {

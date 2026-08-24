@@ -86,6 +86,19 @@ export function createSepReadingDerivative(
       createReadingComponent(resource, canonicalResources, order),
     );
   const mainComponent = resolveMainComponent(components, options.main.identity);
+  for (const component of components) {
+    const bibliographyComponent =
+      component.bibliography.length === 0 ? mainComponent : component;
+    resolveSepCitations(
+      component.introductoryBlocks,
+      component.sections,
+      bibliographyComponent.bibliography,
+      {
+        current: component.finalUrl,
+        bibliography: bibliographyComponent.finalUrl,
+      },
+    );
+  }
   return buildReadingContract(options, components, mainComponent, [
     ...captureDiagnostics,
     ...mainDiagnostics,
@@ -215,11 +228,6 @@ function createReadingComponent(
     { excludedElements, figures: figureExtraction.byElement },
   );
   extraction.diagnostics.unshift(...targets.diagnostics);
-  resolveSepCitations(
-    extraction.introductoryBlocks,
-    extraction.sections,
-    bibliography.groups,
-  );
   const parentIdentity = resource.discoveryEdge.startsWith("authored:")
     ? resource.discoveryEdge.slice("authored:".length)
     : undefined;

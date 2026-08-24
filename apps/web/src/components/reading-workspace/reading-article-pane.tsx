@@ -2,6 +2,14 @@ import {
   ReadingAnnotations,
   useAnnotationNavigation,
 } from "../annotations/annotations";
+import {
+  citationResolutionStyleContent,
+  useCitationResolutionHighlights,
+} from "../annotations/citation-resolution-dom";
+import type {
+  CitationResolution,
+  SelectionDraft,
+} from "../annotations/dom-utils";
 import { SepReadingBreadcrumb } from "./breadcrumb";
 import { SepReadingCaptureStatus } from "./capture-status";
 import { SepReadingComponentNav } from "./component-nav";
@@ -39,14 +47,21 @@ export function ReadingArticlePane({
     editingId?: string;
     navigation: ReadingNavigation;
     onEditHandled: () => void;
+    onLinkBibliography?: (selection: SelectionDraft) => void;
     view: "article" | "bibliography";
   };
   articleRef: React.RefObject<HTMLElement | null>;
   capture: SepReadingData["capture"];
   component: Component;
   contentActions: {
+    citationResolutions: CitationResolution[];
     onOpenAuthoredLink: (href: string, label: string) => boolean;
     onOpenCitation: (entryId: string | undefined, mentionId: string) => void;
+    onOpenCitationResolution: (
+      entryId: string,
+      resolutionId: string,
+      bibliographyComponentIdentity: string,
+    ) => void;
     onJumpReference: (reference: ReadingReference) => void;
     onOpenReference: (reference: ReadingReference) => void;
     referenceIndex: ReferenceIndex;
@@ -65,19 +80,29 @@ export function ReadingArticlePane({
     editingId,
     navigation: annotationNavigation,
     onEditHandled,
+    onLinkBibliography,
     view,
   } = annotations;
   const {
+    citationResolutions,
     onOpenAuthoredLink,
     onOpenCitation,
+    onOpenCitationResolution,
     onJumpReference,
     onOpenReference,
     referenceIndex,
   } = contentActions;
   const { mainComponentIdentity, next, onComponentChange, parent, previous } =
     navigation;
+  useCitationResolutionHighlights({
+    articleRef,
+    componentIdentity: component.identity,
+    plainText: component.plainText,
+    resolutions: citationResolutions,
+  });
   return (
     <div className="flex min-w-0 flex-col gap-8 lg:col-start-1 lg:row-start-1">
+      <style>{citationResolutionStyleContent}</style>
       <SepReadingSourceHeader
         capture={capture}
         component={component}
@@ -107,13 +132,14 @@ export function ReadingArticlePane({
       </ReferenceActions.Provider>
       <ArticleAnnotations
         articleRef={articleRef}
-        component={component}
         editingAnnotationId={editingId}
         key={component.identity}
         navigation={annotationNavigation}
         onEditAnnotationHandled={onEditHandled}
+        onLinkBibliography={onLinkBibliography}
+        onOpenCitationResolution={onOpenCitationResolution}
         readingView={view}
-        source={source}
+        reading={{ citationResolutions, component, source }}
       />
       <ReadingResearchAssistant
         componentIdentity={component.identity}
@@ -183,20 +209,30 @@ function ReadingDocument({
 
 function ArticleAnnotations({
   articleRef,
-  component,
   editingAnnotationId,
   navigation,
   onEditAnnotationHandled,
+  onLinkBibliography,
+  onOpenCitationResolution,
+  reading: { citationResolutions, component, source },
   readingView,
-  source,
 }: {
   articleRef: React.RefObject<HTMLElement | null>;
-  component: Component;
   editingAnnotationId?: string;
   navigation: ReadingNavigation;
   onEditAnnotationHandled: () => void;
+  onLinkBibliography?: (selection: SelectionDraft) => void;
+  onOpenCitationResolution: (
+    entryId: string,
+    resolutionId: string,
+    bibliographyComponentIdentity: string,
+  ) => void;
+  reading: {
+    citationResolutions: CitationResolution[];
+    component: Component;
+    source: SepReadingData["source"];
+  };
   readingView: "article" | "bibliography";
-  source: SepReadingData["source"];
 }) {
   const navigateToAnnotation = useAnnotationNavigation({
     articleRef,
@@ -212,7 +248,10 @@ function ArticleAnnotations({
       navigateToAnnotation={navigateToAnnotation}
       key={component.identity}
       onEditAnnotationHandled={onEditAnnotationHandled}
+      onLinkBibliography={onLinkBibliography}
+      onOpenCitationResolution={onOpenCitationResolution}
       reading={{
+        citationResolutions,
         componentIdentity: component.identity,
         plainText: component.plainText,
         sourceId: source.id,

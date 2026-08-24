@@ -114,5 +114,6 @@ POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
 POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
   bun test \
     "$root/packages/api/src/annotations/annotation-store.postgres.test.ts" \
+    "$root/packages/api/src/citation-resolutions/citation-resolution-store.postgres.test.ts" \
     "$root/packages/api/src/reading-position/reading-position-store.postgres.test.ts" \
     --timeout 30000

@@ -19,36 +19,41 @@ function RouteComponent() {
   const { component, view, citation } = Route.useSearch();
   const { hash } = useLocation();
   const navigate = Route.useNavigate();
-  const reading = useQuery(
-    inquiry.sources.reading.queryOptions({ input: { sourceId, stateId } }),
+  const workspace = useQuery(
+    inquiry.sources.readingWorkspace.queryOptions({
+      input: { sourceId, stateId },
+    }),
   );
 
-  if (reading.isPending) {
+  if (workspace.isPending) {
     return (
       <main className="p-6 text-muted-foreground">
         Loading Reading workspace…
       </main>
     );
   }
-  if (reading.isError) {
+  if (workspace.isError) {
     return (
       <main className="p-6">
         <h1 className="font-serif text-2xl">Reading workspace unavailable</h1>
         <p className="mt-2 text-destructive" role="alert">
-          {reading.error.message}
+          {workspace.error.message}
         </p>
       </main>
     );
   }
   return (
     <SepReadingWorkspace
-      reading={reading.data}
       initialFragment={hash}
       selectedComponent={component}
       view={view ?? "article"}
+      workspace={workspace.data}
       selectedCitation={citation}
       onFragmentChange={(fragment) =>
         navigate({
+          search: {
+            component,
+          },
           hash: fragment,
           hashScrollIntoView: false,
           resetScroll: false,

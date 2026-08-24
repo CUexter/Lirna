@@ -11,10 +11,13 @@ let assistantInput: unknown;
 await mock.module("@/clients/inquiry", () => ({
   inquiry: {
     sources: {
-      reading: {
+      readingWorkspace: {
         queryOptions: ({ input }: { input: unknown }) => ({
-          queryKey: ["reading", input],
-          queryFn: async () => readingFixture(),
+          queryKey: ["reading-workspace", input],
+          queryFn: async () => ({
+            reading: readingFixture(),
+            citationResolutions: [],
+          }),
         }),
       },
       resume: {
@@ -44,6 +47,35 @@ await mock.module("@/clients/inquiry", () => ({
 
 await mock.module("@/clients/library", () => ({
   library: {
+    sources: {
+      readingWorkspace: {
+        key: ({ input }: { input: unknown }) => ["reading-workspace", input],
+      },
+    },
+    citationResolutions: {
+      evidence: {
+        queryOptions: ({ input }: { input: unknown }) => ({
+          queryKey: ["citation-evidence", input],
+          queryFn: async () => [],
+        }),
+      },
+      list: {
+        key: ({ input }: { input: unknown }) => ["citation-resolutions", input],
+        queryOptions: ({ input }: { input: unknown }) => ({
+          queryKey: ["citation-resolutions", input],
+          queryFn: async () => [],
+        }),
+      },
+      create: {
+        mutationOptions: () => ({ mutationFn: async () => undefined }),
+      },
+      clear: {
+        mutationOptions: () => ({ mutationFn: async () => false }),
+      },
+      infer: {
+        mutationOptions: () => ({ mutationFn: async () => undefined }),
+      },
+    },
     annotations: {
       list: {
         key: ({ input }: { input: unknown }) => ["annotations", input],

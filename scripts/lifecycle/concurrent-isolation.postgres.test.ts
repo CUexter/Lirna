@@ -342,7 +342,7 @@ postgresTest(
       await Bun.sleep(1_000);
       servers.push(startServer(secondPath));
       await Promise.all([
-        waitForServer(first.urls.server, servers[0]),
+        waitForServer(first.urls.server, servers[0], "HOT_RELOAD_OK"),
         waitForServer(second.urls.server, servers[1]),
       ]);
       const firstEmail = `first-${randomUUID()}@example.test`;

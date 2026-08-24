@@ -16,6 +16,7 @@ describe("oRPC error boundary", () => {
         context: requestContext({
           observation: {
             requestId: "request-123",
+            fail() {},
             emit(level, record) {
               records.push({ level, ...record });
             },

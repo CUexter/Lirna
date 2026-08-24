@@ -185,9 +185,9 @@ test("intercepts and replays an authored fragment before movement", async ({
   await installNavigationTrace(page);
   await page.goto(`/sources/${sourceId}/${stateId}`);
   const link = page
-    .getByRole("link", { name: "Review Source information" })
+    .getByRole("link", { name: "Source information", exact: true })
     .first();
-  await expect(link).toHaveAttribute("href", "#source-information");
+  await expect(link).toHaveAttribute("href", /#source-information$/);
   await expect(link).toBeVisible();
   await page.evaluate(() => {
     document.body.style.minHeight = "5000px";
@@ -199,7 +199,7 @@ test("intercepts and replays an authored fragment before movement", async ({
 
   await page.evaluate(() => {
     const link = document.querySelector<HTMLAnchorElement>(
-      'a[href="#source-information"]',
+      'a[href$="#source-information"]',
     );
     if (!link) throw new Error("Authored fragment link missing");
     link.click();

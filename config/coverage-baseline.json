@@ -1,15 +1,19 @@
 {
   "coverage": {
-    "functionsFound": 393,
-    "functionsHit": 348,
-    "linesFound": 4552,
-    "linesHit": 3840
+    "functionsFound": 1218,
+    "functionsHit": 1065,
+    "linesFound": 15543,
+    "linesHit": 13478
   },
   "absentSources": {
     "apps/docs/src/content.config.ts": "1f8b206b5f7c0afb44c3715a3fe79954b448885fe9e753ba372dddf1210ecfd5",
-    "apps/web/src/main.tsx": "8a4639f1feaa6023e8c7479e734e663b7c54a6b7f18860d0a9b9988e113673ca",
-    "apps/web/src/routes/__root.tsx": "330cdab673de68989f593fb31ce79b92738f3c913bd6eb323bbc88622016884a",
+    "apps/web/src/components/sources-library/types.ts": "f523ce2dd6a686fe44ffe2d2b8a635057ec1fc74cd2b7b1875ca9583fa61b561",
+    "apps/web/src/main.tsx": "e8478d39430f2fc2a6d6bad2ad0a0af78e0202e23bd7f5a9002d32f360007cbc",
+    "apps/web/src/routes/__root.tsx": "347cb4863a97316520fe36baf45f4778b8211c8314480f03081e139e616c86c4",
+    "packages/api/src/citation-resolutions/citation-resolution-contract.ts": "d1fb27f4c53d8e485e0c86be32b0f96b964666831edff6c4bf42cc4716ba0beb",
     "packages/api/src/client.ts": "fceebdab7202315dc4d6591a93c53b9fc7cc4ce6834e3bcf58a45528c610abc1",
+    "packages/api/src/observation.ts": "47ec2046b74dd3ea67c7eba99da989ac548c45b91415e546e154d40f77726542",
+    "packages/api/src/sep-admission/sep-admitted-state.ts": "1aad0b394899bf261463bddb7e6c3faefde9a56b00b35d3fb0fa089a6f811da7",
     "packages/ui/src/components/attachment.tsx": "be6183559dcedb7b2ba5d863fc3bb42d755d4e8d5381350df6206215c8aef900",
     "packages/ui/src/components/badge.tsx": "a8c7da76342b51fbf5344e3d76fe2928b6b59292277b71d98fbeb5fec04d4629",
     "packages/ui/src/components/bubble.tsx": "947f116f97ef8c9478fd358afcdda3ab196c0e4646d01889805be95eeeea5e93",
@@ -29,7 +33,7 @@
     "packages/ui/src/components/separator.tsx": "b8dafefe1e306da399920150d99f7a08de19ec3a0809744dd3d1b0d2a33039e9",
     "packages/ui/src/components/skeleton.tsx": "aedffa09fb2c07169e386221ae3a6fd4b78c2c25c34021b450e58ad85a41f75d",
     "packages/ui/src/components/sonner.tsx": "651c77cbb2aed9c3b17a427bd5cc730ffedd1951ccefb05a95ba9d10eed2a7a9",
-    "packages/ui/src/components/tabs.tsx": "f60a43490f94c4ad8907f3d156ecf01dd71791e22d7b0dd8d3105851803d4022",
+    "packages/ui/src/components/tabs.tsx": "c6e8ff2e140a5315b6e782370935e8a0ff5a9babc0c3d0a5b5c81e68e2d34595",
     "packages/ui/src/components/textarea.tsx": "c13c6168e337832d428a2bf72d980cbe380fb8a05bc40c5400797aa5d6cdfc02",
     "packages/ui/src/components/tooltip.tsx": "66d4d4328c6aaf1cbe45b498da8e3daa9c7e982dcc115c25bf426712b451212a"
   }

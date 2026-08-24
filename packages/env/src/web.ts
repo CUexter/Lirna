@@ -5,6 +5,10 @@ export const env = createEnv({
   clientPrefix: "VITE_",
   client: {
     VITE_SERVER_URL: z.url(),
+    VITE_SHOW_DIAGNOSTICS: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
   },
   runtimeEnv: (
     import.meta as ImportMeta & { env: Record<string, string | undefined> }

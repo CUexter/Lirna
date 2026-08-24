@@ -735,6 +735,8 @@ function orpcError(message, code = "BAD_REQUEST") {
 
 const orpcPostRoutes = {
   "sources/reading": () => orpcSuccess(reading),
+  "sources/readingWorkspace": () =>
+    orpcSuccess({ reading, citationResolutions: [] }),
   "sources/resume": () => orpcSuccess(resumePosition),
   "annotations/list": () => orpcSuccess(annotations),
   "sepAdmission/get": () => orpcSuccess(preview),
@@ -812,6 +814,14 @@ const server = createServer(async (request, response) => {
     request.url?.startsWith("/orpc/annotations/list")
   ) {
     sendJson(response, 200, orpcSuccess(annotations));
+    return;
+  }
+
+  if (
+    request.method === "GET" &&
+    request.url?.startsWith("/orpc/sources/readingWorkspace")
+  ) {
+    sendJson(response, 200, orpcSuccess({ reading, citationResolutions: [] }));
     return;
   }
 
