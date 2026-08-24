@@ -14,6 +14,8 @@ case "${1:-}" in
       --severity HIGH,CRITICAL \
       --exit-code 1 \
       --skip-dirs '**/node_modules' \
+      --skip-dirs .stryker-tmp \
+      --skip-dirs .worktrees \
       --skip-dirs prototype \
       --skip-dirs lirna-legacy \
       --disable-telemetry \
@@ -29,6 +31,8 @@ case "${1:-}" in
       --ignore-unfixed \
       --exit-code 1 \
       --skip-dirs '**/node_modules' \
+      --skip-dirs .stryker-tmp \
+      --skip-dirs .worktrees \
       --skip-dirs prototype \
       --skip-dirs lirna-legacy \
       --disable-telemetry \

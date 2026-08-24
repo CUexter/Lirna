@@ -54,6 +54,7 @@ grep -Fq 'missing an exact Bun lockfile entry' "$tmp/dependency-violation.log"
 mkdir "$tmp/dependency-bin"
 ln -s "$(command -v node)" "$tmp/dependency-bin/node"
 ln -s "$(command -v bash)" "$tmp/dependency-bin/bash"
+ln -s "$(command -v bun)" "$tmp/dependency-bin/bun"
 cat > "$tmp/dependency-bin/git" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' 'synthetic git failure' >&2
