@@ -2,6 +2,7 @@
 import { openapi } from "@orpc/openapi";
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
+import { createOfflineWorkingSetSnapshot } from "../../offline-working-set/offline-working-set";
 import {
   readingSemanticLocationSchema,
   semanticLocationMatchesPosition,
@@ -9,6 +10,7 @@ import {
 import { sepObservationKeySchema } from "../../sep-admission/sep-admission-builders";
 import { sepReadingContractSchema } from "../../sep-admission/sep-reading-contract";
 import { authenticatedProcedure, publicProcedure } from "../init";
+import { annotationSchema } from "./annotations";
 import { citationResolutionSchema } from "./citation-resolution-schema";
 import { sepAdmittedStateSchema } from "./sep-admission-schemas";
 import { sourceDerivativesRouter } from "./source-derivatives";
@@ -17,7 +19,7 @@ const sourceStateInput = z.object({
   sourceId: z.string().uuid(),
   stateId: z.string().uuid(),
 });
-export const sepLibrarySourceSchema = z.object({
+const sepLibrarySourceSchema = z.object({
   id: z.string().uuid(),
   title: z.string(),
   admittedAt: z.string().datetime(),
@@ -47,7 +49,7 @@ export const sepLibrarySourceSchema = z.object({
   ),
 });
 const notFoundError = { NOT_FOUND: {} };
-const readingPosition = z.object({
+const readingPositionSchema = z.object({
   sourceId: z.string().uuid(),
   stateId: z.string().uuid(),
   sourceTitle: z.string(),
@@ -56,6 +58,49 @@ const readingPosition = z.object({
   scrollTop: z.number().int().nonnegative(),
   semanticLocation: readingSemanticLocationSchema.optional(),
   savedAt: z.string().datetime(),
+});
+const readingWorkspaceSchema = z.object({
+  reading: sepReadingContractSchema,
+  state: sepAdmittedStateSchema.optional(),
+  source: sepLibrarySourceSchema,
+  citationResolutions: z.array(citationResolutionSchema),
+});
+const offlineWorkingSetSchema = z.object({
+  manifest: z.object({
+    version: z.literal(1),
+    sourceId: z.string().uuid(),
+    stateId: z.string().uuid(),
+    synchronizedAt: z.string().datetime(),
+    activeDerivative: z.object({
+      id: z.string().uuid(),
+      activationId: z.string().uuid(),
+      sha256: z.string().regex(/^[0-9a-f]{64}$/),
+      byteLength: z.number().int().nonnegative(),
+    }),
+    resources: z.array(
+      z.object({
+        identity: z.string(),
+        role: z.string(),
+        byteLength: z.number().int().nonnegative(),
+        sha256: z.string().regex(/^[0-9a-f]{64}$/),
+      }),
+    ),
+    totalBytes: z.number().int().nonnegative(),
+    payloadSha256: z.string().regex(/^[0-9a-f]{64}$/),
+    serverRetention: z.object({
+      state: z.enum(["ready", "partial"]),
+      reasons: z.array(z.string()),
+    }),
+    clientAvailability: z.object({
+      state: z.literal("unknown"),
+      reason: z.string(),
+    }),
+  }),
+  replica: z.object({
+    workspace: readingWorkspaceSchema.extend({ state: sepAdmittedStateSchema }),
+    annotations: z.array(annotationSchema),
+    positions: z.array(readingPositionSchema),
+  }),
 });
 
 export const sourcesRouter = {
@@ -140,14 +185,7 @@ export const sourcesRouter = {
 
   readingWorkspace: authenticatedProcedure
     .input(sourceStateInput)
-    .output(
-      z.object({
-        reading: sepReadingContractSchema,
-        state: sepAdmittedStateSchema.optional(),
-        source: sepLibrarySourceSchema,
-        citationResolutions: z.array(citationResolutionSchema),
-      }),
-    )
+    .output(readingWorkspaceSchema)
     .errors(notFoundError)
     .meta(
       openapi({
@@ -186,6 +224,54 @@ export const sourcesRouter = {
       };
     }),
 
+  offlineManifest: authenticatedProcedure
+    .input(sourceStateInput)
+    .output(offlineWorkingSetSchema)
+    .errors(notFoundError)
+    .meta(
+      openapi({
+        method: "GET",
+        path: "/sources/offline-working-set",
+        operationId: "sources.offlineManifest",
+        summary: "Get a bounded Offline working set snapshot",
+        tags: ["Sources"],
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      const workspace = await context.admittedSourceStates.getWorkspace(
+        input.sourceId,
+        input.stateId,
+      );
+      if (!workspace) throw notFound("SEP Reading Derivative is unavailable");
+      const [sources, citationResolutions, annotations] = await Promise.all([
+        context.admittedSourceStates.listSources(),
+        context.citationResolutions.list(input.sourceId, input.stateId),
+        context.annotations.list(input.sourceId, input.stateId),
+      ]);
+      const source = sources.find(({ id }) => id === input.sourceId);
+      if (!source) throw notFound("SEP Source is unavailable");
+      const positions = (
+        await Promise.all(
+          workspace.reading.components.map((component) =>
+            context.readingPositions.get({
+              sourceId: input.sourceId,
+              stateId: input.stateId,
+              componentIdentity: component.identity,
+            }),
+          ),
+        )
+      ).filter((position) => position !== undefined);
+      return createOfflineWorkingSetSnapshot({
+        workspace: {
+          ...workspace,
+          source,
+          citationResolutions,
+        },
+        annotations,
+        positions,
+      });
+    }),
+
   derivatives: sourceDerivativesRouter,
 
   resume: {
@@ -204,7 +290,7 @@ export const sourcesRouter = {
             "Resume scope requires sourceId, stateId, and componentIdentity",
           ),
       )
-      .output(readingPosition.nullable())
+      .output(readingPositionSchema.nullable())
       .meta(
         openapi({
           method: "GET",
@@ -247,7 +333,7 @@ export const sourcesRouter = {
             }
           }),
       )
-      .output(readingPosition)
+      .output(readingPositionSchema)
       .errors(notFoundError)
       .meta(
         openapi({

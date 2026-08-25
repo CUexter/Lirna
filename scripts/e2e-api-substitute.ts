@@ -1,4 +1,5 @@
 // biome-ignore lint/style/noExcessiveLinesPerFile: The standalone server keeps its coupled protocol fixtures in one executable test boundary.
+import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 
 const host = "127.0.0.1";
@@ -907,6 +908,89 @@ function sourceInformationFor(sessionId) {
   return information;
 }
 
+function offlineWorkingSetFor(sessionId) {
+  const workspace = {
+    reading,
+    citationResolutions: [],
+    ...sourceInformationFor(sessionId),
+  };
+  const replica = {
+    workspace,
+    annotations,
+    positions: [
+      {
+        ...resumePosition,
+        scrollTop: 240,
+        semanticLocation: {
+          version: 1,
+          source: {
+            sourceId: resumePosition.sourceId,
+            stateId: resumePosition.stateId,
+          },
+          scene: {
+            identity: resumePosition.componentIdentity,
+            componentIdentity: resumePosition.componentIdentity,
+            owner: "article",
+          },
+          block: { identity: "knowledge", strategy: "authored-anchor" },
+          progress: 0.25,
+          fallback: {
+            scrollTop: 240,
+            blockIndex: 1,
+            blockTag: "section",
+            textExcerpt: "Visible typed paragraph.",
+            authoredAnchor: "knowledge",
+          },
+        },
+      },
+    ],
+  };
+  const activeDerivative = workspace.state.derivatives.find(
+    (derivative) => derivative.currentActivation,
+  );
+  const resources = workspace.state.resources.map(
+    ({ identity, role, byteLength, sha256 }) => ({
+      identity,
+      role,
+      byteLength,
+      sha256,
+    }),
+  );
+  const serialized = JSON.stringify(replica);
+  const partial = String(sessionId).includes("partial");
+  return {
+    manifest: {
+      version: 1,
+      sourceId: reading.source.id,
+      stateId: reading.source.stateId,
+      synchronizedAt: "2026-08-25T12:00:00.000Z",
+      activeDerivative: {
+        id: activeDerivative.id,
+        activationId: activeDerivative.currentActivation.id,
+        sha256: hash(JSON.stringify(reading)),
+        byteLength: Buffer.byteLength(JSON.stringify(reading)),
+      },
+      resources,
+      totalBytes:
+        Buffer.byteLength(serialized) +
+        resources.reduce((total, resource) => total + resource.byteLength, 0),
+      payloadSha256: hash(serialized),
+      serverRetention: partial
+        ? { state: "partial", reasons: ["Supplement unavailable"] }
+        : { state: "ready", reasons: [] },
+      clientAvailability: {
+        state: "unknown",
+        reason: "Client validation required",
+      },
+    },
+    replica,
+  };
+}
+
+function hash(value) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
 function projectSessionDerivative(derivative, session) {
   const { currentActivation, ...inactive } = derivative;
   if (derivative.id !== session.activeDerivativeId) return inactive;
@@ -1006,6 +1090,8 @@ const orpcPostRoutes = {
       citationResolutions: [],
       ...sourceInformationFor(sessionId),
     }),
+  "sources/offlineManifest": (_body, sessionId) =>
+    orpcSuccess(offlineWorkingSetFor(sessionId)),
   "sources/derivatives/generate": (_body, sessionId) => {
     derivativeSession(sessionId).generated = true;
     return orpcSuccess(derivativeCandidate);

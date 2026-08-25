@@ -23,7 +23,7 @@ test("renders a typed SEP Reading workspace without captured markup", async ({
   await expect(sourceInformation.getByText("Article")).toBeVisible();
   await sourceInformation.getByText("Diagnostics and Derivatives").click();
   await expect(
-    sourceInformation.getByText(/sep 1.*parse5 7.3.0/),
+    sourceInformation.getByText(/sep 1.*parse5 7.3.0/).first(),
   ).toBeVisible();
   await sourceInformation
     .getByRole("button", { name: "Check for update" })

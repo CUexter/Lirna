@@ -7,6 +7,7 @@ import type { InquiryOutputs } from "@/clients/inquiry";
 import { ServerErrorMessage } from "@/components/server-error-message";
 import { SepAdmissionPreview } from "@/components/source-admission/preview";
 import { useSepUpdate } from "@/hooks/use-sep-update";
+import { OfflineWorkingSetPanel } from "@/offline-working-set/offline-working-set-panel";
 import { DerivativeReview } from "./derivative-review";
 
 type Workspace = InquiryOutputs["sources"]["readingWorkspace"];
@@ -213,6 +214,17 @@ function SepSourceInformation({ workspace }: { workspace: SepWorkspace }) {
         </details>
 
         <DerivativeReview sourceId={source.id} state={state} />
+
+        <OfflineWorkingSetPanel
+          activationId={
+            state.derivatives.find((item) => item.currentActivation)
+              ?.currentActivation?.id
+          }
+          currentStateId={source.currentStateId}
+          key={`${source.id}:${state.id}`}
+          sourceId={source.id}
+          stateId={state.id}
+        />
 
         {update.checkError ? (
           <ServerErrorMessage error={update.checkError} />

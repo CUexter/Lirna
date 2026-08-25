@@ -18,7 +18,7 @@ const sourceStateInput = z.object({
 const color = z.enum(annotationColors);
 const kind = z.enum(annotationKinds);
 const body = z.string().trim().max(20_000).optional();
-const annotation = z.object({
+export const annotationSchema = z.object({
   id: z.string().uuid(),
   sourceId: z.string().uuid(),
   sourceStateId: z.string().uuid(),
@@ -42,7 +42,7 @@ const annotationErrors = { ...notFoundError, BAD_REQUEST: {} };
 export const annotationsRouter = {
   list: publicProcedure
     .input(sourceStateInput)
-    .output(z.array(annotation))
+    .output(z.array(annotationSchema))
     .meta(
       openapi({
         method: "GET",
@@ -89,7 +89,7 @@ export const annotationsRouter = {
           },
         ),
     )
-    .output(annotation)
+    .output(annotationSchema)
     .errors(annotationErrors)
     .meta(
       openapi({
@@ -117,7 +117,7 @@ export const annotationsRouter = {
     .input(
       sourceStateInput.extend({ id: z.string().uuid(), color, kind, body }),
     )
-    .output(annotation)
+    .output(annotationSchema)
     .errors(annotationErrors)
     .meta(
       openapi({

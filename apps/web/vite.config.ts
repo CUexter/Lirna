@@ -39,6 +39,8 @@ export default defineConfig({
         name: "Lirna",
         short_name: "Lirna",
         description: "Lirna - PWA Application",
+        display: "standalone",
+        start_url: "/",
         theme_color: "#0c0c0c",
       },
       pwaAssets: { disabled: false, config: true },

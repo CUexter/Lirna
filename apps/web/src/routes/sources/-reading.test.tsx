@@ -21,6 +21,16 @@ let getReading: (input: unknown) => Promise<unknown> = async () =>
   readingFixture();
 let workspaceOverride: ReturnType<typeof readingWorkspaceFixture> | undefined;
 let annotations: unknown[] = [];
+let retainedReplica: unknown;
+
+await mock.module("@/offline-working-set/offline-working-set-store", () => ({
+  readOfflineWorkingSet: async () => retainedReplica,
+  confirmOfflineWorkingSetRemoval: async () => undefined,
+  markOfflineWorkingSetStale: async (record: unknown) => record,
+  requestOfflineWorkingSetRemoval: async (record: unknown) => record,
+  restoreOfflineWorkingSet: async (record: unknown) => record,
+  retainOfflineWorkingSet: async (record: unknown) => record,
+}));
 
 await mock.module("@/clients/inquiry", () => ({
   inquiry: {
@@ -47,6 +57,7 @@ await mock.module("@/clients/inquiry", () => ({
       },
       resume: {
         get: {
+          key: ({ input }: { input: unknown }) => ["resume", input],
           queryOptions: ({ input }: { input: unknown }) => ({
             queryKey: ["resume", input],
             queryFn: async () => null,
@@ -128,6 +139,7 @@ function resetActions() {
   calls.reading.length = 0;
   annotations = [];
   workspaceOverride = undefined;
+  retainedReplica = undefined;
   setSepUpdateResult();
   getReading = async (input) => {
     calls.reading.push(input);
@@ -179,6 +191,42 @@ test("shows Reading loading and unavailable states through its route", async () 
     ),
   );
   expect(view().getByText("Reading workspace unavailable")).toBeTruthy();
+});
+
+test("opens a retained Reading workspace when the backend is unavailable", async () => {
+  resetActions();
+  const retainedWorkspace = readingWorkspaceFixture();
+  retainedReplica = {
+    availability: "ready",
+    manifest: {
+      resources: [],
+      totalBytes: 100,
+      synchronizedAt: "2026-08-25T12:00:00.000Z",
+      serverRetention: { state: "ready", reasons: [] },
+      activeDerivative: {
+        activationId:
+          retainedWorkspace.state?.derivatives[0]?.currentActivation?.id,
+      },
+    },
+    replica: {
+      workspace: retainedWorkspace,
+      annotations: [],
+      positions: [],
+    },
+  };
+  getReading = async () => {
+    throw new Error("Backend unavailable");
+  };
+
+  await renderReading();
+  await waitFor(() =>
+    expect(view().getByRole("status").textContent).toContain(
+      "Backend unavailable",
+    ),
+  );
+  expect(
+    view().getByRole("heading", { name: "Synthetic Reading Source" }),
+  ).toBeTruthy();
 });
 
 test("renders source-state scholarly apparatus and navigates components", async () => {
