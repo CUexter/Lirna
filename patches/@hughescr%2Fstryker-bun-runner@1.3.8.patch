@@ -1,0 +1,29 @@
+diff --git a/dist/index.js b/dist/index.js
+index dd7aadc..0ad4d4b 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -8253,6 +8253,7 @@ var BunTestRunner = class {
+   cachedTestFilesCwd;
+   cachedEagerModules;
+   cachedEagerModulesCwd;
++  coverageAnalysis;
+   lastRegistryTmpPath;
+   currentAbortController;
+   constructor(logger, options) {
+@@ -8274,6 +8275,7 @@ var BunTestRunner = class {
+       this.testFilesOverride = bunOptions.testFiles;
+     }
+     this.mutateGlobs = options.mutate ?? [];
++    this.coverageAnalysis = options.coverageAnalysis;
+     this.logger.debug("BunTestRunner initialized with options: %o", {
+       bunPath: this.bunPath,
+       timeout: this.timeout,
+@@ -8346,7 +8348,7 @@ var BunTestRunner = class {
+     this.logger.debug("Generating coverage preload script...");
+     const eagerCwd = process.cwd();
+     if (this.cachedEagerModules === undefined || this.cachedEagerModulesCwd !== eagerCwd) {
+-      this.cachedEagerModules = await resolveEagerModulesFromGlobs(this.mutateGlobs);
++      this.cachedEagerModules = this.coverageAnalysis === "off" ? [] : await resolveEagerModulesFromGlobs(this.mutateGlobs);
+       this.cachedEagerModulesCwd = eagerCwd;
+       this.logger.debug("Resolved %d eager modules from mutate globs", this.cachedEagerModules.length);
+     }

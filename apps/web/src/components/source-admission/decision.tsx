@@ -125,6 +125,7 @@ export function SepAdmissionDecision({
                 key={observation.key}
               >
                 <Checkbox
+                  aria-label={observation.label}
                   checked={checked}
                   disabled={disabled}
                   id={id}
@@ -148,6 +149,7 @@ export function SepAdmissionDecision({
 
         <div className="flex items-start gap-3 rounded-md bg-muted/50 p-4">
           <Checkbox
+            aria-label="Create one immutable Source state for each selected observation using exactly the retained preview bytes. Admission does not fetch SEP again."
             checked={confirmed}
             disabled={disabled}
             id="confirm-admission"

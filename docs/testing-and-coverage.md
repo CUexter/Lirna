@@ -59,59 +59,44 @@ the Quality workflow enforces the ratchet.
 
 Mutation testing checks whether tests detect small behavioral changes, rather
 than only whether they execute a line. Lirna uses the official Stryker core as
-a Node-hosted mutation orchestrator and Stryker's command runner to execute the
+a Node-hosted mutation orchestrator and the unofficial Bun runner to execute the
 canonical Bun tests. Node does not provide a second application runtime or a
 parallel test suite: Bun remains the authority that kills or preserves every
 mutant.
 
-Run both current campaigns with:
+Run application mutation testing with:
 
 ```bash
 bun run test:mutation
 ```
 
-Run one focused campaign while developing with:
+The application campaign mutates production TypeScript in every workspace:
 
-```bash
-bun run test:mutation:dependency-score
-bun run test:mutation:sep-url
-```
-
-The campaigns are intentionally explicit:
-
-| Campaign | Mutated source | Bun test command |
+| Campaign | Mutated source | Bun test scope |
 | --- | --- | --- |
-| Dependency scoring | `scripts/dependency-score-policy.ts` | `bun test --isolate scripts/dependency-score.test.ts` |
-| SEP URL policy | `packages/api/src/sep-admission/sep-url.ts` | `bun test --isolate packages/api/src/sep-admission/sep-capture.test.ts` |
+| Application | `apps/*/src` and `packages/*/src` production modules | Explicit `*.test` and `*.spec` files under `apps/` and `packages/` |
 
-The initial setup run on 2026-08-20 established diagnostic observations, not
-enforced baselines:
+Test files, fixtures, test support, and generated files are excluded from the
+mutation set. Repository tooling under `scripts/` is not mutation-tested.
 
-| Campaign | Mutants | Killed | Survived | Score | Runtime |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Dependency scoring | 234 | 168 | 66 | 71.79% | 3 seconds |
-| SEP URL policy | 156 | 70 | 86 | 44.87% | 3 seconds |
+The unofficial `@hughescr/stryker-bun-runner` supplies per-test coverage, so a
+mutant normally reruns only the Bun tests that covered it. Each shard has an
+explicit, related test-file list, which excludes `scripts/` tests and prevents
+the runner's eager source imports from sharing unrelated UI test state. The
+annotation shard disables coverage analysis because its asynchronous DOM tests
+are incompatible with eager source imports; it reruns its focused tests for every
+mutant instead. A local Bun patch prevents the runner from performing those
+unnecessary imports when coverage analysis is off. The application source is
+split into eight non-overlapping shards. `bun run test:mutation` runs those
+shards in parallel locally; each `test:mutation:<shard>` script runs one shard
+directly.
 
-The SEP result in particular identifies missing assertions around resource URL
-scope, unsafe paths, normalized identities, and archive recommendations. A low
-initial score is useful evidence for the next test-strengthening work; it is not
-a reason to lower mutation coverage or change runtime architecture.
+The Quality workflow uses the same shard names as a job matrix. Each shard has
+its own report and temporary directory, allowing GitHub Actions runners to
+execute them concurrently without artifact collisions.
 
-The command runner cannot supply Stryker's per-test coverage analysis, so each
-configuration sets `coverageAnalysis` to `off`. Every mutant therefore runs its
-whole focused test command. Keep campaigns narrow and deterministic instead of
-pointing Stryker at the repository-wide test suite.
-
-Mutation testing is currently manual and non-blocking. It is not part of `bun
-run quality:ci`, and the repository has no aggregate mutation-score threshold.
-Review surviving mutants individually: add a canonical Bun assertion when a
-survivor exposes missing behavior, and document equivalent or low-value
-mutations during review rather than weakening product code to raise a score.
-
-The goal is to expand mutation testing only across deterministic, high-risk
-policy and domain modules where survivor review remains fast and actionable.
-Once several campaigns have stable runtimes and reviewed outcomes, introduce
-target-specific baselines or scheduled runs. Do not introduce a repository-wide
-score, switch canonical tests to Node, or adopt an unofficial Bun runner merely
-to optimize mutation throughput. Native runner integration can be reconsidered
-when official support or measured command-runner cost changes the tradeoff.
+Successful mutation execution is required by the Quality workflow; runner
+errors and failing initial tests fail the job. There is no repository-wide score
+threshold until all eight shards have reviewed baselines. Surviving mutants should
+be reviewed individually and covered with canonical Bun assertions rather than
+addressed by weakening product code.
