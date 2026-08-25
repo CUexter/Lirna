@@ -1,3 +1,4 @@
+// biome-ignore lint/style/noExcessiveLinesPerFile: Source read contracts stay colocated so workspace composition remains auditable.
 import { openapi } from "@orpc/openapi";
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
@@ -10,6 +11,7 @@ import { sepReadingContractSchema } from "../../sep-admission/sep-reading-contra
 import { authenticatedProcedure, publicProcedure } from "../init";
 import { citationResolutionSchema } from "./citation-resolution-schema";
 import { sepAdmittedStateSchema } from "./sep-admission-schemas";
+import { sourceDerivativesRouter } from "./source-derivatives";
 
 const sourceStateInput = z.object({
   sourceId: z.string().uuid(),
@@ -157,23 +159,34 @@ export const sourcesRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      const [reading, state, sources, citationResolutions] = await Promise.all([
-        context.admittedSourceStates.getReading(input.sourceId, input.stateId),
-        context.admittedSourceStates.getState(input.sourceId, input.stateId),
+      const [workspace, sources, citationResolutions] = await Promise.all([
+        context.admittedSourceStates.getWorkspace(
+          input.sourceId,
+          input.stateId,
+        ),
         context.admittedSourceStates.listSources(),
         context.citationResolutions.list(input.sourceId, input.stateId),
       ]);
       const source = sources.find(({ id }) => id === input.sourceId);
-      if (!reading || !source || (source.kind === "sep" && !state)) {
+      const reading =
+        workspace?.reading ??
+        (source?.kind === "legacy-sep-text"
+          ? await context.admittedSourceStates.getReading(
+              input.sourceId,
+              input.stateId,
+            )
+          : undefined);
+      if (!source || !reading || (source.kind === "sep" && !workspace))
         throw notFound("SEP Reading Derivative is unavailable");
-      }
       return {
         reading,
-        ...(state ? { state } : {}),
+        ...(workspace ? { state: workspace.state } : {}),
         source,
         citationResolutions,
       };
     }),
+
+  derivatives: sourceDerivativesRouter,
 
   resume: {
     get: publicProcedure

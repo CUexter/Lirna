@@ -219,7 +219,10 @@ export class DrizzleCitationResolutionStore
           eq(sourceStateDerivatives.valid, true),
         ),
       )
-      .orderBy(desc(sourceStateDerivativeActivations.activatedAt))
+      .orderBy(
+        desc(sourceStateDerivativeActivations.activatedAt),
+        desc(sourceStateDerivativeActivations.id),
+      )
       .limit(1);
     return row
       ? {

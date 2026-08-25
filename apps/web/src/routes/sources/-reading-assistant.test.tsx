@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { sourceId, stateId } from "./-reading-test-fixtures";
 import { renderRoute } from "./-route-test-harness";
 import {
+  derivativeClientStub,
   readingWorkspaceFixture,
   sepUpdateClientStub,
 } from "./-source-information-test-fixture";
@@ -16,6 +17,7 @@ await mock.module("@/clients/inquiry", () => ({
   inquiry: {
     sepAdmission: sepUpdateClientStub,
     sources: {
+      derivatives: derivativeClientStub,
       readingWorkspace: {
         queryOptions: ({ input }: { input: unknown }) => ({
           queryKey: ["reading-workspace", input],

@@ -14,6 +14,7 @@ import type { InquiryOutputs } from "@/clients/inquiry";
 import { readingFixture, sourceId, stateId } from "./-reading-test-fixtures";
 import { renderRoute } from "./-route-test-harness";
 import {
+  derivativeClientStub,
   readingWorkspaceFixture,
   sepUpdateClientStub,
 } from "./-source-information-test-fixture";
@@ -28,6 +29,7 @@ await mock.module("@/clients/inquiry", () => ({
   inquiry: {
     sepAdmission: sepUpdateClientStub,
     sources: {
+      derivatives: derivativeClientStub,
       assistant: {
         ask: {
           mutationOptions: () => ({

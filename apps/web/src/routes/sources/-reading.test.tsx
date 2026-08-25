@@ -7,6 +7,7 @@ import { previewFixture } from "./-admission-test-fixtures";
 import { readingFixture, sourceId, stateId } from "./-reading-test-fixtures";
 import { renderRoute } from "./-route-test-harness";
 import {
+  derivativeClientStub,
   readingWorkspaceFixture,
   sepUpdateClientStub,
   setSepUpdateResult,
@@ -25,6 +26,7 @@ await mock.module("@/clients/inquiry", () => ({
   inquiry: {
     sepAdmission: sepUpdateClientStub,
     sources: {
+      derivatives: derivativeClientStub,
       assistant: {
         ask: {
           mutationOptions: () => ({

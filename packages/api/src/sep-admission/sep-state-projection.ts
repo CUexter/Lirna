@@ -9,6 +9,11 @@ import {
 import { and, asc, desc, eq } from "drizzle-orm";
 
 import {
+  derivativeComparisonSchema,
+  derivativeGenerationSchema,
+  persistedDerivativeValidationSchema,
+} from "../derivative-updates/derivative-update-schemas";
+import {
   parseStringList,
   sepObservationKeySchema,
   sepResourceRoleSchema,
@@ -23,8 +28,12 @@ import {
   sepReadingDerivativeKind,
 } from "./sep-reading-contract";
 
+type DatabaseExecutor =
+  | Parameters<Parameters<(typeof db)["transaction"]>[0]>[0]
+  | typeof db;
+
 export async function readSepAdmittedState(
-  database: typeof db,
+  database: DatabaseExecutor,
   sourceId: string,
   stateId: string,
 ): Promise<SepAdmittedState | undefined> {
@@ -61,15 +70,49 @@ export async function readSepAdmittedState(
       ),
     )
     .where(eq(sourceStateDerivatives.sourceStateId, stateId))
-    .orderBy(desc(sourceStateDerivativeActivations.activatedAt));
+    .orderBy(
+      desc(sourceStateDerivativeActivations.activatedAt),
+      desc(sourceStateDerivativeActivations.id),
+    );
   const currentKinds = new Set<string>();
-  const derivatives = derivativeRows.map(({ derivative, activation }) => {
+  const seenDerivatives = new Set<string>();
+  const activationsByDerivative = new Map<
+    string,
+    Array<NonNullable<(typeof derivativeRows)[number]["activation"]>>
+  >();
+  for (const { derivative, activation } of derivativeRows) {
+    if (!activation) continue;
+    const activations = activationsByDerivative.get(derivative.id) ?? [];
+    activations.push(activation);
+    activationsByDerivative.set(derivative.id, activations);
+  }
+  const derivatives = derivativeRows.flatMap(({ derivative }) => {
+    if (seenDerivatives.has(derivative.id)) return [];
+    seenDerivatives.add(derivative.id);
+    const activations = (activationsByDerivative.get(derivative.id) ?? [])
+      .map((activation) => ({
+        id: activation.id,
+        derivativeId: activation.derivativeId,
+        actorId: activation.actorId,
+        reason: activation.reason,
+        activatedAt: activation.activatedAt.toISOString(),
+        consequences: derivativeComparisonSchema.parse(activation.consequences),
+      }))
+      .toSorted(
+        (left, right) =>
+          right.activatedAt.localeCompare(left.activatedAt) ||
+          right.id.localeCompare(left.id),
+      );
+    const activation = activations[0];
     const reading =
-      derivative.kind === sepReadingDerivativeKind
+      derivative.kind === sepReadingDerivativeKind && derivative.valid
         ? readSepReadingDerivative(derivative.payload)
         : undefined;
     const current = activation && !currentKinds.has(derivative.kind);
     if (current) currentKinds.add(derivative.kind);
+    const validation = persistedDerivativeValidationSchema.parse(
+      derivative.validation,
+    );
     return {
       id: derivative.id,
       kind: derivative.kind,
@@ -77,16 +120,21 @@ export async function readSepAdmittedState(
         ? { previousDerivativeId: derivative.previousDerivativeId }
         : {}),
       valid: derivative.valid,
-      validation: derivative.validation,
+      generation: derivativeGenerationSchema.parse(derivative.generation),
+      validation: {
+        status: validation.status,
+        checks: validation.checks,
+      },
+      ...(validation.comparison ? { comparison: validation.comparison } : {}),
       createdAt: derivative.createdAt.toISOString(),
       ...(current && activation
         ? {
             currentActivation: {
-              id: activation.id,
-              activatedAt: activation.activatedAt.toISOString(),
+              ...activation,
             },
           }
         : {}),
+      activationHistory: activations,
       ...(reading ? { provenance: reading.provenance } : {}),
     };
   });

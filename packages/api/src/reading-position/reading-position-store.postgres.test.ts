@@ -8,6 +8,7 @@ import {
 } from "@lirna/db/schema/sources";
 import { createPostgresTestDatabase } from "@lirna/db/test-support/postgres-database";
 
+import { generationMetadata } from "../derivative-updates/derivative-test-fixture";
 import {
   readingFixture,
   sourceId,
@@ -79,6 +80,7 @@ describePostgres("Reading position PostgreSQL store", () => {
         sourceStateId: stateId,
         kind: "sep-reading-v1",
         valid: true,
+        generation: generationMetadata(),
         payload: reading,
         validation: { schema: "sep-reading-v1", status: "valid" },
       })

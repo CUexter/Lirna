@@ -209,10 +209,10 @@ These are current repository gaps, not approved exceptions to the standard.
 2. The Bun behavior suite currently covers focused public seams; broader domain
    unit and integration coverage remains a future responsibility. The live
    reviewed inventory is maintained in
-   [`config/coverage-baseline.json`](../config/coverage-baseline.json), not in
-   copied aggregate totals. It contains exactly 26 entries: 22 shadcn
-   primitives plus the type-only API client export, application bootstrap,
-   root-router composition, and documentation application configuration.
+   [`config/coverage-baseline.json`](../config/coverage-baseline.json), rather
+   than copied aggregate totals. The reviewed inventory is limited to generated
+   or type-only seams and application bootstrap/configuration files that emit no
+   behavior eligible for Bun LCOV.
 3. Bun behavior tests and Playwright browser journeys are complementary. Bun
    proves focused behavior and eligible LCOV; Playwright proves browser
    integration, responsive behavior, accessibility automation, bootstrap, root

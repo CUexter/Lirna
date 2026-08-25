@@ -751,17 +751,174 @@ const sourceInformation = {
         id: "40000000-0000-4000-8000-000000000000",
         kind: "sep-reading-v1",
         valid: true,
+        generation: {
+          version: 1,
+          parser: { id: "parse5", version: "7.3.0" },
+          renderer: { id: "lirna-reading-react", version: "1" },
+          inputResourceHashes: reading.provenance.inputResourceHashes,
+        },
         validation: { schema: "sep-reading-v1", status: "valid" },
         createdAt: reading.source.admittedAt,
         currentActivation: {
           id: "50000000-0000-4000-8000-000000000000",
+          derivativeId: "40000000-0000-4000-8000-000000000000",
+          actorId: "system:admission",
+          reason: "Initial validated derivative",
           activatedAt: reading.source.admittedAt,
+          consequences: emptyDerivativeComparison(),
         },
+        activationHistory: [
+          {
+            id: "50000000-0000-4000-8000-000000000000",
+            derivativeId: "40000000-0000-4000-8000-000000000000",
+            actorId: "system:admission",
+            reason: "Initial validated derivative",
+            activatedAt: reading.source.admittedAt,
+            consequences: emptyDerivativeComparison(),
+          },
+        ],
+        provenance: reading.provenance,
+      },
+      {
+        id: "41000000-0000-4000-8000-000000000000",
+        kind: "sep-reading-v1",
+        valid: true,
+        generation: {
+          version: 1,
+          parser: { id: "parse5", version: "7.3.0" },
+          renderer: { id: "lirna-reading-react", version: "1" },
+          inputResourceHashes: reading.provenance.inputResourceHashes,
+        },
+        validation: { schema: "sep-reading-v1", status: "valid" },
+        createdAt: "2026-08-19T00:00:00.000Z",
+        activationHistory: [],
         provenance: reading.provenance,
       },
     ],
   },
 };
+
+function emptyDerivativeComparison() {
+  return {
+    semantic: { changedComponents: [] },
+    structure: [],
+    diagnostics: { added: [], removed: [] },
+    relocations: [],
+  };
+}
+
+const derivativeCandidate = {
+  id: "60000000-0000-4000-8000-000000000000",
+  sourceStateId: reading.source.stateId,
+  kind: "sep-reading-v1",
+  previousDerivativeId: "40000000-0000-4000-8000-000000000000",
+  valid: true,
+  generation: {
+    version: 2,
+    parser: { id: "parse5", version: "7.3.0" },
+    renderer: { id: "lirna-reading-react", version: "1" },
+    inputResourceHashes: reading.provenance.inputResourceHashes,
+  },
+  validation: {
+    status: "valid",
+    checks: [
+      { subject: "typed-structure", status: "passed", messages: [] },
+      { subject: "internal-targets", status: "passed", messages: [] },
+      { subject: "component-resources", status: "passed", messages: [] },
+      { subject: "notation", status: "passed", messages: [] },
+      { subject: "figures", status: "passed", messages: [] },
+      { subject: "footnotes", status: "passed", messages: [] },
+      { subject: "bibliography", status: "passed", messages: [] },
+      { subject: "diagnostics", status: "passed", messages: [] },
+    ],
+  },
+  comparison: {
+    baselineDerivativeId: "40000000-0000-4000-8000-000000000000",
+    semantic: { changedComponents: [] },
+    structure: [
+      { subject: "components", before: 4, after: 4 },
+      { subject: "sections", before: 4, after: 4 },
+      { subject: "figures", before: 1, after: 1 },
+      { subject: "bibliography", before: 2, after: 2 },
+    ],
+    diagnostics: { added: ["warning:updated-parser"], removed: [] },
+    relocations: [
+      {
+        recordType: "annotation",
+        recordId: "annotation-visible",
+        classification: "unresolved",
+        original: { componentIdentity: "active:/" },
+        candidates: 0,
+        reason: "No passage matches the original quote and context.",
+      },
+    ],
+  },
+  createdAt: "2026-08-25T00:00:00.000Z",
+};
+
+const derivativeSessions = new Map();
+
+function derivativeSession(sessionId) {
+  const existing = derivativeSessions.get(sessionId);
+  if (existing) return existing;
+  const created = {
+    activeDerivativeId: "40000000-0000-4000-8000-000000000000",
+    activations: new Map(),
+    generated: false,
+  };
+  derivativeSessions.set(sessionId, created);
+  return created;
+}
+
+function activateDerivative(body, sessionId) {
+  const rollback = !body.includes(derivativeCandidate.id);
+  const derivativeId = rollback
+    ? "40000000-0000-4000-8000-000000000000"
+    : derivativeCandidate.id;
+  derivativeSession(sessionId).activeDerivativeId = derivativeId;
+  const activation = {
+    id: rollback
+      ? "71000000-0000-4000-8000-000000000000"
+      : "70000000-0000-4000-8000-000000000000",
+    derivativeId,
+    actorId: "user-e2e",
+    reason: rollback ? "Explicit rollback" : "Reviewed candidate",
+    activatedAt: rollback
+      ? "2026-08-25T00:02:00.000Z"
+      : "2026-08-25T00:01:00.000Z",
+    consequences: derivativeCandidate.comparison,
+  };
+  derivativeSession(sessionId).activations.set(derivativeId, activation);
+  return orpcSuccess(activation);
+}
+
+function sourceInformationFor(sessionId) {
+  const session = derivativeSession(sessionId);
+  const information = structuredClone(sourceInformation);
+  if (session.generated)
+    information.state.derivatives.push({
+      ...derivativeCandidate,
+      activationHistory: [],
+      provenance: reading.provenance,
+    });
+  information.state.derivatives = information.state.derivatives.map(
+    (derivative) => projectSessionDerivative(derivative, session),
+  );
+  return information;
+}
+
+function projectSessionDerivative(derivative, session) {
+  const { currentActivation, ...inactive } = derivative;
+  if (derivative.id !== session.activeDerivativeId) return inactive;
+  const activation =
+    session.activations.get(derivative.id) ?? currentActivation;
+  if (!activation) return inactive;
+  return {
+    ...inactive,
+    currentActivation: activation,
+    activationHistory: [activation, ...(derivative.activationHistory ?? [])],
+  };
+}
 
 const annotations = [
   {
@@ -843,8 +1000,19 @@ function orpcError(message, code = "BAD_REQUEST") {
 
 const orpcPostRoutes = {
   "sources/reading": () => orpcSuccess(reading),
-  "sources/readingWorkspace": () =>
-    orpcSuccess({ reading, citationResolutions: [], ...sourceInformation }),
+  "sources/readingWorkspace": (_body, sessionId) =>
+    orpcSuccess({
+      reading,
+      citationResolutions: [],
+      ...sourceInformationFor(sessionId),
+    }),
+  "sources/derivatives/generate": (_body, sessionId) => {
+    derivativeSession(sessionId).generated = true;
+    return orpcSuccess(derivativeCandidate);
+  },
+  "sources/derivatives/previewActivation": () =>
+    orpcSuccess(derivativeCandidate.comparison),
+  "sources/derivatives/activate": activateDerivative,
   "sources/resume": () => orpcSuccess(resumePosition),
   "annotations/list": () => orpcSuccess(annotations),
   "sepAdmission/get": () => orpcSuccess(preview),
@@ -895,7 +1063,8 @@ async function handleOrpcPost(request, response) {
     return;
   }
 
-  const result = handler(body);
+  const sessionId = request.headers["x-e2e-session"] ?? "default";
+  const result = handler(body, sessionId);
   const status = result.json?.defined === false ? 400 : 200;
   sendJson(response, status, result);
 }
@@ -904,7 +1073,7 @@ const server = createServer(async (request, response) => {
   if (request.method === "OPTIONS") {
     response.writeHead(204, {
       ...corsHeaders,
-      "access-control-allow-headers": "content-type",
+      "access-control-allow-headers": "content-type, x-e2e-session",
       "access-control-allow-methods": "GET, POST, PUT, OPTIONS",
     });
     response.end();

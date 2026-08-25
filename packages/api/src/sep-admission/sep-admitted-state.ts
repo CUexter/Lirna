@@ -1,4 +1,10 @@
 import type {
+  DerivativeActivation,
+  DerivativeComparison,
+  DerivativeValidation,
+  ReadingDerivativeCandidate,
+} from "../derivative-updates/derivative-update-contract";
+import type {
   CapturedSepResource,
   SepCaptureReport,
   SepDiagnostic,
@@ -12,9 +18,12 @@ export interface SepDerivativeProvenance {
   kind: string;
   previousDerivativeId?: string;
   valid: boolean;
-  validation: unknown;
+  generation: ReadingDerivativeCandidate["generation"];
+  validation: DerivativeValidation;
+  comparison?: DerivativeComparison;
   createdAt: string;
-  currentActivation?: { id: string; activatedAt: string };
+  currentActivation?: DerivativeActivation;
+  activationHistory: DerivativeActivation[];
   provenance?: SepReadingContract["provenance"];
 }
 
@@ -113,6 +122,12 @@ export interface SepAdmittedStateOperations {
     sourceId: string,
     stateId: string,
   ): Promise<SepReadingContract | undefined>;
+  getWorkspace(
+    sourceId: string,
+    stateId: string,
+  ): Promise<
+    { state: SepAdmittedState; reading: SepReadingContract } | undefined
+  >;
   getUpdateTarget(
     sourceId: string,
   ): Promise<{ stableKey: string; canonicalUrl: string } | undefined>;

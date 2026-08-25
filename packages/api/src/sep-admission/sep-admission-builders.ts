@@ -148,6 +148,12 @@ export interface AdmissionReadingDerivativeRecord {
   sourceStateId: string;
   kind: typeof sepReadingDerivativeKind;
   valid: true;
+  generation: {
+    version: 1;
+    parser: { id: "parse5"; version: "7.3.0" };
+    renderer: { id: "lirna-reading-react"; version: "1" };
+    inputResourceHashes: Array<{ identity: string; sha256: string }>;
+  };
   payload: SepReadingContract;
   validation: { schema: "sep-reading-v1"; status: "valid" };
 }
@@ -166,6 +172,14 @@ export function buildReadingDerivative({
     sourceStateId: state.id,
     kind: sepReadingDerivativeKind,
     valid: true,
+    generation: {
+      version: 1,
+      parser: { id: "parse5", version: "7.3.0" },
+      renderer: { id: "lirna-reading-react", version: "1" },
+      inputResourceHashes: resources
+        .map(({ identity, sha256 }) => ({ identity, sha256 }))
+        .toSorted((left, right) => left.identity.localeCompare(right.identity)),
+    },
     payload: createSepReadingDerivative({
       source: {
         id: source.id,

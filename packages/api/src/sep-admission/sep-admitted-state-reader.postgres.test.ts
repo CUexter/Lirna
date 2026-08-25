@@ -199,6 +199,12 @@ describePostgres("SEP admitted-state PostgreSQL reader", () => {
       sourceStateId: legacyStateId,
       kind: "sep-reading-v1",
       valid: true,
+      generation: {
+        version: 1,
+        parser: reading.provenance.parser,
+        renderer: { id: "lirna-reading-react", version: "1" },
+        inputResourceHashes: reading.provenance.inputResourceHashes,
+      },
       payload: {
         ...reading,
         source: {

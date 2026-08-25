@@ -134,6 +134,7 @@ export const sourceStateDerivatives = pgTable(
     kind: text("kind").notNull(),
     previousDerivativeId: uuid("previous_derivative_id"),
     valid: boolean("valid").notNull(),
+    generation: jsonb("generation").$type<unknown>().notNull(),
     payload: jsonb("payload").$type<unknown>().notNull(),
     validation: jsonb("validation").$type<unknown>().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -166,6 +167,14 @@ export const sourceStateDerivativeActivations = pgTable(
     sourceStateId: uuid("source_state_id").notNull(),
     derivativeId: uuid("derivative_id").notNull(),
     kind: text("kind").notNull(),
+    actorId: text("actor_id").default("system:admission").notNull(),
+    reason: text("reason").default("Initial validated derivative").notNull(),
+    consequences: jsonb("consequences")
+      .$type<unknown>()
+      .default(
+        sql`'{"semantic":{"changedComponents":[]},"structure":[],"diagnostics":{"added":[],"removed":[]},"relocations":[]}'::jsonb`,
+      )
+      .notNull(),
     activatedAt: timestamp("activated_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

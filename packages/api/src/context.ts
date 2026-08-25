@@ -10,6 +10,8 @@ import type {
   CitationResolutionOperations,
 } from "./citation-resolutions/citation-resolution-contract";
 import { DrizzleCitationResolutionStore } from "./citation-resolutions/citation-resolution-store";
+import type { DerivativeUpdateOperations } from "./derivative-updates/derivative-update-contract";
+import { DrizzleDerivativeUpdateStore } from "./derivative-updates/derivative-update-store";
 import type { RequestObservation } from "./observation";
 import type { ReadingPositionOperations } from "./reading-position/reading-position-contract";
 import { DrizzleReadingPositionStore } from "./reading-position/reading-position-store";
@@ -31,6 +33,7 @@ export type CreateContextOptions = {
   citationInference?: CitationInferenceOperations;
   readingPositions?: ReadingPositionOperations;
   researchAssistant?: ResearchAssistantOperations;
+  derivativeUpdates?: DerivativeUpdateOperations;
   observation?: RequestObservation;
   debugErrors?: boolean;
 };
@@ -45,6 +48,7 @@ const citationInference =
       })
     : undefined;
 const readingPositionStore = new DrizzleReadingPositionStore(db);
+const derivativeUpdateStore = new DrizzleDerivativeUpdateStore(db);
 const researchAssistant = env.OPENROUTER_API_KEY
   ? createOpenRouterResearchAssistant({
       apiKey: env.OPENROUTER_API_KEY,
@@ -61,6 +65,7 @@ export async function createContext({
   citationInference: citationInferenceOverride,
   readingPositions,
   researchAssistant: researchAssistantOverride,
+  derivativeUpdates,
   observation,
   debugErrors,
 }: CreateContextOptions) {
@@ -78,6 +83,7 @@ export async function createContext({
       ? { citationInference: citationInferenceOverride ?? citationInference }
       : {}),
     readingPositions: readingPositions ?? readingPositionStore,
+    derivativeUpdates: derivativeUpdates ?? derivativeUpdateStore,
     ...((researchAssistantOverride ?? researchAssistant)
       ? { researchAssistant: researchAssistantOverride ?? researchAssistant }
       : {}),

@@ -136,11 +136,8 @@ describe("Sources oRPC router", () => {
           context: {
             ...context(admittedSourceStatesStub(), readingPositionsStub()),
             admittedSourceStates: admittedSourceStatesStub({
-              async getReading() {
-                return readingFixture();
-              },
-              async getState() {
-                return stateFixture();
+              async getWorkspace() {
+                return { reading: readingFixture(), state: stateFixture() };
               },
               async listSources() {
                 return [

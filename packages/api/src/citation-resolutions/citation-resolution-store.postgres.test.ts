@@ -12,6 +12,7 @@ import { createPostgresTestDatabase } from "@lirna/db/test-support/postgres-data
 import { eq } from "drizzle-orm";
 
 import { readingPayload } from "../annotations/annotation-store.postgres-test-support";
+import { generationMetadata } from "../derivative-updates/derivative-test-fixture";
 
 const adminUrl = process.env.POSTGRES_ADMIN_URL;
 const describePostgres = adminUrl ? describe : describe.skip;
@@ -72,6 +73,7 @@ describePostgres("Citation resolution PostgreSQL store", () => {
         sourceStateId: stateId,
         kind: "sep-reading-v1",
         valid: true,
+        generation: generationMetadata(payload.provenance.inputResourceHashes),
         payload,
         validation: { schema: "sep-reading-v1", status: "valid" },
       })

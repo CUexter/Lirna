@@ -80,7 +80,10 @@ export class DrizzleReadingPositionStore implements ReadingPositionOperations {
           eq(sourceStateDerivatives.valid, true),
         ),
       )
-      .orderBy(desc(sourceStateDerivativeActivations.activatedAt))
+      .orderBy(
+        desc(sourceStateDerivativeActivations.activatedAt),
+        desc(sourceStateDerivativeActivations.id),
+      )
       .limit(1);
     const component = existing
       ? readSepReadingDerivative(existing.payload).components.find(

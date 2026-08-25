@@ -7,6 +7,7 @@ import type { InquiryOutputs } from "@/clients/inquiry";
 import { ServerErrorMessage } from "@/components/server-error-message";
 import { SepAdmissionPreview } from "@/components/source-admission/preview";
 import { useSepUpdate } from "@/hooks/use-sep-update";
+import { DerivativeReview } from "./derivative-review";
 
 type Workspace = InquiryOutputs["sources"]["readingWorkspace"];
 
@@ -210,6 +211,8 @@ function SepSourceInformation({ workspace }: { workspace: SepWorkspace }) {
             </div>
           </div>
         </details>
+
+        <DerivativeReview sourceId={source.id} state={state} />
 
         {update.checkError ? (
           <ServerErrorMessage error={update.checkError} />

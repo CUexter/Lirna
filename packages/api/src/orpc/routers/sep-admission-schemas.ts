@@ -1,10 +1,20 @@
 import { z } from "zod";
-
+import {
+  derivativeActivationSchema,
+  derivativeComparisonSchema,
+  derivativeGenerationSchema,
+  derivativeValidationSchema,
+} from "../../derivative-updates/derivative-update-schemas";
 import {
   sepObservationKeySchema,
   sepResourceRoleSchema,
 } from "../../sep-admission/sep-admission-builders";
 import { admittedCaptureReportSchema } from "../../sep-admission/sep-admission-preview";
+
+export {
+  derivativeComparisonSchema,
+  readingDerivativeCandidateSchema,
+} from "../../derivative-updates/derivative-update-schemas";
 
 const captureLimits = z.object({
   maxComponents: z.number().int().nonnegative(),
@@ -173,11 +183,21 @@ export const sepAdmittedStateSchema = z.object({
       kind: z.string(),
       previousDerivativeId: z.string().uuid().optional(),
       valid: z.boolean(),
-      validation: z.unknown(),
+      generation: derivativeGenerationSchema,
+      validation: derivativeValidationSchema,
+      comparison: derivativeComparisonSchema.optional(),
       createdAt: z.string().datetime(),
       currentActivation: z
-        .object({ id: z.string().uuid(), activatedAt: z.string().datetime() })
+        .object({
+          id: z.string().uuid(),
+          derivativeId: z.string().uuid(),
+          actorId: z.string(),
+          reason: z.string(),
+          activatedAt: z.string().datetime(),
+          consequences: derivativeComparisonSchema,
+        })
         .optional(),
+      activationHistory: z.array(derivativeActivationSchema),
       provenance: z
         .object({
           adapter: z.object({ id: z.string(), version: z.string() }),

@@ -1,3 +1,4 @@
+// biome-ignore lint/style/noExcessiveLinesPerFile: One clean-migration database lifecycle proves related PostgreSQL invariants together.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createHash, randomUUID } from "node:crypto";
 import { resolve } from "node:path";
@@ -166,6 +167,7 @@ describePostgres("PostgreSQL migrations and database repository", () => {
     const otherStateId = randomUUID();
     const derivativeId = randomUUID();
     const invalidDerivativeId = randomUUID();
+    const activationId = randomUUID();
     const body = Buffer.from("publisher-authored evidence", "utf8");
     const sha256 = createHash("sha256").update(body).digest("hex");
 
@@ -222,6 +224,7 @@ describePostgres("PostgreSQL migrations and database repository", () => {
         sourceStateId: stateId,
         kind: "sep-reading-v1",
         valid: true,
+        generation: generationMetadata(),
         payload: { sourceStateId: stateId, derivativeId },
         validation: [],
       },
@@ -230,11 +233,13 @@ describePostgres("PostgreSQL migrations and database repository", () => {
         sourceStateId: stateId,
         kind: "sep-reading-v1",
         valid: false,
+        generation: generationMetadata(),
         payload: { sourceStateId: stateId, derivativeId: invalidDerivativeId },
         validation: ["invalid test fixture"],
       },
     ]);
     await database.insert(sourceStateDerivativeActivations).values({
+      id: activationId,
       sourceStateId: stateId,
       derivativeId,
       kind: "sep-reading-v1",
@@ -257,6 +262,7 @@ describePostgres("PostgreSQL migrations and database repository", () => {
           kind: "sep-reading-v1",
           previousDerivativeId: derivativeId,
           valid: true,
+          generation: generationMetadata(),
           payload: {},
           validation: [],
         })
@@ -284,6 +290,19 @@ describePostgres("PostgreSQL migrations and database repository", () => {
     });
     await expect(
       database
+        .update(sourceStateDerivativeActivations)
+        .set({ reason: "Rewritten history" })
+        .where(eq(sourceStateDerivativeActivations.id, activationId))
+        .execute(),
+    ).rejects.toMatchObject({ cause: { code: "P0001" } });
+    await expect(
+      database
+        .delete(sourceStateDerivativeActivations)
+        .where(eq(sourceStateDerivativeActivations.id, activationId))
+        .execute(),
+    ).rejects.toMatchObject({ cause: { code: "P0001" } });
+    await expect(
+      database
         .insert(sourceStateDerivativeActivations)
         .values({
           sourceStateId: stateId,
@@ -306,3 +325,12 @@ describePostgres("PostgreSQL migrations and database repository", () => {
     ).rejects.toMatchObject({ cause: { code: "P0001" } });
   });
 });
+
+function generationMetadata() {
+  return {
+    version: 1,
+    parser: { id: "parse5", version: "7.3.0" },
+    renderer: { id: "lirna-reading-react", version: "1" },
+    inputResourceHashes: [],
+  };
+}

@@ -123,12 +123,42 @@ export function readingWorkspaceFixture(
           id: "40000000-0000-4000-8000-000000000000",
           kind: "sep-reading-v1",
           valid: true,
-          validation: { schema: "sep-reading-v1", status: "valid" },
+          validation: { status: "valid", checks: [] },
           createdAt: admittedAt,
           currentActivation: {
             id: "50000000-0000-4000-8000-000000000000",
+            derivativeId: "40000000-0000-4000-8000-000000000000",
+            actorId: "system:admission",
+            reason: "Initial validated derivative",
             activatedAt: admittedAt,
+            consequences: {
+              semantic: { changedComponents: [] },
+              structure: [],
+              diagnostics: { added: [], removed: [] },
+              relocations: [],
+            },
           },
+          generation: {
+            version: 1,
+            parser: { id: "parse5", version: "7.3.0" },
+            renderer: { id: "lirna-reading-react", version: "1" },
+            inputResourceHashes: reading.provenance.inputResourceHashes,
+          },
+          activationHistory: [
+            {
+              id: "50000000-0000-4000-8000-000000000000",
+              derivativeId: "40000000-0000-4000-8000-000000000000",
+              actorId: "system:admission",
+              reason: "Initial validated derivative",
+              activatedAt: admittedAt,
+              consequences: {
+                semantic: { changedComponents: [] },
+                structure: [],
+                diagnostics: { added: [], removed: [] },
+                relocations: [],
+              },
+            },
+          ],
           provenance: reading.provenance,
         },
       ],
@@ -150,4 +180,16 @@ export const sepUpdateClientStub = {
   delete: { mutationOptions: () => ({ mutationFn: async () => undefined }) },
   retry: { mutationOptions: () => ({ mutationFn: async () => undefined }) },
   admit: { mutationOptions: () => ({ mutationFn: async () => undefined }) },
+};
+
+export const derivativeClientStub = {
+  generate: {
+    mutationOptions: () => ({ mutationFn: async () => undefined }),
+  },
+  previewActivation: {
+    mutationOptions: () => ({ mutationFn: async () => undefined }),
+  },
+  activate: {
+    mutationOptions: () => ({ mutationFn: async () => undefined }),
+  },
 };

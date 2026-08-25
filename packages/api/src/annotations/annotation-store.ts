@@ -165,7 +165,10 @@ export class DrizzleAnnotationStore implements AnnotationOperations {
           eq(sourceStateDerivatives.valid, true),
         ),
       )
-      .orderBy(desc(sourceStateDerivativeActivations.activatedAt))
+      .orderBy(
+        desc(sourceStateDerivativeActivations.activatedAt),
+        desc(sourceStateDerivativeActivations.id),
+      )
       .limit(1);
     const reading = row ? readSepReadingDerivative(row.payload) : undefined;
     return reading?.components.find(
