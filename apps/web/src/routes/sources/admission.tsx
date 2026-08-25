@@ -10,16 +10,19 @@ import { Input } from "@lirna/ui/components/input";
 import { Label } from "@lirna/ui/components/label";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeftIcon, SearchIcon } from "lucide-react";
+import { z } from "zod";
 
 import { ServerErrorMessage } from "@/components/server-error-message";
 import { SepAdmissionPreview } from "@/components/source-admission/preview";
 import { useSepAdmission } from "@/hooks/use-sep-admission";
 
 export const Route = createFileRoute("/sources/admission")({
+  validateSearch: z.object({ replacesSourceId: z.string().uuid().optional() }),
   component: RouteComponent,
 });
 
 function RouteComponent() {
+  const { replacesSourceId } = Route.useSearch();
   const {
     url,
     validationError,
@@ -30,7 +33,7 @@ function RouteComponent() {
     preview,
     admission,
     lifecycle,
-  } = useSepAdmission();
+  } = useSepAdmission(replacesSourceId);
 
   return (
     <main className="min-h-full bg-background">
@@ -55,11 +58,14 @@ function RouteComponent() {
             Sources · Admission
           </p>
           <h1 className="font-serif text-3xl tracking-tight sm:text-4xl">
-            Preview an SEP Source
+            {replacesSourceId
+              ? "Capture a related replacement"
+              : "Preview an SEP Source"}
           </h1>
           <p className="text-muted-foreground text-sm leading-6">
-            Capture the publication identity, policy, and local cost before you
-            decide whether to create a Source. Previews expire after seven days.
+            {replacesSourceId
+              ? "The legacy Source remains unchanged. Admission records an explicit related replacement Source."
+              : "Capture the publication identity, policy, and local cost before you decide whether to create a Source. Previews expire after seven days."}
           </p>
         </div>
 

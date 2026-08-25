@@ -69,6 +69,26 @@ describe("SEP admission oRPC router", () => {
     expect(submitCalls).toBe(0);
   });
 
+  test("checkUpdate requires authentication and forwards the Source identity", async () => {
+    let checkedSourceId: string | undefined;
+    const operations = operationsStub({
+      async checkUpdate(candidateSourceId) {
+        checkedSourceId = candidateSourceId;
+        return previewFixture({
+          update: { sourceId, observations: [] },
+        });
+      },
+    });
+
+    await expect(
+      invoke("checkUpdate", { sourceId }, operations, null),
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    await expect(
+      invoke("checkUpdate", { sourceId }, operations),
+    ).resolves.toMatchObject({ update: { sourceId } });
+    expect(checkedSourceId).toBe(sourceId);
+  });
+
   test("submit maps unexpected failures to a referenced internal error", async () => {
     await expect(
       invoke(
@@ -199,6 +219,17 @@ describe("SEP admission oRPC router", () => {
     });
   });
 
+  test("admit requires authentication", async () => {
+    await expect(
+      invoke(
+        "admit",
+        { previewId, observationKeys: ["submitted"] },
+        operationsStub(),
+        null,
+      ),
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
+
   test("admit returns not found when the preview is missing", async () => {
     await expect(
       invoke(
@@ -263,16 +294,22 @@ function invoke(
   procedure: keyof typeof sepAdmissionsRouter,
   input: unknown,
   operations: SepAdmissionOperations,
+  session: Context["session"] = {
+    user: { id: "user-1" },
+  } as NonNullable<Context["session"]>,
 ): Promise<unknown> {
   return call(sepAdmissionsRouter[procedure] as never, input, {
-    context: context(operations),
+    context: context(operations, session),
   });
 }
 
-function context(sepAdmissions: SepAdmissionOperations): Context {
+function context(
+  sepAdmissions: SepAdmissionOperations,
+  session: Context["session"],
+): Context {
   return {
     auth: null,
-    session: {} as NonNullable<Context["session"]>,
+    session,
     annotations: {} as Context["annotations"],
     citationResolutions: {} as Context["citationResolutions"],
     readingPositions: {} as Context["readingPositions"],

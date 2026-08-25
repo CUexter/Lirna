@@ -1,17 +1,24 @@
 import { randomUUID } from "node:crypto";
 import { db } from "@lirna/db";
 import {
+  sepAdmissionOutcomes,
   sepAdmissionPreviews,
   sepPreviewResources,
   sepSourceStateMetadata,
 } from "@lirna/db/schema/sep-admission";
-import { and, asc, eq, gt, lte } from "drizzle-orm";
+import {
+  sourceStateResources,
+  sourceStates,
+  sources,
+} from "@lirna/db/schema/sources";
+import { and, asc, eq, gt, inArray, lte } from "drizzle-orm";
 
 import type {
   SepAdmissionCreateRecord,
   SepAdmissionStore,
   SepAdmissionStoredPreview,
 } from "./sep-admission";
+import { sepObservationKeySchema } from "./sep-admission-builders";
 
 export type SepPreviewStore = Pick<
   SepAdmissionStore,
@@ -40,6 +47,7 @@ export function createSepPreviewStore(
           ...captureValues(record),
           rightsBasis: "publicly-accessible",
           sensitivityLevel: "ordinary-cloud",
+          replacesSourceId: record.replacesSourceId,
           createdAt: record.createdAt,
           expiresAt: record.expiresAt,
         });
@@ -74,7 +82,11 @@ export function createSepPreviewStore(
         .from(sepPreviewResources)
         .where(eq(sepPreviewResources.previewId, id))
         .orderBy(asc(sepPreviewResources.role));
-      return { preview, resources };
+      return {
+        preview,
+        resources,
+        existingStates: await existingStateManifests(database, preview),
+      };
     },
 
     async extendActive(
@@ -202,9 +214,9 @@ async function admissionExists(
   previewId: string,
 ): Promise<boolean> {
   const rows = await database
-    .select({ sourceStateId: sepSourceStateMetadata.sourceStateId })
-    .from(sepSourceStateMetadata)
-    .where(eq(sepSourceStateMetadata.admissionPreviewId, previewId))
+    .select({ sourceStateId: sepAdmissionOutcomes.sourceStateId })
+    .from(sepAdmissionOutcomes)
+    .where(eq(sepAdmissionOutcomes.admissionPreviewId, previewId))
     .limit(1);
   return rows.length > 0;
 }
@@ -223,5 +235,61 @@ function captureValues(
     diagnostics: record.diagnostics,
     captureDiagnostics: record.captureReport,
     processingMilliseconds: record.processingMilliseconds,
+    replacesSourceId: record.replacesSourceId,
   };
+}
+
+async function existingStateManifests(
+  database: SepAdmissionDatabase,
+  preview: typeof sepAdmissionPreviews.$inferSelect,
+) {
+  const sourceRows = await database
+    .select({ id: sources.id })
+    .from(sources)
+    .where(
+      preview.replacesSourceId
+        ? eq(sources.id, preview.replacesSourceId)
+        : eq(sources.stableKey, preview.stableKey),
+    )
+    .limit(1);
+  const sourceId = sourceRows[0]?.id;
+  if (!sourceId) return [];
+  const states = await database
+    .select({
+      id: sourceStates.id,
+      observationKey: sepSourceStateMetadata.observationKey,
+    })
+    .from(sourceStates)
+    .innerJoin(
+      sepSourceStateMetadata,
+      eq(sepSourceStateMetadata.sourceStateId, sourceStates.id),
+    )
+    .where(eq(sourceStates.sourceId, sourceId));
+  if (states.length === 0) return [];
+  const resources = await database
+    .select({
+      sourceStateId: sourceStateResources.sourceStateId,
+      identity: sourceStateResources.identity,
+      sha256: sourceStateResources.sha256,
+      byteLength: sourceStateResources.byteLength,
+    })
+    .from(sourceStateResources)
+    .where(
+      inArray(
+        sourceStateResources.sourceStateId,
+        states.map(({ id }) => id),
+      ),
+    )
+    .orderBy(asc(sourceStateResources.identity));
+  return states.map((state) => ({
+    ...state,
+    observationKey: sepObservationKeySchema.parse(state.observationKey),
+    resources: resources
+      .filter(({ sourceStateId }) => sourceStateId === state.id)
+      .map(({ identity, sha256, byteLength }) => ({
+        identity,
+        sha256,
+        byteLength,
+      })),
+  }));
 }

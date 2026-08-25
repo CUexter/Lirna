@@ -10,16 +10,23 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import type { InquiryOutputs } from "@/clients/inquiry";
 import { readingFixture, sourceId, stateId } from "./-reading-test-fixtures";
 import { renderRoute } from "./-route-test-harness";
+import {
+  readingWorkspaceFixture,
+  sepUpdateClientStub,
+} from "./-source-information-test-fixture";
 
 const citationResolutionCalls: unknown[] = [];
-let citationResolutions: unknown[] = [];
+let citationResolutions: InquiryOutputs["sources"]["readingWorkspace"]["citationResolutions"] =
+  [];
 let citationEvidence: unknown[] = [];
 let citationResolutionError: Error | undefined;
 
 await mock.module("@/clients/inquiry", () => ({
   inquiry: {
+    sepAdmission: sepUpdateClientStub,
     sources: {
       assistant: {
         ask: {
@@ -31,10 +38,8 @@ await mock.module("@/clients/inquiry", () => ({
       readingWorkspace: {
         queryOptions: ({ input }: { input: unknown }) => ({
           queryKey: ["reading-workspace", input],
-          queryFn: async () => ({
-            reading: readingFixture(),
-            citationResolutions,
-          }),
+          queryFn: async () =>
+            readingWorkspaceFixture(readingFixture(), citationResolutions),
         }),
       },
       resume: {
@@ -78,11 +83,16 @@ await mock.module("@/clients/library", () => ({
           mutationFn: async (input: unknown) => {
             citationResolutionCalls.push(input);
             if (citationResolutionError) throw citationResolutionError;
-            const resolution = {
+            const resolution: (typeof citationResolutions)[number] = {
               ...(input as object),
               id: "50000000-0000-4000-8000-000000000000",
+              sourceId,
               sourceStateId: stateId,
               derivativeId: "60000000-0000-4000-8000-000000000000",
+              componentIdentity: "article",
+              mentionId: "citation-one",
+              bibliographyComponentIdentity: "article",
+              bibliographyEntryId: "entry-one",
               publisherAnchor: null,
               offsetBasis: "normalized-derivative-text-v1",
               normalizedStartOffset: 0,
@@ -91,6 +101,7 @@ await mock.module("@/clients/library", () => ({
               prefix: "",
               suffix: "",
               actorId: "user-1",
+              method: "manual",
               confidence: null,
               reasoning: null,
               createdAt: "2026-08-24T12:00:00.000Z",

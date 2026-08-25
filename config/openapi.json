@@ -2718,6 +2718,11 @@
                   "url": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "replacesSourceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   }
                 },
                 "required": [
@@ -2739,6 +2744,9 @@
                       "type": "string",
                       "format": "uuid",
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "stableKey": {
+                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -3270,10 +3278,59 @@
                         "message"
                       ],
                       "additionalProperties": false
+                    },
+                    "update": {
+                      "type": "object",
+                      "properties": {
+                        "sourceId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "observations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string",
+                                "enum": [
+                                  "submitted",
+                                  "recommended-archive"
+                                ]
+                              },
+                              "result": {
+                                "type": "string",
+                                "enum": [
+                                  "unchanged",
+                                  "changed",
+                                  "new"
+                                ]
+                              },
+                              "comparedStateId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "result"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "sourceId",
+                        "observations"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
                     "id",
+                    "stableKey",
                     "title",
                     "authors",
                     "publisher",
@@ -3363,6 +3420,9 @@
                       "format": "uuid",
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                     },
+                    "stableKey": {
+                      "type": "string"
+                    },
                     "title": {
                       "type": "string"
                     },
@@ -3893,10 +3953,59 @@
                         "message"
                       ],
                       "additionalProperties": false
+                    },
+                    "update": {
+                      "type": "object",
+                      "properties": {
+                        "sourceId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "observations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string",
+                                "enum": [
+                                  "submitted",
+                                  "recommended-archive"
+                                ]
+                              },
+                              "result": {
+                                "type": "string",
+                                "enum": [
+                                  "unchanged",
+                                  "changed",
+                                  "new"
+                                ]
+                              },
+                              "comparedStateId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "result"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "sourceId",
+                        "observations"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
                     "id",
+                    "stableKey",
                     "title",
                     "authors",
                     "publisher",
@@ -4039,31 +4148,29 @@
         }
       }
     },
-    "/sep-admission/preview/{previewId}/extend": {
+    "/sep-admission/update": {
       "post": {
-        "operationId": "sepAdmission.extend",
-        "summary": "Extend an admission preview",
+        "operationId": "sepAdmission.checkUpdate",
+        "summary": "Create a temporary Source update comparison",
         "tags": [
           "SEP Admission"
         ],
-        "parameters": [
-          {
-            "in": "path",
-            "required": true,
-            "name": "previewId",
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-            }
-          }
-        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "properties": {}
+                "properties": {
+                  "sourceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "sourceId"
+                ]
               }
             }
           }
@@ -4080,6 +4187,9 @@
                       "type": "string",
                       "format": "uuid",
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "stableKey": {
+                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -4611,10 +4721,744 @@
                         "message"
                       ],
                       "additionalProperties": false
+                    },
+                    "update": {
+                      "type": "object",
+                      "properties": {
+                        "sourceId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "observations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string",
+                                "enum": [
+                                  "submitted",
+                                  "recommended-archive"
+                                ]
+                              },
+                              "result": {
+                                "type": "string",
+                                "enum": [
+                                  "unchanged",
+                                  "changed",
+                                  "new"
+                                ]
+                              },
+                              "comparedStateId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "result"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "sourceId",
+                        "observations"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
                     "id",
+                    "stableKey",
+                    "title",
+                    "authors",
+                    "publisher",
+                    "publicationHistory",
+                    "submittedUrl",
+                    "policy",
+                    "metrics",
+                    "createdAt",
+                    "expiresAt",
+                    "diagnostics",
+                    "capture",
+                    "resources",
+                    "observations",
+                    "comparison"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "404",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/NotFound2"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UndefinedError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "500",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalServerError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UndefinedError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sep-admission/preview/{previewId}/extend": {
+      "post": {
+        "operationId": "sepAdmission.extend",
+        "summary": "Extend an admission preview",
+        "tags": [
+          "SEP Admission"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "required": true,
+            "name": "previewId",
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "stableKey": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "authors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "publisher": {
+                      "type": "string"
+                    },
+                    "publicationHistory": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "submittedUrl": {
+                      "type": "string"
+                    },
+                    "recommendedArchiveUrl": {
+                      "type": "string"
+                    },
+                    "policy": {
+                      "type": "object",
+                      "properties": {
+                        "rightsBasis": {
+                          "type": "string",
+                          "const": "publicly-accessible"
+                        },
+                        "sensitivityLevel": {
+                          "type": "string",
+                          "const": "ordinary-cloud"
+                        }
+                      },
+                      "required": [
+                        "rightsBasis",
+                        "sensitivityLevel"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "metrics": {
+                      "type": "object",
+                      "properties": {
+                        "requests": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "downloadedBytes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "retainedBytes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "processingMilliseconds": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "requests",
+                        "downloadedBytes",
+                        "retainedBytes",
+                        "processingMilliseconds"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                    },
+                    "diagnostics": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "level": {
+                            "type": "string",
+                            "enum": [
+                              "info",
+                              "warning"
+                            ]
+                          },
+                          "code": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "level",
+                          "code",
+                          "message"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "capture": {
+                      "type": "object",
+                      "properties": {
+                        "budget": {
+                          "type": "string",
+                          "enum": [
+                            "standard",
+                            "expanded"
+                          ]
+                        },
+                        "completeness": {
+                          "type": "string",
+                          "enum": [
+                            "complete",
+                            "partial",
+                            "stopped"
+                          ]
+                        },
+                        "readingReadiness": {
+                          "type": "string",
+                          "enum": [
+                            "ready",
+                            "degraded"
+                          ]
+                        },
+                        "readinessReasons": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "unresolvedResources": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "url": {
+                                "type": "string"
+                              },
+                              "parentIdentity": {
+                                "type": "string"
+                              },
+                              "role": {
+                                "type": "string",
+                                "enum": [
+                                  "main",
+                                  "citation-information",
+                                  "supplement",
+                                  "notes",
+                                  "figure-description",
+                                  "unknown-component",
+                                  "semantic-asset"
+                                ]
+                              },
+                              "depth": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "reason": {
+                                "type": "string"
+                              },
+                              "limit": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "url",
+                              "parentIdentity",
+                              "role",
+                              "depth",
+                              "reason",
+                              "limit"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "limits": {
+                          "type": "object",
+                          "properties": {
+                            "maxComponents": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "maxAssets": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "maxResourceBytes": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "maxTotalBytes": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "maxDepth": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "maxRedirects": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "timeoutMilliseconds": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "maxConcurrency": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "maxComponents",
+                            "maxAssets",
+                            "maxResourceBytes",
+                            "maxTotalBytes",
+                            "maxDepth",
+                            "maxRedirects",
+                            "timeoutMilliseconds",
+                            "maxConcurrency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "retryUsed": {
+                          "type": "boolean"
+                        },
+                        "retryAvailable": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "budget",
+                        "completeness",
+                        "readingReadiness",
+                        "readinessReasons",
+                        "unresolvedResources",
+                        "limits",
+                        "retryUsed",
+                        "retryAvailable"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "resources": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "observationKey": {
+                            "type": "string",
+                            "enum": [
+                              "submitted",
+                              "recommended-archive"
+                            ]
+                          },
+                          "identity": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string",
+                            "enum": [
+                              "main",
+                              "citation-information",
+                              "supplement",
+                              "notes",
+                              "figure-description",
+                              "unknown-component",
+                              "semantic-asset"
+                            ]
+                          },
+                          "requestedUrl": {
+                            "type": "string"
+                          },
+                          "finalUrl": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "mediaType": {
+                            "type": "string"
+                          },
+                          "charset": {
+                            "type": "string"
+                          },
+                          "contentEncoding": {
+                            "type": "string"
+                          },
+                          "selectedHeaders": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          },
+                          "requestCount": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "downloadedBytes": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "retrievedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                          },
+                          "byteLength": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "sha256": {
+                            "type": "string"
+                          },
+                          "discoveryEdge": {
+                            "type": "string"
+                          },
+                          "depth": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "observationKey",
+                          "identity",
+                          "role",
+                          "requestedUrl",
+                          "finalUrl",
+                          "status",
+                          "mediaType",
+                          "selectedHeaders",
+                          "requestCount",
+                          "downloadedBytes",
+                          "retrievedAt",
+                          "byteLength",
+                          "sha256",
+                          "discoveryEdge",
+                          "depth"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "observations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string",
+                            "enum": [
+                              "submitted",
+                              "recommended-archive"
+                            ]
+                          },
+                          "label": {
+                            "type": "string",
+                            "enum": [
+                              "Active",
+                              "Recommended archive"
+                            ]
+                          },
+                          "canonicalUrl": {
+                            "type": "string"
+                          },
+                          "resources": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "observationKey": {
+                                  "type": "string",
+                                  "enum": [
+                                    "submitted",
+                                    "recommended-archive"
+                                  ]
+                                },
+                                "identity": {
+                                  "type": "string"
+                                },
+                                "role": {
+                                  "type": "string",
+                                  "enum": [
+                                    "main",
+                                    "citation-information",
+                                    "supplement",
+                                    "notes",
+                                    "figure-description",
+                                    "unknown-component",
+                                    "semantic-asset"
+                                  ]
+                                },
+                                "requestedUrl": {
+                                  "type": "string"
+                                },
+                                "finalUrl": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "mediaType": {
+                                  "type": "string"
+                                },
+                                "charset": {
+                                  "type": "string"
+                                },
+                                "contentEncoding": {
+                                  "type": "string"
+                                },
+                                "selectedHeaders": {
+                                  "type": "object",
+                                  "propertyNames": {
+                                    "type": "string"
+                                  },
+                                  "additionalProperties": {
+                                    "type": "string"
+                                  }
+                                },
+                                "requestCount": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "downloadedBytes": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "retrievedAt": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                                },
+                                "byteLength": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "sha256": {
+                                  "type": "string"
+                                },
+                                "discoveryEdge": {
+                                  "type": "string"
+                                },
+                                "depth": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "observationKey",
+                                "identity",
+                                "role",
+                                "requestedUrl",
+                                "finalUrl",
+                                "status",
+                                "mediaType",
+                                "selectedHeaders",
+                                "requestCount",
+                                "downloadedBytes",
+                                "retrievedAt",
+                                "byteLength",
+                                "sha256",
+                                "discoveryEdge",
+                                "depth"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "label",
+                          "canonicalUrl",
+                          "resources"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "comparison": {
+                      "type": "object",
+                      "properties": {
+                        "result": {
+                          "type": "string",
+                          "enum": [
+                            "equivalent",
+                            "distinct",
+                            "active-only"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "result",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "update": {
+                      "type": "object",
+                      "properties": {
+                        "sourceId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "observations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string",
+                                "enum": [
+                                  "submitted",
+                                  "recommended-archive"
+                                ]
+                              },
+                              "result": {
+                                "type": "string",
+                                "enum": [
+                                  "unchanged",
+                                  "changed",
+                                  "new"
+                                ]
+                              },
+                              "comparedStateId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "result"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "sourceId",
+                        "observations"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "stableKey",
                     "title",
                     "authors",
                     "publisher",
@@ -4731,6 +5575,9 @@
                       "format": "uuid",
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                     },
+                    "stableKey": {
+                      "type": "string"
+                    },
                     "title": {
                       "type": "string"
                     },
@@ -5261,10 +6108,59 @@
                         "message"
                       ],
                       "additionalProperties": false
+                    },
+                    "update": {
+                      "type": "object",
+                      "properties": {
+                        "sourceId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "observations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string",
+                                "enum": [
+                                  "submitted",
+                                  "recommended-archive"
+                                ]
+                              },
+                              "result": {
+                                "type": "string",
+                                "enum": [
+                                  "unchanged",
+                                  "changed",
+                                  "new"
+                                ]
+                              },
+                              "comparedStateId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "result"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "sourceId",
+                        "observations"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
                     "id",
+                    "stableKey",
                     "title",
                     "authors",
                     "publisher",
@@ -5451,11 +6347,290 @@
                             "format": "date-time",
                             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
                           },
+                          "policy": {
+                            "type": "object",
+                            "properties": {
+                              "rightsBasis": {
+                                "type": "string"
+                              },
+                              "sensitivityLevel": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "rightsBasis",
+                              "sensitivityLevel"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "diagnostics": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "level": {
+                                  "type": "string",
+                                  "enum": [
+                                    "info",
+                                    "warning"
+                                  ]
+                                },
+                                "code": {
+                                  "type": "string"
+                                },
+                                "message": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "level",
+                                "code",
+                                "message"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "capture": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "budget": {
+                                    "type": "string",
+                                    "enum": [
+                                      "standard",
+                                      "expanded"
+                                    ]
+                                  },
+                                  "completeness": {
+                                    "type": "string",
+                                    "enum": [
+                                      "complete",
+                                      "partial",
+                                      "stopped"
+                                    ]
+                                  },
+                                  "readingReadiness": {
+                                    "type": "string",
+                                    "enum": [
+                                      "ready",
+                                      "degraded"
+                                    ]
+                                  },
+                                  "readinessReasons": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "unresolvedResources": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "url": {
+                                          "type": "string"
+                                        },
+                                        "parentIdentity": {
+                                          "type": "string"
+                                        },
+                                        "role": {
+                                          "type": "string",
+                                          "enum": [
+                                            "supplement",
+                                            "notes",
+                                            "figure-description",
+                                            "unknown-component",
+                                            "semantic-asset"
+                                          ]
+                                        },
+                                        "depth": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "reason": {
+                                          "type": "string"
+                                        },
+                                        "limit": {
+                                          "type": "boolean"
+                                        }
+                                      },
+                                      "required": [
+                                        "url",
+                                        "parentIdentity",
+                                        "role",
+                                        "depth",
+                                        "reason",
+                                        "limit"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "limits": {
+                                    "type": "object",
+                                    "properties": {
+                                      "maxComponents": {
+                                        "type": "integer",
+                                        "exclusiveMinimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "maxAssets": {
+                                        "type": "integer",
+                                        "exclusiveMinimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "maxResourceBytes": {
+                                        "type": "integer",
+                                        "exclusiveMinimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "maxTotalBytes": {
+                                        "type": "integer",
+                                        "exclusiveMinimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "maxDepth": {
+                                        "type": "integer",
+                                        "exclusiveMinimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "maxRedirects": {
+                                        "type": "integer",
+                                        "exclusiveMinimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "timeoutMilliseconds": {
+                                        "type": "integer",
+                                        "exclusiveMinimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "maxConcurrency": {
+                                        "type": "integer",
+                                        "exclusiveMinimum": 0,
+                                        "maximum": 9007199254740991
+                                      }
+                                    },
+                                    "required": [
+                                      "maxComponents",
+                                      "maxAssets",
+                                      "maxResourceBytes",
+                                      "maxTotalBytes",
+                                      "maxDepth",
+                                      "maxRedirects",
+                                      "timeoutMilliseconds",
+                                      "maxConcurrency"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "retryUsed": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "budget",
+                                  "completeness",
+                                  "readingReadiness",
+                                  "readinessReasons",
+                                  "unresolvedResources",
+                                  "limits",
+                                  "retryUsed"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "budget": {
+                                    "type": "string",
+                                    "const": "unknown"
+                                  },
+                                  "completeness": {
+                                    "type": "string",
+                                    "const": "partial"
+                                  },
+                                  "readingReadiness": {
+                                    "type": "string",
+                                    "const": "degraded"
+                                  },
+                                  "readinessReasons": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "unresolvedResources": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "url": {
+                                          "type": "string"
+                                        },
+                                        "parentIdentity": {
+                                          "type": "string"
+                                        },
+                                        "role": {
+                                          "type": "string",
+                                          "enum": [
+                                            "supplement",
+                                            "notes",
+                                            "figure-description",
+                                            "unknown-component",
+                                            "semantic-asset"
+                                          ]
+                                        },
+                                        "depth": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "reason": {
+                                          "type": "string"
+                                        },
+                                        "limit": {
+                                          "type": "boolean"
+                                        }
+                                      },
+                                      "required": [
+                                        "url",
+                                        "parentIdentity",
+                                        "role",
+                                        "depth",
+                                        "reason",
+                                        "limit"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "limits": {
+                                    "type": "null"
+                                  },
+                                  "retryUsed": {
+                                    "type": "null"
+                                  }
+                                },
+                                "required": [
+                                  "budget",
+                                  "completeness",
+                                  "readingReadiness",
+                                  "readinessReasons",
+                                  "unresolvedResources",
+                                  "limits",
+                                  "retryUsed"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          },
                           "resources": {
                             "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
+                                "identity": {
+                                  "type": "string"
+                                },
                                 "role": {
                                   "type": "string",
                                   "enum": [
@@ -5474,8 +6649,43 @@
                                 "finalUrl": {
                                   "type": "string"
                                 },
+                                "status": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
                                 "mediaType": {
                                   "type": "string"
+                                },
+                                "charset": {
+                                  "type": "string"
+                                },
+                                "contentEncoding": {
+                                  "type": "string"
+                                },
+                                "selectedHeaders": {
+                                  "type": "object",
+                                  "propertyNames": {
+                                    "type": "string"
+                                  },
+                                  "additionalProperties": {
+                                    "type": "string"
+                                  }
+                                },
+                                "requestCount": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "downloadedBytes": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "retrievedAt": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
                                 },
                                 "byteLength": {
                                   "type": "integer",
@@ -5487,16 +6697,207 @@
                                 },
                                 "discoveryEdge": {
                                   "type": "string"
+                                },
+                                "depth": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
                                 }
                               },
                               "required": [
+                                "identity",
                                 "role",
                                 "requestedUrl",
                                 "finalUrl",
+                                "status",
                                 "mediaType",
+                                "selectedHeaders",
+                                "requestCount",
+                                "downloadedBytes",
+                                "retrievedAt",
                                 "byteLength",
                                 "sha256",
-                                "discoveryEdge"
+                                "discoveryEdge",
+                                "depth"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "components": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "identity": {
+                                  "type": "string"
+                                },
+                                "role": {
+                                  "type": "string",
+                                  "enum": [
+                                    "main",
+                                    "citation-information",
+                                    "supplement",
+                                    "notes",
+                                    "figure-description",
+                                    "unknown-component",
+                                    "semantic-asset"
+                                  ]
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "order": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "parentIdentity": {
+                                  "type": "string"
+                                },
+                                "requestedUrl": {
+                                  "type": "string"
+                                },
+                                "finalUrl": {
+                                  "type": "string"
+                                },
+                                "retrievedAt": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                                },
+                                "sha256": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "identity",
+                                "role",
+                                "label",
+                                "order",
+                                "requestedUrl",
+                                "finalUrl",
+                                "retrievedAt",
+                                "sha256"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "derivatives": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "kind": {
+                                  "type": "string"
+                                },
+                                "previousDerivativeId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "valid": {
+                                  "type": "boolean"
+                                },
+                                "validation": {},
+                                "createdAt": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                                },
+                                "currentActivation": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "activatedAt": {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "activatedAt"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "provenance": {
+                                  "type": "object",
+                                  "properties": {
+                                    "adapter": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "version": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "version"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "parser": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "version": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "version"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "inputResourceHashes": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "identity": {
+                                            "type": "string"
+                                          },
+                                          "sha256": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "identity",
+                                          "sha256"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "adapter",
+                                    "parser",
+                                    "inputResourceHashes"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "kind",
+                                "valid",
+                                "validation",
+                                "createdAt"
                               ],
                               "additionalProperties": false
                             }
@@ -5513,7 +6914,45 @@
                           "publisher",
                           "publicationHistory",
                           "admittedAt",
-                          "resources"
+                          "policy",
+                          "diagnostics",
+                          "capture",
+                          "resources",
+                          "components",
+                          "derivatives"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "outcomes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "observationKey": {
+                            "type": "string",
+                            "enum": [
+                              "submitted",
+                              "recommended-archive"
+                            ]
+                          },
+                          "stateId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "disposition": {
+                            "type": "string",
+                            "enum": [
+                              "created",
+                              "unchanged"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "observationKey",
+                          "stateId",
+                          "disposition"
                         ],
                         "additionalProperties": false
                       }
@@ -5521,7 +6960,8 @@
                   },
                   "required": [
                     "sourceId",
-                    "states"
+                    "states",
+                    "outcomes"
                   ],
                   "additionalProperties": false
                 }
@@ -5627,6 +7067,45 @@
                           "type": "string"
                         }
                       },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "sep",
+                          "legacy-sep-text"
+                        ]
+                      },
+                      "stableKey": {
+                        "type": "string"
+                      },
+                      "currentStateId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "replacement": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "currentStateId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "currentStateId"
+                        ],
+                        "additionalProperties": false
+                      },
                       "states": {
                         "type": "array",
                         "items": {
@@ -5652,6 +7131,12 @@
                             "canonicalUrl": {
                               "type": "string"
                             },
+                            "title": {
+                              "type": "string"
+                            },
+                            "publisher": {
+                              "type": "string"
+                            },
                             "admittedAt": {
                               "type": "string",
                               "format": "date-time",
@@ -5663,6 +7148,8 @@
                             "sequence",
                             "observationKey",
                             "canonicalUrl",
+                            "title",
+                            "publisher",
                             "admittedAt"
                           ],
                           "additionalProperties": false
@@ -5676,6 +7163,7 @@
                       "authors",
                       "publisher",
                       "publicationHistory",
+                      "kind",
                       "states"
                     ],
                     "additionalProperties": false
@@ -5832,11 +7320,290 @@
                       "format": "date-time",
                       "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
                     },
+                    "policy": {
+                      "type": "object",
+                      "properties": {
+                        "rightsBasis": {
+                          "type": "string"
+                        },
+                        "sensitivityLevel": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "rightsBasis",
+                        "sensitivityLevel"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "diagnostics": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "level": {
+                            "type": "string",
+                            "enum": [
+                              "info",
+                              "warning"
+                            ]
+                          },
+                          "code": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "level",
+                          "code",
+                          "message"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "capture": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "budget": {
+                              "type": "string",
+                              "enum": [
+                                "standard",
+                                "expanded"
+                              ]
+                            },
+                            "completeness": {
+                              "type": "string",
+                              "enum": [
+                                "complete",
+                                "partial",
+                                "stopped"
+                              ]
+                            },
+                            "readingReadiness": {
+                              "type": "string",
+                              "enum": [
+                                "ready",
+                                "degraded"
+                              ]
+                            },
+                            "readinessReasons": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "unresolvedResources": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "url": {
+                                    "type": "string"
+                                  },
+                                  "parentIdentity": {
+                                    "type": "string"
+                                  },
+                                  "role": {
+                                    "type": "string",
+                                    "enum": [
+                                      "supplement",
+                                      "notes",
+                                      "figure-description",
+                                      "unknown-component",
+                                      "semantic-asset"
+                                    ]
+                                  },
+                                  "depth": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "reason": {
+                                    "type": "string"
+                                  },
+                                  "limit": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "url",
+                                  "parentIdentity",
+                                  "role",
+                                  "depth",
+                                  "reason",
+                                  "limit"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "limits": {
+                              "type": "object",
+                              "properties": {
+                                "maxComponents": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "maxAssets": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "maxResourceBytes": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "maxTotalBytes": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "maxDepth": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "maxRedirects": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "timeoutMilliseconds": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "maxConcurrency": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "maxComponents",
+                                "maxAssets",
+                                "maxResourceBytes",
+                                "maxTotalBytes",
+                                "maxDepth",
+                                "maxRedirects",
+                                "timeoutMilliseconds",
+                                "maxConcurrency"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "retryUsed": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "budget",
+                            "completeness",
+                            "readingReadiness",
+                            "readinessReasons",
+                            "unresolvedResources",
+                            "limits",
+                            "retryUsed"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "budget": {
+                              "type": "string",
+                              "const": "unknown"
+                            },
+                            "completeness": {
+                              "type": "string",
+                              "const": "partial"
+                            },
+                            "readingReadiness": {
+                              "type": "string",
+                              "const": "degraded"
+                            },
+                            "readinessReasons": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "unresolvedResources": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "url": {
+                                    "type": "string"
+                                  },
+                                  "parentIdentity": {
+                                    "type": "string"
+                                  },
+                                  "role": {
+                                    "type": "string",
+                                    "enum": [
+                                      "supplement",
+                                      "notes",
+                                      "figure-description",
+                                      "unknown-component",
+                                      "semantic-asset"
+                                    ]
+                                  },
+                                  "depth": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "reason": {
+                                    "type": "string"
+                                  },
+                                  "limit": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "url",
+                                  "parentIdentity",
+                                  "role",
+                                  "depth",
+                                  "reason",
+                                  "limit"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "limits": {
+                              "type": "null"
+                            },
+                            "retryUsed": {
+                              "type": "null"
+                            }
+                          },
+                          "required": [
+                            "budget",
+                            "completeness",
+                            "readingReadiness",
+                            "readinessReasons",
+                            "unresolvedResources",
+                            "limits",
+                            "retryUsed"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
                     "resources": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
+                          "identity": {
+                            "type": "string"
+                          },
                           "role": {
                             "type": "string",
                             "enum": [
@@ -5855,8 +7622,43 @@
                           "finalUrl": {
                             "type": "string"
                           },
+                          "status": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
                           "mediaType": {
                             "type": "string"
+                          },
+                          "charset": {
+                            "type": "string"
+                          },
+                          "contentEncoding": {
+                            "type": "string"
+                          },
+                          "selectedHeaders": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          },
+                          "requestCount": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "downloadedBytes": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "retrievedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
                           },
                           "byteLength": {
                             "type": "integer",
@@ -5868,16 +7670,207 @@
                           },
                           "discoveryEdge": {
                             "type": "string"
+                          },
+                          "depth": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
                           }
                         },
                         "required": [
+                          "identity",
                           "role",
                           "requestedUrl",
                           "finalUrl",
+                          "status",
                           "mediaType",
+                          "selectedHeaders",
+                          "requestCount",
+                          "downloadedBytes",
+                          "retrievedAt",
                           "byteLength",
                           "sha256",
-                          "discoveryEdge"
+                          "discoveryEdge",
+                          "depth"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "components": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "identity": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string",
+                            "enum": [
+                              "main",
+                              "citation-information",
+                              "supplement",
+                              "notes",
+                              "figure-description",
+                              "unknown-component",
+                              "semantic-asset"
+                            ]
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "order": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "parentIdentity": {
+                            "type": "string"
+                          },
+                          "requestedUrl": {
+                            "type": "string"
+                          },
+                          "finalUrl": {
+                            "type": "string"
+                          },
+                          "retrievedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                          },
+                          "sha256": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "identity",
+                          "role",
+                          "label",
+                          "order",
+                          "requestedUrl",
+                          "finalUrl",
+                          "retrievedAt",
+                          "sha256"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "derivatives": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "kind": {
+                            "type": "string"
+                          },
+                          "previousDerivativeId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "valid": {
+                            "type": "boolean"
+                          },
+                          "validation": {},
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                          },
+                          "currentActivation": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "activatedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "activatedAt"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "adapter": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "version"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "parser": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "version"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "inputResourceHashes": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "identity": {
+                                      "type": "string"
+                                    },
+                                    "sha256": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "identity",
+                                    "sha256"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "adapter",
+                              "parser",
+                              "inputResourceHashes"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "kind",
+                          "valid",
+                          "validation",
+                          "createdAt"
                         ],
                         "additionalProperties": false
                       }
@@ -5894,7 +7887,12 @@
                     "publisher",
                     "publicationHistory",
                     "admittedAt",
-                    "resources"
+                    "policy",
+                    "diagnostics",
+                    "capture",
+                    "resources",
+                    "components",
+                    "derivatives"
                   ],
                   "additionalProperties": false
                 }
@@ -8637,6 +10635,765 @@
                       ],
                       "additionalProperties": false
                     },
+                    "state": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "sourceId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "sequence": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "observationKey": {
+                          "type": "string",
+                          "enum": [
+                            "submitted",
+                            "recommended-archive"
+                          ]
+                        },
+                        "canonicalUrl": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "authors": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "publisher": {
+                          "type": "string"
+                        },
+                        "publicationHistory": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "admittedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                        },
+                        "policy": {
+                          "type": "object",
+                          "properties": {
+                            "rightsBasis": {
+                              "type": "string"
+                            },
+                            "sensitivityLevel": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "rightsBasis",
+                            "sensitivityLevel"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "diagnostics": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "level": {
+                                "type": "string",
+                                "enum": [
+                                  "info",
+                                  "warning"
+                                ]
+                              },
+                              "code": {
+                                "type": "string"
+                              },
+                              "message": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "level",
+                              "code",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "capture": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "budget": {
+                                  "type": "string",
+                                  "enum": [
+                                    "standard",
+                                    "expanded"
+                                  ]
+                                },
+                                "completeness": {
+                                  "type": "string",
+                                  "enum": [
+                                    "complete",
+                                    "partial",
+                                    "stopped"
+                                  ]
+                                },
+                                "readingReadiness": {
+                                  "type": "string",
+                                  "enum": [
+                                    "ready",
+                                    "degraded"
+                                  ]
+                                },
+                                "readinessReasons": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "unresolvedResources": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "url": {
+                                        "type": "string"
+                                      },
+                                      "parentIdentity": {
+                                        "type": "string"
+                                      },
+                                      "role": {
+                                        "type": "string",
+                                        "enum": [
+                                          "supplement",
+                                          "notes",
+                                          "figure-description",
+                                          "unknown-component",
+                                          "semantic-asset"
+                                        ]
+                                      },
+                                      "depth": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "reason": {
+                                        "type": "string"
+                                      },
+                                      "limit": {
+                                        "type": "boolean"
+                                      }
+                                    },
+                                    "required": [
+                                      "url",
+                                      "parentIdentity",
+                                      "role",
+                                      "depth",
+                                      "reason",
+                                      "limit"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "limits": {
+                                  "type": "object",
+                                  "properties": {
+                                    "maxComponents": {
+                                      "type": "integer",
+                                      "exclusiveMinimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "maxAssets": {
+                                      "type": "integer",
+                                      "exclusiveMinimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "maxResourceBytes": {
+                                      "type": "integer",
+                                      "exclusiveMinimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "maxTotalBytes": {
+                                      "type": "integer",
+                                      "exclusiveMinimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "maxDepth": {
+                                      "type": "integer",
+                                      "exclusiveMinimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "maxRedirects": {
+                                      "type": "integer",
+                                      "exclusiveMinimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "timeoutMilliseconds": {
+                                      "type": "integer",
+                                      "exclusiveMinimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "maxConcurrency": {
+                                      "type": "integer",
+                                      "exclusiveMinimum": 0,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "required": [
+                                    "maxComponents",
+                                    "maxAssets",
+                                    "maxResourceBytes",
+                                    "maxTotalBytes",
+                                    "maxDepth",
+                                    "maxRedirects",
+                                    "timeoutMilliseconds",
+                                    "maxConcurrency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "retryUsed": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "budget",
+                                "completeness",
+                                "readingReadiness",
+                                "readinessReasons",
+                                "unresolvedResources",
+                                "limits",
+                                "retryUsed"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "budget": {
+                                  "type": "string",
+                                  "const": "unknown"
+                                },
+                                "completeness": {
+                                  "type": "string",
+                                  "const": "partial"
+                                },
+                                "readingReadiness": {
+                                  "type": "string",
+                                  "const": "degraded"
+                                },
+                                "readinessReasons": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "unresolvedResources": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "url": {
+                                        "type": "string"
+                                      },
+                                      "parentIdentity": {
+                                        "type": "string"
+                                      },
+                                      "role": {
+                                        "type": "string",
+                                        "enum": [
+                                          "supplement",
+                                          "notes",
+                                          "figure-description",
+                                          "unknown-component",
+                                          "semantic-asset"
+                                        ]
+                                      },
+                                      "depth": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "reason": {
+                                        "type": "string"
+                                      },
+                                      "limit": {
+                                        "type": "boolean"
+                                      }
+                                    },
+                                    "required": [
+                                      "url",
+                                      "parentIdentity",
+                                      "role",
+                                      "depth",
+                                      "reason",
+                                      "limit"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "limits": {
+                                  "type": "null"
+                                },
+                                "retryUsed": {
+                                  "type": "null"
+                                }
+                              },
+                              "required": [
+                                "budget",
+                                "completeness",
+                                "readingReadiness",
+                                "readinessReasons",
+                                "unresolvedResources",
+                                "limits",
+                                "retryUsed"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "resources": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "identity": {
+                                "type": "string"
+                              },
+                              "role": {
+                                "type": "string",
+                                "enum": [
+                                  "main",
+                                  "citation-information",
+                                  "supplement",
+                                  "notes",
+                                  "figure-description",
+                                  "unknown-component",
+                                  "semantic-asset"
+                                ]
+                              },
+                              "requestedUrl": {
+                                "type": "string"
+                              },
+                              "finalUrl": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "mediaType": {
+                                "type": "string"
+                              },
+                              "charset": {
+                                "type": "string"
+                              },
+                              "contentEncoding": {
+                                "type": "string"
+                              },
+                              "selectedHeaders": {
+                                "type": "object",
+                                "propertyNames": {
+                                  "type": "string"
+                                },
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              },
+                              "requestCount": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "downloadedBytes": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "retrievedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                              },
+                              "byteLength": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "sha256": {
+                                "type": "string"
+                              },
+                              "discoveryEdge": {
+                                "type": "string"
+                              },
+                              "depth": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "identity",
+                              "role",
+                              "requestedUrl",
+                              "finalUrl",
+                              "status",
+                              "mediaType",
+                              "selectedHeaders",
+                              "requestCount",
+                              "downloadedBytes",
+                              "retrievedAt",
+                              "byteLength",
+                              "sha256",
+                              "discoveryEdge",
+                              "depth"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "components": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "identity": {
+                                "type": "string"
+                              },
+                              "role": {
+                                "type": "string",
+                                "enum": [
+                                  "main",
+                                  "citation-information",
+                                  "supplement",
+                                  "notes",
+                                  "figure-description",
+                                  "unknown-component",
+                                  "semantic-asset"
+                                ]
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "order": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "parentIdentity": {
+                                "type": "string"
+                              },
+                              "requestedUrl": {
+                                "type": "string"
+                              },
+                              "finalUrl": {
+                                "type": "string"
+                              },
+                              "retrievedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                              },
+                              "sha256": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "identity",
+                              "role",
+                              "label",
+                              "order",
+                              "requestedUrl",
+                              "finalUrl",
+                              "retrievedAt",
+                              "sha256"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "derivatives": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "kind": {
+                                "type": "string"
+                              },
+                              "previousDerivativeId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "valid": {
+                                "type": "boolean"
+                              },
+                              "validation": {},
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                              },
+                              "currentActivation": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "activatedAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "activatedAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "provenance": {
+                                "type": "object",
+                                "properties": {
+                                  "adapter": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "version"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "parser": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "version"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "inputResourceHashes": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "identity": {
+                                          "type": "string"
+                                        },
+                                        "sha256": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "identity",
+                                        "sha256"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "adapter",
+                                  "parser",
+                                  "inputResourceHashes"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "kind",
+                              "valid",
+                              "validation",
+                              "createdAt"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "sourceId",
+                        "sequence",
+                        "observationKey",
+                        "canonicalUrl",
+                        "title",
+                        "authors",
+                        "publisher",
+                        "publicationHistory",
+                        "admittedAt",
+                        "policy",
+                        "diagnostics",
+                        "capture",
+                        "resources",
+                        "components",
+                        "derivatives"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "source": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "admittedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                        },
+                        "authors": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "publisher": {
+                          "type": "string"
+                        },
+                        "publicationHistory": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "sep",
+                            "legacy-sep-text"
+                          ]
+                        },
+                        "stableKey": {
+                          "type": "string"
+                        },
+                        "currentStateId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "replacement": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "currentStateId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "title",
+                            "currentStateId"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "states": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "sequence": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "observationKey": {
+                                "type": "string",
+                                "enum": [
+                                  "submitted",
+                                  "recommended-archive"
+                                ]
+                              },
+                              "canonicalUrl": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "publisher": {
+                                "type": "string"
+                              },
+                              "admittedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "sequence",
+                              "observationKey",
+                              "canonicalUrl",
+                              "title",
+                              "publisher",
+                              "admittedAt"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "title",
+                        "admittedAt",
+                        "authors",
+                        "publisher",
+                        "publicationHistory",
+                        "kind",
+                        "states"
+                      ],
+                      "additionalProperties": false
+                    },
                     "citationResolutions": {
                       "type": "array",
                       "items": {
@@ -8779,6 +11536,7 @@
                   },
                   "required": [
                     "reading",
+                    "source",
                     "citationResolutions"
                   ],
                   "additionalProperties": false

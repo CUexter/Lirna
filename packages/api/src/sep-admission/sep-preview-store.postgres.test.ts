@@ -174,4 +174,34 @@ describePostgres("SEP preview-lifecycle PostgreSQL store", () => {
       .from(sources);
     expect(stableSources).toHaveLength(1);
   });
+
+  test("locks capture replacement after an unchanged admission", async () => {
+    const stableKey = `sep:unchanged-lock-${randomUUID()}`;
+    const firstPreviewId = await insertPreview(database, {
+      stableKey,
+      observations: ["submitted"],
+    });
+    await store.admit(firstPreviewId, ["submitted"], new Date());
+    const unchangedPreviewId = await insertPreview(database, {
+      stableKey,
+      observations: ["submitted"],
+    });
+
+    const admitted = await store.admit(
+      unchangedPreviewId,
+      ["submitted"],
+      new Date(),
+    );
+    expect(admitted?.outcomes[0]?.disposition).toBe("unchanged");
+    expect(await store.claimExpandedRetry(unchangedPreviewId, new Date())).toBe(
+      "unavailable",
+    );
+    expect(
+      await store.replaceCapture(
+        unchangedPreviewId,
+        new Date(),
+        admissionCreateRecord({ stableKey }),
+      ),
+    ).toBe("unavailable");
+  });
 });

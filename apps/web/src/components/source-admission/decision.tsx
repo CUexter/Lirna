@@ -56,15 +56,22 @@ export function SepAdmissionDecision({
           <div className="flex flex-wrap items-center gap-2">
             <Badge>Source admitted</Badge>
             <CardTitle className="font-serif text-xl">
-              Immutable states created
+              Admission complete
             </CardTitle>
           </div>
           <CardDescription>
-            These states retain the reviewed preview bytes. Open a state through
-            its typed Reading derivative; captured HTML is never injected.
+            Changed bytes create immutable states; unchanged bytes reuse the
+            matching state. Captured HTML is never injected.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
+          <p className="font-medium">
+            {result.outcomes.some(
+              ({ disposition }) => disposition === "created",
+            )
+              ? "Immutable states created"
+              : "Existing immutable states reused"}
+          </p>
           {result.states.map((state) => (
             <Link
               className={buttonVariants({
@@ -78,6 +85,12 @@ export function SepAdmissionDecision({
               <span>
                 State {state.sequence + 1}:{" "}
                 {observationLabel(state.observationKey)}
+                {result.outcomes.find(
+                  ({ observationKey }) =>
+                    observationKey === state.observationKey,
+                )?.disposition === "unchanged"
+                  ? " (unchanged)"
+                  : " (created)"}
               </span>
               <ArrowRightIcon data-icon="inline-end" />
             </Link>
@@ -141,9 +154,9 @@ export function SepAdmissionDecision({
             onCheckedChange={setConfirmed}
           />
           <Label className="font-normal leading-5" htmlFor="confirm-admission">
-            Create one immutable Source state for each selected observation
-            using exactly the retained preview bytes. Admission does not fetch
-            SEP again.
+            Create one immutable Source state for each selected observation when
+            its retained preview bytes differ. Unchanged bundles reuse their
+            existing state. Admission does not fetch SEP again.
           </Label>
         </div>
         {selected.length === 0 ? (

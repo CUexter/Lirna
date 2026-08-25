@@ -7,6 +7,10 @@ import userEvent from "@testing-library/user-event";
 import { historySemanticLocation } from "@/components/reading-workspace/reading-history-position";
 import { readingFixture, sourceId, stateId } from "./-reading-test-fixtures";
 import { renderRoute } from "./-route-test-harness";
+import {
+  readingWorkspaceFixture,
+  sepUpdateClientStub,
+} from "./-source-information-test-fixture";
 
 const calls = {
   resumeGet: [] as unknown[],
@@ -17,6 +21,7 @@ let getReading = async () => readingFixture();
 
 await mock.module("@/clients/inquiry", () => ({
   inquiry: {
+    sepAdmission: sepUpdateClientStub,
     sources: {
       assistant: {
         ask: {
@@ -28,10 +33,7 @@ await mock.module("@/clients/inquiry", () => ({
       readingWorkspace: {
         queryOptions: ({ input }: { input: unknown }) => ({
           queryKey: ["reading-workspace", input],
-          queryFn: async () => ({
-            reading: await getReading(),
-            citationResolutions: [],
-          }),
+          queryFn: async () => readingWorkspaceFixture(await getReading()),
         }),
       },
       resume: {

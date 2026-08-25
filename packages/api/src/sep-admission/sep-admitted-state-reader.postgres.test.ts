@@ -1,7 +1,13 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { sourceStateDerivativeActivations } from "@lirna/db/schema/sources";
-import { eq } from "drizzle-orm";
+import { sepPreviewResources } from "@lirna/db/schema/sep-admission";
+import {
+  sourceStateDerivativeActivations,
+  sourceStateDerivatives,
+  sourceStates,
+  sources,
+} from "@lirna/db/schema/sources";
+import { and, eq } from "drizzle-orm";
 
 import { readingIntegrationHtml } from "./fixtures/admission-preview";
 import {
@@ -94,12 +100,135 @@ describePostgres("SEP admitted-state PostgreSQL reader", () => {
     const admitted = await store.admit(previewId, ["submitted"], admittedAt);
     const state = admitted?.states[0];
     expect(state).toBeDefined();
-    expect(
-      await store.getState(admitted?.sourceId ?? "", state?.id ?? ""),
-    ).toEqual(state);
+    const reread = await store.getState(
+      admitted?.sourceId ?? "",
+      state?.id ?? "",
+    );
+    expect(reread).toEqual(state);
+    expect(reread?.policy).toEqual({
+      rightsBasis: "publicly-accessible",
+      sensitivityLevel: "ordinary-cloud",
+    });
+    expect(reread?.resources[0]).toMatchObject({
+      identity: expect.any(String),
+      requestedUrl: expect.any(String),
+      finalUrl: expect.any(String),
+      retrievedAt: expect.any(String),
+      sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+      byteLength: expect.any(Number),
+      discoveryEdge: expect.any(String),
+    });
+    expect(reread?.derivatives[0]).toMatchObject({
+      kind: "sep-reading-v1",
+      currentActivation: { activatedAt: expect.any(String) },
+      provenance: { adapter: { id: "sep", version: "1" } },
+    });
     expect(
       await store.getState(admitted?.sourceId ?? "", randomUUID()),
     ).toBeUndefined();
+  });
+
+  test("uses the active observation as the update target", async () => {
+    const previewId = randomUUID();
+    await insertPreview(database, {
+      id: previewId,
+      stableKey: `sep:update-target-${previewId}`,
+      observations: ["submitted", "recommended-archive"],
+    });
+    const archiveUrl =
+      "https://plato.stanford.edu/archives/sum2026/entries/reading/";
+    await database
+      .update(sepPreviewResources)
+      .set({ requestedUrl: archiveUrl, finalUrl: archiveUrl })
+      .where(
+        and(
+          eq(sepPreviewResources.previewId, previewId),
+          eq(sepPreviewResources.observationKey, "recommended-archive"),
+        ),
+      );
+
+    const admitted = await store.admit(
+      previewId,
+      ["submitted", "recommended-archive"],
+      new Date(),
+    );
+
+    await expect(
+      store.getUpdateTarget(admitted?.sourceId ?? ""),
+    ).resolves.toEqual({
+      stableKey: `sep:update-target-${previewId}`,
+      canonicalUrl: "https://plato.stanford.edu/entries/reading/",
+    });
+  });
+
+  test("keeps a legacy SEP text state listed and readable", async () => {
+    const previewId = randomUUID();
+    await insertPreview(database, {
+      id: previewId,
+      stableKey: `sep:legacy-reading-${previewId}`,
+      observations: ["submitted"],
+    });
+    const admitted = await store.admit(previewId, ["submitted"], new Date());
+    const reading = await store.getReading(
+      admitted?.sourceId ?? "",
+      admitted?.states[0]?.id ?? "",
+    );
+    expect(reading).toBeDefined();
+    if (!reading) throw new Error("Expected admitted Reading fixture");
+
+    const legacySourceId = randomUUID();
+    const legacyStateId = randomUUID();
+    const legacyDerivativeId = randomUUID();
+    await database.insert(sources).values({
+      id: legacySourceId,
+      title: "Legacy SEP text",
+      stableKey: null,
+    });
+    await database.insert(sourceStates).values({
+      id: legacyStateId,
+      sourceId: legacySourceId,
+      sequence: 0,
+      adapterId: "sep-text-prototype",
+      observationKey: null,
+      canonicalUrl: null,
+      rightsBasis: "publicly-accessible",
+      sensitivityLevel: "ordinary-cloud",
+    });
+    await database.insert(sourceStateDerivatives).values({
+      id: legacyDerivativeId,
+      sourceStateId: legacyStateId,
+      kind: "sep-reading-v1",
+      valid: true,
+      payload: {
+        ...reading,
+        source: {
+          ...reading.source,
+          id: legacySourceId,
+          stateId: legacyStateId,
+          title: "Legacy SEP text",
+        },
+      },
+      validation: { schema: "sep-reading-v1", status: "valid" },
+    });
+    await database.insert(sourceStateDerivativeActivations).values({
+      sourceStateId: legacyStateId,
+      derivativeId: legacyDerivativeId,
+      kind: "sep-reading-v1",
+    });
+
+    const legacy = (await store.listSources()).find(
+      ({ id }) => id === legacySourceId,
+    );
+    expect(legacy).toMatchObject({
+      kind: "legacy-sep-text",
+      currentStateId: legacyStateId,
+      states: [{ id: legacyStateId }],
+    });
+    await expect(
+      store.getReading(legacySourceId, legacyStateId),
+    ).resolves.toMatchObject({
+      source: { id: legacySourceId, stateId: legacyStateId },
+    });
   });
 
   test("deletes an admitted Source and its immutable state records", async () => {

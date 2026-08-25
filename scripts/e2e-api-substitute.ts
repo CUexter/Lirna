@@ -164,6 +164,19 @@ preview.comparison = {
   message:
     "Active and recommended archive publication resources are materially distinct.",
 };
+const updatePreview = {
+  ...preview,
+  update: {
+    sourceId: "10000000-0000-4000-8000-000000000000",
+    observations: [
+      {
+        key: "submitted",
+        result: "unchanged",
+        comparedStateId: "20000000-0000-4000-8000-000000000000",
+      },
+    ],
+  },
+};
 
 const admissionResult = {
   sourceId: "10000000-0000-4000-8000-000000000000",
@@ -655,6 +668,101 @@ reading.components = [
   },
 ];
 
+const sourceInformation = {
+  source: {
+    id: reading.source.id,
+    title: reading.source.title,
+    admittedAt: reading.source.admittedAt,
+    authors: reading.source.authors,
+    publisher: reading.source.publisher,
+    publicationHistory: reading.source.publicationHistory,
+    kind: "sep",
+    stableKey: "sep:epistemology",
+    currentStateId: reading.source.stateId,
+    states: [
+      {
+        id: reading.source.stateId,
+        sequence: 0,
+        observationKey: "submitted",
+        canonicalUrl: reading.source.canonicalUrl,
+        title: reading.source.title,
+        publisher: reading.source.publisher,
+        admittedAt: reading.source.admittedAt,
+      },
+    ],
+  },
+  state: {
+    id: reading.source.stateId,
+    sourceId: reading.source.id,
+    sequence: 0,
+    observationKey: "submitted",
+    canonicalUrl: reading.source.canonicalUrl,
+    title: reading.source.title,
+    authors: reading.source.authors,
+    publisher: reading.source.publisher,
+    publicationHistory: reading.source.publicationHistory,
+    admittedAt: reading.source.admittedAt,
+    policy: {
+      rightsBasis: "publicly-accessible",
+      sensitivityLevel: "ordinary-cloud",
+    },
+    diagnostics: reading.capture.diagnostics,
+    capture: {
+      budget: "standard",
+      completeness: reading.capture.completeness,
+      readingReadiness: reading.capture.readingReadiness,
+      readinessReasons: reading.capture.readinessReasons,
+      unresolvedResources: [],
+      limits: preview.capture.limits,
+      retryUsed: false,
+    },
+    resources: reading.components.map((component) => ({
+      identity: component.identity,
+      role: component.role,
+      requestedUrl: component.requestedUrl,
+      finalUrl: component.finalUrl,
+      status: 200,
+      mediaType: "text/html",
+      charset: "utf-8",
+      selectedHeaders: { "content-type": "text/html; charset=utf-8" },
+      requestCount: 1,
+      downloadedBytes: 1024,
+      retrievedAt: component.retrievedAt,
+      byteLength: 1024,
+      sha256: component.sha256,
+      discoveryEdge: component.parentIdentity
+        ? "authored-component-link"
+        : "submitted-entry",
+      depth: component.parentIdentity ? 1 : 0,
+    })),
+    components: reading.components.map((component) => ({
+      identity: component.identity,
+      role: component.role,
+      label: component.label,
+      order: component.order,
+      parentIdentity: component.parentIdentity,
+      requestedUrl: component.requestedUrl,
+      finalUrl: component.finalUrl,
+      retrievedAt: component.retrievedAt,
+      sha256: component.sha256,
+    })),
+    derivatives: [
+      {
+        id: "40000000-0000-4000-8000-000000000000",
+        kind: "sep-reading-v1",
+        valid: true,
+        validation: { schema: "sep-reading-v1", status: "valid" },
+        createdAt: reading.source.admittedAt,
+        currentActivation: {
+          id: "50000000-0000-4000-8000-000000000000",
+          activatedAt: reading.source.admittedAt,
+        },
+        provenance: reading.provenance,
+      },
+    ],
+  },
+};
+
 const annotations = [
   {
     id: "annotation-intro",
@@ -736,10 +844,11 @@ function orpcError(message, code = "BAD_REQUEST") {
 const orpcPostRoutes = {
   "sources/reading": () => orpcSuccess(reading),
   "sources/readingWorkspace": () =>
-    orpcSuccess({ reading, citationResolutions: [] }),
+    orpcSuccess({ reading, citationResolutions: [], ...sourceInformation }),
   "sources/resume": () => orpcSuccess(resumePosition),
   "annotations/list": () => orpcSuccess(annotations),
   "sepAdmission/get": () => orpcSuccess(preview),
+  "sepAdmission/checkUpdate": () => orpcSuccess(updatePreview),
   healthCheck: () => orpcSuccess("OK"),
   "sepAdmission/submit": (body) =>
     body.includes("rejected-entry")
@@ -755,13 +864,20 @@ const orpcPostRoutes = {
     orpcSuccess({ ...preview, expiresAt: "2026-08-31T12:00:00.000Z" }),
   "sepAdmission/delete": () => orpcSuccess({ deleted: true }),
   "sepAdmission/retry": () => orpcSuccess(retriedPreview),
-  "sepAdmission/admit": (body) =>
-    orpcSuccess({
+  "sepAdmission/admit": (body) => {
+    const states = body.includes("recommended-archive")
+      ? admissionResult.states
+      : admissionResult.states.slice(0, 1);
+    return orpcSuccess({
       ...admissionResult,
-      states: body.includes("recommended-archive")
-        ? admissionResult.states
-        : admissionResult.states.slice(0, 1),
-    }),
+      states,
+      outcomes: states.map((state) => ({
+        observationKey: state.observationKey,
+        stateId: state.id,
+        disposition: "created",
+      })),
+    });
+  },
 };
 
 async function handleOrpcPost(request, response) {
@@ -821,7 +937,11 @@ const server = createServer(async (request, response) => {
     request.method === "GET" &&
     request.url?.startsWith("/orpc/sources/readingWorkspace")
   ) {
-    sendJson(response, 200, orpcSuccess({ reading, citationResolutions: [] }));
+    sendJson(
+      response,
+      200,
+      orpcSuccess({ reading, citationResolutions: [], ...sourceInformation }),
+    );
     return;
   }
 

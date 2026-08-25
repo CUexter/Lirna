@@ -2,9 +2,14 @@ import {
   createSepAdmissionOperations,
   type SepAdmissionCreateRecord,
   type SepAdmissionStore,
-  type SepAdmissionStoredPreview,
 } from "../sep-admission";
 import type { SepCaptureClient } from "../sep-capture";
+import {
+  captureReport,
+  optionsWithArchive,
+  resource,
+  storedPreview,
+} from "./operations-harness-data";
 
 export function createHarness(
   options: {
@@ -12,6 +17,7 @@ export function createHarness(
     degradedCapture?: boolean;
     archive?: boolean;
     distinctArchive?: boolean;
+    existingUpdate?: "unchanged" | "changed";
   } = {},
 ) {
   let currentTime = new Date("2026-08-17T12:00:00.000Z");
@@ -27,36 +33,28 @@ export function createHarness(
       if (!record || record.id !== id || record.expiresAt <= now) {
         return undefined;
       }
-      return storedPreview(record);
+      return storedPreview(record, options.existingUpdate);
     },
     async extendActive(id, now, expiresAt) {
-      if (!record || record.id !== id || record.expiresAt <= now) {
-        return false;
-      }
+      if (!record || record.id !== id || record.expiresAt <= now) return false;
       record.expiresAt = expiresAt;
       return true;
     },
     async delete(id) {
-      if (!record || record.id !== id) {
-        return false;
-      }
+      if (!record || record.id !== id) return false;
       record = undefined;
       return true;
     },
     async deleteExpired(now) {
-      if (record && record.expiresAt <= now) {
-        record = undefined;
-        return 1;
-      }
-      return 0;
+      if (!record || record.expiresAt > now) return 0;
+      record = undefined;
+      return 1;
     },
     async claimExpandedRetry(id, now) {
       if (!record || record.id !== id || record.expiresAt <= now) {
         return "unavailable";
       }
-      if (record.captureReport.retryUsed) {
-        return "already-used";
-      }
+      if (record.captureReport.retryUsed) return "already-used";
       record.captureReport.retryUsed = true;
       return "claimed";
     },
@@ -71,6 +69,12 @@ export function createHarness(
         ...structuredClone(value),
       };
       return "updated";
+    },
+    async getUpdateTarget() {
+      return {
+        stableKey: "sep:logic",
+        canonicalUrl: "https://plato.stanford.edu/entries/logic/",
+      };
     },
     async admit(id, observationKeys, now, onStage) {
       if (!record || record.id !== id || record.expiresAt <= now) {
@@ -101,17 +105,39 @@ export function createHarness(
           publisher: record?.publisher ?? "",
           publicationHistory: record?.publicationHistory ?? [],
           admittedAt: now.toISOString(),
+          policy: {
+            rightsBasis: "publicly-accessible",
+            sensitivityLevel: "ordinary-cloud",
+          },
+          diagnostics: record?.diagnostics ?? [],
+          capture: record?.captureReport ?? captureReport("standard"),
           resources: (record?.resources ?? [])
             .filter((item) => item.observationKey === observationKey)
             .map((item) => ({
+              identity: item.identity,
               role: item.role,
               requestedUrl: item.requestedUrl,
               finalUrl: item.finalUrl,
+              status: item.status,
               mediaType: item.mediaType,
+              charset: item.charset,
+              contentEncoding: item.contentEncoding,
+              selectedHeaders: item.selectedHeaders,
+              requestCount: item.requestCount,
+              downloadedBytes: item.downloadedBytes,
+              retrievedAt: item.retrievedAt.toISOString(),
               byteLength: item.byteLength,
               sha256: item.sha256,
               discoveryEdge: item.discoveryEdge,
+              depth: item.depth,
             })),
+          components: [],
+          derivatives: [],
+        })),
+        outcomes: observationKeys.map((observationKey, sequence) => ({
+          observationKey,
+          stateId: `20000000-0000-4000-8000-${String(sequence).padStart(12, "0")}`,
+          disposition: "created" as const,
         })),
       };
       return admittedResult;
@@ -172,115 +198,5 @@ export function createHarness(
     setTime: (value: string) => {
       currentTime = new Date(value);
     },
-  };
-}
-
-function resource(
-  role: "main" | "citation-information",
-  body: Buffer,
-  observationKey: "submitted" | "recommended-archive" = "submitted",
-) {
-  const transfer = {
-    byteLength: body.byteLength,
-    downloadedBytes: body.byteLength,
-    requestCount: 1,
-    retrievedAt: new Date("2026-08-17T12:00:00.000Z"),
-    requestedUrl: `https://plato.stanford.edu/${role}`,
-    finalUrl: `https://plato.stanford.edu/${role}`,
-    charset: "utf-8",
-    mediaType: "text/html; charset=utf-8",
-    selectedHeaders: { "content-type": "text/html; charset=utf-8" },
-    status: 200,
-  };
-  return {
-    observationKey,
-    identity:
-      role === "main"
-        ? `${observationKey === "submitted" ? "active" : "sum2026"}:/`
-        : "citation-information:logic",
-    role,
-    ...transfer,
-    sha256:
-      observationKey === "recommended-archive" &&
-      body.equals(Buffer.from("archive"))
-        ? "b".repeat(64)
-        : "a".repeat(64),
-    discoveryEdge:
-      role === "main"
-        ? ("submitted-entry" as const)
-        : ("required-citation-information" as const),
-    depth: 0,
-    body,
-  };
-}
-
-function optionsWithArchive(options: {
-  archive?: boolean;
-  distinctArchive?: boolean;
-}) {
-  return options.archive || options.distinctArchive;
-}
-
-function captureReport(budget: "standard" | "expanded", degraded = false) {
-  return {
-    budget,
-    completeness: degraded ? ("partial" as const) : ("complete" as const),
-    readingReadiness: degraded ? ("degraded" as const) : ("ready" as const),
-    readinessReasons: degraded ? ["Component unavailable"] : [],
-    unresolvedResources: degraded
-      ? [
-          {
-            url: "https://plato.stanford.edu/private-value",
-            parentIdentity: "active:/",
-            role: "supplement" as const,
-            depth: 1,
-            reason: "private failure detail",
-            limit: false,
-          },
-        ]
-      : [],
-    limits: {
-      maxComponents: budget === "expanded" ? 128 : 64,
-      maxAssets: budget === "expanded" ? 512 : 256,
-      maxResourceBytes: budget === "expanded" ? 100_000_000 : 50_000_000,
-      maxTotalBytes: budget === "expanded" ? 500_000_000 : 250_000_000,
-      maxDepth: budget === "expanded" ? 16 : 8,
-      maxRedirects: 5,
-      timeoutMilliseconds: budget === "expanded" ? 30_000 : 15_000,
-      maxConcurrency: 4,
-    },
-    retryUsed: budget === "expanded",
-  };
-}
-
-function storedPreview(
-  record: SepAdmissionCreateRecord,
-): SepAdmissionStoredPreview {
-  return {
-    preview: {
-      id: record.id,
-      stableKey: record.stableKey,
-      submittedUrl: record.submittedUrl,
-      recommendedArchiveUrl: record.recommendedArchiveUrl ?? null,
-      title: record.title,
-      authors: record.authors,
-      publisher: record.publisher,
-      publicationHistory: record.publicationHistory,
-      diagnostics: record.diagnostics,
-      captureDiagnostics: record.captureReport,
-      rightsBasis: "publicly-accessible",
-      sensitivityLevel: "ordinary-cloud",
-      replacesSourceId: null,
-      processingMilliseconds: record.processingMilliseconds,
-      createdAt: record.createdAt,
-      expiresAt: record.expiresAt,
-    },
-    resources: record.resources.map((item, index) => ({
-      id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
-      previewId: record.id,
-      ...item,
-      charset: item.charset ?? null,
-      contentEncoding: item.contentEncoding ?? null,
-    })),
   };
 }

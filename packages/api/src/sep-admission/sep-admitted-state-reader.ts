@@ -1,5 +1,6 @@
 import { db } from "@lirna/db";
 import {
+  sepAdmissionOutcomes,
   sepAdmissionPreviews,
   sepSourceStateMetadata,
 } from "@lirna/db/schema/sep-admission";
@@ -11,14 +12,12 @@ import {
   sourceStates,
   sources,
 } from "@lirna/db/schema/sources";
-import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import {
   parseStringList,
   sepObservationKeySchema,
-  sepResourceRoleSchema,
 } from "./sep-admission-builders";
 import type {
-  SepAdmittedState,
   SepAdmittedStateOperations,
   SepLibrarySource,
 } from "./sep-admitted-state";
@@ -26,6 +25,7 @@ import {
   readSepReadingDerivative,
   sepReadingDerivativeKind,
 } from "./sep-reading-contract";
+import { readSepAdmittedState } from "./sep-state-projection";
 
 export function createSepAdmittedStateReader(
   database: typeof db = db,
@@ -39,35 +39,23 @@ export function createSepAdmittedStateReader(
           metadata: sepSourceStateMetadata,
         })
         .from(sources)
-        .innerJoin(sourceStates, eq(sourceStates.sourceId, sources.id))
-        .innerJoin(
+        .leftJoin(sourceStates, eq(sourceStates.sourceId, sources.id))
+        .leftJoin(
           sepSourceStateMetadata,
           eq(sepSourceStateMetadata.sourceStateId, sourceStates.id),
         )
-        .where(eq(sourceStates.adapterId, "sep"))
         .orderBy(desc(sources.admittedAt), desc(sourceStates.sequence));
-      const grouped = new Map<string, SepLibrarySource>();
-      for (const row of rows) {
-        const source = grouped.get(row.source.id) ?? {
-          id: row.source.id,
-          title: row.source.title,
-          admittedAt: row.source.admittedAt.toISOString(),
-          authors: parseStringList(row.metadata.authors),
-          publisher: row.metadata.publisher,
-          publicationHistory: parseStringList(row.metadata.publicationHistory),
-          states: [],
-        };
-        source.states.push({
-          id: row.state.id,
-          sequence: row.state.sequence,
-          observationKey: sepObservationKeySchema.parse(
-            row.state.observationKey,
-          ),
-          canonicalUrl: row.state.canonicalUrl ?? "",
-          admittedAt: row.state.admittedAt.toISOString(),
-        });
-        grouped.set(row.source.id, source);
-      }
+      const relations = await database
+        .select({
+          legacySourceId: sourceRelations.relatedSourceId,
+          replacementId: sources.id,
+          replacementTitle: sources.title,
+        })
+        .from(sourceRelations)
+        .innerJoin(sources, eq(sources.id, sourceRelations.sourceId))
+        .where(eq(sourceRelations.kind, "replacement-capture-for"));
+      const grouped = groupLibrarySources(rows);
+      applyReplacementRelations(grouped, relations);
       return [...grouped.values()];
     },
 
@@ -83,6 +71,17 @@ export function createSepAdmittedStateReader(
         await tx.execute(
           sql`select set_config('lirna.allow_immutable_deletion', 'on', true)`,
         );
+        await tx
+          .delete(sepAdmissionOutcomes)
+          .where(
+            inArray(
+              sepAdmissionOutcomes.sourceStateId,
+              tx
+                .select({ id: sourceStates.id })
+                .from(sourceStates)
+                .where(eq(sourceStates.sourceId, sourceId)),
+            ),
+          );
 
         await tx
           .update(sepAdmissionPreviews)
@@ -148,54 +147,8 @@ export function createSepAdmittedStateReader(
       });
     },
 
-    async getState(
-      sourceId: string,
-      stateId: string,
-    ): Promise<SepAdmittedState | undefined> {
-      const [row] = await database
-        .select({ state: sourceStates, metadata: sepSourceStateMetadata })
-        .from(sourceStates)
-        .innerJoin(
-          sepSourceStateMetadata,
-          eq(sepSourceStateMetadata.sourceStateId, sourceStates.id),
-        )
-        .where(
-          and(
-            eq(sourceStates.id, stateId),
-            eq(sourceStates.sourceId, sourceId),
-          ),
-        );
-      if (!row) return undefined;
-      const resources = await database
-        .select()
-        .from(sourceStateResources)
-        .where(eq(sourceStateResources.sourceStateId, stateId))
-        .orderBy(
-          asc(sourceStateResources.role),
-          asc(sourceStateResources.identity),
-        );
-      return {
-        id: row.state.id,
-        sourceId: row.state.sourceId,
-        sequence: row.state.sequence,
-        observationKey: sepObservationKeySchema.parse(row.state.observationKey),
-        canonicalUrl: row.state.canonicalUrl ?? "",
-        title: row.metadata.title,
-        authors: parseStringList(row.metadata.authors),
-        publisher: row.metadata.publisher,
-        publicationHistory: parseStringList(row.metadata.publicationHistory),
-        admittedAt: row.state.admittedAt.toISOString(),
-        resources: resources.map((resource) => ({
-          role: sepResourceRoleSchema.parse(resource.role),
-          requestedUrl: resource.requestedUrl,
-          finalUrl: resource.finalUrl,
-          mediaType: resource.mediaType,
-          byteLength: resource.byteLength,
-          sha256: resource.sha256,
-          discoveryEdge: resource.discoveryEdge,
-        })),
-      };
-    },
+    getState: (sourceId, stateId) =>
+      readSepAdmittedState(database, sourceId, stateId),
 
     async getReading(sourceId: string, stateId: string) {
       const [row] = await database
@@ -223,7 +176,113 @@ export function createSepAdmittedStateReader(
         .limit(1);
       return row ? readSepReadingDerivative(row.payload) : undefined;
     },
+
+    async getUpdateTarget(sourceId: string) {
+      const [row] = await database
+        .select({
+          stableKey: sources.stableKey,
+          canonicalUrl: sourceStates.canonicalUrl,
+        })
+        .from(sources)
+        .innerJoin(sourceStates, eq(sourceStates.sourceId, sources.id))
+        .innerJoin(
+          sepSourceStateMetadata,
+          eq(sepSourceStateMetadata.sourceStateId, sourceStates.id),
+        )
+        .where(
+          and(
+            eq(sources.id, sourceId),
+            eq(sourceStates.adapterId, "sep"),
+            eq(sepSourceStateMetadata.observationKey, "submitted"),
+          ),
+        )
+        .orderBy(desc(sourceStates.sequence))
+        .limit(1);
+      return row?.stableKey && row.canonicalUrl
+        ? { stableKey: row.stableKey, canonicalUrl: row.canonicalUrl }
+        : undefined;
+    },
   };
 }
 
 export const sepAdmittedStateOperations = createSepAdmittedStateReader();
+
+interface LibraryRow {
+  source: typeof sources.$inferSelect;
+  state: typeof sourceStates.$inferSelect | null;
+  metadata: typeof sepSourceStateMetadata.$inferSelect | null;
+}
+
+function groupLibrarySources(rows: LibraryRow[]) {
+  const grouped = new Map<string, SepLibrarySource>();
+  for (const row of rows) {
+    const source = grouped.get(row.source.id) ?? librarySource(row);
+    appendSepState(source, row);
+    grouped.set(row.source.id, source);
+  }
+  return grouped;
+}
+
+function librarySource(row: LibraryRow): SepLibrarySource {
+  return {
+    id: row.source.id,
+    title: row.source.title,
+    admittedAt: row.source.admittedAt.toISOString(),
+    authors: row.metadata ? parseStringList(row.metadata.authors) : [],
+    publisher: row.metadata?.publisher ?? "",
+    publicationHistory: row.metadata
+      ? parseStringList(row.metadata.publicationHistory)
+      : [],
+    kind: row.state?.adapterId === "sep" ? "sep" : "legacy-sep-text",
+    ...(row.source.stableKey ? { stableKey: row.source.stableKey } : {}),
+    states: [],
+  };
+}
+
+function appendSepState(source: SepLibrarySource, row: LibraryRow) {
+  if (!row.state) return;
+  if (row.state.adapterId !== "sep") {
+    source.states.push({
+      id: row.state.id,
+      sequence: row.state.sequence,
+      observationKey: "submitted",
+      canonicalUrl: row.state.canonicalUrl ?? "",
+      title: row.source.title,
+      publisher: "",
+      admittedAt: row.state.admittedAt.toISOString(),
+    });
+    source.currentStateId ??= row.state.id;
+    return;
+  }
+  if (!row.metadata) return;
+  source.states.push({
+    id: row.state.id,
+    sequence: row.state.sequence,
+    observationKey: sepObservationKeySchema.parse(row.state.observationKey),
+    canonicalUrl: row.state.canonicalUrl ?? "",
+    title: row.metadata.title,
+    publisher: row.metadata.publisher,
+    admittedAt: row.state.admittedAt.toISOString(),
+  });
+  source.currentStateId ??= row.state.id;
+}
+
+function applyReplacementRelations(
+  grouped: Map<string, SepLibrarySource>,
+  relations: Array<{
+    legacySourceId: string;
+    replacementId: string;
+    replacementTitle: string;
+  }>,
+) {
+  for (const relation of relations) {
+    const legacy = grouped.get(relation.legacySourceId);
+    const replacement = grouped.get(relation.replacementId);
+    if (!legacy || !replacement?.currentStateId) continue;
+    legacy.replacement = {
+      id: relation.replacementId,
+      title: relation.replacementTitle,
+      currentStateId: replacement.currentStateId,
+    };
+  }
+}

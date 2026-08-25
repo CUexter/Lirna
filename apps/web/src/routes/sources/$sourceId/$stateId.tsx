@@ -1,9 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useLocation } from "@tanstack/react-router";
+import { lazy, Suspense } from "react";
 import { z } from "zod";
 
 import { inquiry } from "@/clients/inquiry";
 import { SepReadingWorkspace } from "@/components/reading-workspace/workspace";
+
+const SourceInformation = lazy(() =>
+  import("@/components/reading-workspace/source-information").then(
+    (module) => ({
+      default: module.SourceInformation,
+    }),
+  ),
+);
 
 export const Route = createFileRoute("/sources/$sourceId/$stateId")({
   validateSearch: z.object({
@@ -43,41 +52,46 @@ function RouteComponent() {
     );
   }
   return (
-    <SepReadingWorkspace
-      initialFragment={hash}
-      selectedComponent={component}
-      view={view ?? "article"}
-      workspace={workspace.data}
-      selectedCitation={citation}
-      onFragmentChange={(fragment) =>
-        navigate({
-          search: {
-            component,
-          },
-          hash: fragment,
-          hashScrollIntoView: false,
-          resetScroll: false,
-        })
-      }
-      onComponentChange={(identity) =>
-        navigate({
-          search: {
-            component: identity,
-          },
-          hash: "",
-          resetScroll: false,
-        })
-      }
-      onViewChange={(nextView, nextCitation) =>
-        navigate({
-          search: {
-            component,
-            ...(nextView === "bibliography" ? { view: nextView } : {}),
-            ...(nextCitation ? { citation: nextCitation } : {}),
-          },
-          resetScroll: false,
-        })
-      }
-    />
+    <>
+      <SepReadingWorkspace
+        initialFragment={hash}
+        selectedComponent={component}
+        view={view ?? "article"}
+        workspace={workspace.data}
+        selectedCitation={citation}
+        onFragmentChange={(fragment) =>
+          navigate({
+            search: {
+              component,
+            },
+            hash: fragment,
+            hashScrollIntoView: false,
+            resetScroll: false,
+          })
+        }
+        onComponentChange={(identity) =>
+          navigate({
+            search: {
+              component: identity,
+            },
+            hash: "",
+            resetScroll: false,
+          })
+        }
+        onViewChange={(nextView, nextCitation) =>
+          navigate({
+            search: {
+              component,
+              ...(nextView === "bibliography" ? { view: nextView } : {}),
+              ...(nextCitation ? { citation: nextCitation } : {}),
+            },
+            resetScroll: false,
+          })
+        }
+      />
+      <Suspense fallback={null}>
+        <SourceInformation workspace={workspace.data} />
+      </Suspense>
+    </>
   );
 }

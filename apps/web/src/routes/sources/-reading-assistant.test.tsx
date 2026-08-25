@@ -3,21 +3,23 @@ import { createRootRoute, createRoute } from "@tanstack/react-router";
 import { cleanup, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { readingFixture, sourceId, stateId } from "./-reading-test-fixtures";
+import { sourceId, stateId } from "./-reading-test-fixtures";
 import { renderRoute } from "./-route-test-harness";
+import {
+  readingWorkspaceFixture,
+  sepUpdateClientStub,
+} from "./-source-information-test-fixture";
 
 let assistantInput: unknown;
 
 await mock.module("@/clients/inquiry", () => ({
   inquiry: {
+    sepAdmission: sepUpdateClientStub,
     sources: {
       readingWorkspace: {
         queryOptions: ({ input }: { input: unknown }) => ({
           queryKey: ["reading-workspace", input],
-          queryFn: async () => ({
-            reading: readingFixture(),
-            citationResolutions: [],
-          }),
+          queryFn: async () => readingWorkspaceFixture(),
         }),
       },
       resume: {

@@ -1,19 +1,20 @@
 {
   "coverage": {
-    "functionsFound": 1218,
-    "functionsHit": 1065,
-    "linesFound": 15543,
-    "linesHit": 13478
+    "functionsFound": 1288,
+    "functionsHit": 1113,
+    "linesFound": 16717,
+    "linesHit": 14240
   },
   "absentSources": {
     "apps/docs/src/content.config.ts": "1f8b206b5f7c0afb44c3715a3fe79954b448885fe9e753ba372dddf1210ecfd5",
-    "apps/web/src/components/sources-library/types.ts": "f523ce2dd6a686fe44ffe2d2b8a635057ec1fc74cd2b7b1875ca9583fa61b561",
+    "apps/web/src/components/sources-library/types.ts": "0f24f8481ce4220b38bdb7e065fa674a195a6dfde235ceb84bad661b8d5a53ef",
     "apps/web/src/main.tsx": "e8478d39430f2fc2a6d6bad2ad0a0af78e0202e23bd7f5a9002d32f360007cbc",
     "apps/web/src/routes/__root.tsx": "347cb4863a97316520fe36baf45f4778b8211c8314480f03081e139e616c86c4",
     "packages/api/src/citation-resolutions/citation-resolution-contract.ts": "d1fb27f4c53d8e485e0c86be32b0f96b964666831edff6c4bf42cc4716ba0beb",
     "packages/api/src/client.ts": "fceebdab7202315dc4d6591a93c53b9fc7cc4ce6834e3bcf58a45528c610abc1",
     "packages/api/src/observation.ts": "47ec2046b74dd3ea67c7eba99da989ac548c45b91415e546e154d40f77726542",
-    "packages/api/src/sep-admission/sep-admitted-state.ts": "1aad0b394899bf261463bddb7e6c3faefde9a56b00b35d3fb0fa089a6f811da7",
+    "packages/api/src/sep-admission/sep-admission-contract.ts": "7090a71ea7805acde49009d7a1cbdaf10c5568eb18a0b98743bf77e48af70b63",
+    "packages/api/src/sep-admission/sep-admitted-state.ts": "9379e50665c85820cc39c73f12a8412c20ee8c5b8c65affe3c2198588730fd62",
     "packages/ui/src/components/attachment.tsx": "be6183559dcedb7b2ba5d863fc3bb42d755d4e8d5381350df6206215c8aef900",
     "packages/ui/src/components/badge.tsx": "a8c7da76342b51fbf5344e3d76fe2928b6b59292277b71d98fbeb5fec04d4629",
     "packages/ui/src/components/bubble.tsx": "947f116f97ef8c9478fd358afcdda3ab196c0e4646d01889805be95eeeea5e93",

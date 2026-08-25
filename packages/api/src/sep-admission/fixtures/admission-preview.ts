@@ -89,10 +89,14 @@ export function previewRowFields({
     publicationHistory: [...admissionPreviewDefaults.publicationHistory],
     diagnostics: [],
     captureDiagnostics: {
+      budget: "standard" as const,
       ...admissionPreviewDefaults.captureDiagnostics,
       readinessReasons: [
         ...admissionPreviewDefaults.captureDiagnostics.readinessReasons,
       ],
+      unresolvedResources: [],
+      limits: { ...admissionCaptureLimits },
+      retryUsed: false,
     },
     rightsBasis: admissionPreviewDefaults.rightsBasis,
     sensitivityLevel: admissionPreviewDefaults.sensitivityLevel,

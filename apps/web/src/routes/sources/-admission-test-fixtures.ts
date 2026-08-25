@@ -27,6 +27,7 @@ const resource: Preview["resources"][number] = {
 export function previewFixture(overrides: Partial<Preview> = {}): Preview {
   return {
     id: previewId,
+    stableKey: "sep:test",
     title: "Synthetic SEP entry",
     authors: ["Ada Lovelace"],
     publisher: "Stanford Encyclopedia of Philosophy",
@@ -118,7 +119,39 @@ export function admittedFixture(): Admission {
         publisher: "Stanford Encyclopedia of Philosophy",
         publicationHistory: ["First published 2026"],
         admittedAt: "2026-08-18T12:01:00.000Z",
+        policy: {
+          rightsBasis: "publicly-accessible",
+          sensitivityLevel: "ordinary-cloud",
+        },
+        diagnostics: [],
+        capture: {
+          budget: "standard",
+          completeness: "complete",
+          readingReadiness: "ready",
+          readinessReasons: [],
+          unresolvedResources: [],
+          limits: {
+            maxComponents: 64,
+            maxAssets: 256,
+            maxResourceBytes: 1024,
+            maxTotalBytes: 4096,
+            maxDepth: 8,
+            maxRedirects: 5,
+            timeoutMilliseconds: 15_000,
+            maxConcurrency: 4,
+          },
+          retryUsed: false,
+        },
         resources: [resource],
+        components: [],
+        derivatives: [],
+      },
+    ],
+    outcomes: [
+      {
+        observationKey: "submitted",
+        stateId: "30000000-0000-4000-8000-000000000000",
+        disposition: "created",
       },
     ],
   };

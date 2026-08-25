@@ -3,9 +3,14 @@ import { afterEach, expect, mock, test } from "bun:test";
 import { createRootRoute, createRoute } from "@tanstack/react-router";
 import { act, cleanup, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
+import { previewFixture } from "./-admission-test-fixtures";
 import { readingFixture, sourceId, stateId } from "./-reading-test-fixtures";
 import { renderRoute } from "./-route-test-harness";
+import {
+  readingWorkspaceFixture,
+  sepUpdateClientStub,
+  setSepUpdateResult,
+} from "./-source-information-test-fixture";
 
 const calls = {
   annotations: [] as unknown[],
@@ -13,10 +18,12 @@ const calls = {
 };
 let getReading: (input: unknown) => Promise<unknown> = async () =>
   readingFixture();
+let workspaceOverride: ReturnType<typeof readingWorkspaceFixture> | undefined;
 let annotations: unknown[] = [];
 
 await mock.module("@/clients/inquiry", () => ({
   inquiry: {
+    sepAdmission: sepUpdateClientStub,
     sources: {
       assistant: {
         ask: {
@@ -28,10 +35,12 @@ await mock.module("@/clients/inquiry", () => ({
       readingWorkspace: {
         queryOptions: ({ input }: { input: unknown }) => ({
           queryKey: ["reading-workspace", input],
-          queryFn: async () => ({
-            reading: await getReading(input),
-            citationResolutions: [],
-          }),
+          queryFn: async () => {
+            const reading = (await getReading(input)) as ReturnType<
+              typeof readingFixture
+            >;
+            return workspaceOverride ?? readingWorkspaceFixture(reading);
+          },
         }),
       },
       resume: {
@@ -116,6 +125,8 @@ function resetActions() {
   calls.annotations.length = 0;
   calls.reading.length = 0;
   annotations = [];
+  workspaceOverride = undefined;
+  setSepUpdateResult();
   getReading = async (input) => {
     calls.reading.push(input);
     return readingFixture();
@@ -178,8 +189,10 @@ test("renders source-state scholarly apparatus and navigates components", async 
     ),
   );
 
-  expect(view().getByText("Ada Lovelace, Grace Hopper")).toBeTruthy();
-  expect(view().getByText("Synthetic Publisher")).toBeTruthy();
+  expect(
+    view().getAllByText("Ada Lovelace, Grace Hopper").length,
+  ).toBeGreaterThan(0);
+  expect(view().getAllByText("Synthetic Publisher").length).toBeGreaterThan(0);
   expect(view().queryByText("Reading degraded")).toBeNull();
   expect(view().queryByText("Capture and rendering status")).toBeNull();
   expect(view().queryByText("Synthetic capture warning.")).toBeNull();
@@ -245,6 +258,79 @@ test("renders source-state scholarly apparatus and navigates components", async 
   await user.click(view().getByRole("button", { name: "Supplement one" }));
   await waitFor(() => view().getByText("First supplement content."));
   expect(router.state.location.search).toEqual({ component: "supplement-one" });
+});
+
+test("keeps legacy SEP text readable without first-class state evidence", async () => {
+  resetActions();
+  const workspace = readingWorkspaceFixture();
+  workspaceOverride = {
+    ...workspace,
+    state: undefined,
+    source: {
+      ...workspace.source,
+      kind: "legacy-sep-text",
+      stableKey: undefined,
+    },
+  };
+
+  await renderReading();
+
+  await waitFor(() =>
+    expect(view().getByRole("heading", { level: 1 }).textContent).toBe(
+      "Synthetic Reading Source",
+    ),
+  );
+  expect(view().getByRole("heading", { name: "Legacy SEP text" })).toBeTruthy();
+  expect(view().getByText(/preserved prototype remains readable/)).toBeTruthy();
+  expect(
+    view().getByRole("link", { name: "Offer related replacement" }),
+  ).toBeTruthy();
+});
+
+test("inspects provenance, switches states, and previews an unchanged update", async () => {
+  resetActions();
+  setSepUpdateResult(
+    previewFixture({
+      update: {
+        sourceId,
+        observations: [
+          {
+            key: "submitted",
+            result: "unchanged",
+            comparedStateId: stateId,
+          },
+        ],
+      },
+    }),
+  );
+  const user = userEvent.setup();
+  const router = await renderReading();
+  await waitFor(() => view().getByText("State 1 evidence"));
+
+  await user.click(view().getByText(/Resource and component manifest/));
+  expect(view().getAllByText(/SHA-256/).length).toBeGreaterThan(0);
+  expect(view().getByText(/submitted-entry/)).toBeTruthy();
+  expect(view().getAllByText("Article").length).toBeGreaterThan(0);
+  await user.click(view().getByText("Diagnostics and Derivatives"));
+  expect(view().getByText(/sep-reading-v1.*current/)).toBeTruthy();
+  expect(
+    view().getByText(/One optional component was unavailable/),
+  ).toBeTruthy();
+  expect(
+    view().getByText(/Unresolved supplement:.*Capture returned 404/),
+  ).toBeTruthy();
+  expect(view().getByText(/sep 1.*parse5 7.3.0.*1 inputs/)).toBeTruthy();
+
+  await user.click(view().getByRole("button", { name: "Check for update" }));
+  await waitFor(() => view().getByText("Active: unchanged"));
+  expect(view().getByText("Admission decision")).toBeTruthy();
+
+  await user.click(view().getByRole("link", { name: /State 2/ }));
+  await waitFor(() =>
+    expect(router.state.location.pathname).toContain(
+      "30000000-0000-4000-8000-000000000000",
+    ),
+  );
 });
 
 test("returns from a bibliography mention in another Source component", async () => {

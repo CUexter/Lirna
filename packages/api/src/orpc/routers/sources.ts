@@ -15,19 +15,31 @@ const sourceStateInput = z.object({
   sourceId: z.string().uuid(),
   stateId: z.string().uuid(),
 });
-const sepLibrarySourceSchema = z.object({
+export const sepLibrarySourceSchema = z.object({
   id: z.string().uuid(),
   title: z.string(),
   admittedAt: z.string().datetime(),
   authors: z.array(z.string()),
   publisher: z.string(),
   publicationHistory: z.array(z.string()),
+  kind: z.enum(["sep", "legacy-sep-text"]),
+  stableKey: z.string().optional(),
+  currentStateId: z.string().uuid().optional(),
+  replacement: z
+    .object({
+      id: z.string().uuid(),
+      title: z.string(),
+      currentStateId: z.string().uuid(),
+    })
+    .optional(),
   states: z.array(
     z.object({
       id: z.string().uuid(),
       sequence: z.number().int().nonnegative(),
       observationKey: sepObservationKeySchema,
       canonicalUrl: z.string(),
+      title: z.string(),
+      publisher: z.string(),
       admittedAt: z.string().datetime(),
     }),
   ),
@@ -129,6 +141,8 @@ export const sourcesRouter = {
     .output(
       z.object({
         reading: sepReadingContractSchema,
+        state: sepAdmittedStateSchema.optional(),
+        source: sepLibrarySourceSchema,
         citationResolutions: z.array(citationResolutionSchema),
       }),
     )
@@ -143,12 +157,22 @@ export const sourcesRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      const [reading, citationResolutions] = await Promise.all([
+      const [reading, state, sources, citationResolutions] = await Promise.all([
         context.admittedSourceStates.getReading(input.sourceId, input.stateId),
+        context.admittedSourceStates.getState(input.sourceId, input.stateId),
+        context.admittedSourceStates.listSources(),
         context.citationResolutions.list(input.sourceId, input.stateId),
       ]);
-      if (!reading) throw notFound("SEP Reading Derivative is unavailable");
-      return { reading, citationResolutions };
+      const source = sources.find(({ id }) => id === input.sourceId);
+      if (!reading || !source || (source.kind === "sep" && !state)) {
+        throw notFound("SEP Reading Derivative is unavailable");
+      }
+      return {
+        reading,
+        ...(state ? { state } : {}),
+        source,
+        citationResolutions,
+      };
     }),
 
   resume: {

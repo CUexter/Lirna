@@ -33,7 +33,7 @@ export type UseSepAdmission = {
   lifecycle: SepAdmissionPreviewProps["lifecycle"];
 };
 
-export function useSepAdmission(): UseSepAdmission {
+export function useSepAdmission(replacesSourceId?: string): UseSepAdmission {
   const [url, setUrl] = useState("");
   const [validationError, setValidationError] = useState<string>();
   const [preview, setPreview] = useState<SepAdmissionPreviewData>();
@@ -104,7 +104,10 @@ export function useSepAdmission(): UseSepAdmission {
     if (error) {
       return;
     }
-    submitPreview.mutate({ url });
+    submitPreview.mutate({
+      url,
+      ...(replacesSourceId ? { replacesSourceId } : {}),
+    });
   }
 
   function onUrlChange(value: string) {

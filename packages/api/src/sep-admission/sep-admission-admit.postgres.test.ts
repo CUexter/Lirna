@@ -177,6 +177,7 @@ describePostgres("SEP Admission PostgreSQL store", () => {
     const secondPreviewId = await insertPreview(database, {
       stableKey,
       observations: ["submitted"],
+      bodies: { submitted: Buffer.from("new concurrent revision") },
     });
     const concurrent = await Promise.all([
       store.admit(secondPreviewId, ["submitted"], new Date()),

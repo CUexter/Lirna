@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { db } from "@lirna/db";
 import {
+  sepAdmissionOutcomes,
   sepPreviewResources,
   sepSourceStateMetadata,
 } from "@lirna/db/schema/sep-admission";
 import {
+  sourceRelations,
   sourceStateDerivativeActivations,
   sourceStateDerivatives,
   sourceStateResources,
@@ -23,6 +25,11 @@ import {
   buildStateRecords,
   parseStringList,
 } from "./sep-admission-builders";
+import {
+  findUnchangedStates,
+  readAdmissionOutcome,
+  resourcesForState,
+} from "./sep-admission-deduplication";
 import type {
   SepAdmittedState,
   SepAdmittedStateOperations,
@@ -63,33 +70,8 @@ export function createDrizzleSepAdmissionStore(
         const locked = await selectLivePreviewForUpdate(tx, id, now);
         if (!locked) return undefined;
 
-        const existing = await tx
-          .select({
-            sourceStateId: sepSourceStateMetadata.sourceStateId,
-            observationKey: sepSourceStateMetadata.observationKey,
-            sourceId: sourceStates.sourceId,
-          })
-          .from(sepSourceStateMetadata)
-          .innerJoin(
-            sourceStates,
-            eq(sourceStates.id, sepSourceStateMetadata.sourceStateId),
-          )
-          .where(eq(sepSourceStateMetadata.admissionPreviewId, id))
-          .orderBy(asc(sourceStates.sequence));
-        if (existing.length > 0) {
-          const existingKeys = existing
-            .map(({ observationKey }) => observationKey)
-            .sort();
-          if (existingKeys.join() !== [...selectedKeys].sort().join()) {
-            throw new SepAdmissionError(
-              "This preview was already admitted with a different observation selection",
-            );
-          }
-          return {
-            sourceId: existing[0]?.sourceId as string,
-            stateIds: existing.map(({ sourceStateId }) => sourceStateId),
-          };
-        }
+        const existing = await readAdmissionOutcome(tx, id, selectedKeys);
+        if (existing) return existing;
 
         const previewResources = await tx
           .select()
@@ -127,6 +109,34 @@ export function createDrizzleSepAdmissionStore(
             `SEP Source ${locked.stableKey} could not be created`,
           );
         }
+        if (locked.replacesSourceId && locked.replacesSourceId !== source.id) {
+          const [replacementTarget] = await tx
+            .select({ stableKey: sources.stableKey })
+            .from(sources)
+            .where(eq(sources.id, locked.replacesSourceId))
+            .limit(1);
+          if (!replacementTarget || replacementTarget.stableKey !== null) {
+            throw new SepAdmissionError(
+              "Replacement target must be a legacy SEP text Source",
+            );
+          }
+          await tx
+            .insert(sourceRelations)
+            .values({
+              sourceId: source.id,
+              relatedSourceId: locked.replacesSourceId,
+              kind: "replacement-capture-for",
+              createdAt: now,
+            })
+            .onConflictDoNothing();
+        }
+        const unchanged = await findUnchangedStates(
+          tx,
+          source.id,
+          selectedKeys,
+          previewResources,
+        );
+        const changedKeys = selectedKeys.filter((key) => !unchanged.has(key));
         const [sequenceRow] = await tx
           .select({ value: max(sourceStates.sequence) })
           .from(sourceStates)
@@ -135,12 +145,14 @@ export function createDrizzleSepAdmissionStore(
         const stateRecords = buildStateRecords({
           preview: locked,
           previewResources,
-          selectedKeys,
+          selectedKeys: changedKeys,
           sourceId: source.id,
           firstSequence,
           now,
         });
-        await tx.insert(sourceStates).values(stateRecords);
+        if (stateRecords.length > 0) {
+          await tx.insert(sourceStates).values(stateRecords);
+        }
         const submittedMetadata = {
           title: locked.title,
           authors: parseStringList(locked.authors),
@@ -171,39 +183,43 @@ export function createDrizzleSepAdmissionStore(
                   ),
           };
         });
-        await tx.insert(sepSourceStateMetadata).values(
-          stateResources.map(({ state, metadata }) => ({
-            sourceStateId: state.id,
-            admissionPreviewId: id,
-            observationKey: state.observationKey,
-            ...metadata,
-          })),
-        );
-        await tx.insert(sourceStateResources).values(
-          stateResources.flatMap(({ state, resources }) =>
-            resources.map((resource) => ({
-              id: randomUUID(),
+        if (stateResources.length > 0) {
+          await tx.insert(sepSourceStateMetadata).values(
+            stateResources.map(({ state, metadata }) => ({
               sourceStateId: state.id,
-              identity: resource.identity,
-              role: resource.role,
-              requestedUrl: resource.requestedUrl,
-              finalUrl: resource.finalUrl,
-              status: resource.status,
-              mediaType: resource.mediaType,
-              charset: resource.charset,
-              contentEncoding: resource.contentEncoding,
-              retrievedAt: resource.retrievedAt,
-              selectedHeaders: resource.selectedHeaders,
-              requestCount: resource.requestCount,
-              downloadedBytes: resource.downloadedBytes,
-              byteLength: resource.byteLength,
-              sha256: resource.sha256,
-              discoveryEdge: resource.discoveryEdge,
-              depth: resource.depth,
-              body: resource.body,
+              admissionPreviewId: id,
+              observationKey: state.observationKey,
+              ...metadata,
+              diagnostics: locked.diagnostics,
+              captureDiagnostics: locked.captureDiagnostics,
             })),
-          ),
-        );
+          );
+          await tx.insert(sourceStateResources).values(
+            stateResources.flatMap(({ state, resources }) =>
+              resources.map((resource) => ({
+                id: randomUUID(),
+                sourceStateId: state.id,
+                identity: resource.identity,
+                role: resource.role,
+                requestedUrl: resource.requestedUrl,
+                finalUrl: resource.finalUrl,
+                status: resource.status,
+                mediaType: resource.mediaType,
+                charset: resource.charset,
+                contentEncoding: resource.contentEncoding,
+                retrievedAt: resource.retrievedAt,
+                selectedHeaders: resource.selectedHeaders,
+                requestCount: resource.requestCount,
+                downloadedBytes: resource.downloadedBytes,
+                byteLength: resource.byteLength,
+                sha256: resource.sha256,
+                discoveryEdge: resource.discoveryEdge,
+                depth: resource.depth,
+                body: resource.body,
+              })),
+            ),
+          );
+        }
         onStage?.("reading_derivative_parsing");
         const derivatives = stateResources.map(
           ({ state, resources, main, metadata }) => {
@@ -218,18 +234,45 @@ export function createDrizzleSepAdmissionStore(
           },
         );
         onStage?.("database_persistence");
-        await tx.insert(sourceStateDerivatives).values(derivatives);
-        await tx.insert(sourceStateDerivativeActivations).values(
-          derivatives.map((derivative) => ({
-            sourceStateId: derivative.sourceStateId,
-            derivativeId: derivative.id,
-            kind: derivative.kind,
-            activatedAt: now,
+        if (derivatives.length > 0) {
+          await tx.insert(sourceStateDerivatives).values(derivatives);
+          await tx.insert(sourceStateDerivativeActivations).values(
+            derivatives.map((derivative) => ({
+              sourceStateId: derivative.sourceStateId,
+              derivativeId: derivative.id,
+              kind: derivative.kind,
+              activatedAt: now,
+            })),
+          );
+        }
+        const outcomes = selectedKeys.map((observationKey) => {
+          const created = stateRecords.find(
+            (state) => state.observationKey === observationKey,
+          );
+          return created
+            ? {
+                observationKey,
+                stateId: created.id,
+                disposition: "created" as const,
+              }
+            : {
+                observationKey,
+                stateId: unchanged.get(observationKey) as string,
+                disposition: "unchanged" as const,
+              };
+        });
+        await tx.insert(sepAdmissionOutcomes).values(
+          outcomes.map((outcome) => ({
+            admissionPreviewId: id,
+            observationKey: outcome.observationKey,
+            sourceStateId: outcome.stateId,
+            disposition: outcome.disposition,
           })),
         );
         return {
           sourceId: source.id,
-          stateIds: stateRecords.map(({ id: stateId }) => stateId),
+          stateIds: outcomes.map(({ stateId }) => stateId),
+          outcomes,
         };
       });
       if (!admitted) return undefined;
@@ -243,6 +286,7 @@ export function createDrizzleSepAdmissionStore(
         states: states.filter((state): state is SepAdmittedState =>
           Boolean(state),
         ),
+        outcomes: admitted.outcomes,
       };
     },
   };
@@ -250,15 +294,6 @@ export function createDrizzleSepAdmissionStore(
 
 function observationLabel(key: SepObservationKey) {
   return key === "submitted" ? "Active" : "Recommended archive";
-}
-
-function resourcesForState(
-  resources: Array<typeof sepPreviewResources.$inferSelect>,
-  observationKey: string | null,
-) {
-  return resources.filter(
-    (resource) => resource.observationKey === observationKey,
-  );
 }
 
 export const sepAdmissionOperations = createSepAdmissionOperations({

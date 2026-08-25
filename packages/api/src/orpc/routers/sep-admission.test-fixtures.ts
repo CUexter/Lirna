@@ -35,6 +35,9 @@ export function operationsStub(
     async admit() {
       return undefined;
     },
+    async checkUpdate() {
+      return undefined;
+    },
     ...overrides,
   };
 }
@@ -55,6 +58,9 @@ export function admittedSourceStatesStub(
     async getReading() {
       return undefined;
     },
+    async getUpdateTarget() {
+      return undefined;
+    },
     ...overrides,
   };
 }
@@ -64,6 +70,7 @@ export function previewFixture(
 ): SepAdmissionPreview {
   return {
     id: previewId,
+    stableKey: "sep:test",
     title: "Test entry",
     authors: [],
     publisher: "Stanford Encyclopedia of Philosophy",
@@ -114,7 +121,7 @@ export function previewFixture(
 export function resultFixture(
   overrides: Partial<SepAdmissionResult> = {},
 ): SepAdmissionResult {
-  return { sourceId, states: [], ...overrides } as SepAdmissionResult;
+  return { sourceId, states: [], outcomes: [], ...overrides };
 }
 
 export function stateFixture(
@@ -131,7 +138,32 @@ export function stateFixture(
     publisher: "Stanford Encyclopedia of Philosophy",
     publicationHistory: [],
     admittedAt: "2026-08-18T12:00:00.000Z",
+    policy: {
+      rightsBasis: "publicly-accessible",
+      sensitivityLevel: "ordinary-cloud",
+    },
+    diagnostics: [],
+    capture: {
+      budget: "standard",
+      completeness: "complete",
+      readingReadiness: "ready",
+      readinessReasons: [],
+      unresolvedResources: [],
+      limits: {
+        maxComponents: 64,
+        maxAssets: 256,
+        maxResourceBytes: 1024,
+        maxTotalBytes: 4096,
+        maxDepth: 8,
+        maxRedirects: 5,
+        timeoutMilliseconds: 15_000,
+        maxConcurrency: 4,
+      },
+      retryUsed: false,
+    },
     resources: [],
+    components: [],
+    derivatives: [],
     ...overrides,
   };
 }

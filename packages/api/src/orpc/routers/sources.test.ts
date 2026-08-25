@@ -27,12 +27,17 @@ describe("Sources oRPC router", () => {
         authors: ["Synthetic Author"],
         publisher: "Synthetic Press",
         publicationHistory: ["First published 2024"],
+        kind: "sep" as const,
+        stableKey: "sep:test",
+        currentStateId: stateId,
         states: [
           {
             id: stateId,
             sequence: 0,
             observationKey: "submitted" as const,
             canonicalUrl: "https://plato.stanford.edu/entries/test/",
+            title: "Synthetic SEP entry",
+            publisher: "Synthetic Press",
             admittedAt: "2026-08-18T12:01:00.000Z",
           },
         ],
@@ -134,6 +139,36 @@ describe("Sources oRPC router", () => {
               async getReading() {
                 return readingFixture();
               },
+              async getState() {
+                return stateFixture();
+              },
+              async listSources() {
+                return [
+                  {
+                    id: sourceId,
+                    title: "Test entry",
+                    admittedAt: "2026-08-18T12:00:00.000Z",
+                    authors: [],
+                    publisher: "Stanford Encyclopedia of Philosophy",
+                    publicationHistory: [],
+                    kind: "sep",
+                    stableKey: "sep:test",
+                    currentStateId: stateId,
+                    states: [
+                      {
+                        id: stateId,
+                        sequence: 1,
+                        observationKey: "submitted",
+                        canonicalUrl:
+                          "https://plato.stanford.edu/entries/test/",
+                        title: "Test entry",
+                        publisher: "Stanford Encyclopedia of Philosophy",
+                        admittedAt: "2026-08-18T12:00:00.000Z",
+                      },
+                    ],
+                  },
+                ];
+              },
             }),
             citationResolutions: citationResolutionsStub({
               async list() {
@@ -144,6 +179,56 @@ describe("Sources oRPC router", () => {
         },
       ),
     ).resolves.toMatchObject({ citationResolutions: [resolution] });
+  });
+
+  test("reading workspace keeps a legacy text Source readable without first-class state metadata", async () => {
+    const legacySource = {
+      id: sourceId,
+      title: "Legacy SEP text",
+      admittedAt: "2026-08-18T12:00:00.000Z",
+      authors: [],
+      publisher: "",
+      publicationHistory: [],
+      kind: "legacy-sep-text" as const,
+      currentStateId: stateId,
+      states: [
+        {
+          id: stateId,
+          sequence: 0,
+          observationKey: "submitted" as const,
+          canonicalUrl: "",
+          title: "Legacy SEP text",
+          publisher: "",
+          admittedAt: "2026-08-18T12:00:00.000Z",
+        },
+      ],
+    };
+
+    await expect(
+      call(
+        sourcesRouter.readingWorkspace,
+        { sourceId, stateId },
+        {
+          context: {
+            ...context(admittedSourceStatesStub(), readingPositionsStub()),
+            admittedSourceStates: admittedSourceStatesStub({
+              async getReading() {
+                return readingFixture();
+              },
+              async listSources() {
+                return [legacySource];
+              },
+            }),
+            citationResolutions: citationResolutionsStub(),
+          },
+        },
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        reading: expect.any(Object),
+        source: legacySource,
+      }),
+    );
   });
 
   test("resume returns the latest persisted reading position", async () => {

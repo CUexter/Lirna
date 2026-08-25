@@ -85,6 +85,13 @@
       "when": 1787594099621,
       "tag": "0011_boring_skreet",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1787597625292,
+      "tag": "0012_luxuriant_penance",
+      "breakpoints": true
     }
   ]
 }

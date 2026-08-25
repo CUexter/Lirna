@@ -5,6 +5,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -112,6 +113,8 @@ export const sepSourceStateMetadata = pgTable(
     admissionPreviewId: uuid("admission_preview_id").notNull(),
     observationKey: text("observation_key").notNull(),
     ...sepPublicationMetadataColumns(),
+    diagnostics: jsonb("diagnostics").$type<unknown[]>().notNull(),
+    captureDiagnostics: jsonb("capture_diagnostics").$type<unknown>().notNull(),
   },
   (table) => [
     uniqueIndex("sep_source_state_metadata_admission_observation_unique").on(
@@ -121,6 +124,31 @@ export const sepSourceStateMetadata = pgTable(
     check(
       "sep_source_state_metadata_observation_key_check",
       sql`${table.observationKey} IN ('submitted', 'recommended-archive')`,
+    ),
+  ],
+);
+
+export const sepAdmissionOutcomes = pgTable(
+  "sep_admission_outcomes",
+  {
+    admissionPreviewId: uuid("admission_preview_id").notNull(),
+    observationKey: text("observation_key").notNull(),
+    sourceStateId: uuid("source_state_id")
+      .notNull()
+      .references(() => sourceStates.id),
+    disposition: text("disposition").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.admissionPreviewId, table.observationKey],
+    }),
+    check(
+      "sep_admission_outcomes_observation_key_check",
+      sql`${table.observationKey} IN ('submitted', 'recommended-archive')`,
+    ),
+    check(
+      "sep_admission_outcomes_disposition_check",
+      sql`${table.disposition} IN ('created', 'unchanged')`,
     ),
   ],
 );

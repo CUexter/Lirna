@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { sepObservationKeySchema } from "../../sep-admission/sep-admission-builders";
 import { SepAdmissionError } from "../../sep-admission/sep-capture";
-import { publicProcedure } from "../init";
+import { authenticatedProcedure, publicProcedure } from "../init";
 import {
   sepAdmissionPreviewSchema,
   sepAdmissionResultSchema,
@@ -44,7 +44,12 @@ function rethrowSepAdmissionError(error: unknown, requestId: string): never {
 
 export const sepAdmissionsRouter = {
   submit: publicProcedure
-    .input(z.object({ url: z.string().trim().min(1) }))
+    .input(
+      z.object({
+        url: z.string().trim().min(1),
+        replacesSourceId: z.string().uuid().optional(),
+      }),
+    )
     .output(sepAdmissionPreviewSchema)
     .errors(badRequestError)
     .meta(
@@ -61,6 +66,7 @@ export const sepAdmissionsRouter = {
         return await context.sepAdmissions.submit(
           input.url,
           context.observation,
+          input.replacesSourceId,
         );
       } catch (error) {
         rethrowSepAdmissionError(error, requestId(context));
@@ -88,6 +94,37 @@ export const sepAdmissionsRouter = {
             "Admission preview is unavailable",
             requestId(context),
           );
+        return preview;
+      } catch (error) {
+        rethrowSepAdmissionError(error, requestId(context));
+      }
+    }),
+
+  checkUpdate: authenticatedProcedure
+    .input(z.object({ sourceId: z.string().uuid() }))
+    .output(sepAdmissionPreviewSchema)
+    .errors(notFoundError)
+    .meta(
+      openapi({
+        method: "POST",
+        path: "/sep-admission/update",
+        operationId: "sepAdmission.checkUpdate",
+        summary: "Create a temporary Source update comparison",
+        tags: ["SEP Admission"],
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      try {
+        const preview = await context.sepAdmissions.checkUpdate(
+          input.sourceId,
+          context.observation,
+        );
+        if (!preview) {
+          throw notFound(
+            "This Source cannot be checked for SEP updates",
+            requestId(context),
+          );
+        }
         return preview;
       } catch (error) {
         rethrowSepAdmissionError(error, requestId(context));
@@ -151,7 +188,7 @@ export const sepAdmissionsRouter = {
       }
     }),
 
-  admit: publicProcedure
+  admit: authenticatedProcedure
     .input(
       previewIdInput.extend({
         observationKeys: z.array(sepObservationKeySchema).min(1).max(2),

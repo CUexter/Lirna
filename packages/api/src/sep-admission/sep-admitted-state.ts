@@ -1,5 +1,32 @@
-import type { CapturedSepResource, SepObservationKey } from "./sep-capture";
+import type {
+  CapturedSepResource,
+  SepCaptureReport,
+  SepDiagnostic,
+  SepObservationKey,
+  SepUnresolvedResource,
+} from "./sep-capture";
 import type { SepReadingContract } from "./sep-reading-contract";
+
+export interface SepDerivativeProvenance {
+  id: string;
+  kind: string;
+  previousDerivativeId?: string;
+  valid: boolean;
+  validation: unknown;
+  createdAt: string;
+  currentActivation?: { id: string; activatedAt: string };
+  provenance?: SepReadingContract["provenance"];
+}
+
+interface SepHistoricalCaptureReport {
+  budget: "unknown";
+  completeness: "partial";
+  readingReadiness: "degraded";
+  readinessReasons: string[];
+  unresolvedResources: SepUnresolvedResource[];
+  limits: null;
+  retryUsed: null;
+}
 
 export interface SepAdmittedState {
   id: string;
@@ -12,15 +39,42 @@ export interface SepAdmittedState {
   publisher: string;
   publicationHistory: string[];
   admittedAt: string;
+  policy: {
+    rightsBasis: string;
+    sensitivityLevel: string;
+  };
+  diagnostics: SepDiagnostic[];
+  capture: SepCaptureReport | SepHistoricalCaptureReport;
   resources: Array<{
+    identity: string;
     role: CapturedSepResource["role"];
     requestedUrl: string;
     finalUrl: string;
+    status: number;
     mediaType: string;
+    charset?: string;
+    contentEncoding?: string;
+    selectedHeaders: Record<string, string>;
+    requestCount: number;
+    downloadedBytes: number;
+    retrievedAt: string;
     byteLength: number;
     sha256: string;
     discoveryEdge: string;
+    depth: number;
   }>;
+  components: Array<{
+    identity: string;
+    role: CapturedSepResource["role"];
+    label: string;
+    order: number;
+    parentIdentity?: string;
+    requestedUrl: string;
+    finalUrl: string;
+    retrievedAt: string;
+    sha256: string;
+  }>;
+  derivatives: SepDerivativeProvenance[];
 }
 
 export interface SepLibrarySource {
@@ -30,10 +84,20 @@ export interface SepLibrarySource {
   authors: string[];
   publisher: string;
   publicationHistory: string[];
+  kind: "sep" | "legacy-sep-text";
+  stableKey?: string;
+  currentStateId?: string;
+  replacement?: { id: string; title: string; currentStateId: string };
   states: Array<
     Pick<
       SepAdmittedState,
-      "id" | "sequence" | "observationKey" | "canonicalUrl" | "admittedAt"
+      | "id"
+      | "sequence"
+      | "observationKey"
+      | "canonicalUrl"
+      | "title"
+      | "publisher"
+      | "admittedAt"
     >
   >;
 }
@@ -49,4 +113,7 @@ export interface SepAdmittedStateOperations {
     sourceId: string,
     stateId: string,
   ): Promise<SepReadingContract | undefined>;
+  getUpdateTarget(
+    sourceId: string,
+  ): Promise<{ stableKey: string; canonicalUrl: string } | undefined>;
 }

@@ -9,7 +9,7 @@ import {
   sepResourceRoleSchema,
 } from "./sep-admission-builders";
 
-const diagnosticSchema = z.object({
+export const diagnosticSchema = z.object({
   level: z.enum(["info", "warning"]),
   code: z.string(),
   message: z.string(),
@@ -48,9 +48,23 @@ const captureReportSchema = z.object({
   retryUsed: z.boolean(),
 });
 
+export const admittedCaptureReportSchema = z.union([
+  captureReportSchema,
+  z.object({
+    budget: z.literal("unknown"),
+    completeness: z.literal("partial"),
+    readingReadiness: z.literal("degraded"),
+    readinessReasons: z.array(z.string()),
+    unresolvedResources: captureReportSchema.shape.unresolvedResources,
+    limits: z.null(),
+    retryUsed: z.null(),
+  }),
+]);
+
 export function toSepAdmissionPreview({
   preview,
   resources,
+  existingStates = [],
 }: SepAdmissionStoredPreview): SepAdmissionPreview {
   const authors = parseStringList(preview.authors);
   const publicationHistory = parseStringList(preview.publicationHistory);
@@ -122,8 +136,30 @@ export function toSepAdmissionPreview({
         ]
       : []),
   ];
+  const updateObservations = typedResources
+    .filter((resource) => resource.role === "main")
+    .map(({ observationKey }) => {
+      const observed = typedResources.filter(
+        (resource) => resource.observationKey === observationKey,
+      );
+      const compared = existingStates
+        .filter((state) => state.observationKey === observationKey)
+        .find((state) => manifestsEqual(observed, state.resources));
+      return {
+        key: observationKey,
+        result: compared
+          ? ("unchanged" as const)
+          : existingStates.some(
+                (state) => state.observationKey === observationKey,
+              )
+            ? ("changed" as const)
+            : ("new" as const),
+        ...(compared ? { comparedStateId: compared.id } : {}),
+      };
+    });
   return {
     id: preview.id,
+    stableKey: preview.stableKey,
     title: preview.title,
     authors,
     publisher: preview.publisher,
@@ -159,7 +195,32 @@ export function toSepAdmissionPreview({
     resources: typedResources,
     observations,
     comparison: compareObservations(activeResources, archiveResources),
+    ...(preview.replacesSourceId
+      ? {
+          update: {
+            sourceId: preview.replacesSourceId,
+            observations: updateObservations,
+          },
+        }
+      : {}),
   };
+}
+
+function manifestsEqual(
+  observed: SepAdmissionPreview["resources"],
+  existing: Array<{ identity: string; sha256: string; byteLength: number }>,
+) {
+  if (observed.length !== existing.length) return false;
+  const byIdentity = new Map(
+    existing.map((resource) => [resource.identity, resource]),
+  );
+  return observed.every((resource) => {
+    const prior = byIdentity.get(resource.identity);
+    return (
+      prior?.sha256 === resource.sha256 &&
+      prior.byteLength === resource.byteLength
+    );
+  });
 }
 
 function compareObservations(

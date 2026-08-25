@@ -14,7 +14,21 @@ test("renders a typed SEP Reading workspace without captured markup", async ({
       name: "The Stanford Encyclopedia of Philosophy entry on Epistemology",
     }),
   ).toBeVisible();
-  await expect(page.getByText("Matthias Steup, Ram Neta")).toBeVisible();
+  const sourceInformation = page.getByLabel("State 1 evidence");
+  await expect(
+    sourceInformation.getByText("Matthias Steup, Ram Neta"),
+  ).toBeVisible();
+  await sourceInformation.getByText(/Resource and component manifest/).click();
+  await expect(sourceInformation.getByText(/SHA-256/).first()).toBeVisible();
+  await expect(sourceInformation.getByText("Article")).toBeVisible();
+  await sourceInformation.getByText("Diagnostics and Derivatives").click();
+  await expect(
+    sourceInformation.getByText(/sep 1.*parse5 7.3.0/),
+  ).toBeVisible();
+  await sourceInformation
+    .getByRole("button", { name: "Check for update" })
+    .click();
+  await expect(sourceInformation.getByText("Active: unchanged")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Knowledge" })).toBeVisible();
   await expect(page.getByText("Visible typed paragraph.")).toBeVisible();
   await expect(page.getByAltText("Retained semantic diagram")).toHaveAttribute(
