@@ -145,6 +145,7 @@ required status name.
 | Web bundle budget | `bun run quality:bundle` | Builds `apps/web`, writes `apps/web/dist/bundle-size.json`, and enforces the reviewed aggregate raw-byte budgets in `config/web-bundle-budget.json`. |
 | PostgreSQL integration | `bun run test:db` | Applies every committed migration to an empty isolated database, compares the result to the TypeScript schema, checks migration history drift, and exercises success and constraint behavior through the exported database seam used by callers. |
 | General quality gate | Fails on formatting/linting, configured size/props checks, Fallow health/duplication/dead-code, behavior tests, coverage ratchet, PostgreSQL migration/repository integration, workspace type errors, or production build errors | `.github/workflows/quality.yml`; aggregate status: `Quality / quality`. |
+| Production SEP journey | Fails on the controlled backend, frontend, PostgreSQL, production-build browser, accessibility, offline, and measured performance contracts | `bun run test:sep:production`; budgets and live-check boundary are documented in [`docs/sep-production-gate.md`](sep-production-gate.md). The optional live SEP check is never deterministic CI. |
 
 The Quality workflow does not run Nix flake checks. Trivy owns
 dependency vulnerability scanning; dependency confidence scoring treats OSV

@@ -3,6 +3,7 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 db_dir="$root/packages/db"
+mode="${1:-all}"
 run_id="$$-${RANDOM}"
 drift_dir="$db_dir/.migration-drift-$run_id"
 container=""
@@ -88,6 +89,14 @@ if [[ -z "${POSTGRES_ADMIN_URL:-}" ]]; then
   POSTGRES_ADMIN_URL="postgresql://postgres:${password}@127.0.0.1:${port}/postgres"
 fi
 
+if [[ "$mode" == "sep-production" ]]; then
+  POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
+    bun test \
+      "$root/packages/api/src/sep-admission/sep-production-gate.postgres.test.ts" \
+      --timeout 30000
+  exit 0
+fi
+
 POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
   bun test \
     "$db_dir/src/postgres.integration.test.ts" \
@@ -104,13 +113,19 @@ POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
     "$root/scripts/lifecycle/concurrent-isolation.postgres.test.ts" \
     --timeout 120000
 
+sep_postgres_tests=(
+  "$root/packages/api/src/sep-admission/sep-preview-store.postgres.test.ts"
+  "$root/packages/api/src/sep-admission/sep-admission-admit.postgres.test.ts"
+  "$root/packages/api/src/sep-admission/sep-update.postgres.test.ts"
+  "$root/packages/api/src/sep-admission/sep-admitted-state-reader.postgres.test.ts"
+)
+if [[ "$mode" != "without-sep-production" ]]; then
+  sep_postgres_tests+=(
+    "$root/packages/api/src/sep-admission/sep-production-gate.postgres.test.ts"
+  )
+fi
 POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
-  bun test \
-    "$root/packages/api/src/sep-admission/sep-preview-store.postgres.test.ts" \
-    "$root/packages/api/src/sep-admission/sep-admission-admit.postgres.test.ts" \
-    "$root/packages/api/src/sep-admission/sep-update.postgres.test.ts" \
-    "$root/packages/api/src/sep-admission/sep-admitted-state-reader.postgres.test.ts" \
-    --timeout 30000
+  bun test "${sep_postgres_tests[@]}" --timeout 30000
 
 POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
   bun test \

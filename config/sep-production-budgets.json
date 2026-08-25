@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "measuredOn": "2026-08-25",
+  "fixture": "controlled synthetic SEP production journey",
+  "measurements": {
+    "captureMilliseconds": 20,
+    "derivationMilliseconds": 33,
+    "apiPayloadBytes": 27686,
+    "initialWorkspaceLoadMilliseconds": 341,
+    "componentTransitionMilliseconds": 111,
+    "largestRetainedAssetBytes": 43,
+    "offlineStartMilliseconds": 219
+  },
+  "budgets": {
+    "captureMilliseconds": 2000,
+    "derivationMilliseconds": 1000,
+    "apiPayloadBytes": 1000000,
+    "initialWorkspaceLoadMilliseconds": 5000,
+    "componentTransitionMilliseconds": 2000,
+    "largestRetainedAssetBytes": 250000,
+    "offlineStartMilliseconds": 5000
+  }
+}

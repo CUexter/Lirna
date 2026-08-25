@@ -4,6 +4,9 @@ const webPort = Number(process.env.E2E_WEB_PORT ?? 3001);
 const baseURL = `http://127.0.0.1:${webPort}`;
 const apiPort = Number(process.env.E2E_API_PORT ?? 3102);
 const apiURL = `http://127.0.0.1:${apiPort}`;
+const webCommand = process.env.E2E_PRODUCTION
+  ? `bun run --cwd apps/web serve --host 127.0.0.1 --port ${webPort} --strictPort`
+  : `bun run --cwd apps/web start --host 127.0.0.1 --port ${webPort} --strictPort`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -24,7 +27,7 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
-      command: `bun run --cwd apps/web start --host 127.0.0.1 --port ${webPort} --strictPort`,
+      command: webCommand,
       url: baseURL,
       reuseExistingServer: false,
       env: {

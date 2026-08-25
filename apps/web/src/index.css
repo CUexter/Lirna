@@ -5,7 +5,16 @@ html:has(.reading-workspace) {
 }
 
 .reading-tools-scroll-container {
+  overflow-anchor: none;
   scrollbar-gutter: stable;
+}
+
+.cn-toast[data-type="error"] {
+  --error-text: #b00020;
+}
+
+.dark .cn-toast[data-type="error"] {
+  --error-text: #ffd0d0;
 }
 
 @keyframes authored-target-highlight {

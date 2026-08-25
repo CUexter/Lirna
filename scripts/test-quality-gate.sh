@@ -5,7 +5,7 @@ root=$(git rev-parse --show-toplevel)
 workflow="$root/.github/workflows/quality.yml"
 
 test -f "$workflow"
-test "$(grep -Fc 'uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803' "$workflow")" -eq 6
+test "$(grep -Fc 'uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803' "$workflow")" -eq 7
 
 node - "$root/package.json" <<'NODE'
 const fs = require("node:fs");
@@ -35,7 +35,7 @@ grep -Fq 'run: bun run test:e2e:ci' "$workflow"
 grep -Fq 'bunx playwright install --with-deps firefox' "$workflow"
 grep -Fq 'name: Quality' "$workflow"
 grep -Fq 'name: quality' "$workflow"
-grep -Fq 'needs: [install, static, types, build, e2e, database]' "$workflow"
+grep -Fq 'needs: [install, static, types, build, e2e, database, sep-production]' "$workflow"
 grep -Fq 'if: ${{ always() }}' "$workflow"
 grep -Fq 'needs.install.result' "$workflow"
 grep -Fq 'needs.static.result' "$workflow"
@@ -44,6 +44,8 @@ grep -Fq 'needs.build.result' "$workflow"
 grep -Fq 'needs.e2e.result' "$workflow"
 grep -Fq 'bun run test:db' "$workflow"
 grep -Fq 'needs.database.result' "$workflow"
+grep -Fq 'run: bun run test:sep:production' "$workflow"
+grep -Fq 'needs.sep-production.result' "$workflow"
 
 grep -Fq 'useMaxParams' "$root/biome.json"
 grep -Fq 'noExcessiveLinesPerFile' "$root/biome.json"
@@ -61,6 +63,8 @@ grep -Fq 'bun run test:coverage' "$root/package.json"
 grep -Fq 'check-coverage.ts' "$root/package.json"
 grep -Fq '"test:e2e": "playwright test"' "$root/package.json"
 grep -Fq '"test:e2e:ci": "CI=1 playwright test"' "$root/package.json"
+grep -Fq '"test:sep:production": "bash scripts/test-sep-production-gate.sh"' "$root/package.json"
+grep -Fq '"test:sep:live": "bun scripts/check-live-sep-structure.ts"' "$root/package.json"
 test ! -e "$root/scripts/check-ui-primitives.mjs"
 
 printf '%s\n' "Quality gate policy tests passed"

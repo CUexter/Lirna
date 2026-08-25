@@ -373,6 +373,22 @@ const reading = {
         {
           kind: "paragraph",
           children: [
+            { kind: "text", text: "An ambiguous synthetic mention is " },
+            {
+              kind: "citation",
+              mentionId: "citation-mention-ambiguous",
+              label: "(Smith, 2024)",
+              state: "ambiguous",
+              candidates: ["smith-a", "smith-b"],
+              rule: "authored-author-year",
+              evidence: "(Smith, 2024)",
+            },
+            { kind: "text", text: "." },
+          ],
+        },
+        {
+          kind: "paragraph",
+          children: [
             { kind: "text", text: "(1) A numbered assertion. Compare (1). " },
             {
               kind: "link",
@@ -462,7 +478,7 @@ const reading = {
     },
   ],
   plainText:
-    "A typed introductory paragraph.\n\nKnowledge\n\nVisible typed paragraph.",
+    "A typed introductory paragraph.\n\nKnowledge\n\nVisible typed paragraph.\n\nGrounded by (Steup, 2023).\n\nConfirmed again by (Steup, 2023).\n\nAn ambiguous synthetic mention is (Smith, 2024).\n\n(1) A numbered assertion. Compare (1). Same scene target or Note one or Supplement one.\n\nH2O \\frac{x}{2} \\unknown{x} safe link",
   provenance: {
     adapter: { id: "sep", version: "1" },
     parser: { id: "parse5", version: "7.3.0" },
@@ -539,6 +555,28 @@ reading.components = [
             provenance: {
               componentIdentity: "active:/",
               locator: "#steup-2023",
+            },
+          },
+          {
+            id: "smith-a",
+            label: "Smith 2024 A",
+            text: "Smith. 2024. Synthetic edition A.",
+            anchor: "smith-a",
+            links: [],
+            provenance: {
+              componentIdentity: "active:/",
+              locator: "#smith-a",
+            },
+          },
+          {
+            id: "smith-b",
+            label: "Smith 2024 B",
+            text: "Smith. 2024. Synthetic edition B.",
+            anchor: "smith-b",
+            links: [],
+            provenance: {
+              componentIdentity: "active:/",
+              locator: "#smith-b",
             },
           },
         ],
@@ -911,12 +949,12 @@ function sourceInformationFor(sessionId) {
 function offlineWorkingSetFor(sessionId) {
   const workspace = {
     reading,
-    citationResolutions: [],
+    citationResolutions: [citationResolutionFor(sessionId)].filter(Boolean),
     ...sourceInformationFor(sessionId),
   };
   const replica = {
     workspace,
-    annotations,
+    annotations: annotationsFor(sessionId),
     positions: [
       {
         ...resumePosition,
@@ -1048,6 +1086,142 @@ const annotations = [
     updatedAt: "2026-08-20T00:00:00.000Z",
   },
 ];
+const annotationSessions = new Map();
+const resumeSessions = new Map();
+
+function annotationsFor(sessionId) {
+  return [...annotations, ...(annotationSessions.get(sessionId) ?? [])];
+}
+
+function createAnnotation(body, sessionId) {
+  const input = JSON.parse(body).json;
+  const now = "2026-08-25T12:00:00.000Z";
+  const { stateId, ...annotation } = input;
+  const record = {
+    ...annotation,
+    id: `annotation-production-${sessionId}`,
+    sourceStateId: stateId,
+    publisherAnchor: input.publisherAnchor ?? null,
+    body: input.body || null,
+    createdAt: now,
+    updatedAt: now,
+  };
+  annotationSessions.set(sessionId, [record]);
+  return orpcSuccess(record);
+}
+
+function resumePositionFor(sessionId) {
+  return sessionId.startsWith("production-")
+    ? (resumeSessions.get(sessionId) ?? resumePosition)
+    : null;
+}
+
+function saveResumePosition(body, sessionId) {
+  const input = JSON.parse(body).json;
+  const saved = {
+    ...resumePosition,
+    ...input,
+    savedAt: "2026-08-25T12:00:00.000Z",
+  };
+  if (sessionId.startsWith("production-")) resumeSessions.set(sessionId, saved);
+  return orpcSuccess(saved);
+}
+
+const citationEvidence = {
+  id: "40000000:active:/:citation-mention-ambiguous",
+  sourceId: reading.source.id,
+  sourceStateId: reading.source.stateId,
+  derivativeId: "40000000-0000-4000-8000-000000000000",
+  componentIdentity: "active:/",
+  mentionId: "citation-mention-ambiguous",
+  label: "(Smith, 2024)",
+  context: "An ambiguous synthetic mention is (Smith, 2024).",
+  state: "ambiguous",
+  deterministicReason:
+    "The authored surname and year matched more than one Bibliography entry.",
+  candidates: [
+    {
+      id: "active:/:smith-a",
+      bibliographyComponentIdentity: "active:/",
+      bibliographyEntryId: "smith-a",
+      label: "Smith 2024 A",
+      text: "Smith. 2024. Synthetic edition A.",
+      reason: "The authored surname and year matched this candidate.",
+    },
+    {
+      id: "active:/:smith-b",
+      bibliographyComponentIdentity: "active:/",
+      bibliographyEntryId: "smith-b",
+      label: "Smith 2024 B",
+      text: "Smith. 2024. Synthetic edition B.",
+      reason: "The authored surname and year matched this candidate.",
+    },
+  ],
+  policy: {
+    rightsBasis: "publicly-accessible",
+    sensitivityLevel: "ordinary-cloud",
+    inferenceEligible: true,
+  },
+};
+const citationSessions = new Map();
+
+function citationResolutionFor(sessionId) {
+  return citationSessions.get(sessionId);
+}
+
+function createCitationResolution(body, sessionId) {
+  const input = JSON.parse(body).json;
+  const candidate = citationEvidence.candidates.find(
+    (item) =>
+      item.bibliographyComponentIdentity ===
+        input.bibliographyComponentIdentity &&
+      item.bibliographyEntryId === input.bibliographyEntryId,
+  );
+  if (
+    input.componentIdentity !== citationEvidence.componentIdentity ||
+    input.mentionId !== citationEvidence.mentionId ||
+    input.method !== "manual" ||
+    !candidate
+  )
+    return orpcError("Citation mention or candidate is unavailable");
+  const now = "2026-08-25T12:00:00.000Z";
+  const normalizedStartOffset = reading.plainText.indexOf(
+    citationEvidence.label,
+  );
+  const normalizedEndOffset =
+    normalizedStartOffset + citationEvidence.label.length;
+  const record = {
+    id: "80000000-0000-4000-8000-000000000000",
+    sourceId: citationEvidence.sourceId,
+    sourceStateId: citationEvidence.sourceStateId,
+    derivativeId: citationEvidence.derivativeId,
+    componentIdentity: input.componentIdentity,
+    mentionId: input.mentionId,
+    bibliographyComponentIdentity: candidate.bibliographyComponentIdentity,
+    bibliographyEntryId: candidate.bibliographyEntryId,
+    publisherAnchor: citationEvidence.mentionId,
+    offsetBasis: "normalized-derivative-text-v1",
+    normalizedStartOffset,
+    normalizedEndOffset,
+    exactText: citationEvidence.label,
+    prefix: reading.plainText.slice(
+      Math.max(0, normalizedStartOffset - 32),
+      normalizedStartOffset,
+    ),
+    suffix: reading.plainText.slice(
+      normalizedEndOffset,
+      normalizedEndOffset + 32,
+    ),
+    actorId: "user-e2e",
+    method: input.method,
+    confidence: null,
+    reasoning: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+  citationSessions.set(sessionId, record);
+  return orpcSuccess(record);
+}
 
 function sendJson(response, status, body) {
   response.writeHead(status, {
@@ -1082,12 +1256,16 @@ function orpcError(message, code = "BAD_REQUEST") {
   };
 }
 
+function requestSessionId(request) {
+  return request.headers["x-e2e-session"] ?? "default";
+}
+
 const orpcPostRoutes = {
   "sources/reading": () => orpcSuccess(reading),
   "sources/readingWorkspace": (_body, sessionId) =>
     orpcSuccess({
       reading,
-      citationResolutions: [],
+      citationResolutions: [citationResolutionFor(sessionId)].filter(Boolean),
       ...sourceInformationFor(sessionId),
     }),
   "sources/offlineManifest": (_body, sessionId) =>
@@ -1099,8 +1277,23 @@ const orpcPostRoutes = {
   "sources/derivatives/previewActivation": () =>
     orpcSuccess(derivativeCandidate.comparison),
   "sources/derivatives/activate": activateDerivative,
-  "sources/resume": () => orpcSuccess(resumePosition),
-  "annotations/list": () => orpcSuccess(annotations),
+  "sources/resume": (body, sessionId) =>
+    body.includes('"scrollTop"')
+      ? saveResumePosition(body, sessionId)
+      : orpcSuccess(resumePositionFor(sessionId)),
+  "sources/resume/get": (_body, sessionId) =>
+    sessionId.startsWith("production-")
+      ? orpcSuccess(resumePositionFor(sessionId))
+      : undefined,
+  "sources/resume/save": (body, sessionId) =>
+    sessionId.startsWith("production-")
+      ? saveResumePosition(body, sessionId)
+      : undefined,
+  "annotations/list": (_body, sessionId) =>
+    orpcSuccess(annotationsFor(sessionId)),
+  "annotations/create": createAnnotation,
+  "citationResolutions/evidence": () => orpcSuccess([citationEvidence]),
+  "citationResolutions/create": createCitationResolution,
   "sepAdmission/get": () => orpcSuccess(preview),
   "sepAdmission/checkUpdate": () => orpcSuccess(updatePreview),
   healthCheck: () => orpcSuccess("OK"),
@@ -1149,8 +1342,13 @@ async function handleOrpcPost(request, response) {
     return;
   }
 
-  const sessionId = request.headers["x-e2e-session"] ?? "default";
-  const result = handler(body, sessionId);
+  const sessionId = requestSessionId(request);
+  const result = handler(body, sessionId, request.method);
+  if (!result) {
+    response.writeHead(404, corsHeaders);
+    response.end("Not found");
+    return;
+  }
   const status = result.json?.defined === false ? 400 : 200;
   sendJson(response, status, result);
 }
@@ -1184,7 +1382,8 @@ const server = createServer(async (request, response) => {
     request.method === "GET" &&
     request.url?.startsWith("/orpc/annotations/list")
   ) {
-    sendJson(response, 200, orpcSuccess(annotations));
+    const sessionId = requestSessionId(request);
+    sendJson(response, 200, orpcSuccess(annotationsFor(sessionId)));
     return;
   }
 
@@ -1212,7 +1411,8 @@ const server = createServer(async (request, response) => {
     request.method === "GET" &&
     request.url?.startsWith("/orpc/sources/resume")
   ) {
-    sendJson(response, 200, orpcSuccess(null));
+    const sessionId = requestSessionId(request);
+    sendJson(response, 200, orpcSuccess(resumePositionFor(sessionId)));
     return;
   }
 
