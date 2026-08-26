@@ -1,6 +1,7 @@
+import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
-import react from "@vitejs/plugin-react";
+import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
@@ -33,6 +34,7 @@ export default defineConfig({
       autoCodeSplitting: true,
     }),
     react(),
+    babel({ presets: [reactCompilerPreset()] }),
     VitePWA({
       registerType: "autoUpdate",
       manifest: {
