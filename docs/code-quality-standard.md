@@ -44,6 +44,9 @@ privacy, accessibility, migrations, dependencies, and performance.
   APIs should prefer composition over a growing set of unrelated props.
 - Comments should explain constraints, decisions, or non-obvious reasoning rather
   than restating the code.
+- Code, tests, types, and executable configuration are authoritative for current
+  behavior. Reference documentation must not become a parallel implementation
+  description.
 
 ### Architecture and domain integrity
 
@@ -89,6 +92,13 @@ privacy, accessibility, migrations, dependencies, and performance.
   accessibility, operability, and whether tests prove the intended contract.
 - Operational, architectural, or domain decisions that future work must preserve
   belong in `docs/`, `docs/adr/`, or `CONTEXT.md`, not only in commit messages.
+- Documentation must have one role: reference material reflects current behavior
+  and changes with it; decision material records rationale, alternatives, and
+  consequences. Follow
+  [`ADR 0009`](adr/0009-code-authority-and-documentation-roles.md).
+- Prefer generated or mechanically checked reference facts. Remove prose that
+  merely restates self-explanatory code, and treat manually maintained
+  current-state inventories as staleness risks.
 - Generated files and scanner fixtures must be clearly scoped so they do not
   weaken checks for first-party source.
 

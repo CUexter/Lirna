@@ -87,7 +87,11 @@ export default {
   ],
   plugins: ["@hughescr/stryker-bun-runner"],
   testRunner: "bun",
-  coverageAnalysis: shard === "web-annotations" ? "off" : "perTest",
+  coverageAnalysis: ["web-annotations", "web-reading", "web-source"].includes(
+    shard,
+  )
+    ? "off"
+    : "perTest",
   concurrency: 2,
   timeoutMS: 30_000,
   maxTestRunnerReuse: 100,
