@@ -42,8 +42,8 @@ nix run
 
 The package contains only the Hono server from `apps/server`. It does not build
 the web application, documentation site, or Tauri application. Running it
-directly requires `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, and
-`CORS_ORIGIN` in the process environment; `PORT` defaults to `3000`.
+directly requires `DATABASE_URL` and `CORS_ORIGIN` in the process environment;
+`PORT` defaults to `3000`.
 
 Build or run the Tauri desktop package:
 
@@ -113,7 +113,7 @@ user, then supplies the local database URL to the service.
 | `services.lirna.package` | This flake's server package | Selects the executable to run |
 | `services.lirna.port` | `3000` | Sets the server port |
 | `services.lirna.openFirewall` | `false` | Opens the configured TCP port |
-| `services.lirna.environmentFile` | none | Supplies authentication and deployment settings; required when enabled |
+| `services.lirna.environmentFile` | none | Supplies deployment settings; required when enabled |
 | `services.lirna.database.createLocally` | `true` | Provisions the local PostgreSQL database |
 
 ### Environment file
@@ -122,8 +122,6 @@ The environment file must be deployed outside the Nix store with permissions
 appropriate for secrets. It must contain:
 
 ```dotenv
-BETTER_AUTH_SECRET=generate-a-secret-at-deploy-time
-BETTER_AUTH_URL=https://lirna.example.com
 CORS_ORIGIN=https://lirna.example.com
 ```
 

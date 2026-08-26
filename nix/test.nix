@@ -13,8 +13,6 @@ pkgs.testers.runNixOSTest {
     environment.etc."lirna.env" = {
       mode = "0600";
       text = ''
-        BETTER_AUTH_SECRET=synthetic-better-auth-secret-for-nixos-test
-        BETTER_AUTH_URL=http://127.0.0.1:3000
         CORS_ORIGIN=http://127.0.0.1:3001
       '';
     };

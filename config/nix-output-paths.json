@@ -5,10 +5,10 @@
     "tsconfig.json",
     "apps/server",
     "packages/api",
-    "packages/auth",
     "packages/config",
     "packages/db",
-    "packages/env"
+    "packages/env",
+    "scripts/lifecycle"
   ],
   "desktop": [
     "bun.lock",
@@ -17,12 +17,12 @@
     "apps/web",
     "config/web-bundle-budget.json",
     "packages/api",
-    "packages/auth",
     "packages/config",
     "packages/db",
     "packages/env",
     "packages/ui",
     "scripts/check-web-bundle.ts",
+    "scripts/lifecycle",
     "scripts/path-safety.ts"
   ]
 }

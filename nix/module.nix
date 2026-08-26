@@ -24,9 +24,9 @@ in
       default = null;
       example = "/run/secrets/lirna.env";
       description = ''
-        Root-readable environment file containing BETTER_AUTH_SECRET,
-        BETTER_AUTH_URL, and CORS_ORIGIN. It must also contain DATABASE_URL
-        when services.lirna.database.createLocally is disabled.
+        Root-readable environment file containing CORS_ORIGIN. It must also
+        contain DATABASE_URL when services.lirna.database.createLocally is
+        disabled.
       '';
     };
 
