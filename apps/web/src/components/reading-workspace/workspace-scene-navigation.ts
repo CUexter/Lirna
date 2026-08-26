@@ -1,10 +1,9 @@
 import { createReferenceJumper } from "./authored-navigation";
-import { usePublisherNoteProgress } from "./publisher-note-progress";
+import { useReadingLocationSession } from "./reading-location-session";
 import {
   useExplicitFragmentNavigation,
   useSceneFragmentNavigation,
 } from "./reading-navigation-hooks";
-import { useReadingResume } from "./reading-resume";
 import type { ReadingToolTab } from "./reading-tools-panel";
 import { createReferenceIndex, type ReadingReference } from "./references";
 import { createWorkspaceAuthoredSceneNavigator } from "./workspace-authored-scene-navigation";
@@ -19,7 +18,7 @@ import {
 import { resolvePublisherNotes } from "./workspace-scene-actions";
 import { useWorkspaceSceneState } from "./workspace-scene-state";
 import { createWorkspaceSceneTransitions } from "./workspace-scene-transitions";
-import { usePendingCitationReturn, useScrollRestore } from "./workspace-state";
+import { usePendingCitationReturn } from "./workspace-state";
 import type { ReadingWorkspaceViewInput } from "./workspace-types";
 
 export function useReadingWorkspaceViewProps({
@@ -72,25 +71,19 @@ export function useReadingWorkspaceViewProps({
     topology,
   );
   const activeToolTab = activeReadingToolTab(view, readingToolTab);
-  usePublisherNoteProgress({
-    active:
-      activeToolTab === "supplementary" && Boolean(notes) && !selectedReference,
-    component: notes,
+  const location = useReadingLocationSession({
+    article: { component, ref: articleRef },
     navigation,
-    scrollContainerRef: toolsScrollRef,
-    sourceId: source.id,
-    stateId: source.stateId,
-  });
-  const { openBibliography, returnToCitation, saveLocation } = useScrollRestore(
-    {
-      articleRef,
-      component,
-      navigation,
-      sourceId: source.id,
-      stateId: source.stateId,
-      onViewChange,
+    onViewChange,
+    publisherNote: {
+      activeTab: activeToolTab,
+      component: notes,
+      ref: toolsScrollRef,
+      selectedReference: Boolean(selectedReference),
     },
-  );
+    target: { sourceId: source.id, stateId: source.stateId },
+  });
+  const { openBibliography, returnToCitation, saveLocation } = location;
   const transitions = createWorkspaceSceneTransitions({
     clearPendingTargets,
     componentIdentity: component.identity,
@@ -124,13 +117,6 @@ export function useReadingWorkspaceViewProps({
       reason: "target-unavailable",
       targetDescription,
     });
-  const resumeStatus = useReadingResume({
-    articleRef,
-    component,
-    navigation,
-    sourceId: source.id,
-    stateId: source.stateId,
-  });
   useSceneFragmentNavigation({
     articleRef,
     componentIdentity: component.identity,
@@ -243,7 +229,7 @@ export function useReadingWorkspaceViewProps({
         parent: tree.parent,
         previous: tree.previous,
       },
-      resumeStatus,
+      resumeStatus: location.resumeStatus,
       source: reading.source,
     },
     readingToolsProps: {
