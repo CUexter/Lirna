@@ -79,6 +79,7 @@ export interface ReadingDerivativeCandidate {
 export interface DerivativeActivation {
   id: string;
   derivativeId: string;
+  sequence: number;
   actorId: string;
   reason: string;
   activatedAt: string;
@@ -90,17 +91,4 @@ export interface DerivativeUpdateOperations {
     sourceId: string;
     stateId: string;
   }): Promise<ReadingDerivativeCandidate | undefined>;
-  previewActivation(input: {
-    sourceId: string;
-    stateId: string;
-    derivativeId: string;
-  }): Promise<DerivativeComparison | undefined>;
-  activate(input: {
-    sourceId: string;
-    stateId: string;
-    derivativeId: string;
-    actorId: string;
-    reason: string;
-    expectedConsequences: DerivativeComparison;
-  }): Promise<DerivativeActivation | undefined>;
 }

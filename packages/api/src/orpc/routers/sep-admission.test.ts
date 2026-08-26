@@ -288,8 +288,10 @@ function invoke(
 
 function context(sepAdmissions: SepAdmissionOperations): Context {
   return {
+    activeReadingDerivatives: {} as Context["activeReadingDerivatives"],
     annotations: {} as Context["annotations"],
     citationResolutions: {} as Context["citationResolutions"],
+    derivativeUpdates: {} as Context["derivativeUpdates"],
     readingPositions: {} as Context["readingPositions"],
     sepAdmissions,
     admittedSourceStates: {} as Context["admittedSourceStates"],

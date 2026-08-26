@@ -3,7 +3,8 @@ import type { db } from "@lirna/db";
 import { annotations } from "@lirna/db/schema/annotations";
 import { sourceStates } from "@lirna/db/schema/sources";
 import { and, asc, eq } from "drizzle-orm";
-import { activeReadingDerivative } from "../sep-admission/active-reading-derivative";
+import type { ActiveReadingDerivativeOperations } from "../sep-admission/active-reading-derivative";
+import { DrizzleActiveReadingDerivativeStore } from "../sep-admission/active-reading-derivative-store";
 import {
   InvalidAnnotationAnchorError,
   validateAnnotationAnchor,
@@ -20,7 +21,12 @@ import type {
 export { InvalidAnnotationAnchorError } from "./annotation-anchor";
 
 export class DrizzleAnnotationStore implements AnnotationOperations {
-  constructor(private readonly database: typeof db) {}
+  constructor(
+    private readonly database: typeof db,
+    private readonly activeReading: ActiveReadingDerivativeOperations = new DrizzleActiveReadingDerivativeStore(
+      database,
+    ),
+  ) {}
 
   async list(sourceId: string, stateId: string): Promise<AnnotationRecord[]> {
     const rows = await this.database
@@ -134,14 +140,12 @@ export class DrizzleAnnotationStore implements AnnotationOperations {
     stateId: string,
     componentIdentity: string,
   ) {
-    const active = await activeReadingDerivative(
-      this.database,
-      stateId,
-      sourceId,
-    );
-    return active?.reading.components.find(
-      (component) => component.identity === componentIdentity,
-    );
+    const active = await this.activeReading.read({ sourceId, stateId });
+    return active.status === "active"
+      ? active.value.reading.components.find(
+          (component) => component.identity === componentIdentity,
+        )
+      : undefined;
   }
 }
 

@@ -17,6 +17,8 @@ import {
   createOpenRouterResearchAssistant,
   type ResearchAssistantOperations,
 } from "./research-assistant/research-assistant";
+import type { ActiveReadingDerivativeOperations } from "./sep-admission/active-reading-derivative";
+import { DrizzleActiveReadingDerivativeStore } from "./sep-admission/active-reading-derivative-store";
 import type { SepAdmissionOperations } from "./sep-admission/sep-admission";
 import { sepAdmissionOperations } from "./sep-admission/sep-admission-store";
 import type { SepAdmittedStateOperations } from "./sep-admission/sep-admitted-state";
@@ -31,12 +33,22 @@ export type CreateContextOptions = {
   readingPositions?: ReadingPositionOperations;
   researchAssistant?: ResearchAssistantOperations;
   derivativeUpdates?: DerivativeUpdateOperations;
+  activeReadingDerivatives?: ActiveReadingDerivativeOperations;
   observation?: RequestObservation;
   debugErrors?: boolean;
 };
 
-const annotationStore = new DrizzleAnnotationStore(db);
-const citationResolutionStore = new DrizzleCitationResolutionStore(db);
+const activeReadingDerivativeStore = new DrizzleActiveReadingDerivativeStore(
+  db,
+);
+const annotationStore = new DrizzleAnnotationStore(
+  db,
+  activeReadingDerivativeStore,
+);
+const citationResolutionStore = new DrizzleCitationResolutionStore(
+  db,
+  activeReadingDerivativeStore,
+);
 const citationInference =
   env.CITATION_INFERENCE_ENABLED && env.OPENROUTER_API_KEY
     ? createOpenRouterCitationInference({
@@ -44,7 +56,10 @@ const citationInference =
         model: env.OPENROUTER_MODEL,
       })
     : undefined;
-const readingPositionStore = new DrizzleReadingPositionStore(db);
+const readingPositionStore = new DrizzleReadingPositionStore(
+  db,
+  activeReadingDerivativeStore,
+);
 const derivativeUpdateStore = new DrizzleDerivativeUpdateStore(db);
 const researchAssistant = env.OPENROUTER_API_KEY
   ? createOpenRouterResearchAssistant({
@@ -62,6 +77,7 @@ export function createContext({
   readingPositions,
   researchAssistant: researchAssistantOverride,
   derivativeUpdates,
+  activeReadingDerivatives,
   observation,
   debugErrors,
 }: CreateContextOptions) {
@@ -75,6 +91,8 @@ export function createContext({
       : {}),
     readingPositions: readingPositions ?? readingPositionStore,
     derivativeUpdates: derivativeUpdates ?? derivativeUpdateStore,
+    activeReadingDerivatives:
+      activeReadingDerivatives ?? activeReadingDerivativeStore,
     ...((researchAssistantOverride ?? researchAssistant)
       ? { researchAssistant: researchAssistantOverride ?? researchAssistant }
       : {}),

@@ -124,6 +124,7 @@ function workspace() {
   const activation = {
     id: "50000000-0000-4000-8000-000000000000",
     derivativeId: "40000000-0000-4000-8000-000000000000",
+    sequence: 1,
     actorId: "system:admission",
     reason: "Initial validated derivative",
     activatedAt: "2026-08-25T00:00:00.000Z",

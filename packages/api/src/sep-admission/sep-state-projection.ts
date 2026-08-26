@@ -9,6 +9,7 @@ import {
   derivativeGenerationSchema,
   persistedDerivativeValidationSchema,
 } from "../derivative-updates/derivative-update-schemas";
+import { readActiveReadingDerivativeInSnapshot } from "./active-reading-derivative-store";
 import { readingComponentSummary } from "./reading-content";
 import {
   parseStringList,
@@ -42,6 +43,14 @@ export async function readSepAdmittedState(
   );
   if (!evidence) return undefined;
   const { metadata, resources, state } = evidence;
+  const activeReading = await readActiveReadingDerivativeInSnapshot(database, {
+    sourceId,
+    stateId,
+  });
+  const activeActivationId =
+    activeReading.status === "active"
+      ? activeReading.value.activationId
+      : undefined;
   const derivativeRows = await database
     .select({
       derivative: sourceStateDerivatives,
@@ -56,10 +65,7 @@ export async function readSepAdmittedState(
       ),
     )
     .where(eq(sourceStateDerivatives.sourceStateId, stateId))
-    .orderBy(
-      desc(sourceStateDerivativeActivations.activatedAt),
-      desc(sourceStateDerivativeActivations.id),
-    );
+    .orderBy(desc(sourceStateDerivativeActivations.sequence));
   const currentKinds = new Set<string>();
   const seenDerivatives = new Set<string>();
   const activationsByDerivative = new Map<
@@ -79,22 +85,22 @@ export async function readSepAdmittedState(
       .map((activation) => ({
         id: activation.id,
         derivativeId: activation.derivativeId,
+        sequence: activation.sequence,
         actorId: activation.actorId,
         reason: activation.reason,
         activatedAt: activation.activatedAt.toISOString(),
         consequences: derivativeComparisonSchema.parse(activation.consequences),
       }))
-      .toSorted(
-        (left, right) =>
-          right.activatedAt.localeCompare(left.activatedAt) ||
-          right.id.localeCompare(left.id),
-      );
+      .toSorted((left, right) => right.sequence - left.sequence);
     const activation = activations[0];
     const reading =
       derivative.kind === sepReadingDerivativeKind && derivative.valid
         ? readSepReadingDerivative(derivative.payload)
         : undefined;
-    const current = activation && !currentKinds.has(derivative.kind);
+    const current =
+      derivative.kind === sepReadingDerivativeKind
+        ? activation?.id === activeActivationId
+        : activation && !currentKinds.has(derivative.kind);
     if (current) currentKinds.add(derivative.kind);
     const validation = persistedDerivativeValidationSchema.parse(
       derivative.validation,
@@ -124,13 +130,8 @@ export async function readSepAdmittedState(
       ...(reading ? { provenance: reading.provenance } : {}),
     };
   });
-  const activeReadingRow = derivativeRows.find(
-    ({ derivative, activation }) =>
-      derivative.kind === sepReadingDerivativeKind && Boolean(activation),
-  );
-  const reading = activeReadingRow
-    ? readSepReadingDerivative(activeReadingRow.derivative.payload)
-    : undefined;
+  const reading =
+    activeReading.status === "active" ? activeReading.value.reading : undefined;
   return {
     id: state.id,
     sourceId: state.sourceId,

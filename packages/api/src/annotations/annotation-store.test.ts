@@ -8,6 +8,7 @@ import {
   DrizzleAnnotationStore,
   InvalidAnnotationAnchorError,
 } from "./annotation-store";
+import { activeReadingStub } from "./annotation-store.test-support";
 
 const sourceId = "10000000-0000-4000-8000-000000000000";
 const stateId = "20000000-0000-4000-8000-000000000000";
@@ -190,7 +191,7 @@ function record(overrides: Partial<AnnotationRecord>): AnnotationRecord {
 
 function storeWith({
   stateRows = [{ id: stateId }],
-  derivativeRows = [{ payload: readingPayload() }],
+  derivativeRows = [{}],
   listRows = [],
   writeRows = [],
   onInsert,
@@ -255,61 +256,8 @@ function storeWith({
       where: () => ({ returning: () => Promise.resolve(writeRows) }),
     }),
   };
-  return new DrizzleAnnotationStore(database as never);
-}
-
-function readingPayload() {
-  const component = {
-    identity: "article:main",
-    role: "main" as const,
-    label: "Article",
-    order: 0,
-    requestedUrl: "https://example.com/article",
-    finalUrl: "https://example.com/article",
-    retrievedAt: "2026-08-18T10:00:00.000Z",
-    sha256: "a".repeat(64),
-    toc: [],
-    introductoryBlocks: [],
-    sections: [],
-    figures: [],
-    bibliography: [],
-    plainText: "Readevidence carefully.",
-  };
-  return {
-    version: 1,
-    source: {
-      id: sourceId,
-      stateId,
-      title: "Evidence",
-      authors: [],
-      publisher: "Example",
-      publicationHistory: [],
-      canonicalUrl: "https://example.com/article",
-      observation: "submitted",
-      admittedAt: "2026-08-18T10:00:00.000Z",
-    },
-    mainComponent: {
-      identity: component.identity,
-      requestedUrl: component.requestedUrl,
-      finalUrl: component.finalUrl,
-      retrievedAt: component.retrievedAt,
-      sha256: component.sha256,
-    },
-    components: [component],
-    capture: {
-      completeness: "complete",
-      readingReadiness: "ready",
-      readinessReasons: [],
-      diagnostics: [],
-    },
-    toc: [],
-    introductoryBlocks: [],
-    sections: [],
-    plainText: component.plainText,
-    provenance: {
-      adapter: { id: "sep", version: "1" },
-      parser: { id: "parse5", version: "7.3.0" },
-      inputResourceHashes: [],
-    },
-  };
+  return new DrizzleAnnotationStore(
+    database as never,
+    activeReadingStub(derivativeRows.length > 0),
+  );
 }

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { call } from "@orpc/server";
 import type { Context } from "../../context";
 import type { DerivativeUpdateOperations } from "../../derivative-updates/derivative-update-contract";
+import type { ActiveReadingDerivativeOperations } from "../../sep-admission/active-reading-derivative";
 import { sourceDerivativesRouter } from "./source-derivatives";
 
 const sourceId = "10000000-0000-4000-8000-000000000000";
@@ -17,7 +18,7 @@ describe("Source Derivative routes", () => {
         { sourceId, stateId },
         {
           context: context(
-            operations({
+            generationOperations({
               async generate() {
                 return candidate;
               },
@@ -33,6 +34,7 @@ describe("Source Derivative routes", () => {
     const activation = {
       id: "40000000-0000-4000-8000-000000000000",
       derivativeId,
+      sequence: 2,
       actorId: "unauthenticated",
       reason: "Reviewed candidate",
       activatedAt: "2026-08-25T00:00:00.000Z",
@@ -45,15 +47,17 @@ describe("Source Derivative routes", () => {
           sourceId,
           stateId,
           derivativeId,
+          expectedBaselineSequence: 1,
           reason: "Reviewed candidate",
           expectedConsequences: comparison(),
         },
         {
           context: context(
-            operations({
+            generationOperations(),
+            activeOperations({
               async activate(input) {
                 received = input;
-                return activation;
+                return { status: "activated", activation };
               },
             }),
           ),
@@ -64,6 +68,7 @@ describe("Source Derivative routes", () => {
       sourceId,
       stateId,
       derivativeId,
+      expectedBaselineSequence: 1,
       reason: "Reviewed candidate",
       expectedConsequences: comparison(),
       actorId: "unauthenticated",
@@ -78,38 +83,63 @@ describe("Source Derivative routes", () => {
           sourceId,
           stateId,
           derivativeId,
+          expectedBaselineSequence: 1,
           reason: "Reviewed candidate",
           expectedConsequences: comparison(),
         },
-        { context: context(operations()) },
+        {
+          context: context(
+            generationOperations(),
+            activeOperations({
+              async activate() {
+                return { status: "candidate-invalid" };
+              },
+            }),
+          ),
+        },
       ),
     ).rejects.toMatchObject({
       code: "NOT_FOUND",
-      message: "Valid Reading Derivative is unavailable",
+      message: "Reading Derivative candidate is invalid",
     });
   });
 });
 
-function operations(
+function generationOperations(
   overrides: Partial<DerivativeUpdateOperations> = {},
 ): DerivativeUpdateOperations {
   return {
     async generate() {
       return undefined;
     },
+    ...overrides,
+  };
+}
+
+function activeOperations(
+  overrides: Partial<ActiveReadingDerivativeOperations> = {},
+): ActiveReadingDerivativeOperations {
+  return {
+    async read() {
+      return { status: "no-active-derivative" };
+    },
     async previewActivation() {
-      return undefined;
+      return { status: "candidate-not-found" };
     },
     async activate() {
-      return undefined;
+      return { status: "candidate-not-found" };
     },
     ...overrides,
   };
 }
 
-function context(derivativeUpdates: DerivativeUpdateOperations): Context {
+function context(
+  derivativeUpdates: DerivativeUpdateOperations,
+  activeReadingDerivatives: ActiveReadingDerivativeOperations = activeOperations(),
+): Context {
   return {
     derivativeUpdates,
+    activeReadingDerivatives,
     annotations: {} as Context["annotations"],
     citationResolutions: {} as Context["citationResolutions"],
     readingPositions: {} as Context["readingPositions"],

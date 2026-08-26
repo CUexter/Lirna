@@ -8,8 +8,9 @@ import { useDerivativeUpdate } from "@/hooks/use-derivative-update";
 type Workspace = InquiryOutputs["sources"]["readingWorkspace"];
 type State = NonNullable<Workspace["state"]>;
 type Candidate = InquiryOutputs["sources"]["derivatives"]["generate"];
-type ComparisonValue =
+type ActivationPreviewValue =
   InquiryOutputs["sources"]["derivatives"]["previewActivation"];
+type ComparisonValue = ActivationPreviewValue["consequences"];
 type ValidationValue = Candidate["validation"];
 
 export function DerivativeReview({
@@ -55,6 +56,7 @@ export function DerivativeReview({
           activate={update.activate}
           candidate={update.candidate}
           pending={update.activatePending}
+          previewActivation={update.previewActivation}
         />
       ) : null}
 
@@ -92,13 +94,13 @@ export function DerivativeReview({
               <Button
                 className="mt-3"
                 disabled={update.activatePending}
-                onClick={() =>
-                  previewRollback(
+                onClick={() => {
+                  void previewRollback(
                     derivative.id,
                     update.previewActivation,
                     update.activate,
-                  )
-                }
+                  ).catch(() => undefined);
+                }}
                 size="sm"
                 variant="outline"
               >
@@ -116,10 +118,12 @@ function CandidateReview({
   activate,
   candidate,
   pending,
+  previewActivation,
 }: {
   activate: Activation;
   candidate: Candidate;
   pending: boolean;
+  previewActivation: (derivativeId: string) => Promise<ActivationPreviewValue>;
 }) {
   const blocked = !candidate.valid;
   return (
@@ -149,9 +153,13 @@ function CandidateReview({
       <Button
         className="mt-4"
         disabled={blocked || pending}
-        onClick={() =>
-          confirmActivation(candidate.id, false, candidate.comparison, activate)
-        }
+        onClick={() => {
+          void previewActivation(candidate.id)
+            .then((preview) =>
+              confirmActivation(candidate.id, false, preview, activate),
+            )
+            .catch(() => undefined);
+        }}
       >
         {blocked
           ? "Resolve validation failures to activate"
@@ -307,13 +315,13 @@ function generationVersion(generation: unknown) {
 function confirmActivation(
   derivativeId: string,
   rollback: boolean,
-  consequences: ComparisonValue,
+  preview: ActivationPreviewValue,
   activate: Activation,
 ) {
   const action = rollback ? "roll back to" : "activate";
   if (
     !window.confirm(
-      `Explicitly ${action} Reading Derivative ${derivativeId}?\n\n${consequenceSummary(consequences)}\n\nSource evidence and authored records will not be changed.`,
+      `Explicitly ${action} Reading Derivative ${derivativeId}?\n\n${consequenceSummary(preview.consequences)}\n\nSource evidence and authored records will not be changed.`,
     )
   )
     return;
@@ -322,7 +330,7 @@ function confirmActivation(
     rollback
       ? "Explicit rollback to a prior valid Reading Derivative"
       : "Explicit activation after candidate validation and consequence review",
-    consequences,
+    preview,
   );
 }
 
@@ -342,14 +350,14 @@ function consequenceSummary(consequences: ComparisonValue) {
 type Activation = (
   derivativeId: string,
   reason: string,
-  expectedConsequences: ComparisonValue,
+  preview: ActivationPreviewValue,
 ) => void;
 
 async function previewRollback(
   derivativeId: string,
-  preview: (derivativeId: string) => Promise<ComparisonValue>,
+  preview: (derivativeId: string) => Promise<ActivationPreviewValue>,
   activate: Activation,
 ) {
-  const consequences = await preview(derivativeId);
-  confirmActivation(derivativeId, true, consequences, activate);
+  const activationPreview = await preview(derivativeId);
+  confirmActivation(derivativeId, true, activationPreview, activate);
 }

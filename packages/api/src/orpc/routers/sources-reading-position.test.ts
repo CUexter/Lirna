@@ -63,8 +63,10 @@ test("rejects semantic identity combined with another scene's pixels", async () 
 
 function context(overrides: Partial<ReadingPositionOperations> = {}): Context {
   return {
+    activeReadingDerivatives: {} as Context["activeReadingDerivatives"],
     annotations: {} as Context["annotations"],
     citationResolutions: {} as Context["citationResolutions"],
+    derivativeUpdates: {} as Context["derivativeUpdates"],
     readingPositions: {
       async get() {
         return undefined;

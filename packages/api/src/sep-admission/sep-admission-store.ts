@@ -241,6 +241,7 @@ export function createDrizzleSepAdmissionStore(
               sourceStateId: derivative.sourceStateId,
               derivativeId: derivative.id,
               kind: derivative.kind,
+              sequence: 1,
               activatedAt: now,
             })),
           );

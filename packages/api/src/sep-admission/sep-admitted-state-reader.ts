@@ -13,6 +13,7 @@ import {
   sources,
 } from "@lirna/db/schema/sources";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { DrizzleActiveReadingDerivativeStore } from "./active-reading-derivative-store";
 import {
   parseStringList,
   sepObservationKeySchema,
@@ -21,19 +22,12 @@ import type {
   SepAdmittedStateOperations,
   SepLibrarySource,
 } from "./sep-admitted-state";
-import {
-  readSepReadingDerivative,
-  sepReadingDerivativeKind,
-} from "./sep-reading-contract";
 import { readSepAdmittedState } from "./sep-state-projection";
-
-type DatabaseExecutor =
-  | Parameters<Parameters<(typeof db)["transaction"]>[0]>[0]
-  | typeof db;
 
 export function createSepAdmittedStateReader(
   database: typeof db = db,
 ): SepAdmittedStateOperations {
+  const activeReading = new DrizzleActiveReadingDerivativeStore(database);
   return {
     async listSources(): Promise<SepLibrarySource[]> {
       const rows = await database
@@ -152,19 +146,26 @@ export function createSepAdmittedStateReader(
     },
 
     getState: (sourceId, stateId) =>
-      readSepAdmittedState(database, sourceId, stateId),
+      database.transaction(
+        (tx) => readSepAdmittedState(tx, sourceId, stateId),
+        { isolationLevel: "repeatable read", accessMode: "read only" },
+      ),
 
-    getReading: (sourceId, stateId) =>
-      activeReading(database, sourceId, stateId),
+    async getReading(sourceId, stateId) {
+      const active = await activeReading.read({ sourceId, stateId });
+      return active.status === "active" ? active.value.reading : undefined;
+    },
 
     getWorkspace: (sourceId, stateId) =>
       database.transaction(
         async (tx) => {
-          const [state, reading] = await Promise.all([
+          const [state, active] = await Promise.all([
             readSepAdmittedState(tx, sourceId, stateId),
-            activeReading(tx, sourceId, stateId),
+            activeReading.readInSnapshot(tx, { sourceId, stateId }),
           ]);
-          return state && reading ? { state, reading } : undefined;
+          return state && active.status === "active"
+            ? { state, reading: active.value.reading }
+            : undefined;
         },
         { isolationLevel: "repeatable read", accessMode: "read only" },
       ),
@@ -195,40 +196,6 @@ export function createSepAdmittedStateReader(
         : undefined;
     },
   };
-}
-
-async function activeReading(
-  database: DatabaseExecutor,
-  sourceId: string,
-  stateId: string,
-) {
-  const [row] = await database
-    .select({ payload: sourceStateDerivatives.payload })
-    .from(sourceStateDerivativeActivations)
-    .innerJoin(
-      sourceStateDerivatives,
-      eq(
-        sourceStateDerivatives.id,
-        sourceStateDerivativeActivations.derivativeId,
-      ),
-    )
-    .innerJoin(
-      sourceStates,
-      eq(sourceStates.id, sourceStateDerivativeActivations.sourceStateId),
-    )
-    .where(
-      and(
-        eq(sourceStates.id, stateId),
-        eq(sourceStates.sourceId, sourceId),
-        eq(sourceStateDerivativeActivations.kind, sepReadingDerivativeKind),
-      ),
-    )
-    .orderBy(
-      desc(sourceStateDerivativeActivations.activatedAt),
-      desc(sourceStateDerivativeActivations.id),
-    )
-    .limit(1);
-  return row ? readSepReadingDerivative(row.payload) : undefined;
 }
 
 export const sepAdmittedStateOperations = createSepAdmittedStateReader();

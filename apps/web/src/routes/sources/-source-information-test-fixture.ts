@@ -117,6 +117,7 @@ export function readingWorkspaceFixture(
           currentActivation: {
             id: "50000000-0000-4000-8000-000000000000",
             derivativeId: "40000000-0000-4000-8000-000000000000",
+            sequence: 1,
             actorId: "system:admission",
             reason: "Initial validated derivative",
             activatedAt: admittedAt,
@@ -137,6 +138,7 @@ export function readingWorkspaceFixture(
             {
               id: "50000000-0000-4000-8000-000000000000",
               derivativeId: "40000000-0000-4000-8000-000000000000",
+              sequence: 1,
               actorId: "system:admission",
               reason: "Initial validated derivative",
               activatedAt: admittedAt,

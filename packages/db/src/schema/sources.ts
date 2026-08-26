@@ -167,6 +167,7 @@ export const sourceStateDerivativeActivations = pgTable(
     sourceStateId: uuid("source_state_id").notNull(),
     derivativeId: uuid("derivative_id").notNull(),
     kind: text("kind").notNull(),
+    sequence: integer("sequence").default(1).notNull(),
     actorId: text("actor_id").default("system:admission").notNull(),
     reason: text("reason").default("Initial validated derivative").notNull(),
     consequences: jsonb("consequences")
@@ -193,7 +194,16 @@ export const sourceStateDerivativeActivations = pgTable(
     index("source_state_derivative_activations_current_idx").on(
       table.sourceStateId,
       table.kind,
-      table.activatedAt,
+      table.sequence,
+    ),
+    uniqueIndex("source_state_derivative_activations_sequence_uidx").on(
+      table.sourceStateId,
+      table.kind,
+      table.sequence,
+    ),
+    check(
+      "source_state_derivative_activations_sequence_check",
+      sql`${table.sequence} >= 1`,
     ),
   ],
 );

@@ -192,7 +192,9 @@ describe("annotations oRPC router", () => {
 function context(annotations: AnnotationOperations): Context {
   return {
     annotations,
+    activeReadingDerivatives: {} as Context["activeReadingDerivatives"],
     citationResolutions: {} as Context["citationResolutions"],
+    derivativeUpdates: {} as Context["derivativeUpdates"],
     readingPositions: {} as Context["readingPositions"],
     sepAdmissions: {} as Context["sepAdmissions"],
     admittedSourceStates: {} as Context["admittedSourceStates"],

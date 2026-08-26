@@ -5,7 +5,8 @@ import { type InquiryOutputs, inquiry } from "@/clients/inquiry";
 import { library } from "@/clients/library";
 
 type Candidate = InquiryOutputs["sources"]["derivatives"]["generate"];
-type Comparison = InquiryOutputs["sources"]["derivatives"]["previewActivation"];
+type ActivationPreview =
+  InquiryOutputs["sources"]["derivatives"]["previewActivation"];
 
 export function useDerivativeUpdate(sourceId: string, stateId: string) {
   const queryClient = useQueryClient();
@@ -45,14 +46,15 @@ export function useDerivativeUpdate(sourceId: string, stateId: string) {
     activate: (
       derivativeId: string,
       reason: string,
-      expectedConsequences: Comparison,
+      preview: ActivationPreview,
     ) =>
       activate.mutate({
         sourceId,
         stateId,
         derivativeId,
         reason,
-        expectedConsequences,
+        expectedBaselineSequence: preview.baselineSequence,
+        expectedConsequences: preview.consequences,
       }),
     activateError: activate.error ?? preview.error,
     activatePending: activate.isPending || preview.isPending,

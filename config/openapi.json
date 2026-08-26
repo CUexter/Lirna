@@ -6260,6 +6260,11 @@
                                       "format": "uuid",
                                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                                     },
+                                    "sequence": {
+                                      "type": "integer",
+                                      "exclusiveMinimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
                                     "actorId": {
                                       "type": "string"
                                     },
@@ -6472,6 +6477,7 @@
                                   "required": [
                                     "id",
                                     "derivativeId",
+                                    "sequence",
                                     "actorId",
                                     "reason",
                                     "activatedAt",
@@ -6493,6 +6499,11 @@
                                         "type": "string",
                                         "format": "uuid",
                                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "sequence": {
+                                        "type": "integer",
+                                        "exclusiveMinimum": 0,
+                                        "maximum": 9007199254740991
                                       },
                                       "actorId": {
                                         "type": "string"
@@ -6706,6 +6717,7 @@
                                     "required": [
                                       "id",
                                       "derivativeId",
+                                      "sequence",
                                       "actorId",
                                       "reason",
                                       "activatedAt",
@@ -8004,6 +8016,11 @@
                                 "format": "uuid",
                                 "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                               },
+                              "sequence": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
                               "actorId": {
                                 "type": "string"
                               },
@@ -8216,6 +8233,7 @@
                             "required": [
                               "id",
                               "derivativeId",
+                              "sequence",
                               "actorId",
                               "reason",
                               "activatedAt",
@@ -8237,6 +8255,11 @@
                                   "type": "string",
                                   "format": "uuid",
                                   "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "sequence": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
                                 },
                                 "actorId": {
                                   "type": "string"
@@ -8450,6 +8473,7 @@
                               "required": [
                                 "id",
                                 "derivativeId",
+                                "sequence",
                                 "actorId",
                                 "reason",
                                 "activatedAt",
@@ -12141,6 +12165,11 @@
                                     "format": "uuid",
                                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                                   },
+                                  "sequence": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
                                   "actorId": {
                                     "type": "string"
                                   },
@@ -12353,6 +12382,7 @@
                                 "required": [
                                   "id",
                                   "derivativeId",
+                                  "sequence",
                                   "actorId",
                                   "reason",
                                   "activatedAt",
@@ -12374,6 +12404,11 @@
                                       "type": "string",
                                       "format": "uuid",
                                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "sequence": {
+                                      "type": "integer",
+                                      "exclusiveMinimum": 0,
+                                      "maximum": 9007199254740991
                                     },
                                     "actorId": {
                                       "type": "string"
@@ -12587,6 +12622,7 @@
                                   "required": [
                                     "id",
                                     "derivativeId",
+                                    "sequence",
                                     "actorId",
                                     "reason",
                                     "activatedAt",
@@ -15342,6 +15378,11 @@
                                             "format": "uuid",
                                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                                           },
+                                          "sequence": {
+                                            "type": "integer",
+                                            "exclusiveMinimum": 0,
+                                            "maximum": 9007199254740991
+                                          },
                                           "actorId": {
                                             "type": "string"
                                           },
@@ -15554,6 +15595,7 @@
                                         "required": [
                                           "id",
                                           "derivativeId",
+                                          "sequence",
                                           "actorId",
                                           "reason",
                                           "activatedAt",
@@ -15575,6 +15617,11 @@
                                               "type": "string",
                                               "format": "uuid",
                                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            "sequence": {
+                                              "type": "integer",
+                                              "exclusiveMinimum": 0,
+                                              "maximum": 9007199254740991
                                             },
                                             "actorId": {
                                               "type": "string"
@@ -15788,6 +15835,7 @@
                                           "required": [
                                             "id",
                                             "derivativeId",
+                                            "sequence",
                                             "actorId",
                                             "reason",
                                             "activatedAt",
@@ -18219,6 +18267,11 @@
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         },
+                        "sequence": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
                         "actorId": {
                           "type": "string"
                         },
@@ -18431,6 +18484,7 @@
                       "required": [
                         "id",
                         "derivativeId",
+                        "sequence",
                         "actorId",
                         "reason",
                         "activatedAt",
@@ -18521,197 +18575,212 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "baselineDerivativeId": {
-                      "type": "string",
-                      "format": "uuid",
-                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    "baselineSequence": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
                     },
-                    "semantic": {
+                    "consequences": {
                       "type": "object",
                       "properties": {
-                        "changedComponents": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "identity": {
-                                "type": "string"
-                              },
-                              "beforeTextSha256": {
-                                "type": "string",
-                                "pattern": "^[0-9a-f]{64}$"
-                              },
-                              "afterTextSha256": {
-                                "type": "string",
-                                "pattern": "^[0-9a-f]{64}$"
-                              }
-                            },
-                            "required": [
-                              "identity"
-                            ],
-                            "additionalProperties": false
-                          }
-                        }
-                      },
-                      "required": [
-                        "changedComponents"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "structure": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "subject": {
-                            "type": "string",
-                            "enum": [
-                              "components",
-                              "sections",
-                              "figures",
-                              "bibliography"
-                            ]
-                          },
-                          "before": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "after": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "beforeSha256": {
-                            "type": "string",
-                            "pattern": "^[0-9a-f]{64}$"
-                          },
-                          "afterSha256": {
-                            "type": "string",
-                            "pattern": "^[0-9a-f]{64}$"
-                          }
+                        "baselineDerivativeId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         },
-                        "required": [
-                          "subject",
-                          "before",
-                          "after",
-                          "afterSha256"
-                        ],
-                        "additionalProperties": false
-                      }
-                    },
-                    "diagnostics": {
-                      "type": "object",
-                      "properties": {
-                        "added": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "removed": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        }
-                      },
-                      "required": [
-                        "added",
-                        "removed"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "relocations": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "recordType": {
-                            "type": "string",
-                            "enum": [
-                              "annotation",
-                              "reading-position",
-                              "citation-resolution"
-                            ]
-                          },
-                          "recordId": {
-                            "type": "string"
-                          },
-                          "classification": {
-                            "type": "string",
-                            "enum": [
-                              "exact",
-                              "context-relocated",
-                              "ambiguous",
-                              "unresolved"
-                            ]
-                          },
-                          "original": {
-                            "type": "object",
-                            "properties": {
-                              "componentIdentity": {
-                                "type": "string"
-                              },
-                              "derivativeId": {
-                                "type": "string",
-                                "format": "uuid",
-                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        "semantic": {
+                          "type": "object",
+                          "properties": {
+                            "changedComponents": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "identity": {
+                                    "type": "string"
+                                  },
+                                  "beforeTextSha256": {
+                                    "type": "string",
+                                    "pattern": "^[0-9a-f]{64}$"
+                                  },
+                                  "afterTextSha256": {
+                                    "type": "string",
+                                    "pattern": "^[0-9a-f]{64}$"
+                                  }
+                                },
+                                "required": [
+                                  "identity"
+                                ],
+                                "additionalProperties": false
                               }
-                            },
-                            "required": [
-                              "componentIdentity"
-                            ],
-                            "additionalProperties": false
+                            }
                           },
-                          "target": {
+                          "required": [
+                            "changedComponents"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "structure": {
+                          "type": "array",
+                          "items": {
                             "type": "object",
                             "properties": {
-                              "componentIdentity": {
-                                "type": "string"
+                              "subject": {
+                                "type": "string",
+                                "enum": [
+                                  "components",
+                                  "sections",
+                                  "figures",
+                                  "bibliography"
+                                ]
                               },
-                              "normalizedStartOffset": {
+                              "before": {
                                 "type": "integer",
                                 "minimum": 0,
                                 "maximum": 9007199254740991
                               },
-                              "normalizedEndOffset": {
+                              "after": {
                                 "type": "integer",
-                                "exclusiveMinimum": 0,
+                                "minimum": 0,
                                 "maximum": 9007199254740991
+                              },
+                              "beforeSha256": {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{64}$"
+                              },
+                              "afterSha256": {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{64}$"
                               }
                             },
                             "required": [
-                              "componentIdentity"
+                              "subject",
+                              "before",
+                              "after",
+                              "afterSha256"
                             ],
                             "additionalProperties": false
-                          },
-                          "candidates": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "reason": {
-                            "type": "string"
                           }
                         },
-                        "required": [
-                          "recordType",
-                          "recordId",
-                          "classification",
-                          "original",
-                          "candidates",
-                          "reason"
-                        ],
-                        "additionalProperties": false
-                      }
+                        "diagnostics": {
+                          "type": "object",
+                          "properties": {
+                            "added": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "removed": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "added",
+                            "removed"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "relocations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "recordType": {
+                                "type": "string",
+                                "enum": [
+                                  "annotation",
+                                  "reading-position",
+                                  "citation-resolution"
+                                ]
+                              },
+                              "recordId": {
+                                "type": "string"
+                              },
+                              "classification": {
+                                "type": "string",
+                                "enum": [
+                                  "exact",
+                                  "context-relocated",
+                                  "ambiguous",
+                                  "unresolved"
+                                ]
+                              },
+                              "original": {
+                                "type": "object",
+                                "properties": {
+                                  "componentIdentity": {
+                                    "type": "string"
+                                  },
+                                  "derivativeId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  }
+                                },
+                                "required": [
+                                  "componentIdentity"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "target": {
+                                "type": "object",
+                                "properties": {
+                                  "componentIdentity": {
+                                    "type": "string"
+                                  },
+                                  "normalizedStartOffset": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "normalizedEndOffset": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "componentIdentity"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "candidates": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "reason": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "recordType",
+                              "recordId",
+                              "classification",
+                              "original",
+                              "candidates",
+                              "reason"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "semantic",
+                        "structure",
+                        "diagnostics",
+                        "relocations"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
-                    "semantic",
-                    "structure",
-                    "diagnostics",
-                    "relocations"
+                    "baselineSequence",
+                    "consequences"
                   ],
                   "additionalProperties": false
                 }
@@ -18766,6 +18835,11 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "expectedBaselineSequence": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
                   },
                   "expectedConsequences": {
                     "type": "object",
@@ -18966,6 +19040,7 @@
                   "sourceId",
                   "stateId",
                   "derivativeId",
+                  "expectedBaselineSequence",
                   "expectedConsequences",
                   "reason"
                 ]
@@ -18990,6 +19065,11 @@
                       "type": "string",
                       "format": "uuid",
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "sequence": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
                     },
                     "actorId": {
                       "type": "string"
@@ -19203,6 +19283,7 @@
                   "required": [
                     "id",
                     "derivativeId",
+                    "sequence",
                     "actorId",
                     "reason",
                     "activatedAt",
@@ -19221,6 +19302,23 @@
                   "oneOf": [
                     {
                       "$ref": "#/components/schemas/NotFound"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UndefinedError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "409",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Conflict"
                     },
                     {
                       "$ref": "#/components/schemas/UndefinedError"
@@ -20833,6 +20931,34 @@
           "children"
         ],
         "additionalProperties": false
+      },
+      "Conflict": {
+        "type": "object",
+        "properties": {
+          "defined": {
+            "const": true
+          },
+          "inferable": {
+            "type": "boolean"
+          },
+          "code": {
+            "const": "CONFLICT"
+          },
+          "status": {
+            "const": 409
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {}
+        },
+        "required": [
+          "defined",
+          "inferable",
+          "code",
+          "status",
+          "message"
+        ]
       }
     }
   }

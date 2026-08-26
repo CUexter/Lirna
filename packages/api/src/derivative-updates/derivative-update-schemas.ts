@@ -65,6 +65,7 @@ export const derivativeComparisonSchema = z.object({
 export const derivativeActivationSchema = z.object({
   id: z.string().uuid(),
   derivativeId: z.string().uuid(),
+  sequence: z.number().int().positive(),
   actorId: z.string(),
   reason: z.string(),
   activatedAt: z.string().datetime(),

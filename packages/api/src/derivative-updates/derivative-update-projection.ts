@@ -108,6 +108,7 @@ export function serializeActivation(
   return {
     id: activation.id,
     derivativeId: activation.derivativeId,
+    sequence: activation.sequence,
     actorId: activation.actorId,
     reason: activation.reason,
     activatedAt: activation.activatedAt.toISOString(),

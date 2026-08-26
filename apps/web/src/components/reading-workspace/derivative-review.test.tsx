@@ -22,7 +22,10 @@ await mock.module("@/clients/inquiry", () => ({
         },
         previewActivation: {
           mutationOptions: (options: object = {}) => ({
-            mutationFn: async () => candidateFixture(true).comparison,
+            mutationFn: async () => ({
+              baselineSequence: 1,
+              consequences: candidateFixture(true).comparison,
+            }),
             ...options,
           }),
         },
@@ -85,6 +88,8 @@ test("reviews validation, comparison, unresolved evidence, and explicit activati
   await waitFor(() => expect(calls.activate).toHaveLength(1));
   expect(calls.activate[0]).toMatchObject({
     derivativeId: "60000000-0000-4000-8000-000000000000",
+    expectedBaselineSequence: 1,
+    expectedConsequences: candidateFixture(true).comparison,
     reason:
       "Explicit activation after candidate validation and consequence review",
   });

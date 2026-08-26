@@ -1,16 +1,12 @@
-import { annotations } from "@lirna/db/schema/annotations";
-import { citationResolutions } from "@lirna/db/schema/citation-resolutions";
-import { readingPositions } from "@lirna/db/schema/reading-positions";
-import { sourceStateDerivatives } from "@lirna/db/schema/sources";
-import { and, asc, eq } from "drizzle-orm";
-import { activeReadingDerivative } from "../sep-admission/active-reading-derivative";
+import { sourceStateDerivatives, sourceStates } from "@lirna/db/schema/sources";
+import { and, eq } from "drizzle-orm";
+import { readAuthoredAnchors } from "../sep-admission/active-reading-derivative-queries";
+import { readActiveReadingDerivativeInSnapshot } from "../sep-admission/active-reading-derivative-store";
 import { sepReadingDerivativeKind } from "../sep-admission/sep-reading-contract";
 import {
   type DatabaseExecutor,
   readSepStateEvidence,
 } from "../sep-admission/sep-state-evidence";
-import type { AuthoredAnchor } from "./derivative-analysis";
-import { projectAuthoredAnchors } from "./derivative-update-projection";
 
 export type { DatabaseExecutor } from "../sep-admission/sep-state-evidence";
 
@@ -42,32 +38,18 @@ export async function activeDerivative(
   database: DatabaseExecutor,
   stateId: string,
 ) {
-  const active = await activeReadingDerivative(database, stateId);
-  return active
-    ? { id: active.derivativeId, reading: active.reading }
+  const [state] = await database
+    .select({ sourceId: sourceStates.sourceId })
+    .from(sourceStates)
+    .where(eq(sourceStates.id, stateId));
+  if (!state) return undefined;
+  const active = await readActiveReadingDerivativeInSnapshot(database, {
+    sourceId: state.sourceId,
+    stateId,
+  });
+  return active.status === "active"
+    ? { id: active.value.derivativeId, reading: active.value.reading }
     : undefined;
 }
 
-export async function authoredAnchors(
-  database: DatabaseExecutor,
-  stateId: string,
-): Promise<AuthoredAnchor[]> {
-  const [annotationRows, positionRows, resolutionRows] = await Promise.all([
-    database
-      .select()
-      .from(annotations)
-      .where(eq(annotations.sourceStateId, stateId))
-      .orderBy(asc(annotations.id)),
-    database
-      .select()
-      .from(readingPositions)
-      .where(eq(readingPositions.sourceStateId, stateId))
-      .orderBy(asc(readingPositions.componentIdentity)),
-    database
-      .select()
-      .from(citationResolutions)
-      .where(eq(citationResolutions.sourceStateId, stateId))
-      .orderBy(asc(citationResolutions.createdAt), asc(citationResolutions.id)),
-  ]);
-  return projectAuthoredAnchors(annotationRows, positionRows, resolutionRows);
-}
+export { readAuthoredAnchors as authoredAnchors };

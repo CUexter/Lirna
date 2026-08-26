@@ -12,6 +12,11 @@ const input = z.object({
   stateId: z.string().uuid(),
 });
 const notFoundError = { NOT_FOUND: {} };
+const activationErrors = { ...notFoundError, CONFLICT: {} };
+const activationPreviewSchema = z.object({
+  baselineSequence: z.number().int().nonnegative(),
+  consequences: derivativeComparisonSchema,
+});
 
 export const sourceDerivativesRouter = {
   generate: publicProcedure
@@ -36,7 +41,7 @@ export const sourceDerivativesRouter = {
     }),
   previewActivation: publicProcedure
     .input(input.extend({ derivativeId: z.string().uuid() }))
-    .output(derivativeComparisonSchema)
+    .output(activationPreviewSchema)
     .errors(notFoundError)
     .meta(
       openapi({
@@ -48,16 +53,20 @@ export const sourceDerivativesRouter = {
       }),
     )
     .handler(async ({ context, input: previewInput }) => {
-      const comparison =
-        await context.derivativeUpdates.previewActivation(previewInput);
-      if (!comparison)
-        throw unavailable("Valid Reading Derivative is unavailable");
-      return comparison;
+      const preview =
+        await context.activeReadingDerivatives.previewActivation(previewInput);
+      if (preview.status !== "ready")
+        throw activationUnavailable(preview.status);
+      return {
+        baselineSequence: preview.baselineSequence,
+        consequences: preview.consequences,
+      };
     }),
   activate: publicProcedure
     .input(
       input.extend({
         derivativeId: z.string().uuid(),
+        expectedBaselineSequence: z.number().int().nonnegative(),
         expectedConsequences: derivativeComparisonSchema,
         reason: z.string().trim().min(1).max(1_000),
       }),
@@ -66,13 +75,14 @@ export const sourceDerivativesRouter = {
       z.object({
         id: z.string().uuid(),
         derivativeId: z.string().uuid(),
+        sequence: z.number().int().positive(),
         actorId: z.string(),
         reason: z.string(),
         activatedAt: z.string().datetime(),
         consequences: derivativeComparisonSchema,
       }),
     )
-    .errors(notFoundError)
+    .errors(activationErrors)
     .meta(
       openapi({
         method: "POST",
@@ -83,16 +93,30 @@ export const sourceDerivativesRouter = {
       }),
     )
     .handler(async ({ context, input: activationInput }) => {
-      const activation = await context.derivativeUpdates.activate({
+      const result = await context.activeReadingDerivatives.activate({
         ...activationInput,
         actorId: unauthenticatedActorId,
       });
-      if (!activation)
-        throw unavailable("Valid Reading Derivative is unavailable");
-      return activation;
+      if (result.status === "stale-review")
+        throw new ORPCError("CONFLICT", {
+          message: "Reading Derivative activation review is stale",
+        });
+      if (result.status !== "activated")
+        throw activationUnavailable(result.status);
+      return result.activation;
     }),
 };
 
 function unavailable(message: string) {
   return new ORPCError("NOT_FOUND", { message });
+}
+
+function activationUnavailable(status: string) {
+  const message =
+    status === "source-state-not-found"
+      ? "Source state is unavailable"
+      : status === "candidate-invalid"
+        ? "Reading Derivative candidate is invalid"
+        : "Reading Derivative candidate is unavailable";
+  return unavailable(message);
 }

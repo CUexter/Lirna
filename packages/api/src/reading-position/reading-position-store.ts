@@ -3,7 +3,8 @@ import { readingPositions } from "@lirna/db/schema/reading-positions";
 import { sourceStates, sources } from "@lirna/db/schema/sources";
 import { and, desc, eq } from "drizzle-orm";
 
-import { activeReadingDerivative } from "../sep-admission/active-reading-derivative";
+import type { ActiveReadingDerivativeOperations } from "../sep-admission/active-reading-derivative";
+import { DrizzleActiveReadingDerivativeStore } from "../sep-admission/active-reading-derivative-store";
 import type {
   ReadingPositionOperations,
   ReadingPositionRecord,
@@ -15,7 +16,12 @@ import {
 } from "./reading-position-contract";
 
 export class DrizzleReadingPositionStore implements ReadingPositionOperations {
-  constructor(private readonly database: typeof db) {}
+  constructor(
+    private readonly database: typeof db,
+    private readonly activeReading: ActiveReadingDerivativeOperations = new DrizzleActiveReadingDerivativeStore(
+      database,
+    ),
+  ) {}
 
   async get(input?: {
     sourceId: string;
@@ -47,12 +53,13 @@ export class DrizzleReadingPositionStore implements ReadingPositionOperations {
   async save(
     input: SaveReadingPositionInput,
   ): Promise<ReadingPositionRecord | undefined> {
-    const existing = await activeReadingDerivative(
-      this.database,
-      input.stateId,
-      input.sourceId,
-    );
-    const component = existing?.reading.components.find(
+    const active = await this.activeReading.read({
+      sourceId: input.sourceId,
+      stateId: input.stateId,
+    });
+    if (active.status !== "active") return undefined;
+    const existing = active.value;
+    const component = existing.reading.components.find(
       (item) => item.identity === input.componentIdentity,
     );
     if (!existing || !component) return undefined;
@@ -82,7 +89,12 @@ export class DrizzleReadingPositionStore implements ReadingPositionOperations {
         },
       })
       .returning();
-    return position ? serialize(position, existing.source) : undefined;
+    return position
+      ? serialize(position, {
+          id: existing.sourceId,
+          title: existing.sourceTitle,
+        })
+      : undefined;
   }
 }
 
@@ -105,7 +117,7 @@ function semanticMatches(
 
 function serialize(
   position: typeof readingPositions.$inferSelect,
-  source: typeof sources.$inferSelect,
+  source: { id: string; title: string },
 ): ReadingPositionRecord {
   return {
     componentIdentity: position.componentIdentity,

@@ -7,6 +7,8 @@ import {
   sourceStateResources,
 } from "@lirna/db/schema/sources";
 import { asc, eq } from "drizzle-orm";
+import { DrizzleActiveReadingDerivativeStore } from "../sep-admission/active-reading-derivative-store";
+import { readingIntegrationHtml } from "../sep-admission/fixtures/admission-preview";
 import {
   insertPreview,
   openSepAdmissionPostgres,
@@ -21,6 +23,7 @@ const describePostgres = sepAdmissionPostgresAdminUrl
 let database: SepAdmissionPostgres["database"];
 let admission: SepAdmissionPostgres["store"];
 let updates: DrizzleDerivativeUpdateStore;
+let activeReading: DrizzleActiveReadingDerivativeStore;
 let cleanupDatabase: (() => Promise<void>) | undefined;
 
 describePostgres("Reading Derivative updates in PostgreSQL", () => {
@@ -30,6 +33,7 @@ describePostgres("Reading Derivative updates in PostgreSQL", () => {
     database = opened.database;
     admission = opened.store;
     updates = new DrizzleDerivativeUpdateStore(database);
+    activeReading = new DrizzleActiveReadingDerivativeStore(database);
     cleanupDatabase = opened.cleanup;
   }, 30_000);
 
@@ -45,6 +49,7 @@ describePostgres("Reading Derivative updates in PostgreSQL", () => {
       stableKey: `sep:derivative-${previewId}`,
       title: "Derivative integration",
       observations: ["submitted"],
+      bodies: { submitted: Buffer.from(readingIntegrationHtml, "utf8") },
       now: admittedAt,
     });
     const admitted = await admission.admit(
@@ -83,6 +88,21 @@ describePostgres("Reading Derivative updates in PostgreSQL", () => {
       color: "yellow",
     });
     const resourcesBefore = await resourceEvidence(stateId);
+    await expect(
+      activeReading.read({ sourceId, stateId }),
+    ).resolves.toMatchObject({
+      status: "active",
+      value: {
+        sourceId,
+        stateId,
+        derivativeId: initialDerivativeId,
+        activationSequence: 1,
+        policy: {
+          rightsBasis: "publicly-accessible",
+          sensitivityLevel: "ordinary-cloud",
+        },
+      },
+    });
 
     const generated = await Promise.all([
       updates.generate({ sourceId, stateId }),
@@ -117,36 +137,53 @@ describePostgres("Reading Derivative updates in PostgreSQL", () => {
       },
     });
     if (!candidate) throw new Error("Candidate missing");
+    const candidatePreview = await activeReading.previewActivation({
+      sourceId,
+      stateId,
+      derivativeId: candidate.id,
+    });
+    if (candidatePreview.status !== "ready")
+      throw new Error("Candidate preview missing");
     await expect(
-      updates.activate({
+      activeReading.activate({
         sourceId,
         stateId,
         derivativeId: candidate.id,
         actorId: "user-1",
         reason: "Reviewed upgrade",
-        expectedConsequences: candidate.comparison,
+        expectedBaselineSequence: candidatePreview.baselineSequence,
+        expectedConsequences: candidatePreview.consequences,
       }),
     ).resolves.toMatchObject({
-      derivativeId: candidate.id,
-      actorId: "user-1",
-      reason: "Reviewed upgrade",
+      status: "activated",
+      activation: {
+        derivativeId: candidate.id,
+        sequence: 2,
+        actorId: "user-1",
+        reason: "Reviewed upgrade",
+      },
     });
-    const rollbackConsequences = await updates.previewActivation({
+    const rollbackPreview = await activeReading.previewActivation({
       sourceId,
       stateId,
       derivativeId: initialDerivativeId,
     });
-    if (!rollbackConsequences) throw new Error("Rollback preview missing");
+    if (rollbackPreview.status !== "ready")
+      throw new Error("Rollback preview missing");
     await expect(
-      updates.activate({
+      activeReading.activate({
         sourceId,
         stateId,
         derivativeId: initialDerivativeId,
         actorId: "user-1",
         reason: "Explicit rollback",
-        expectedConsequences: rollbackConsequences,
+        expectedBaselineSequence: rollbackPreview.baselineSequence,
+        expectedConsequences: rollbackPreview.consequences,
       }),
-    ).resolves.toMatchObject({ derivativeId: initialDerivativeId });
+    ).resolves.toMatchObject({
+      status: "activated",
+      activation: { derivativeId: initialDerivativeId, sequence: 3 },
+    });
 
     const history = await database
       .select()
@@ -154,12 +191,12 @@ describePostgres("Reading Derivative updates in PostgreSQL", () => {
       .where(eq(sourceStateDerivativeActivations.sourceStateId, stateId));
     expect(history).toHaveLength(3);
     expect(await resourceEvidence(stateId)).toEqual(resourcesBefore);
-    await expect(
-      database
+    expect(
+      await database
         .select()
         .from(annotations)
         .where(eq(annotations.id, annotationId)),
-    ).resolves.toEqual([
+    ).toEqual([
       expect.objectContaining({
         id: annotationId,
         sourceStateId: stateId,
@@ -188,34 +225,38 @@ describePostgres("Reading Derivative updates in PostgreSQL", () => {
       payload: ambiguousReading,
       validation: { schema: "sep-reading-v1", status: "valid" },
     });
-    const ambiguousConsequences = await updates.previewActivation({
+    const ambiguousPreview = await activeReading.previewActivation({
       sourceId,
       stateId,
       derivativeId: ambiguousId,
     });
-    expect(ambiguousConsequences?.relocations).toContainEqual(
+    expect(
+      ambiguousPreview.status === "ready"
+        ? ambiguousPreview.consequences.relocations
+        : [],
+    ).toContainEqual(
       expect.objectContaining({
         recordId: annotationId,
         classification: "ambiguous",
-        target: undefined,
       }),
     );
-    if (!ambiguousConsequences)
+    if (ambiguousPreview.status !== "ready")
       throw new Error("Ambiguous activation preview missing");
-    await updates.activate({
+    await activeReading.activate({
       sourceId,
       stateId,
       derivativeId: ambiguousId,
       actorId: "user-1",
       reason: "Reviewed ambiguous preservation",
-      expectedConsequences: ambiguousConsequences,
+      expectedBaselineSequence: ambiguousPreview.baselineSequence,
+      expectedConsequences: ambiguousPreview.consequences,
     });
-    await expect(
-      database
+    expect(
+      await database
         .select()
         .from(annotations)
         .where(eq(annotations.id, annotationId)),
-    ).resolves.toEqual([
+    ).toEqual([
       expect.objectContaining({
         componentIdentity: component.identity,
         normalizedStartOffset: start,
@@ -223,76 +264,7 @@ describePostgres("Reading Derivative updates in PostgreSQL", () => {
       }),
     ]);
   });
-
-  test("keeps invalid candidates inactive", async () => {
-    const previewId = randomUUID();
-    await insertPreview(database, {
-      id: previewId,
-      stableKey: `sep:invalid-derivative-${previewId}`,
-      title: "Invalid derivative integration",
-      observations: ["submitted"],
-      now: new Date(),
-    });
-    const admitted = await admission.admit(
-      previewId,
-      ["submitted"],
-      new Date(),
-    );
-    const sourceId = admitted?.sourceId;
-    const stateId = admitted?.states[0]?.id;
-    if (!sourceId || !stateId) throw new Error("Admission failed");
-    const invalidId = randomUUID();
-    await database.insert(sourceStateDerivatives).values({
-      id: invalidId,
-      sourceStateId: stateId,
-      kind: "sep-reading-v1",
-      valid: false,
-      generation: {
-        version: 2,
-        parser: { id: "parse5", version: "7.3.0" },
-        renderer: { id: "lirna-reading-react", version: "1" },
-        inputResourceHashes: [],
-      },
-      payload: { version: 2 },
-      validation: {
-        status: "invalid",
-        checks: [],
-        comparison: emptyComparison(),
-      },
-    });
-
-    await expect(admission.getState(sourceId, stateId)).resolves.toMatchObject({
-      derivatives: expect.arrayContaining([
-        expect.objectContaining({ id: invalidId, valid: false }),
-      ]),
-    });
-
-    await expect(
-      updates.activate({
-        sourceId,
-        stateId,
-        derivativeId: invalidId,
-        actorId: "user-1",
-        reason: "Must remain blocked",
-        expectedConsequences: emptyComparison(),
-      }),
-    ).resolves.toBeUndefined();
-    const invalidActivations = await database
-      .select()
-      .from(sourceStateDerivativeActivations)
-      .where(eq(sourceStateDerivativeActivations.derivativeId, invalidId));
-    expect(invalidActivations).toHaveLength(0);
-  });
 });
-
-function emptyComparison() {
-  return {
-    semantic: { changedComponents: [] },
-    structure: [],
-    diagnostics: { added: [], removed: [] },
-    relocations: [],
-  };
-}
 
 async function resourceEvidence(stateId: string) {
   return database

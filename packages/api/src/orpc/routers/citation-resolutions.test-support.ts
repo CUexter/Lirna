@@ -123,7 +123,9 @@ export function context(
   } = {},
 ): Context {
   return {
+    activeReadingDerivatives: {} as Context["activeReadingDerivatives"],
     citationResolutions,
+    derivativeUpdates: {} as Context["derivativeUpdates"],
     ...(options.citationInference
       ? { citationInference: options.citationInference }
       : {}),

@@ -12,6 +12,7 @@ import { sourceStateResources } from "@lirna/db/schema/sources";
 import { eq } from "drizzle-orm";
 
 import { DrizzleDerivativeUpdateStore } from "../derivative-updates/derivative-update-store";
+import { DrizzleActiveReadingDerivativeStore } from "./active-reading-derivative-store";
 import {
   openSepAdmissionPostgres,
   type SepAdmissionPostgres,
@@ -206,39 +207,59 @@ describePostgres("SEP production journey", () => {
       .from(sourceStateResources)
       .where(eq(sourceStateResources.sourceStateId, state.id));
     const updates = new DrizzleDerivativeUpdateStore(opened.database);
+    const activeReading = new DrizzleActiveReadingDerivativeStore(
+      opened.database,
+    );
     const candidate = await updates.generate({
       sourceId: admitted.sourceId,
       stateId: state.id,
     });
     if (!candidate) throw new Error("Derivative candidate was not generated");
     expect(candidate.validation.status).toBe("valid");
-    const activation = await updates.activate({
+    const candidatePreview = await activeReading.previewActivation({
+      sourceId: admitted.sourceId,
+      stateId: state.id,
+      derivativeId: candidate.id,
+    });
+    if (candidatePreview.status !== "ready")
+      throw new Error("Activation preview is missing");
+    const activation = await activeReading.activate({
       sourceId: admitted.sourceId,
       stateId: state.id,
       derivativeId: candidate.id,
       actorId: "production-gate",
       reason: "Controlled production review",
-      expectedConsequences: candidate.comparison,
+      expectedBaselineSequence: candidatePreview.baselineSequence,
+      expectedConsequences: candidatePreview.consequences,
     });
-    expect(activation?.derivativeId).toBe(candidate.id);
+    expect(
+      activation.status === "activated"
+        ? activation.activation.derivativeId
+        : undefined,
+    ).toBe(candidate.id);
     const initialDerivativeId = state.derivatives[0]?.id;
     if (!initialDerivativeId) throw new Error("Initial derivative is missing");
-    const rollback = await updates.previewActivation({
+    const rollback = await activeReading.previewActivation({
       sourceId: admitted.sourceId,
       stateId: state.id,
       derivativeId: initialDerivativeId,
     });
-    if (!rollback) throw new Error("Rollback preview is missing");
+    if (rollback.status !== "ready")
+      throw new Error("Rollback preview is missing");
     expect(
-      await updates.activate({
+      await activeReading.activate({
         sourceId: admitted.sourceId,
         stateId: state.id,
         derivativeId: initialDerivativeId,
         actorId: "production-gate",
         reason: "Controlled rollback",
-        expectedConsequences: rollback,
+        expectedBaselineSequence: rollback.baselineSequence,
+        expectedConsequences: rollback.consequences,
       }),
-    ).toMatchObject({ derivativeId: initialDerivativeId });
+    ).toMatchObject({
+      status: "activated",
+      activation: { derivativeId: initialDerivativeId },
+    });
     expect(
       await opened.database
         .select({

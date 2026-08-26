@@ -3,7 +3,8 @@ import { citationResolutions } from "@lirna/db/schema/citation-resolutions";
 import { sourceStates } from "@lirna/db/schema/sources";
 import { and, asc, eq } from "drizzle-orm";
 
-import { activeReadingDerivative } from "../sep-admission/active-reading-derivative";
+import type { ActiveReadingDerivativeOperations } from "../sep-admission/active-reading-derivative";
+import { DrizzleActiveReadingDerivativeStore } from "../sep-admission/active-reading-derivative-store";
 import { deriveCitationMentionEvidence } from "./citation-mention-evidence";
 import type {
   CitationResolutionDecision,
@@ -23,7 +24,12 @@ export class InvalidCitationResolutionError extends Error {
 export class DrizzleCitationResolutionStore
   implements CitationResolutionOperations
 {
-  constructor(private readonly database: typeof db) {}
+  constructor(
+    private readonly database: typeof db,
+    private readonly activeReadingDerivatives: ActiveReadingDerivativeOperations = new DrizzleActiveReadingDerivativeStore(
+      database,
+    ),
+  ) {}
 
   async list(sourceId: string, stateId: string) {
     const decisions = await this.history(sourceId, stateId);
@@ -183,7 +189,18 @@ export class DrizzleCitationResolutionStore
   }
 
   private async activeReading(sourceId: string, stateId: string) {
-    return activeReadingDerivative(this.database, stateId, sourceId);
+    const active = await this.activeReadingDerivatives.read({
+      sourceId,
+      stateId,
+    });
+    return active.status === "active"
+      ? {
+          derivativeId: active.value.derivativeId,
+          reading: active.value.reading,
+          rightsBasis: active.value.policy.rightsBasis,
+          sensitivityLevel: active.value.policy.sensitivityLevel,
+        }
+      : undefined;
   }
 }
 

@@ -1,14 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { db } from "@lirna/db";
-import { annotations } from "@lirna/db/schema/annotations";
-import { citationResolutions } from "@lirna/db/schema/citation-resolutions";
-import { readingPositions } from "@lirna/db/schema/reading-positions";
-import {
-  sourceStateDerivativeActivations,
-  sourceStateDerivatives,
-  sourceStates,
-} from "@lirna/db/schema/sources";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { sourceStateDerivatives, sourceStates } from "@lirna/db/schema/sources";
+import { and, eq } from "drizzle-orm";
 import {
   readSepReadingDerivative,
   sepReadingDerivativeKind,
@@ -21,9 +14,7 @@ import {
 import type { DerivativeUpdateOperations } from "./derivative-update-contract";
 import {
   invalidComparison,
-  projectAuthoredAnchors,
   projectCandidate,
-  serializeActivation,
 } from "./derivative-update-projection";
 import {
   activeDerivative,
@@ -119,147 +110,5 @@ export class DrizzleDerivativeUpdateStore
           createdAt: created.createdAt,
         })
       : undefined;
-  }
-
-  async activate(input: {
-    sourceId: string;
-    stateId: string;
-    derivativeId: string;
-    actorId: string;
-    reason: string;
-    expectedConsequences: import("./derivative-update-contract").DerivativeComparison;
-  }) {
-    return this.database.transaction(
-      async (tx) => {
-        const [derivative] = await tx
-          .select()
-          .from(sourceStateDerivatives)
-          .innerJoin(
-            sourceStates,
-            eq(sourceStates.id, sourceStateDerivatives.sourceStateId),
-          )
-          .where(
-            and(
-              eq(sourceStateDerivatives.id, input.derivativeId),
-              eq(sourceStateDerivatives.sourceStateId, input.stateId),
-              eq(sourceStateDerivatives.kind, sepReadingDerivativeKind),
-              eq(sourceStateDerivatives.valid, true),
-              eq(sourceStates.sourceId, input.sourceId),
-            ),
-          )
-          .for("update");
-        if (!derivative) return undefined;
-        const record = derivative.source_state_derivatives;
-        const [active, annotationRows, positionRows, resolutionRows] =
-          await Promise.all([
-            tx
-              .select({
-                id: sourceStateDerivatives.id,
-                payload: sourceStateDerivatives.payload,
-              })
-              .from(sourceStateDerivativeActivations)
-              .innerJoin(
-                sourceStateDerivatives,
-                eq(
-                  sourceStateDerivatives.id,
-                  sourceStateDerivativeActivations.derivativeId,
-                ),
-              )
-              .where(
-                and(
-                  eq(
-                    sourceStateDerivativeActivations.sourceStateId,
-                    input.stateId,
-                  ),
-                  eq(
-                    sourceStateDerivativeActivations.kind,
-                    sepReadingDerivativeKind,
-                  ),
-                ),
-              )
-              .orderBy(
-                desc(sourceStateDerivativeActivations.activatedAt),
-                desc(sourceStateDerivativeActivations.id),
-              )
-              .limit(1),
-            tx
-              .select()
-              .from(annotations)
-              .where(eq(annotations.sourceStateId, input.stateId))
-              .orderBy(asc(annotations.id)),
-            tx
-              .select()
-              .from(readingPositions)
-              .where(eq(readingPositions.sourceStateId, input.stateId))
-              .orderBy(asc(readingPositions.componentIdentity)),
-            tx
-              .select()
-              .from(citationResolutions)
-              .where(eq(citationResolutions.sourceStateId, input.stateId))
-              .orderBy(
-                asc(citationResolutions.createdAt),
-                asc(citationResolutions.id),
-              ),
-          ]);
-        const baseline = active[0];
-        const consequences = compareReadingDerivatives(
-          baseline ? readSepReadingDerivative(baseline.payload) : undefined,
-          readSepReadingDerivative(record.payload),
-          baseline?.id,
-          projectAuthoredAnchors(annotationRows, positionRows, resolutionRows),
-        );
-        if (
-          JSON.stringify(consequences) !==
-          JSON.stringify(input.expectedConsequences)
-        )
-          return undefined;
-        const [activation] = await tx
-          .insert(sourceStateDerivativeActivations)
-          .values({
-            sourceStateId: input.stateId,
-            derivativeId: input.derivativeId,
-            kind: sepReadingDerivativeKind,
-            actorId: input.actorId,
-            reason: input.reason,
-            consequences,
-          })
-          .returning();
-        return activation
-          ? serializeActivation(activation, consequences)
-          : undefined;
-      },
-      { isolationLevel: "serializable" },
-    );
-  }
-
-  async previewActivation(input: {
-    sourceId: string;
-    stateId: string;
-    derivativeId: string;
-  }) {
-    const [derivative] = await this.database
-      .select({ payload: sourceStateDerivatives.payload })
-      .from(sourceStateDerivatives)
-      .innerJoin(
-        sourceStates,
-        eq(sourceStates.id, sourceStateDerivatives.sourceStateId),
-      )
-      .where(
-        and(
-          eq(sourceStateDerivatives.id, input.derivativeId),
-          eq(sourceStateDerivatives.sourceStateId, input.stateId),
-          eq(sourceStateDerivatives.kind, sepReadingDerivativeKind),
-          eq(sourceStateDerivatives.valid, true),
-          eq(sourceStates.sourceId, input.sourceId),
-        ),
-      );
-    if (!derivative) return undefined;
-    const baseline = await activeDerivative(this.database, input.stateId);
-    return compareReadingDerivatives(
-      baseline?.reading,
-      readSepReadingDerivative(derivative.payload),
-      baseline?.id,
-      await authoredAnchors(this.database, input.stateId),
-    );
   }
 }

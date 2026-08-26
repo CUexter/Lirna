@@ -34,6 +34,7 @@ export function sourcesContext(
   readingPositions: ReadingPositionOperations,
 ): Context {
   return {
+    activeReadingDerivatives: {} as Context["activeReadingDerivatives"],
     annotations: {} as Context["annotations"],
     citationResolutions: {} as Context["citationResolutions"],
     derivativeUpdates: {} as Context["derivativeUpdates"],
