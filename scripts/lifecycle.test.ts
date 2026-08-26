@@ -204,7 +204,6 @@ const runtime = {
         })()
       : undefined,
   environment: {
-    BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
     CORS_ORIGIN: process.env.CORS_ORIGIN,
     PORT: process.env.PORT,
     SERVER_URL: process.env.SERVER_URL,
@@ -626,7 +625,6 @@ test("runs each managed service with its generated environment and allocated por
       const serverUrl = environment.urls.server;
       const webUrl = environment.urls.web;
       const baseEnvironment = {
-        BETTER_AUTH_URL: serverUrl,
         CORS_ORIGIN: webUrl,
         SERVER_URL: serverUrl,
         VITE_SERVER_URL: serverUrl,

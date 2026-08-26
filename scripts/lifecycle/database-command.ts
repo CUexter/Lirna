@@ -122,13 +122,7 @@ async function migrateDatabase() {
 
 function migrationEnvironment(databaseUrl: string) {
   const environment = { ...process.env, DATABASE_URL: databaseUrl };
-  for (const name of [
-    "BETTER_AUTH_URL",
-    "CORS_ORIGIN",
-    "PORT",
-    "SERVER_URL",
-    "VITE_SERVER_URL",
-  ]) {
+  for (const name of ["CORS_ORIGIN", "PORT", "SERVER_URL", "VITE_SERVER_URL"]) {
     delete environment[name];
   }
   return environment;

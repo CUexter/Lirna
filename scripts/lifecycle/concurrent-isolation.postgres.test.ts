@@ -9,7 +9,6 @@ import { Client } from "pg";
 const adminUrl = process.env.POSTGRES_ADMIN_URL;
 const postgresTest = adminUrl ? test : test.skip;
 const repositoryRoot = resolve(import.meta.dir, "../..");
-const authSecret = "lifecycle-isolation-test-secret-at-least-32-characters";
 const reservationArguments = Array.from(
   { length: 20 },
   (_, index) => `isolation-reserve-${index}`,
@@ -33,7 +32,6 @@ async function run(command: string[], cwd: string, stateHome?: string) {
     cwd,
     env: {
       ...process.env,
-      BETTER_AUTH_SECRET: authSecret,
       POSTGRES_ADMIN_URL: adminUrl,
       XDG_STATE_HOME: stateHome ?? process.env.XDG_STATE_HOME,
     },
@@ -77,7 +75,6 @@ function startServer(checkoutPath: string): Server {
       cwd: checkoutPath,
       env: {
         ...process.env,
-        BETTER_AUTH_SECRET: authSecret,
         POSTGRES_ADMIN_URL: adminUrl,
       },
       stderr: "pipe",
@@ -116,33 +113,14 @@ async function waitForServer(url: string, server: Server, expectedBody = "OK") {
   );
 }
 
-async function signUp(url: string, origin: string, email: string) {
-  const response = await fetch(`${url}/api/auth/sign-up/email`, {
-    body: JSON.stringify({
-      email,
-      name: "Lifecycle Isolation",
-      password: "correct-horse-battery-staple",
-    }),
-    headers: { "content-type": "application/json", origin },
-    method: "POST",
+async function publicSources(url: string, origin: string) {
+  const response = await fetch(`${url}/sources`, {
+    headers: { origin },
   });
   expect(
     response.ok,
-    `Sign-up at ${response.url} returned ${response.status}: ${await response.text()}`,
+    `Source list at ${response.url} returned ${response.status}: ${await response.text()}`,
   ).toBe(true);
-  const cookies = response.headers
-    .getSetCookie()
-    .map((cookie) => cookie.split(";", 1)[0])
-    .join("; ");
-  expect(cookies).not.toBe("");
-  return cookies;
-}
-
-async function session(url: string, cookie: string) {
-  const response = await fetch(`${url}/api/auth/get-session`, {
-    headers: { cookie },
-  });
-  expect(response.ok).toBe(true);
   return response.json();
 }
 
@@ -167,19 +145,6 @@ async function committedMigrationCount(checkoutPath: string) {
     ),
   ) as { entries: unknown[] };
   return journal.entries.length;
-}
-
-async function userEmails(databaseName: string) {
-  const client = new Client({ connectionString: databaseUrl(databaseName) });
-  await client.connect();
-  try {
-    const result = await client.query(
-      'SELECT email FROM "user" ORDER BY email',
-    );
-    return result.rows.map(({ email }) => email);
-  } finally {
-    await client.end();
-  }
 }
 
 function databaseUrl(databaseName: string) {
@@ -345,22 +310,12 @@ postgresTest(
         waitForServer(first.urls.server, servers[0], "HOT_RELOAD_OK"),
         waitForServer(second.urls.server, servers[1]),
       ]);
-      const firstEmail = `first-${randomUUID()}@example.test`;
-      const secondEmail = `second-${randomUUID()}@example.test`;
-      const [firstCookie, secondCookie] = await Promise.all([
-        signUp(first.urls.server, first.urls.web, firstEmail),
-        signUp(second.urls.server, second.urls.web, secondEmail),
+      const [firstSources, secondSources] = await Promise.all([
+        publicSources(first.urls.server, first.urls.web),
+        publicSources(second.urls.server, second.urls.web),
       ]);
-      const [firstSession, secondSession, crossSession] = await Promise.all([
-        session(first.urls.server, firstCookie),
-        session(second.urls.server, secondCookie),
-        session(second.urls.server, firstCookie),
-      ]);
-      expect(firstSession.user.email).toBe(firstEmail);
-      expect(secondSession.user.email).toBe(secondEmail);
-      expect(crossSession).toBeNull();
-      expect(await userEmails(first.databaseName)).toEqual([firstEmail]);
-      expect(await userEmails(second.databaseName)).toEqual([secondEmail]);
+      expect(firstSources).toEqual([]);
+      expect(secondSources).toEqual([]);
     } finally {
       await cleanup({
         databaseNames,

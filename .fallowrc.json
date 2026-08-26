@@ -52,19 +52,17 @@
       { "name": "ui", "patterns": ["packages/ui/**"] },
       { "name": "env", "patterns": ["packages/env/**"] },
       { "name": "db", "patterns": ["packages/db/**"] },
-      { "name": "auth", "patterns": ["packages/auth/**"] },
       { "name": "api", "patterns": ["packages/api/**"] },
       { "name": "config", "patterns": ["packages/config/**"] }
     ],
     "rules": [
       { "from": "web", "allow": ["api", "env", "ui"] },
-      { "from": "server", "allow": ["api", "auth", "db", "env"] },
+      { "from": "server", "allow": ["api", "db", "env"] },
       { "from": "docs", "allow": [] },
       { "from": "ui", "allow": [] },
       { "from": "env", "allow": [] },
       { "from": "db", "allow": ["env"] },
-      { "from": "auth", "allow": ["db", "env"] },
-      { "from": "api", "allow": ["auth", "db", "env"] },
+      { "from": "api", "allow": ["db", "env"] },
       { "from": "config", "allow": [] }
     ],
     "coverage": {

@@ -6,8 +6,6 @@ export const env = createEnv({
   isServer: true,
   server: {
     DATABASE_URL: z.string().min(1),
-    BETTER_AUTH_SECRET: z.string().min(32),
-    BETTER_AUTH_URL: z.url(),
     CORS_ORIGIN: z.url(),
     OPENROUTER_API_KEY: z.string().min(1).optional(),
     OPENROUTER_MODEL: z.string().min(1).default("openrouter/auto"),

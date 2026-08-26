@@ -79,7 +79,6 @@ async function runtimeEnvironment() {
     checkoutPath: checkout.checkoutPath,
     environment,
     values: {
-      BETTER_AUTH_URL: serverUrl,
       CORS_ORIGIN: webUrl,
       DATABASE_URL: databaseUrl.toString(),
       SERVER_URL: serverUrl,

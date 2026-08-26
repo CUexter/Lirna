@@ -1,16 +1,16 @@
 import { resolve } from "node:path";
 import { createContext } from "@lirna/api/context";
+import { validationIssuePath } from "@lirna/api/error-issues";
 import type { RequestObservation } from "@lirna/api/observation";
 import { generateOpenApiDocument } from "@lirna/api/openapi";
 import { orpcRouter } from "@lirna/api/orpc";
-import { auth } from "@lirna/auth";
 import { env } from "@lirna/env/server";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { RPCHandler } from "@orpc/server/fetch";
 import { GetMethodCsrfProtectionHandlerPlugin } from "@orpc/server/plugins";
 import { RPC_DEFAULT_ALLOW_METHODS } from "@orpc/server/standard";
 import { Scalar } from "@scalar/hono-api-reference";
-import { Hono, type MiddlewareHandler } from "hono";
+import { Hono } from "hono";
 import { cors } from "hono/cors";
 import pino, { type Logger } from "pino";
 
@@ -56,14 +56,7 @@ async function responseFailure(response: Response, status: number) {
     const issue = error.data?.issues?.find(
       (candidate) => typeof candidate.message === "string",
     );
-    const path = Array.isArray(issue?.path)
-      ? issue.path
-          .filter(
-            (part): part is string | number =>
-              typeof part === "string" || typeof part === "number",
-          )
-          .join(".")
-      : "";
+    const path = validationIssuePath(issue?.path);
     const issueMessage =
       typeof issue?.message === "string"
         ? `${path ? `${path}: ` : ""}${issue.message}`
@@ -176,13 +169,11 @@ export function createApp(
     cors({
       origin: env.CORS_ORIGIN,
       allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-      allowHeaders: ["Content-Type", "Authorization"],
+      allowHeaders: ["Content-Type"],
       exposeHeaders: ["X-Request-ID"],
       credentials: true,
     }),
   );
-
-  app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
   const orpcHandler = new RPCHandler(orpcRouter, {
     allowMethods: ["GET", ...RPC_DEFAULT_ALLOW_METHODS],
@@ -193,7 +184,6 @@ export function createApp(
 
   app.use("/orpc/*", async (c, next) => {
     const context = createContext({
-      context: c,
       observation: c.get("requestObservation"),
       debugErrors,
     });
@@ -208,7 +198,6 @@ export function createApp(
   app.use("/*", async (c, next) => {
     const { matched, response } = await openApiHandler.handle(c.req.raw, {
       context: await createContext({
-        context: c,
         observation: c.get("requestObservation"),
         debugErrors,
       }),
@@ -218,24 +207,10 @@ export function createApp(
   });
 
   const openApiSpec = generateOpenApiDocument();
-  const requireSession: MiddlewareHandler = async (c, next) => {
-    const session = await auth.api.getSession({ headers: c.req.raw.headers });
-    if (!session) {
-      return c.json(
-        { code: "UNAUTHORIZED", message: "Authentication required" },
-        401,
-      );
-    }
-    await next();
-  };
-
-  app.get("/openapi.json", requireSession, async (c) =>
-    c.json(await openApiSpec),
-  );
+  app.get("/openapi.json", async (c) => c.json(await openApiSpec));
 
   app.get(
     "/docs",
-    requireSession,
     Scalar({ spec: { url: "/openapi.json" }, title: "Lirna API" }),
   );
 
