@@ -6,7 +6,7 @@ import {
   renderReading,
   resetActions,
   view,
-} from "./-reading-route-test-harness";
+} from "./reading-route-test-harness";
 import {
   captureWindowScrollTo,
   openPublisherNote,
@@ -14,8 +14,8 @@ import {
   setupArticleScroll,
   setupReadingUser,
   setWindowScrollY,
-} from "./-reading-route-test-scenarios";
-import { sourceId, stateId } from "./-reading-test-fixtures";
+} from "./reading-route-test-scenarios";
+import { sourceId, stateId } from "./reading-test-fixtures";
 
 test("preserves article and publisher-note progress through a reference round trip", async () => {
   resetActions();

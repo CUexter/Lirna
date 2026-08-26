@@ -1,5 +1,5 @@
-import type { ReadingComponent } from "./-reading-component-fixture";
-import { readingComponent } from "./-reading-component-fixture";
+import type { ReadingComponent } from "./reading-component-fixture";
+import { readingComponent } from "./reading-component-fixture";
 
 export function additionalReadingComponents(): ReadingComponent[] {
   return [

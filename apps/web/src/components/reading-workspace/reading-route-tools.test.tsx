@@ -4,7 +4,7 @@ import {
   renderReading,
   resetActions,
   view,
-} from "./-reading-route-test-harness";
+} from "./reading-route-test-harness";
 import {
   articleBibliographyEntry,
   captureScrollIntoView,
@@ -12,7 +12,7 @@ import {
   openCitationBibliography,
   returnFromArticleBibliography,
   setupReadingUser,
-} from "./-reading-route-test-scenarios";
+} from "./reading-route-test-scenarios";
 
 test("filters publisher bibliography and preserves component search when returning from a Citation", async () => {
   resetActions();

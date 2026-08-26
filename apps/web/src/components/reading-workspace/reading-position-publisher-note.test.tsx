@@ -1,20 +1,20 @@
 import { expect, test } from "bun:test";
 import { act, waitFor } from "@testing-library/react";
-import { readingWithTwoPublisherNotes } from "./-reading-publisher-note-fixture";
+import { readingWithTwoPublisherNotes } from "./reading-publisher-note-fixture";
 import {
   calls,
   readingPositionState,
   renderReading,
   resetActions,
   view,
-} from "./-reading-route-test-harness";
+} from "./reading-route-test-harness";
 import {
   followPublisherNoteLinkAtPosition,
   openPublisherNote,
   scrollPublisherNote,
   setupReadingUser,
-} from "./-reading-route-test-scenarios";
-import { sourceId, stateId } from "./-reading-test-fixtures";
+} from "./reading-route-test-scenarios";
+import { sourceId, stateId } from "./reading-test-fixtures";
 
 test("persists publisher-note semantics with its tools-container pixels", async () => {
   resetActions();

@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
-
-import { readingFixture } from "../../routes/sources/-reading-test-fixtures";
 import { authoredTarget, componentHasFragment } from "./authored-navigation";
+import { readingFixture } from "./reading-test-fixtures";
 
 test("resolves absolute same-document links across HTML URL aliases", () => {
   const reading = readingFixture();

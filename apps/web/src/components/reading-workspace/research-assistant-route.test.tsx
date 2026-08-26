@@ -2,14 +2,13 @@ import { afterEach, expect, mock, test } from "bun:test";
 import { createRootRoute, createRoute } from "@tanstack/react-router";
 import { cleanup, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import { sourceId, stateId } from "./-reading-test-fixtures";
-import { renderRoute } from "./-route-test-harness";
+import { renderRoute } from "@/test-support/render-route";
+import { sourceId, stateId } from "./reading-test-fixtures";
 import {
   derivativeClientStub,
   readingWorkspaceFixture,
   sepUpdateClientStub,
-} from "./-source-information-test-fixture";
+} from "./source-information-test-fixture";
 
 let assistantInput: unknown;
 
@@ -101,7 +100,7 @@ await mock.module("@/clients/library", () => ({
   },
 }));
 
-const { Route } = await import("./$sourceId/$stateId");
+const { Route } = await import("@/routes/sources/$sourceId/$stateId");
 
 function view() {
   return within(document.body);

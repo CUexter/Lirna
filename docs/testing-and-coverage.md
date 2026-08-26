@@ -21,7 +21,12 @@ restores the native `fetch` family (happy-dom's fetch breaks backend tests that
 stub `fetch` against a localhost server), and stubs `ResizeObserver`,
 `IntersectionObserver`, and `matchMedia`. `bun run test:web` targets
 `apps/web` and `packages/ui` for a fast browser-test loop. Co-located
-`.test.ts`/`.test.tsx` files beside their source are the convention.
+`.test.ts`/`.test.tsx` files beside the module that owns the tested behavior are
+the convention. The file-based `apps/web/src/routes` tree contains route
+definitions and non-test route support only: tests, fixtures, harnesses, and
+scenario modules do not live there. Focused behavior tests belong beside their
+owning hook or component; the few tests whose public seam is route composition
+belong under `apps/web/tests/routes`.
 
 Bun LCOV covers JavaScript and TypeScript source under `apps/*/src` and
 `packages/*/src`, including browser modules under `apps/web/src`. shadcn

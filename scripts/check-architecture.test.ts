@@ -65,15 +65,38 @@ describe("architecture policy fixtures", () => {
     expect(evaluatePolicy({ workspaces, files })).toEqual([]);
   });
 
-  test("accepts TanStack Router support files under routes", () => {
+  test("accepts non-test TanStack Router support files under routes", () => {
+    const files = [
+      {
+        path: "apps/web/src/routes/sources/-source-information.tsx",
+        ...parseSource("-source-information.tsx", "export {};"),
+      },
+    ];
+
+    expect(evaluatePolicy({ workspaces, files })).toEqual([]);
+  });
+
+  test("rejects test source under the file-based route tree", () => {
     const files = [
       {
         path: "apps/web/src/routes/sources/-admission.test.tsx",
         ...parseSource("-admission.test.tsx", "export {};"),
       },
+      {
+        path: "apps/web/src/routes/sources/-reading-route-test-harness.tsx",
+        ...parseSource("-reading-route-test-harness.tsx", "export {};"),
+      },
+      {
+        path: "apps/web/src/routes/sources/-reading-component-fixture.ts",
+        ...parseSource("-reading-component-fixture.ts", "export {};"),
+      },
     ];
 
-    expect(evaluatePolicy({ workspaces, files })).toEqual([]);
+    expect(evaluatePolicy({ workspaces, files })).toEqual([
+      "apps/web/src/routes/sources/-admission.test.tsx is test source under apps/web/src/routes; place it beside the module that owns the behavior or under apps/web/tests/routes",
+      "apps/web/src/routes/sources/-reading-route-test-harness.tsx is test source under apps/web/src/routes; place it beside the module that owns the behavior or under apps/web/tests/routes",
+      "apps/web/src/routes/sources/-reading-component-fixture.ts is test source under apps/web/src/routes; place it beside the module that owns the behavior or under apps/web/tests/routes",
+    ]);
   });
 
   test("rejects server environment imports and native controls", () => {
@@ -176,7 +199,7 @@ describe("architecture policy fixtures", () => {
         ),
       },
       {
-        path: "apps/web/src/routes/sources/-reading-route-tools-tests.tsx",
+        path: "apps/web/src/components/reading-workspace/reading-route-tools.test.tsx",
         ...parseSource(
           "-reading-route-tools-tests.tsx",
           "window.scrollTo(0, 10);",

@@ -10,8 +10,8 @@ import {
 import { fireEvent, render, waitFor, within } from "@testing-library/react";
 import type { HTMLAttributes, ReactNode } from "react";
 
-import Loader from "../components/app-shell/loader";
-import { ThemeProvider } from "../components/app-shell/theme-provider";
+import Loader from "@/components/app-shell/loader";
+import { ThemeProvider } from "@/components/app-shell/theme-provider";
 
 function Primitive({ children, ...props }: HTMLAttributes<HTMLDivElement>) {
   return <div {...props}>{children}</div>;
@@ -86,8 +86,8 @@ test("configures first-party clients to send authenticated ORPC requests", async
   }) as typeof fetch;
 
   try {
-    const { inquiry } = await import("../clients/inquiry");
-    const { library } = await import("../clients/library");
+    const { inquiry } = await import("@/clients/inquiry");
+    const { library } = await import("@/clients/library");
     void inquiry.sepAdmission.get.call({ previewId: "preview-1" });
     void library.annotations.list.call({
       sourceId: "source-1",
@@ -106,7 +106,7 @@ test("configures first-party clients to send authenticated ORPC requests", async
 
 test("renders the focused home route and applies theme choices", async () => {
   ({ Button: OwnedButton } = await import("@lirna/ui/components/button"));
-  const { Route } = await import("./index");
+  const { Route } = await import("@/routes/index");
   const rootRoute = createRootRoute();
   const homeRoute = createRoute({
     getParentRoute: () => rootRoute,

@@ -1,11 +1,9 @@
 import { describe, expect, test } from "bun:test";
-
-import { readingFixture } from "@/routes/sources/-reading-test-fixtures";
-
 import {
   createReadingSceneTopology,
   resolveReadingSceneDestination,
 } from "./reading-scene-topology";
+import { readingFixture } from "./reading-test-fixtures";
 
 describe("Source-component reading-scene topology", () => {
   test("declares stable identities, presentation regions, and scroll owners", () => {

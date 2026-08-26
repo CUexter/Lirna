@@ -1,8 +1,7 @@
 import { expect, test } from "bun:test";
 import { fireEvent, render } from "@testing-library/react";
-
-import { readingFixture } from "../../routes/sources/-reading-test-fixtures";
 import { createReadingSceneTopology } from "./reading-scene-topology";
+import { readingFixture } from "./reading-test-fixtures";
 import {
   AutoReferencedText,
   createReferenceIndex,

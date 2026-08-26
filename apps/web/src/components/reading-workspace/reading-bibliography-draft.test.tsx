@@ -5,13 +5,13 @@ import {
   citationResolutionCalls,
   renderReading,
   view,
-} from "./-reading-route-test-harness";
+} from "./reading-route-test-harness";
 import {
   captureScrollIntoView,
   returnFromArticleBibliography,
   setupReadingUser,
-} from "./-reading-route-test-scenarios";
-import { sourceId, stateId } from "./-reading-test-fixtures";
+} from "./reading-route-test-scenarios";
+import { sourceId, stateId } from "./reading-test-fixtures";
 
 test("restores an unfinished annotation draft after visiting a Citation", async () => {
   const user = setupReadingUser();

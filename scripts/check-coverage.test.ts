@@ -2,6 +2,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  hasRuntimeStatements,
   isEligibleSource,
   promoteCoveredSources,
   reviewedAbsentSources,
@@ -9,6 +10,40 @@ import {
 } from "./check-coverage.ts";
 
 describe("coverage source baseline", () => {
+  test("excludes declarations erased by TypeScript", () => {
+    expect(
+      hasRuntimeStatements(
+        "packages/api/src/contract.ts",
+        `import type { Input } from "./input";
+         export interface Contract { run(input: Input): Promise<void> }
+         export type Result = "success" | "failure";`,
+      ),
+    ).toBe(false);
+    expect(
+      hasRuntimeStatements(
+        "packages/api/src/reexports.ts",
+        `export type { Input } from "./input";
+         export { type Result } from "./result";`,
+      ),
+    ).toBe(false);
+  });
+
+  test("keeps modules with runtime syntax eligible", () => {
+    expect(
+      hasRuntimeStatements(
+        "packages/api/src/runtime.ts",
+        `import "./register";
+         export interface Contract { value: string }`,
+      ),
+    ).toBe(true);
+    expect(
+      hasRuntimeStatements(
+        "packages/api/src/status.ts",
+        "export enum Status { Ready }",
+      ),
+    ).toBe(true);
+  });
+
   test("recognizes Bun-instrumented source and excludes policy fixtures", () => {
     expect(isEligibleSource("apps/server/src/runtime.mts")).toBe(true);
     expect(isEligibleSource("packages/api/src/runtime.cjs")).toBe(true);

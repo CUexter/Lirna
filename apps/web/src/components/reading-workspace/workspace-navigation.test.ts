@@ -1,8 +1,7 @@
 import { expect, test } from "bun:test";
-
-import { readingFixture } from "../../routes/sources/-reading-test-fixtures";
 import { authoredTarget } from "./authored-navigation";
 import { createReadingSceneTopology } from "./reading-scene-topology";
+import { readingFixture } from "./reading-test-fixtures";
 import { createReferenceIndex } from "./references";
 import { navigateAuthoredLink } from "./workspace-navigation";
 

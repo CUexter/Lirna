@@ -1,6 +1,6 @@
 import type { InquiryOutputs } from "@/clients/inquiry";
 
-import { readingReferences } from "./-reading-reference-fixture";
+import { readingReferences } from "./reading-reference-fixture";
 
 type Reading = InquiryOutputs["sources"]["reading"];
 export type ReadingComponent = Reading["components"][number];

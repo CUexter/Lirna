@@ -1,4 +1,4 @@
-import { readingFixture } from "./-reading-test-fixtures";
+import { readingFixture } from "./reading-test-fixtures";
 
 export function readingWithTwoPublisherNotes() {
   const reading = readingFixture();

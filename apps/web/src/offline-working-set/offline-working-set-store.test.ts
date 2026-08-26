@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { readingWorkspaceFixture } from "@/routes/sources/-source-information-test-fixture";
+import { readingWorkspaceFixture } from "@/components/reading-workspace/source-information-test-fixture";
 import {
   confirmOfflineWorkingSetRemoval,
   markOfflineWorkingSetStale,

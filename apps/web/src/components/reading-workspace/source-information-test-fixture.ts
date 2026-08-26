@@ -1,7 +1,7 @@
 import { readingComponentSummary } from "@lirna/api/client/reading-content";
 import type { InquiryOutputs } from "@/clients/inquiry";
 
-import { readingFixture, sourceId, stateId } from "./-reading-test-fixtures";
+import { readingFixture, sourceId, stateId } from "./reading-test-fixtures";
 
 type Workspace = InquiryOutputs["sources"]["readingWorkspace"];
 

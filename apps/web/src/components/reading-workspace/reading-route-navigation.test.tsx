@@ -5,13 +5,13 @@ import {
   renderReading,
   resetActions,
   view,
-} from "./-reading-route-test-harness";
+} from "./reading-route-test-harness";
 import {
   captureScrollIntoView,
   openSupplementOne,
   setupReadingUser,
-} from "./-reading-route-test-scenarios";
-import { readingFixture, sourceId, stateId } from "./-reading-test-fixtures";
+} from "./reading-route-test-scenarios";
+import { readingFixture, sourceId, stateId } from "./reading-test-fixtures";
 
 test("returns from a bibliography mention in another Source component", async () => {
   resetActions();
@@ -233,4 +233,27 @@ test("keeps the selected Source component when following its contents", async ()
   );
   expect(router.state.location.hash).toBe("supplement-section");
   expect(view().getByText("First supplement content.")).toBeTruthy();
+});
+
+test("moves between adjacent Source components and returns through its breadcrumb", async () => {
+  resetActions();
+  const user = setupReadingUser();
+  const router = await renderReading();
+  await waitFor(() => view().getByText("A synthetic Source state passage."));
+
+  await openSupplementOne(user);
+  expect(router.state.location.search).toEqual({ component: "supplement-one" });
+  await user.click(
+    view().getByRole("button", { name: "Next: Supplement two" }),
+  );
+  await waitFor(() => view().getByText("Second supplement content."));
+  await user.click(
+    view().getByRole("button", { name: "Previous: Supplement one" }),
+  );
+  await waitFor(() => view().getByText("First supplement content."));
+  await user.click(
+    view().getByRole("button", { name: "Synthetic Reading Source" }),
+  );
+  await waitFor(() => view().getByText("A synthetic Source state passage."));
+  expect(router.state.location.search).toEqual({ component: "article" });
 });

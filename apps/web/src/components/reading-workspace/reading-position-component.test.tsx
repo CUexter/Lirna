@@ -6,15 +6,15 @@ import {
   renderReading,
   resetActions,
   view,
-} from "./-reading-route-test-harness";
+} from "./reading-route-test-harness";
 import {
   captureWindowScrollTo,
   openSupplementOne,
   setupArticleScroll,
   setupReadingUser,
   setWindowScrollY,
-} from "./-reading-route-test-scenarios";
-import { sourceId, stateId } from "./-reading-test-fixtures";
+} from "./reading-route-test-scenarios";
+import { sourceId, stateId } from "./reading-test-fixtures";
 
 test("restores a component location through its parent breadcrumb", async () => {
   resetActions();

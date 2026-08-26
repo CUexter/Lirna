@@ -3,14 +3,14 @@ import { createRootRoute, createRoute } from "@tanstack/react-router";
 import { cleanup, within } from "@testing-library/react";
 
 import type { InquiryOutputs } from "@/clients/inquiry";
-import { readingFixture, sourceId, stateId } from "./-reading-test-fixtures";
-import { renderRoute } from "./-route-test-harness";
+import { renderRoute } from "@/test-support/render-route";
+import { readingFixture, sourceId, stateId } from "./reading-test-fixtures";
 import {
   derivativeClientStub,
   readingWorkspaceFixture,
   sepUpdateClientStub,
   setSepUpdateResult,
-} from "./-source-information-test-fixture";
+} from "./source-information-test-fixture";
 
 type Workspace = InquiryOutputs["sources"]["readingWorkspace"];
 
@@ -161,7 +161,7 @@ await mock.module("@/clients/library", () => ({
   },
 }));
 
-const { Route } = await import("./$sourceId/$stateId");
+const { Route } = await import("@/routes/sources/$sourceId/$stateId");
 
 export function view() {
   return within(document.body);

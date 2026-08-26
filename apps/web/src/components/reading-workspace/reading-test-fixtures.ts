@@ -1,7 +1,7 @@
 import type { InquiryOutputs } from "@/clients/inquiry";
 
-import { additionalReadingComponents } from "./-reading-additional-components-fixture";
-import { capturedAt, readingComponent } from "./-reading-component-fixture";
+import { additionalReadingComponents } from "./reading-additional-components-fixture";
+import { capturedAt, readingComponent } from "./reading-component-fixture";
 
 export const sourceId = "10000000-0000-4000-8000-000000000000";
 export const stateId = "20000000-0000-4000-8000-000000000000";

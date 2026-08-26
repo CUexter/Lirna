@@ -6,7 +6,7 @@ import {
   renderReading,
   resetActions,
   view,
-} from "./-reading-route-test-harness";
+} from "./reading-route-test-harness";
 
 export type ReadingUser = ReturnType<typeof userEvent.setup>;
 

@@ -114,8 +114,17 @@ function isRouteSupportFile(path) {
 function isTestSource(path) {
   return (
     /\.(?:test|spec)\.[jt]sx?$/.test(path) ||
-    /(?:^|\/)-[^/]*-(?:tests|test-(?:fixture|fixtures|harness|scenarios|support))\.[jt]sx?$/.test(
+    /(?:^|\/)[^/]*-(?:tests|test-(?:fixture|fixtures|harness|scenarios|support))\.[jt]sx?$/.test(
       path,
+    )
+  );
+}
+
+function isRouteTestSource(path) {
+  return (
+    isTestSource(path) ||
+    /^-.*(?:fixture|harness|scenarios?|tests?|support)(?:\.|-)/.test(
+      basename(path),
     )
   );
 }
@@ -125,7 +134,13 @@ export function evaluatePolicy({ workspaces, files }) {
   for (const file of files) {
     const owner = workspaceForPath(workspaces, file.path);
     if (!owner) continue;
+    const testSource = isTestSource(file.path);
     const routeFile = owner.name === "web" && file.path.startsWith("apps/web/src/routes/");
+    if (routeFile && isRouteTestSource(file.path)) {
+      violations.push(
+        `${file.path} is test source under apps/web/src/routes; place it beside the module that owns the behavior or under apps/web/tests/routes`,
+      );
+    }
     if (
       routeFile &&
       !file.path.endsWith("routeTree.gen.ts") &&
@@ -134,15 +149,16 @@ export function evaluatePolicy({ workspaces, files }) {
     ) {
       violations.push(`${file.path} is under apps/web/src/routes but does not create a TanStack Router route`);
     }
-    if (file.createsRoute && owner.name === "web" && !routeFile) {
+    if (file.createsRoute && owner.name === "web" && !routeFile && !testSource) {
       violations.push(`${file.path} creates a TanStack Router route outside apps/web/src/routes`);
     }
     for (const control of file.nativeControls ?? []) {
       const allowed = primitiveControls.get(file.path)?.has(control);
-      if (!allowed) violations.push(`${file.path} uses native <${control}>; import an owned UI primitive instead`);
+      if (!(allowed || testSource))
+        violations.push(`${file.path} uses native <${control}>; import an owned UI primitive instead`);
     }
     const readingAuthorityScope =
-      file.path.startsWith("apps/web/src/") && !isTestSource(file.path);
+      file.path.startsWith("apps/web/src/") && !testSource;
     if (
       readingAuthorityScope &&
       file.path !==

@@ -2,9 +2,8 @@ import { mock } from "bun:test";
 import { createRootRoute, createRoute } from "@tanstack/react-router";
 import { within } from "@testing-library/react";
 import { mutationOptions } from "@/test-support/mutation-options";
-
-import { admittedFixture, previewFixture } from "./-admission-test-fixtures";
-import { renderRoute } from "./-route-test-harness";
+import { renderRoute } from "@/test-support/render-route";
+import { admittedFixture, previewFixture } from "./admission-test-fixtures";
 
 export const calls = {
   admit: [] as unknown[],
@@ -46,7 +45,7 @@ await mock.module("@/clients/inquiry", () => ({
   },
 }));
 
-const { Route } = await import("./admission");
+const { Route } = await import("@/routes/sources/admission");
 
 export function view() {
   return within(document.body);
@@ -73,12 +72,4 @@ export function resetActions() {
   actions.retry = recordedAction(calls.retry, previewFixture());
   actions.admit = recordedAction(calls.admit, admittedFixture());
   actions.get = recordedAction(calls.get, previewFixture());
-}
-
-export function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((next) => {
-    resolve = next;
-  });
-  return { promise, resolve };
 }

@@ -2,11 +2,7 @@ import { expect, mock, test } from "bun:test";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, waitFor } from "@testing-library/react";
 
-import {
-  readingFixture,
-  sourceId,
-  stateId,
-} from "@/routes/sources/-reading-test-fixtures";
+import { readingFixture, sourceId, stateId } from "./reading-test-fixtures";
 
 let resolveResume!: (value: unknown) => void;
 let resumeStarted = false;

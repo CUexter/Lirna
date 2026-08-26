@@ -51,11 +51,14 @@ const shardTests = {
   ],
   "web-reading": [
     "apps/web/src/components/reading-workspace/**/*.{test,spec}.{ts,tsx}",
-    "apps/web/src/routes/sources/-reading*.test.tsx",
   ],
-  "web-source": ["apps/web/src/routes/sources/{-admission,-index}.test.tsx"],
+  "web-source": [
+    "apps/web/src/components/source-admission/**/*.{test,spec}.{ts,tsx}",
+    "apps/web/src/components/sources-library/**/*.{test,spec}.{ts,tsx}",
+  ],
   "web-app": [
     "apps/web/src/{clients,hooks,routes,utils}/**/*.{test,spec}.{ts,tsx}",
+    "apps/web/tests/routes/**/*.{test,spec}.{ts,tsx}",
   ],
   platform: [
     "apps/{docs,server}/src/**/*.{test,spec}.{ts,tsx}",

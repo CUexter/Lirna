@@ -2,7 +2,7 @@ import { afterEach, expect, mock, test } from "bun:test";
 import { createRootRoute, createRoute } from "@tanstack/react-router";
 import { act, cleanup, waitFor, within } from "@testing-library/react";
 
-import { renderRoute } from "./-route-test-harness";
+import { renderRoute } from "@/test-support/render-route";
 
 const sourceId = "20000000-0000-4000-8000-000000000000";
 const stateId = "30000000-0000-4000-8000-000000000000";
@@ -26,7 +26,7 @@ await mock.module("@/clients/library", () => ({
   },
 }));
 
-const { Route } = await import("./index");
+const { Route } = await import("@/routes/sources/index");
 
 afterEach(() => {
   cleanup();

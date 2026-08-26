@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { readingFixture } from "../../routes/sources/-reading-test-fixtures";
 import type { CitationResolution } from "../annotations/dom-utils";
 import { indexBibliographyMentions } from "./bibliography-mentions";
+import { readingFixture } from "./reading-test-fixtures";
 
 test("indexes authored and manual Bibliography mentions together", () => {
   const reading = readingFixture();

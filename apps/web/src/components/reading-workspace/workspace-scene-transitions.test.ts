@@ -1,11 +1,10 @@
 import { expect, test } from "bun:test";
-
-import { readingFixture } from "../../routes/sources/-reading-test-fixtures";
 import { createReadingNavigation } from "./reading-navigation";
 import {
   createReadingSceneTopology,
   resolveReadingSceneDestination,
 } from "./reading-scene-topology";
+import { readingFixture } from "./reading-test-fixtures";
 import {
   createWorkspaceSceneTransitions,
   type WorkspaceSceneTransition,

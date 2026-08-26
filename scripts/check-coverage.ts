@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import ts from "typescript";
 
 import { resolveInsideRoot } from "#path-safety";
 
@@ -45,6 +46,58 @@ export function isEligibleSource(source) {
     sourcePattern.test(source) &&
     !excludedPattern.test(source) &&
     sourceExtensions.has(path.extname(source))
+  );
+}
+
+function hasDeclareModifier(statement) {
+  return (
+    ts.canHaveModifiers(statement) &&
+    ts
+      .getModifiers(statement)
+      ?.some((modifier) => modifier.kind === ts.SyntaxKind.DeclareKeyword)
+  );
+}
+
+function isTypeOnlyImport(statement) {
+  const clause = statement.importClause;
+  if (!clause) return false;
+  if (clause.isTypeOnly) return true;
+  if (clause.name || !clause.namedBindings) return false;
+  return (
+    ts.isNamedImports(clause.namedBindings) &&
+    clause.namedBindings.elements.every((element) => element.isTypeOnly)
+  );
+}
+
+function isTypeOnlyExport(statement) {
+  if (statement.isTypeOnly) return true;
+  return (
+    statement.exportClause !== undefined &&
+    ts.isNamedExports(statement.exportClause) &&
+    statement.exportClause.elements.every((element) => element.isTypeOnly)
+  );
+}
+
+function isTypeOnlyStatement(statement) {
+  if (ts.isInterfaceDeclaration(statement)) return true;
+  if (ts.isTypeAliasDeclaration(statement)) return true;
+  if (hasDeclareModifier(statement)) return true;
+  if (ts.isImportDeclaration(statement)) return isTypeOnlyImport(statement);
+  if (ts.isImportEqualsDeclaration(statement)) return statement.isTypeOnly;
+  if (ts.isExportDeclaration(statement)) return isTypeOnlyExport(statement);
+  return false;
+}
+
+export function hasRuntimeStatements(source, contents) {
+  const sourceFile = ts.createSourceFile(
+    source,
+    contents,
+    ts.ScriptTarget.Latest,
+    false,
+    source.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+  return sourceFile.statements.some(
+    (statement) => !isTypeOnlyStatement(statement),
   );
 }
 
@@ -166,7 +219,11 @@ function collectEligibleSources() {
         sourceExtensions.has(path.extname(entry.name))
       ) {
         const source = path.relative(root, entryPath).replaceAll(path.sep, "/");
-        if (isEligibleSource(source)) sources.push(source);
+        if (
+          isEligibleSource(source) &&
+          hasRuntimeStatements(source, readFileSync(entryPath, "utf8"))
+        )
+          sources.push(source);
       }
     }
   }

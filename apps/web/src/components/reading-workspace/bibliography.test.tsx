@@ -1,10 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
 import { act, cleanup, render } from "@testing-library/react";
 import { createRef } from "react";
-
-import { readingFixture } from "../../routes/sources/-reading-test-fixtures";
 import { Bibliography } from "./bibliography";
 import { createReadingNavigation } from "./reading-navigation";
+import { readingFixture } from "./reading-test-fixtures";
 
 afterEach(cleanup);
 
