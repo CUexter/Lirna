@@ -149,6 +149,7 @@ export function createReferenceJumper({
   componentIdentity,
   navigation,
   notesIdentity,
+  onUnavailable,
   onPublisherNoteActivate,
   topology,
   toolsScrollRef,
@@ -157,6 +158,7 @@ export function createReferenceJumper({
   componentIdentity: string;
   navigation: ReadingNavigation;
   notesIdentity?: string;
+  onUnavailable?: (target: string) => void;
   onPublisherNoteActivate?: () => void;
   topology: ReadingSceneTopology;
   toolsScrollRef: RefObject<HTMLElement | null>;
@@ -166,11 +168,13 @@ export function createReferenceJumper({
       sceneIdentity: reference.componentIdentity,
       target: referenceTarget(reference),
     });
-    if (destination.movement === "none") return;
+    if (destination.movement === "none") {
+      onUnavailable?.(reference.title);
+      return;
+    }
     const isPublisherNote = destination.owner === "publisher-note";
     if (isPublisherNote && reference.componentIdentity !== notesIdentity)
       return;
-    if (isPublisherNote) onPublisherNoteActivate?.();
     const root = isPublisherNote ? toolsScrollRef.current : articleRef.current;
     if (
       !root ||
@@ -180,7 +184,11 @@ export function createReferenceJumper({
     const target = [...root.querySelectorAll<HTMLElement>("[id]")].find(
       (element) => element.id === reference.targetId,
     );
-    if (!target) return;
+    if (!target) {
+      onUnavailable?.(reference.title);
+      return;
+    }
+    if (isPublisherNote) onPublisherNoteActivate?.();
     const targetIdentity = destination.target;
     const handle = navigation.request({
       cause: "reference-target",

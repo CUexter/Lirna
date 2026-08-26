@@ -8,7 +8,6 @@ import {
 } from "./-reading-route-test-harness";
 import {
   captureScrollIntoView,
-  openCitationBibliography,
   returnFromArticleBibliography,
   setupReadingUser,
 } from "./-reading-route-test-scenarios";
@@ -45,7 +44,11 @@ test("restores an unfinished annotation draft after visiting a Citation", async 
       ).toContain("Unfinished synthesis"),
     );
 
-    await openCitationBibliography(user);
+    await user.click(
+      view().getByRole("button", { name: "Citation: [1] (resolved)" }),
+    );
+    await user.click(await view().findByRole("button", { name: "Leave" }));
+    await view().findByRole("region", { name: "Bibliography" });
     expect(
       view().queryByRole("textbox", { name: "Annotation note" }),
     ).toBeNull();

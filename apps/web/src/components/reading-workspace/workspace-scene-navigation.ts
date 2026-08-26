@@ -5,26 +5,20 @@ import {
   useSceneFragmentNavigation,
 } from "./reading-navigation-hooks";
 import { useReadingResume } from "./reading-resume";
-import { createReferenceIndex } from "./references";
+import type { ReadingToolTab } from "./reading-tools-panel";
+import { createReferenceIndex, type ReadingReference } from "./references";
 import { createWorkspaceAuthoredSceneNavigator } from "./workspace-authored-scene-navigation";
 import { useWorkspaceCitationResolution } from "./workspace-citation-resolution";
 import {
   activeReadingToolTab,
   createAuthoredLinkHandler,
   createClearEditingAnnotationHandler,
-  createComponentChangeHandler,
   createCurrentAuthoredLinkHandler,
-  createOpenCitationHandler,
-  createOpenReferenceHandler,
-  createReadingToolTabChangeHandler,
   selectedCitationForView,
 } from "./workspace-controller";
-import {
-  createCitationTargetReturn,
-  createComponentSceneNavigation,
-  resolvePublisherNotes,
-} from "./workspace-scene-actions";
+import { resolvePublisherNotes } from "./workspace-scene-actions";
 import { useWorkspaceSceneState } from "./workspace-scene-state";
+import { createWorkspaceSceneTransitions } from "./workspace-scene-transitions";
 import { usePendingCitationReturn, useScrollRestore } from "./workspace-state";
 import type { ReadingWorkspaceViewInput } from "./workspace-types";
 
@@ -46,11 +40,14 @@ export function useReadingWorkspaceViewProps({
   const { source } = reading;
   const {
     articleRef,
+    annotationTransition,
     citationScrollRequest,
+    clearPendingTargets,
     editingAnnotationId,
     navigation,
     notesIdentity,
     pendingCitation,
+    pendingAnnotationDiscard,
     pendingSceneFragment,
     readingToolTab,
     selectedReference,
@@ -59,7 +56,9 @@ export function useReadingWorkspaceViewProps({
     setNotesIdentity,
     setReadingToolTab,
     setSelectedReference,
+    setTransitionUnavailable,
     toolsScrollRef,
+    transitionUnavailable,
   } = useWorkspaceSceneState(view, initialNotesIdentity);
   const activateFragment = useExplicitFragmentNavigation({
     componentIdentity: component.identity,
@@ -92,6 +91,39 @@ export function useReadingWorkspaceViewProps({
       onViewChange,
     },
   );
+  const transitions = createWorkspaceSceneTransitions({
+    clearPendingTargets,
+    componentIdentity: component.identity,
+    hasUnsavedAnnotation: annotationTransition.hasUnsavedChanges,
+    navigation,
+    onAnnotationDiscardRequired: annotationTransition.requestDiscard,
+    onComponentChange,
+    onUnavailable: setTransitionUnavailable,
+    onViewChange,
+    openBibliography,
+    requestCitationScroll: () =>
+      setCitationScrollRequest((request) => request + 1),
+    returnToCitation,
+    saveLocation,
+    setEditingAnnotationId,
+    setNotesIdentity,
+    setPendingCitation: (pending) => {
+      pendingCitation.current = pending;
+    },
+    setPendingSceneFragment: (pending) => {
+      pendingSceneFragment.current = pending;
+    },
+    setReadingToolTab,
+    setSelectedReference,
+    topology,
+    view,
+  });
+  const reportUnavailable = (targetDescription: string) =>
+    transitions.request({
+      kind: "unavailable",
+      reason: "target-unavailable",
+      targetDescription,
+    });
   const resumeStatus = useReadingResume({
     articleRef,
     component,
@@ -121,84 +153,52 @@ export function useReadingWorkspaceViewProps({
     componentIdentity: component.identity,
     navigation,
     notesIdentity,
+    onUnavailable: reportUnavailable,
     onPublisherNoteActivate: () => setSelectedReference(undefined),
     topology,
     toolsScrollRef,
   });
-  const handleComponentChange = createComponentChangeHandler({
-    onComponentChange,
-    saveLocation,
-    setEditingAnnotationId,
-    setNotesIdentity,
-    setSelectedReference,
-  });
-  const openReference = createOpenReferenceHandler({
-    onViewChange,
-    preserveScroll: saveLocation,
-    setReadingToolTab,
-    setSelectedReference,
-    view,
-  });
-  const { changeArticleScene, navigateComponentScene } =
-    createComponentSceneNavigation([
-      navigation,
-      onComponentChange,
-      onViewChange,
-      saveLocation,
-      setEditingAnnotationId,
-      setNotesIdentity,
-      setReadingToolTab,
-      setSelectedReference,
-      topology,
-      view,
-    ]);
-  const navigateAuthoredScene = createWorkspaceAuthoredSceneNavigator([
+  const navigateComponentScene = (identity: string) =>
+    transitions.request({
+      identity,
+      kind: "component",
+      originOwner: "article",
+    });
+  const openReference = (reference: ReadingReference) =>
+    transitions.request({ kind: "reference", reference });
+  const navigateAuthoredScene = createWorkspaceAuthoredSceneNavigator({
     articleRef,
-    changeArticleScene,
     component,
     navigation,
     notesIdentity,
-    onViewChange,
-    pendingSceneFragment,
-    saveLocation,
-    setNotesIdentity,
-    setReadingToolTab,
+    requestTransition: transitions.request,
     toolsScrollRef,
     topology,
-    view,
-  ]);
+  });
   const openAuthoredLink = createAuthoredLinkHandler({
     navigateScene: navigateAuthoredScene,
+    onUnavailable: reportUnavailable,
     openReference,
     reading,
     referenceIndex,
-    setSelectedReference,
     topology,
   });
-  const openCitation = createOpenCitationHandler({
-    openBibliography,
-    setCitationScrollRequest,
-    setNotesIdentity,
-    setReadingToolTab,
-    setSelectedReference,
-  });
-  const returnToCitationTarget = createCitationTargetReturn([
-    component.identity,
-    handleComponentChange,
-    onViewChange,
-    pendingCitation,
-    returnToCitation,
-    saveLocation,
-    setNotesIdentity,
-    setReadingToolTab,
-    topology,
-    view,
-  ]);
+  const openCitation = (entryId: string | undefined, _mentionId: string) =>
+    transitions.request({ entryId, kind: "bibliography" });
+  const returnToCitationTarget = (
+    mentionId: string,
+    targetComponentIdentity: string,
+  ) =>
+    transitions.request({
+      kind: "citation",
+      mentionId,
+      targetComponentIdentity,
+    });
   const citation = useWorkspaceCitationResolution([
     articleRef,
     citationResolutions,
     component,
-    handleComponentChange,
+    navigateComponentScene,
     navigation,
     notesIdentity,
     onViewChange,
@@ -218,6 +218,7 @@ export function useReadingWorkspaceViewProps({
         onEditHandled: createClearEditingAnnotationHandler(
           setEditingAnnotationId,
         ),
+        onUnsavedChange: annotationTransition.reportUnsavedChanges,
         view,
       },
       articleRef,
@@ -261,12 +262,8 @@ export function useReadingWorkspaceViewProps({
       topology,
       navigation: {
         activeTab: activeToolTab,
-        onActiveTabChange: createReadingToolTabChangeHandler({
-          onViewChange,
-          saveLocation,
-          setReadingToolTab,
-          view,
-        }),
+        onActiveTabChange: (tab: ReadingToolTab) =>
+          transitions.request({ kind: "tool", tab }),
         onComponentChange: navigateComponentScene,
       },
       notes: {
@@ -290,5 +287,13 @@ export function useReadingWorkspaceViewProps({
       },
     },
     onFragmentActivate: activateFragment,
+    transitionFeedback: {
+      annotationDiscard: {
+        onCancel: annotationTransition.cancelDiscard,
+        onConfirm: annotationTransition.confirmDiscard,
+        open: Boolean(pendingAnnotationDiscard),
+      },
+      unavailable: transitionUnavailable,
+    },
   };
 }

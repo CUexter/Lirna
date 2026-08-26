@@ -410,6 +410,13 @@ const reading = {
               internal: false,
               children: [{ kind: "text", text: "Supplement one" }],
             },
+            { kind: "text", text: " or " },
+            {
+              kind: "link",
+              href: "notes.html#missing",
+              internal: false,
+              children: [{ kind: "text", text: "Missing note" }],
+            },
           ],
         },
         {
@@ -478,7 +485,7 @@ const reading = {
     },
   ],
   plainText:
-    "A typed introductory paragraph.\n\nKnowledge\n\nVisible typed paragraph.\n\nGrounded by (Steup, 2023).\n\nConfirmed again by (Steup, 2023).\n\nAn ambiguous synthetic mention is (Smith, 2024).\n\n(1) A numbered assertion. Compare (1). Same scene target or Note one or Supplement one.\n\nH2O \\frac{x}{2} \\unknown{x} safe link",
+    "A typed introductory paragraph.\n\nKnowledge\n\nVisible typed paragraph.\n\nGrounded by (Steup, 2023).\n\nConfirmed again by (Steup, 2023).\n\nAn ambiguous synthetic mention is (Smith, 2024).\n\n(1) A numbered assertion. Compare (1). Same scene target or Note one or Supplement one or Missing note.\n\nH2O \\frac{x}{2} \\unknown{x} safe link",
   provenance: {
     adapter: { id: "sep", version: "1" },
     parser: { id: "parse5", version: "7.3.0" },

@@ -4,7 +4,6 @@ import {
   type ReadingSceneTopology,
   resolveReadingSceneDestination,
 } from "./reading-scene-topology";
-import type { ReadingToolTab } from "./reading-tools-panel";
 import {
   type ReadingReference,
   type ReferenceIndex,
@@ -16,10 +15,10 @@ export function navigateAuthoredLink({
   href,
   label,
   navigateScene,
+  onUnavailable,
   openReference,
   reading,
   referenceIndex,
-  setSelectedReference,
   topology,
 }: {
   from: SepReadingData["components"][number];
@@ -33,10 +32,10 @@ export function navigateAuthoredLink({
     from: SepReadingData["components"][number];
     fragment?: string;
   }) => boolean;
+  onUnavailable: (target: string) => void;
   openReference: (reference: ReadingReference) => void;
   reading: SepReadingData;
   referenceIndex: ReferenceIndex;
-  setSelectedReference: (reference: ReadingReference | undefined) => void;
   topology: ReadingSceneTopology;
 }) {
   const target = authoredTarget(reading, from, href);
@@ -44,13 +43,18 @@ export function navigateAuthoredLink({
   if (
     target.fragment &&
     !componentHasFragment(target.component, target.fragment)
-  )
+  ) {
+    onUnavailable(`${target.component.label} passage ${target.fragment}`);
     return true;
+  }
   const destination = resolveReadingSceneDestination(topology, {
     sceneIdentity: target.component.identity,
     target: target.fragment ? `fragment:${target.fragment}` : "component",
   });
-  if (destination.movement === "none") return false;
+  if (destination.movement === "none") {
+    onUnavailable(target.component.label);
+    return true;
+  }
   const authoredReference = referenceForAuthoredLink(
     referenceIndex,
     target,
@@ -61,72 +65,5 @@ export function navigateAuthoredLink({
     openReference(authoredReference);
     return true;
   }
-  setSelectedReference(undefined);
   return navigateScene({ destination, from, fragment: target.fragment });
-}
-
-export function citationDestination(
-  topology: ReadingSceneTopology,
-  currentComponentIdentity: string,
-  targetComponentIdentity: string,
-  mentionId: string,
-) {
-  const destination = resolveReadingSceneDestination(topology, {
-    sceneIdentity: targetComponentIdentity,
-    target: `citation:${mentionId}`,
-  });
-  if (destination.movement === "none") return { kind: "none" as const };
-  if (destination.owner === "publisher-note") {
-    return {
-      kind: "publisher-note" as const,
-      componentIdentity: destination.scene.componentIdentity,
-      owner: destination.owner,
-    };
-  }
-  return targetComponentIdentity === currentComponentIdentity
-    ? { kind: "current" as const, owner: destination.owner }
-    : { kind: "component" as const, owner: destination.owner };
-}
-
-export function completeCitationNavigation({
-  destination,
-  handleComponentChange,
-  mentionId,
-  onPending,
-  onViewChange,
-  preserveScroll,
-  returnToCitation,
-  setNotesIdentity,
-  setReadingToolTab,
-  targetComponentIdentity,
-  view,
-}: {
-  destination: ReturnType<typeof citationDestination>;
-  handleComponentChange: (identity: string) => void;
-  mentionId: string;
-  onPending: (owner: "article" | "publisher-note") => void;
-  onViewChange: (view: "article" | "bibliography", citation?: string) => void;
-  preserveScroll: () => void;
-  returnToCitation: (mentionId: string) => void;
-  setNotesIdentity: (identity: string | undefined) => void;
-  setReadingToolTab: (tab: ReadingToolTab) => void;
-  targetComponentIdentity: string;
-  view: "article" | "bibliography";
-}) {
-  if (destination.kind === "none") return;
-  if (destination.kind === "publisher-note") {
-    onPending(destination.owner);
-    preserveScroll();
-    setReadingToolTab("supplementary");
-    if (view === "bibliography") onViewChange("article");
-    setNotesIdentity(destination.componentIdentity);
-    return;
-  }
-  if (destination.kind === "current") {
-    returnToCitation(mentionId);
-    onViewChange("article");
-    return;
-  }
-  onPending(destination.owner);
-  handleComponentChange(targetComponentIdentity);
 }

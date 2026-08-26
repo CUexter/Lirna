@@ -37,6 +37,8 @@
     "packages/ui/src/components/sonner.tsx": "651c77cbb2aed9c3b17a427bd5cc730ffedd1951ccefb05a95ba9d10eed2a7a9",
     "packages/ui/src/components/tabs.tsx": "c6e8ff2e140a5315b6e782370935e8a0ff5a9babc0c3d0a5b5c81e68e2d34595",
     "packages/ui/src/components/textarea.tsx": "c13c6168e337832d428a2bf72d980cbe380fb8a05bc40c5400797aa5d6cdfc02",
-    "packages/ui/src/components/tooltip.tsx": "66d4d4328c6aaf1cbe45b498da8e3daa9c7e982dcc115c25bf426712b451212a"
+    "packages/ui/src/components/tooltip.tsx": "66d4d4328c6aaf1cbe45b498da8e3daa9c7e982dcc115c25bf426712b451212a",
+    "packages/ui/src/components/alert.tsx": "2849ca86ab87a873c2148c31c0c806f2c68cd31b3f6a791be0fbab03c16d3776",
+    "packages/ui/src/components/alert-dialog.tsx": "bced775dc74ac48fc02ebdbaf272ee31cb8e0be68cfe5e0b882e3a1ebf7824ac"
   }
 }

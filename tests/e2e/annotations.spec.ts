@@ -108,6 +108,33 @@ test("preserves the visual selection while composing an annotation note", async 
   );
 });
 
+test("asks before leaving unsaved Annotation changes", async ({ page }) => {
+  await page.goto(`/sources/${sourceId}/${stateId}`);
+  await expect(page.getByRole("heading", { name: "Knowledge" })).toBeVisible();
+  await page.getByText(selectedText, { exact: true }).selectText();
+  await page.getByRole("button", { name: "Add note" }).click();
+  await page.getByLabel("Annotation note").fill("Unfinished Annotation work");
+  await page
+    .getByRole("tab", { name: "Supplementary" })
+    .evaluate((element) => element.click());
+
+  await page
+    .getByRole("button", { name: "Supplement one" })
+    .evaluate((element) => element.click());
+  const confirmation = page.getByRole("alertdialog", {
+    name: "Leave unsaved annotation work?",
+  });
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole("button", { name: "Stay" }).click();
+  await expect(page.getByText(selectedText, { exact: true })).toBeVisible();
+
+  await page
+    .getByRole("button", { name: "Supplement one" })
+    .evaluate((element) => element.click());
+  await confirmation.getByRole("button", { name: "Leave" }).click();
+  await expect(page.getByText("Typed supplement one content.")).toBeVisible();
+});
+
 test("lets only the latest Annotation mention return win", async ({ page }) => {
   await installNavigationTrace(page);
   await page.goto(`/sources/${sourceId}/${stateId}`);

@@ -2,54 +2,10 @@ import type { Dispatch, SetStateAction } from "react";
 
 import type { SepReadingData } from "./content";
 import type { ReadingToolTab } from "./reading-tools-panel";
-import type { ReadingReference } from "./references";
 import { navigateAuthoredLink } from "./workspace-navigation";
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
 type ReadingView = "article" | "bibliography";
-
-export function createComponentChangeHandler({
-  onComponentChange,
-  saveLocation,
-  setEditingAnnotationId,
-  setNotesIdentity,
-  setSelectedReference,
-}: {
-  onComponentChange: (identity: string) => void;
-  saveLocation: () => void;
-  setEditingAnnotationId: SetState<string | undefined>;
-  setNotesIdentity: SetState<string | undefined>;
-  setSelectedReference: SetState<ReadingReference | undefined>;
-}) {
-  return (identity: string) => {
-    setEditingAnnotationId(undefined);
-    setNotesIdentity(undefined);
-    setSelectedReference(undefined);
-    onComponentChange(identity);
-    saveLocation();
-  };
-}
-
-export function createOpenReferenceHandler({
-  onViewChange,
-  preserveScroll,
-  setReadingToolTab,
-  setSelectedReference,
-  view,
-}: {
-  onViewChange: (view: ReadingView) => void;
-  preserveScroll: () => void;
-  setReadingToolTab: SetState<ReadingToolTab>;
-  setSelectedReference: SetState<ReadingReference | undefined>;
-  view: ReadingView;
-}) {
-  return (reference: ReadingReference) => {
-    preserveScroll();
-    setSelectedReference(reference);
-    setReadingToolTab("supplementary");
-    if (view === "bibliography") onViewChange("article");
-  };
-}
 
 export function createAuthoredLinkHandler(
   context: Omit<
@@ -62,48 +18,6 @@ export function createAuthoredLinkHandler(
     href: string,
     label: string,
   ) => navigateAuthoredLink({ ...context, from, href, label });
-}
-
-export function createOpenCitationHandler({
-  openBibliography,
-  setCitationScrollRequest,
-  setNotesIdentity,
-  setReadingToolTab,
-  setSelectedReference,
-}: {
-  openBibliography: (entryId?: string) => void;
-  setCitationScrollRequest: SetState<number>;
-  setNotesIdentity: SetState<string | undefined>;
-  setReadingToolTab: SetState<ReadingToolTab>;
-  setSelectedReference: SetState<ReadingReference | undefined>;
-}) {
-  return (entryId: string | undefined, _mentionId: string) => {
-    setNotesIdentity(undefined);
-    setSelectedReference(undefined);
-    setReadingToolTab("bibliography");
-    setCitationScrollRequest((request) => request + 1);
-    openBibliography(entryId);
-  };
-}
-
-export function createReadingToolTabChangeHandler({
-  onViewChange,
-  saveLocation,
-  setReadingToolTab,
-  view,
-}: {
-  onViewChange: (view: ReadingView) => void;
-  saveLocation: () => void;
-  setReadingToolTab: (tab: ReadingToolTab) => void;
-  view: ReadingView;
-}) {
-  return (tab: ReadingToolTab) =>
-    changeReadingToolTab(tab, {
-      onViewChange,
-      saveLocation,
-      setReadingToolTab,
-      view,
-    });
 }
 
 export function createClearEditingAnnotationHandler(
@@ -132,27 +46,4 @@ export function selectedCitationForView(
   selectedCitation?: string,
 ) {
   return view === "bibliography" ? selectedCitation : undefined;
-}
-
-function changeReadingToolTab(
-  tab: ReadingToolTab,
-  {
-    onViewChange,
-    saveLocation,
-    setReadingToolTab,
-    view,
-  }: {
-    onViewChange: (view: ReadingView) => void;
-    saveLocation: () => void;
-    setReadingToolTab: (tab: ReadingToolTab) => void;
-    view: ReadingView;
-  },
-) {
-  setReadingToolTab(tab);
-  if (tab === "bibliography" && view !== "bibliography") {
-    saveLocation();
-    onViewChange("bibliography");
-  } else if (tab !== "bibliography" && view === "bibliography") {
-    onViewChange("article");
-  }
 }

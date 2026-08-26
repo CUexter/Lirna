@@ -1,19 +1,28 @@
 import { buttonVariants } from "@lirna/ui/components/button";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeftIcon } from "lucide-react";
-import type { MouseEvent } from "react";
+import { lazy, type MouseEvent, Suspense } from "react";
 
 import { ReadingArticlePane } from "./reading-article-pane";
 import { ReadingToolsPanel } from "./reading-tools-panel";
+import type { WorkspaceTransitionFeedbackProps } from "./workspace-transition-feedback";
+
+const WorkspaceTransitionFeedback = lazy(() =>
+  import("./workspace-transition-feedback").then((module) => ({
+    default: module.WorkspaceTransitionFeedback,
+  })),
+);
 
 export function ReadingWorkspaceView({
   articlePaneProps,
   onFragmentActivate,
   readingToolsProps,
+  transitionFeedback,
 }: {
   articlePaneProps: React.ComponentProps<typeof ReadingArticlePane>;
   onFragmentActivate: (fragment: string) => void;
   readingToolsProps: React.ComponentProps<typeof ReadingToolsPanel>;
+  transitionFeedback: WorkspaceTransitionFeedbackProps;
 }) {
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: delegated anchor clicks retain native keyboard activation.
@@ -46,6 +55,12 @@ export function ReadingWorkspaceView({
           </span>
         </div>
       </header>
+      {transitionFeedback.unavailable ||
+      transitionFeedback.annotationDiscard.open ? (
+        <Suspense fallback={null}>
+          <WorkspaceTransitionFeedback {...transitionFeedback} />
+        </Suspense>
+      ) : null}
       <div className="mx-auto grid w-full max-w-[104rem] gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_26rem] lg:px-10 lg:py-12 2xl:grid-cols-[minmax(0,1fr)_28rem] 2xl:gap-12">
         <ReadingArticlePane {...articlePaneProps} />
         <div className="z-20 self-start lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1">

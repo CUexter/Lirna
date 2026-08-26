@@ -48,6 +48,7 @@ export function ReadingArticlePane({
     navigation: ReadingNavigation;
     onEditHandled: () => void;
     onLinkBibliography?: (selection: SelectionDraft) => void;
+    onUnsavedChange: (unsaved: boolean) => void;
     view: "article" | "bibliography";
   };
   articleRef: React.RefObject<HTMLElement | null>;
@@ -81,6 +82,7 @@ export function ReadingArticlePane({
     navigation: annotationNavigation,
     onEditHandled,
     onLinkBibliography,
+    onUnsavedChange,
     view,
   } = annotations;
   const {
@@ -132,14 +134,17 @@ export function ReadingArticlePane({
       </ReferenceActions.Provider>
       <ArticleAnnotations
         articleRef={articleRef}
-        editingAnnotationId={editingId}
         key={component.identity}
         navigation={annotationNavigation}
-        onEditAnnotationHandled={onEditHandled}
         onLinkBibliography={onLinkBibliography}
         onOpenCitationResolution={onOpenCitationResolution}
         readingView={view}
         reading={{ citationResolutions, component, source }}
+        transition={{
+          editingAnnotationId: editingId,
+          onEditAnnotationHandled: onEditHandled,
+          onUnsavedChange,
+        }}
       />
       <ReadingResearchAssistant
         componentIdentity={component.identity}
@@ -209,18 +214,15 @@ function ReadingDocument({
 
 function ArticleAnnotations({
   articleRef,
-  editingAnnotationId,
   navigation,
-  onEditAnnotationHandled,
   onLinkBibliography,
   onOpenCitationResolution,
   reading: { citationResolutions, component, source },
   readingView,
+  transition,
 }: {
   articleRef: React.RefObject<HTMLElement | null>;
-  editingAnnotationId?: string;
   navigation: ReadingNavigation;
-  onEditAnnotationHandled: () => void;
   onLinkBibliography?: (selection: SelectionDraft) => void;
   onOpenCitationResolution: (
     entryId: string,
@@ -233,6 +235,11 @@ function ArticleAnnotations({
     source: SepReadingData["source"];
   };
   readingView: "article" | "bibliography";
+  transition: {
+    editingAnnotationId?: string;
+    onEditAnnotationHandled: () => void;
+    onUnsavedChange: (unsaved: boolean) => void;
+  };
 }) {
   const navigateToAnnotation = useAnnotationNavigation({
     articleRef,
@@ -244,12 +251,13 @@ function ArticleAnnotations({
   return (
     <ReadingAnnotations
       articleRef={articleRef}
-      editAnnotationId={editingAnnotationId}
+      editAnnotationId={transition.editingAnnotationId}
       navigateToAnnotation={navigateToAnnotation}
       key={component.identity}
-      onEditAnnotationHandled={onEditAnnotationHandled}
+      onEditAnnotationHandled={transition.onEditAnnotationHandled}
       onLinkBibliography={onLinkBibliography}
       onOpenCitationResolution={onOpenCitationResolution}
+      onUnsavedChange={transition.onUnsavedChange}
       reading={{
         citationResolutions,
         componentIdentity: component.identity,

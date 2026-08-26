@@ -4,6 +4,7 @@ import type { Annotation } from "./dom-utils";
 import {
   type AnnotationSelectionState,
   annotationSelectionReducer,
+  hasUnsavedAnnotationChanges,
 } from "./use-selection";
 
 const selection = {
@@ -45,6 +46,29 @@ const state: AnnotationSelectionState = {
   panelOpen: true,
   colorPickerOpen: true,
 };
+
+test("reports only unfinished Annotation work as unsaved", () => {
+  expect(hasUnsavedAnnotationChanges(state)).toBe(true);
+  expect(
+    hasUnsavedAnnotationChanges({
+      ...state,
+      selection: undefined,
+      color: annotation.color,
+      body: annotation.body ?? "",
+    }),
+  ).toBe(false);
+  expect(
+    hasUnsavedAnnotationChanges({
+      ...state,
+      selection: undefined,
+      color: annotation.color,
+      body: "Changed Annotation body",
+    }),
+  ).toBe(true);
+  expect(hasUnsavedAnnotationChanges({ ...state, panelOpen: false })).toBe(
+    false,
+  );
+});
 
 test("applies every selection action while preserving unrelated state", () => {
   expect(

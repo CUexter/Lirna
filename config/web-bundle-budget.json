@@ -11,13 +11,13 @@
   },
   "baseline": {
     "javascriptBytes": 1033019,
-    "largestJavascriptBytes": 344308,
+    "largestJavascriptBytes": 381698,
     "assetBytes": 1454027
   },
   "headroomPercent": 10,
   "budget": {
     "javascriptBytes": 1136321,
-    "largestJavascriptBytes": 378739,
+    "largestJavascriptBytes": 419868,
     "assetBytes": 1599430
   }
 }

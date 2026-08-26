@@ -39,12 +39,25 @@ export type AnnotationSelectionAction =
   | { type: "TOGGLE_COLOR_PICKER"; open: boolean }
   | { type: "SUCCESS" };
 
+const defaultAnnotationColor = "yellow";
+
 const initialState: AnnotationSelectionState = {
-  color: "yellow",
+  color: defaultAnnotationColor,
   body: "",
   panelOpen: false,
   colorPickerOpen: false,
 };
+
+export function hasUnsavedAnnotationChanges(state: AnnotationSelectionState) {
+  if (!state.panelOpen) return false;
+  if (state.selection)
+    return Boolean(state.body.trim() || state.color !== defaultAnnotationColor);
+  return Boolean(
+    state.editing &&
+      (state.body !== (state.editing.body ?? "") ||
+        state.color !== state.editing.color),
+  );
+}
 
 export function annotationSelectionReducer(
   state: AnnotationSelectionState,
@@ -56,7 +69,7 @@ export function annotationSelectionReducer(
         ...state,
         selection: action.selection,
         editing: undefined,
-        color: "yellow",
+        color: defaultAnnotationColor,
         body: "",
         position: action.position,
         colorPickerOpen: false,
@@ -108,7 +121,7 @@ export function annotationSelectionReducer(
         editing: undefined,
         position: undefined,
         colorPickerOpen: false,
-        color: "yellow",
+        color: defaultAnnotationColor,
         body: "",
         panelOpen: false,
       };

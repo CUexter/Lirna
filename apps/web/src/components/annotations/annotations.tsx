@@ -19,7 +19,10 @@ import {
 import { useAnnotationActions } from "./use-annotation-actions";
 import { useAnnotationDomEffects } from "./use-dom-effects";
 import { useAnnotationQueries } from "./use-queries";
-import { useAnnotationSelection } from "./use-selection";
+import {
+  hasUnsavedAnnotationChanges,
+  useAnnotationSelection,
+} from "./use-selection";
 
 export function ReadingAnnotations({
   articleRef,
@@ -30,6 +33,7 @@ export function ReadingAnnotations({
   onEditAnnotationHandled,
   onLinkBibliography,
   onOpenCitationResolution,
+  onUnsavedChange,
 }: {
   articleRef: RefObject<HTMLElement | null>;
   navigateToAnnotation: (annotation: Annotation) => void;
@@ -52,6 +56,7 @@ export function ReadingAnnotations({
     resolutionId: string,
     bibliographyComponentIdentity: string,
   ) => void;
+  onUnsavedChange?: (unsaved: boolean) => void;
 }) {
   const {
     citationResolutions = [],
@@ -106,6 +111,12 @@ export function ReadingAnnotations({
     Boolean(annotation.body?.trim()),
   );
   const selectedForBibliography = state.selection;
+  const hasUnsavedChanges = hasUnsavedAnnotationChanges(state);
+
+  useEffect(() => {
+    onUnsavedChange?.(hasUnsavedChanges);
+    return () => onUnsavedChange?.(false);
+  }, [hasUnsavedChanges, onUnsavedChange]);
 
   useEffect(() => {
     if (!editAnnotationId) return;

@@ -132,3 +132,22 @@ test("routes authored scenes through their declared owners and retains both lane
     )
     .toBeLessThan(100);
 });
+
+test("reports an unavailable authored destination without changing the scene", async ({
+  page,
+}) => {
+  await page.goto(`/sources/${sourceId}/${stateId}`);
+  await expect(page.getByText("Visible typed paragraph.")).toBeVisible();
+
+  await page.getByRole("link", { name: "Missing note" }).click();
+
+  await expect(page.getByRole("alert")).toContainText(
+    "Reading destination unavailable",
+  );
+  await expect(page.getByText("Visible typed paragraph.")).toBeVisible();
+  await expect(page).not.toHaveURL(/component=/);
+
+  await page.getByRole("link", { name: "Same scene target" }).click();
+  await expect(page.getByRole("heading", { name: "Notation" })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
