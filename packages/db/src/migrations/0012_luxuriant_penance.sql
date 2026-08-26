@@ -10,6 +10,7 @@ CREATE TABLE "sep_admission_outcomes" (
 --> statement-breakpoint
 ALTER TABLE "sep_source_state_metadata" ADD COLUMN "diagnostics" jsonb;--> statement-breakpoint
 ALTER TABLE "sep_source_state_metadata" ADD COLUMN "capture_diagnostics" jsonb;--> statement-breakpoint
+ALTER TABLE "sep_source_state_metadata" DISABLE TRIGGER "sep_source_state_metadata_immutable";--> statement-breakpoint
 UPDATE "sep_source_state_metadata" AS metadata
 SET
 	"diagnostics" = COALESCE(preview."diagnostics", '[]'::jsonb),
@@ -28,6 +29,7 @@ SET
 	);--> statement-breakpoint
 ALTER TABLE "sep_source_state_metadata" ALTER COLUMN "diagnostics" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "sep_source_state_metadata" ALTER COLUMN "capture_diagnostics" SET NOT NULL;--> statement-breakpoint
+ALTER TABLE "sep_source_state_metadata" ENABLE TRIGGER "sep_source_state_metadata_immutable";--> statement-breakpoint
 INSERT INTO "sep_admission_outcomes" (
 	"admission_preview_id",
 	"observation_key",

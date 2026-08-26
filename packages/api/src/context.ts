@@ -1,7 +1,5 @@
-import { auth } from "@lirna/auth";
 import { db } from "@lirna/db";
 import { env } from "@lirna/env/server";
-import type { Context as HonoContext } from "hono";
 import type { AnnotationOperations } from "./annotations/annotation-contract";
 import { DrizzleAnnotationStore } from "./annotations/annotation-store";
 import { createOpenRouterCitationInference } from "./citation-resolutions/citation-inference";
@@ -25,7 +23,6 @@ import type { SepAdmittedStateOperations } from "./sep-admission/sep-admitted-st
 import { sepAdmittedStateOperations } from "./sep-admission/sep-admitted-state-reader";
 
 export type CreateContextOptions = {
-  context: HonoContext;
   sepAdmissions?: SepAdmissionOperations;
   admittedSourceStates?: SepAdmittedStateOperations;
   annotations?: AnnotationOperations;
@@ -56,8 +53,7 @@ const researchAssistant = env.OPENROUTER_API_KEY
     })
   : undefined;
 
-export async function createContext({
-  context,
+export function createContext({
   sepAdmissions,
   admittedSourceStates,
   annotations,
@@ -69,12 +65,7 @@ export async function createContext({
   observation,
   debugErrors,
 }: CreateContextOptions) {
-  const session = await auth.api.getSession({
-    headers: context.req.raw.headers,
-  });
   return {
-    auth: null,
-    session,
     sepAdmissions: sepAdmissions ?? sepAdmissionOperations,
     admittedSourceStates: admittedSourceStates ?? sepAdmittedStateOperations,
     annotations: annotations ?? annotationStore,

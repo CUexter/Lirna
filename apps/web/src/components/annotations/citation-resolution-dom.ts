@@ -1,5 +1,10 @@
 import { type RefObject, useEffect } from "react";
-import { type CitationResolution, rangeFromAnchor } from "./dom-utils";
+import {
+  type CitationResolution,
+  customHighlightConstructor,
+  customHighlightRegistry,
+  rangeFromAnchor,
+} from "./dom-utils";
 
 const highlightName = "lirna-citation-resolution";
 export const citationResolutionStyleContent = `::highlight(${highlightName}) { color: var(--primary); text-decoration: underline; }`;
@@ -47,23 +52,4 @@ function paintCitationResolutions(
   return () => {
     registry.delete(highlightName);
   };
-}
-
-function customHighlightRegistry() {
-  return (
-    CSS as typeof CSS & {
-      highlights?: {
-        set(name: string, value: unknown): void;
-        delete(name: string): void;
-      };
-    }
-  ).highlights;
-}
-
-function customHighlightConstructor() {
-  return (
-    window as typeof window & {
-      Highlight?: new (...ranges: Range[]) => unknown;
-    }
-  ).Highlight;
 }

@@ -1,3 +1,7 @@
+import {
+  readingBlockInlineGroups,
+  readingInlineText,
+} from "@lirna/api/client/reading-content";
 import { Button } from "@lirna/ui/components/button";
 import { LocateFixedIcon } from "lucide-react";
 import { createContext, type ReactNode, useContext } from "react";
@@ -78,7 +82,7 @@ export function createReferenceIndex(component: Component): ReferenceIndex {
         context: section.blocks.map(blockText).filter(Boolean).join(" "),
         label,
         targetId: section.id,
-        title: inlineText(section.title),
+        title: readingInlineText(section.title),
       };
       byLabel.set(label, reference);
       byTargetId.set(section.id, reference);
@@ -230,28 +234,14 @@ function numberedBlockLabel(block: Block) {
     if (first?.kind === "text" && /^\(\d+\)$/.test(first.text))
       return first.text;
   }
-  for (const values of blockInlineGroups(block)) {
-    const match = /^\((\d+)\)(?:\s|$)/.exec(inlineText(values));
+  for (const values of readingBlockInlineGroups(block)) {
+    const match = /^\((\d+)\)(?:\s|$)/.exec(readingInlineText(values));
     if (match) return `(${match[1]})`;
   }
 }
 
-function blockInlineGroups(block: Block): Inline[][] {
-  if (block.kind === "paragraph" || block.kind === "quotation")
-    return [block.children];
-  if (block.kind === "statement") return [block.label, block.body];
-  if (block.kind === "list") return block.items;
-  if (block.kind === "table")
-    return [
-      block.caption,
-      ...block.head.flatMap((row) => row.cells),
-      ...block.body.flatMap((row) => row.cells),
-    ];
-  return [];
-}
-
 function blockAnchorIds(block: Block) {
-  return blockInlineGroups(block).flatMap(inlineAnchorIds);
+  return readingBlockInlineGroups(block).flatMap(inlineAnchorIds);
 }
 
 function inlineAnchorIds(values: Inline[]): string[] {
@@ -271,20 +261,10 @@ function blockText(block: Block) {
   if (block.kind === "paragraph") {
     const [first, ...rest] = block.children;
     if (first?.kind === "text" && /^\(\d+\)$/.test(first.text))
-      return `${first.text} ${inlineText(rest)}`.trim();
+      return `${first.text} ${readingInlineText(rest)}`.trim();
   }
-  return blockInlineGroups(block).map(inlineText).filter(Boolean).join(" ");
-}
-
-function inlineText(values: Inline[]): string {
-  return values
-    .map((value) => {
-      if (value.kind === "text") return value.text;
-      if (value.kind === "tex") return value.source;
-      if (value.kind === "citation") return value.label;
-      return inlineText(value.children);
-    })
-    .join("")
-    .replace(/\s+/g, " ")
-    .trim();
+  return readingBlockInlineGroups(block)
+    .map(readingInlineText)
+    .filter(Boolean)
+    .join(" ");
 }

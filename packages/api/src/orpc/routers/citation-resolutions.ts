@@ -3,7 +3,7 @@ import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import { InvalidCitationResolutionError } from "../../citation-resolutions/citation-resolution-store";
 import type { Context } from "../../context";
-import { authenticatedProcedure } from "../init";
+import { publicProcedure, unauthenticatedActorId } from "../init";
 import {
   citationMentionEvidenceSchema,
   citationResolutionDecisionSchema,
@@ -42,7 +42,7 @@ const inferenceOutput = z.discriminatedUnion("status", [
 ]);
 
 export const citationResolutionsRouter = {
-  list: authenticatedProcedure
+  list: publicProcedure
     .input(sourceStateInput)
     .output(z.array(citationResolutionSchema))
     .meta(
@@ -57,7 +57,7 @@ export const citationResolutionsRouter = {
       context.citationResolutions.list(input.sourceId, input.stateId),
     ),
 
-  evidence: authenticatedProcedure
+  evidence: publicProcedure
     .input(sourceStateInput)
     .output(z.array(citationMentionEvidenceSchema))
     .errors({ NOT_FOUND: {} })
@@ -70,15 +70,10 @@ export const citationResolutionsRouter = {
       ),
     )
     .handler(async ({ context, input }) => {
-      const evidence = await context.citationResolutions.evidence(
-        input.sourceId,
-        input.stateId,
-      );
-      if (!evidence) throw notFound(context);
-      return evidence;
+      return requireEvidence(context, input);
     }),
 
-  history: authenticatedProcedure
+  history: publicProcedure
     .input(sourceStateInput)
     .output(z.array(citationResolutionDecisionSchema))
     .meta(
@@ -93,7 +88,7 @@ export const citationResolutionsRouter = {
       context.citationResolutions.history(input.sourceId, input.stateId),
     ),
 
-  create: authenticatedProcedure
+  create: publicProcedure
     .input(selectionInput)
     .output(citationResolutionSchema)
     .errors({ NOT_FOUND: {}, BAD_REQUEST: {} })
@@ -109,14 +104,14 @@ export const citationResolutionsRouter = {
       handleInvalid(context, async () => {
         const created = await context.citationResolutions.create({
           ...input,
-          actorId: context.session?.user.id ?? unreachableActor(),
+          actorId: unauthenticatedActorId,
         });
         if (!created) throw notFound(context);
         return created;
       }),
     ),
 
-  clear: authenticatedProcedure
+  clear: publicProcedure
     .input(mentionInput)
     .output(z.boolean())
     .errors({ NOT_FOUND: {}, BAD_REQUEST: {} })
@@ -132,14 +127,14 @@ export const citationResolutionsRouter = {
       handleInvalid(context, async () => {
         const cleared = await context.citationResolutions.clear({
           ...input,
-          actorId: context.session?.user.id ?? unreachableActor(),
+          actorId: unauthenticatedActorId,
         });
         if (cleared === undefined) throw notFound(context);
         return cleared;
       }),
     ),
 
-  infer: authenticatedProcedure
+  infer: publicProcedure
     .input(mentionInput.extend({ consent: z.literal(true) }))
     .output(inferenceOutput)
     .errors({ NOT_FOUND: {}, FORBIDDEN: {} })
@@ -152,11 +147,7 @@ export const citationResolutionsRouter = {
       ),
     )
     .handler(async ({ context, input }) => {
-      const evidence = await context.citationResolutions.evidence(
-        input.sourceId,
-        input.stateId,
-      );
-      if (!evidence) throw notFound(context);
+      const evidence = await requireEvidence(context, input);
       const mention = evidence.find(
         (item) =>
           item.componentIdentity === input.componentIdentity &&
@@ -215,6 +206,18 @@ export const citationResolutionsRouter = {
     }),
 };
 
+async function requireEvidence(
+  context: Context,
+  input: { sourceId: string; stateId: string },
+) {
+  const evidence = await context.citationResolutions.evidence(
+    input.sourceId,
+    input.stateId,
+  );
+  if (!evidence) throw notFound(context);
+  return evidence;
+}
+
 function operation(
   method: "GET" | "POST",
   path: `/${string}`,
@@ -264,10 +267,4 @@ function unavailable(reasoning: string) {
     confidence: null,
     reasoning,
   };
-}
-
-function unreachableActor(): never {
-  throw new ORPCError("UNAUTHORIZED", {
-    message: "Authentication is required",
-  });
 }

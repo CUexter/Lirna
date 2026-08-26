@@ -9,19 +9,7 @@ const stateId = "20000000-0000-4000-8000-000000000000";
 const derivativeId = "30000000-0000-4000-8000-000000000000";
 
 describe("Source Derivative routes", () => {
-  test("requires authentication for candidate generation", async () => {
-    await expect(
-      call(
-        sourceDerivativesRouter.generate,
-        { sourceId, stateId },
-        {
-          context: context(operations(), false),
-        },
-      ),
-    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
-  });
-
-  test("returns inactive invalid candidates for review", async () => {
+  test("returns inactive invalid candidates without authentication", async () => {
     const candidate = invalidCandidate();
     await expect(
       call(
@@ -40,12 +28,12 @@ describe("Source Derivative routes", () => {
     ).resolves.toEqual(candidate);
   });
 
-  test("attributes explicit activation to the authenticated actor", async () => {
+  test("attributes explicit activation to the unauthenticated actor", async () => {
     let received: unknown;
     const activation = {
       id: "40000000-0000-4000-8000-000000000000",
       derivativeId,
-      actorId: "user-1",
+      actorId: "unauthenticated",
       reason: "Reviewed candidate",
       activatedAt: "2026-08-25T00:00:00.000Z",
       consequences: comparison(),
@@ -78,7 +66,7 @@ describe("Source Derivative routes", () => {
       derivativeId,
       reason: "Reviewed candidate",
       expectedConsequences: comparison(),
-      actorId: "user-1",
+      actorId: "unauthenticated",
     });
   });
 
@@ -119,15 +107,8 @@ function operations(
   };
 }
 
-function context(
-  derivativeUpdates: DerivativeUpdateOperations,
-  authenticated = true,
-): Context {
+function context(derivativeUpdates: DerivativeUpdateOperations): Context {
   return {
-    auth: null,
-    session: authenticated
-      ? ({ user: { id: "user-1" } } as NonNullable<Context["session"]>)
-      : null,
     derivativeUpdates,
     annotations: {} as Context["annotations"],
     citationResolutions: {} as Context["citationResolutions"],

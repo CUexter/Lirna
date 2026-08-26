@@ -37,6 +37,25 @@ interface SepHistoricalCaptureReport {
   retryUsed: null;
 }
 
+export interface SepAdmittedResource {
+  identity: string;
+  role: CapturedSepResource["role"];
+  requestedUrl: string;
+  finalUrl: string;
+  status: number;
+  mediaType: string;
+  charset?: string;
+  contentEncoding?: string;
+  selectedHeaders: Record<string, string>;
+  requestCount: number;
+  downloadedBytes: number;
+  retrievedAt: string;
+  byteLength: number;
+  sha256: string;
+  discoveryEdge: string;
+  depth: number;
+}
+
 export interface SepAdmittedState {
   id: string;
   sourceId: string;
@@ -54,24 +73,7 @@ export interface SepAdmittedState {
   };
   diagnostics: SepDiagnostic[];
   capture: SepCaptureReport | SepHistoricalCaptureReport;
-  resources: Array<{
-    identity: string;
-    role: CapturedSepResource["role"];
-    requestedUrl: string;
-    finalUrl: string;
-    status: number;
-    mediaType: string;
-    charset?: string;
-    contentEncoding?: string;
-    selectedHeaders: Record<string, string>;
-    requestCount: number;
-    downloadedBytes: number;
-    retrievedAt: string;
-    byteLength: number;
-    sha256: string;
-    discoveryEdge: string;
-    depth: number;
-  }>;
+  resources: SepAdmittedResource[];
   components: Array<{
     identity: string;
     role: CapturedSepResource["role"];

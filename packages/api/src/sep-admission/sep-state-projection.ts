@@ -1,18 +1,15 @@
-import type { db } from "@lirna/db";
-import { sepSourceStateMetadata } from "@lirna/db/schema/sep-admission";
 import {
   sourceStateDerivativeActivations,
   sourceStateDerivatives,
-  sourceStateResources,
-  sourceStates,
 } from "@lirna/db/schema/sources";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 import {
   derivativeComparisonSchema,
   derivativeGenerationSchema,
   persistedDerivativeValidationSchema,
 } from "../derivative-updates/derivative-update-schemas";
+import { readingComponentSummary } from "./reading-content";
 import {
   parseStringList,
   sepObservationKeySchema,
@@ -27,35 +24,24 @@ import {
   readSepReadingDerivative,
   sepReadingDerivativeKind,
 } from "./sep-reading-contract";
-
-type DatabaseExecutor =
-  | Parameters<Parameters<(typeof db)["transaction"]>[0]>[0]
-  | typeof db;
+import {
+  type DatabaseExecutor,
+  readSepStateEvidence,
+} from "./sep-state-evidence";
 
 export async function readSepAdmittedState(
   database: DatabaseExecutor,
   sourceId: string,
   stateId: string,
 ): Promise<SepAdmittedState | undefined> {
-  const [row] = await database
-    .select({ state: sourceStates, metadata: sepSourceStateMetadata })
-    .from(sourceStates)
-    .innerJoin(
-      sepSourceStateMetadata,
-      eq(sepSourceStateMetadata.sourceStateId, sourceStates.id),
-    )
-    .where(
-      and(eq(sourceStates.id, stateId), eq(sourceStates.sourceId, sourceId)),
-    );
-  if (!row) return undefined;
-  const resources = await database
-    .select()
-    .from(sourceStateResources)
-    .where(eq(sourceStateResources.sourceStateId, stateId))
-    .orderBy(
-      asc(sourceStateResources.role),
-      asc(sourceStateResources.identity),
-    );
+  const evidence = await readSepStateEvidence(
+    database,
+    sourceId,
+    stateId,
+    "role",
+  );
+  if (!evidence) return undefined;
+  const { metadata, resources, state } = evidence;
   const derivativeRows = await database
     .select({
       derivative: sourceStateDerivatives,
@@ -146,22 +132,22 @@ export async function readSepAdmittedState(
     ? readSepReadingDerivative(activeReadingRow.derivative.payload)
     : undefined;
   return {
-    id: row.state.id,
-    sourceId: row.state.sourceId,
-    sequence: row.state.sequence,
-    observationKey: sepObservationKeySchema.parse(row.state.observationKey),
-    canonicalUrl: row.state.canonicalUrl ?? "",
-    title: row.metadata.title,
-    authors: parseStringList(row.metadata.authors),
-    publisher: row.metadata.publisher,
-    publicationHistory: parseStringList(row.metadata.publicationHistory),
-    admittedAt: row.state.admittedAt.toISOString(),
+    id: state.id,
+    sourceId: state.sourceId,
+    sequence: state.sequence,
+    observationKey: sepObservationKeySchema.parse(state.observationKey),
+    canonicalUrl: state.canonicalUrl ?? "",
+    title: metadata.title,
+    authors: parseStringList(metadata.authors),
+    publisher: metadata.publisher,
+    publicationHistory: parseStringList(metadata.publicationHistory),
+    admittedAt: state.admittedAt.toISOString(),
     policy: {
-      rightsBasis: row.state.rightsBasis,
-      sensitivityLevel: row.state.sensitivityLevel,
+      rightsBasis: state.rightsBasis,
+      sensitivityLevel: state.sensitivityLevel,
     },
-    diagnostics: diagnosticSchema.array().parse(row.metadata.diagnostics),
-    capture: admittedCaptureReportSchema.parse(row.metadata.captureDiagnostics),
+    diagnostics: diagnosticSchema.array().parse(metadata.diagnostics),
+    capture: admittedCaptureReportSchema.parse(metadata.captureDiagnostics),
     resources: resources.map((resource) => ({
       identity: resource.identity,
       role: sepResourceRoleSchema.parse(resource.role),
@@ -182,20 +168,7 @@ export async function readSepAdmittedState(
       discoveryEdge: resource.discoveryEdge,
       depth: resource.depth,
     })),
-    components:
-      reading?.components.map((component) => ({
-        identity: component.identity,
-        role: component.role,
-        label: component.label,
-        order: component.order,
-        ...(component.parentIdentity
-          ? { parentIdentity: component.parentIdentity }
-          : {}),
-        requestedUrl: component.requestedUrl,
-        finalUrl: component.finalUrl,
-        retrievedAt: component.retrievedAt,
-        sha256: component.sha256,
-      })) ?? [],
+    components: reading?.components.map(readingComponentSummary) ?? [],
     derivatives,
   };
 }

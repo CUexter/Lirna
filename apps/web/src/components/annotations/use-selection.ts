@@ -230,23 +230,21 @@ export function useAnnotationSelection({
         return;
       }
       const offset = textOffsetAtPoint(article, event.clientX, event.clientY);
-      const citationResolution = citationResolutions.find((candidate) => {
-        if (candidate.componentIdentity !== componentIdentity) return false;
-        const range = rangeFromAnchor(article, plainText, candidate);
-        if (!range) return false;
-        const rendered = rangeOffsets(article, range);
-        return rendered.startOffset <= offset && offset < rendered.endOffset;
+      const citationResolution = anchoredRecordAt(citationResolutions, {
+        article,
+        componentIdentity,
+        offset,
+        plainText,
       });
       if (citationResolution && onOpenCitationResolution) {
         onOpenCitationResolution(citationResolution);
         return;
       }
-      const annotation = annotations.find((candidate) => {
-        if (candidate.componentIdentity !== componentIdentity) return false;
-        const range = rangeFromAnchor(article, plainText, candidate);
-        if (!range) return false;
-        const rendered = rangeOffsets(article, range);
-        return rendered.startOffset <= offset && offset < rendered.endOffset;
+      const annotation = anchoredRecordAt(annotations, {
+        article,
+        componentIdentity,
+        offset,
+        plainText,
       });
       if (!annotation) return;
       dispatch({ type: "EDIT", annotation });
@@ -263,6 +261,29 @@ export function useAnnotationSelection({
   ]);
 
   return { state, dispatch, menuRef, panelRef };
+}
+
+function anchoredRecordAt<T extends Annotation | CitationResolution>(
+  records: T[],
+  {
+    article,
+    componentIdentity,
+    offset,
+    plainText,
+  }: {
+    article: HTMLElement;
+    componentIdentity: string;
+    offset: number;
+    plainText: string;
+  },
+) {
+  return records.find((candidate) => {
+    if (candidate.componentIdentity !== componentIdentity) return false;
+    const range = rangeFromAnchor(article, plainText, candidate);
+    if (!range) return false;
+    const rendered = rangeOffsets(article, range);
+    return rendered.startOffset <= offset && offset < rendered.endOffset;
+  });
 }
 
 function readStoredState(storageKey: string): AnnotationSelectionState {

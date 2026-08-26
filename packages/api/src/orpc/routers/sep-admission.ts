@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { sepObservationKeySchema } from "../../sep-admission/sep-admission-builders";
 import { SepAdmissionError } from "../../sep-admission/sep-capture";
-import { authenticatedProcedure, publicProcedure } from "../init";
+import { publicProcedure } from "../init";
 import {
   sepAdmissionPreviewSchema,
   sepAdmissionResultSchema,
@@ -100,7 +100,7 @@ export const sepAdmissionsRouter = {
       }
     }),
 
-  checkUpdate: authenticatedProcedure
+  checkUpdate: publicProcedure
     .input(z.object({ sourceId: z.string().uuid() }))
     .output(sepAdmissionPreviewSchema)
     .errors(notFoundError)
@@ -188,7 +188,7 @@ export const sepAdmissionsRouter = {
       }
     }),
 
-  admit: authenticatedProcedure
+  admit: publicProcedure
     .input(
       previewIdInput.extend({
         observationKeys: z.array(sepObservationKeySchema).min(1).max(2),

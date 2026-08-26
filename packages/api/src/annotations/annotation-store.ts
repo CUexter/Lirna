@@ -1,16 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { db } from "@lirna/db";
 import { annotations } from "@lirna/db/schema/annotations";
-import {
-  sourceStateDerivativeActivations,
-  sourceStateDerivatives,
-  sourceStates,
-} from "@lirna/db/schema/sources";
-import { and, asc, desc, eq } from "drizzle-orm";
-import {
-  readSepReadingDerivative,
-  sepReadingDerivativeKind,
-} from "../sep-admission/sep-reading-contract";
+import { sourceStates } from "@lirna/db/schema/sources";
+import { and, asc, eq } from "drizzle-orm";
+import { activeReadingDerivative } from "../sep-admission/active-reading-derivative";
 import {
   InvalidAnnotationAnchorError,
   validateAnnotationAnchor,
@@ -141,37 +134,12 @@ export class DrizzleAnnotationStore implements AnnotationOperations {
     stateId: string,
     componentIdentity: string,
   ) {
-    const [row] = await this.database
-      .select({ payload: sourceStateDerivatives.payload })
-      .from(sourceStateDerivativeActivations)
-      .innerJoin(
-        sourceStateDerivatives,
-        eq(
-          sourceStateDerivatives.id,
-          sourceStateDerivativeActivations.derivativeId,
-        ),
-      )
-      .innerJoin(
-        sourceStates,
-        eq(sourceStates.id, sourceStateDerivativeActivations.sourceStateId),
-      )
-      .where(
-        and(
-          eq(sourceStates.id, stateId),
-          eq(sourceStates.sourceId, sourceId),
-          eq(sourceStateDerivativeActivations.kind, sepReadingDerivativeKind),
-          eq(sourceStateDerivatives.sourceStateId, stateId),
-          eq(sourceStateDerivatives.kind, sepReadingDerivativeKind),
-          eq(sourceStateDerivatives.valid, true),
-        ),
-      )
-      .orderBy(
-        desc(sourceStateDerivativeActivations.activatedAt),
-        desc(sourceStateDerivativeActivations.id),
-      )
-      .limit(1);
-    const reading = row ? readSepReadingDerivative(row.payload) : undefined;
-    return reading?.components.find(
+    const active = await activeReadingDerivative(
+      this.database,
+      stateId,
+      sourceId,
+    );
+    return active?.reading.components.find(
       (component) => component.identity === componentIdentity,
     );
   }

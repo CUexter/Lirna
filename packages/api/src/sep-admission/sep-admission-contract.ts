@@ -4,7 +4,10 @@ import type {
 } from "@lirna/db/schema/sep-admission";
 
 import type { SepAdmissionObservation } from "./sep-admission-observation";
-import type { SepAdmittedState } from "./sep-admitted-state";
+import type {
+  SepAdmittedResource,
+  SepAdmittedState,
+} from "./sep-admitted-state";
 import type {
   CapturedSepResource,
   SepCaptureReport,
@@ -35,25 +38,11 @@ export interface SepAdmissionPreview {
   expiresAt: string;
   diagnostics: SepDiagnostic[];
   capture: SepCaptureReport & { retryAvailable: boolean };
-  resources: Array<{
-    observationKey: SepObservationKey;
-    identity: string;
-    role: CapturedSepResource["role"];
-    requestedUrl: string;
-    finalUrl: string;
-    status: number;
-    mediaType: string;
-    charset?: string;
-    contentEncoding?: string;
-    selectedHeaders: Record<string, string>;
-    requestCount: number;
-    downloadedBytes: number;
-    retrievedAt: string;
-    byteLength: number;
-    sha256: string;
-    discoveryEdge: string;
-    depth: number;
-  }>;
+  resources: Array<
+    SepAdmittedResource & {
+      observationKey: SepObservationKey;
+    }
+  >;
   observations: Array<{
     key: SepObservationKey;
     label: "Active" | "Recommended archive";

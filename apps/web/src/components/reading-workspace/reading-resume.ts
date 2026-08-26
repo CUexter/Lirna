@@ -1,7 +1,5 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { type RefObject, useEffect, useRef, useState } from "react";
+import { type RefObject, useEffect, useState } from "react";
 
-import { inquiry } from "@/clients/inquiry";
 import type { SepReadingData } from "./content";
 import {
   historyPositionKey,
@@ -9,12 +7,10 @@ import {
   historySemanticLocation,
   writeReadingHistoryPosition,
 } from "./reading-history-position";
-import type {
-  ReadingNavigation,
-  ReadingNavigationHandle,
-} from "./reading-navigation";
+import type { ReadingNavigation } from "./reading-navigation";
 import { isReadingTargetReady } from "./reading-navigation-hooks";
 import { resolveReadingResumeLocation } from "./reading-resume-location";
+import { useReadingResumeSession } from "./reading-resume-session";
 import { createReadingSemanticLocation } from "./reading-semantic-location";
 
 export function useReadingResume({
@@ -30,47 +26,17 @@ export function useReadingResume({
   sourceId: string;
   stateId: string;
 }) {
-  const { mutate } = useMutation(inquiry.sources.resume.save.mutationOptions());
-  const resumeQuery = inquiry.sources.resume.get.queryOptions({
-    input: component
-      ? {
-          sourceId,
-          stateId,
-          componentIdentity: component.identity,
-        }
-      : {},
-  });
-  const { data: resume, isPending } = useQuery({
-    ...resumeQuery,
-    enabled: Boolean(component),
+  const { isPending, mutate, resume, resumeIntent } = useReadingResumeSession({
+    active: true,
+    component,
+    navigation,
+    owner: "article",
+    sourceId,
+    stateId,
   });
   const [status, setStatus] = useState<"saving" | "saved" | "error">("saving");
-  const resumeIntent = useRef<{
-    handle: ReadingNavigationHandle;
-    key: string;
-  } | null>(null);
   const componentIdentity = component?.identity;
   const componentLabel = component?.label;
-  const resumeKey = componentIdentity
-    ? historyPositionKey(sourceId, stateId, componentIdentity)
-    : undefined;
-
-  useEffect(() => {
-    if (!(componentIdentity && resumeKey)) return;
-    const intent = {
-      handle: navigation.request({
-        cause: "resume",
-        owner: "article",
-        target: `resume-position:${componentIdentity}`,
-      }),
-      key: resumeKey,
-    };
-    resumeIntent.current = intent;
-    return () => {
-      intent.handle.cancel();
-      if (resumeIntent.current === intent) resumeIntent.current = null;
-    };
-  }, [componentIdentity, navigation, resumeKey]);
 
   useEffect(() => {
     if (!(componentIdentity && componentLabel)) return;
@@ -141,7 +107,7 @@ export function useReadingResume({
     const resumeLocation =
       historySemanticLocation(sourceId, stateId, componentIdentity) ??
       persisted?.semanticLocation;
-    const intent = resumeIntent.current;
+    const intent = resumeIntent;
     if (
       !intent ||
       intent.key !== historyPositionKey(sourceId, stateId, componentIdentity)
@@ -198,6 +164,7 @@ export function useReadingResume({
     isPending,
     mutate,
     resume,
+    resumeIntent,
     sourceId,
     stateId,
   ]);

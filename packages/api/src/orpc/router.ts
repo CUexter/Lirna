@@ -25,36 +25,6 @@ export const orpcRouter = {
     )
     .output(z.literal("OK"))
     .handler(() => "OK"),
-  privateData: publicProcedure
-    .meta(
-      openapi({
-        method: "GET",
-        path: "/private",
-        operationId: "privateData",
-        summary: "Private data (authentication required)",
-        tags: ["Health"],
-      }),
-    )
-    .output(
-      z.object({
-        message: z.literal("This is private"),
-        user: z
-          .object({
-            id: z.string(),
-            name: z.string(),
-            email: z.string(),
-            emailVerified: z.boolean(),
-            image: z.string().nullable().optional(),
-            createdAt: z.date(),
-            updatedAt: z.date(),
-          })
-          .nullable(),
-      }),
-    )
-    .handler(({ context }) => ({
-      message: "This is private",
-      user: context.session?.user ?? null,
-    })),
 };
 
 export type OrpcRouter = typeof orpcRouter;

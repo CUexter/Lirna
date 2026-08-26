@@ -1,16 +1,9 @@
 import type { db } from "@lirna/db";
 import { citationResolutions } from "@lirna/db/schema/citation-resolutions";
-import {
-  sourceStateDerivativeActivations,
-  sourceStateDerivatives,
-  sourceStates,
-} from "@lirna/db/schema/sources";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { sourceStates } from "@lirna/db/schema/sources";
+import { and, asc, eq } from "drizzle-orm";
 
-import {
-  readSepReadingDerivative,
-  sepReadingDerivativeKind,
-} from "../sep-admission/sep-reading-contract";
+import { activeReadingDerivative } from "../sep-admission/active-reading-derivative";
 import { deriveCitationMentionEvidence } from "./citation-mention-evidence";
 import type {
   CitationResolutionDecision,
@@ -190,48 +183,7 @@ export class DrizzleCitationResolutionStore
   }
 
   private async activeReading(sourceId: string, stateId: string) {
-    const [row] = await this.database
-      .select({
-        derivativeId: sourceStateDerivatives.id,
-        payload: sourceStateDerivatives.payload,
-        rightsBasis: sourceStates.rightsBasis,
-        sensitivityLevel: sourceStates.sensitivityLevel,
-      })
-      .from(sourceStateDerivativeActivations)
-      .innerJoin(
-        sourceStateDerivatives,
-        eq(
-          sourceStateDerivatives.id,
-          sourceStateDerivativeActivations.derivativeId,
-        ),
-      )
-      .innerJoin(
-        sourceStates,
-        eq(sourceStates.id, sourceStateDerivativeActivations.sourceStateId),
-      )
-      .where(
-        and(
-          eq(sourceStates.id, stateId),
-          eq(sourceStates.sourceId, sourceId),
-          eq(sourceStateDerivativeActivations.kind, sepReadingDerivativeKind),
-          eq(sourceStateDerivatives.sourceStateId, stateId),
-          eq(sourceStateDerivatives.kind, sepReadingDerivativeKind),
-          eq(sourceStateDerivatives.valid, true),
-        ),
-      )
-      .orderBy(
-        desc(sourceStateDerivativeActivations.activatedAt),
-        desc(sourceStateDerivativeActivations.id),
-      )
-      .limit(1);
-    return row
-      ? {
-          derivativeId: row.derivativeId,
-          reading: readSepReadingDerivative(row.payload),
-          rightsBasis: row.rightsBasis,
-          sensitivityLevel: row.sensitivityLevel,
-        }
-      : undefined;
+    return activeReadingDerivative(this.database, stateId, sourceId);
   }
 }
 

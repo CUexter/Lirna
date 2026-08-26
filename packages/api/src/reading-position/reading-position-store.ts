@@ -1,17 +1,9 @@
 import type { db } from "@lirna/db";
 import { readingPositions } from "@lirna/db/schema/reading-positions";
-import {
-  sourceStateDerivativeActivations,
-  sourceStateDerivatives,
-  sourceStates,
-  sources,
-} from "@lirna/db/schema/sources";
+import { sourceStates, sources } from "@lirna/db/schema/sources";
 import { and, desc, eq } from "drizzle-orm";
 
-import {
-  readSepReadingDerivative,
-  sepReadingDerivativeKind,
-} from "../sep-admission/sep-reading-contract";
+import { activeReadingDerivative } from "../sep-admission/active-reading-derivative";
 import type {
   ReadingPositionOperations,
   ReadingPositionRecord,
@@ -55,41 +47,14 @@ export class DrizzleReadingPositionStore implements ReadingPositionOperations {
   async save(
     input: SaveReadingPositionInput,
   ): Promise<ReadingPositionRecord | undefined> {
-    const [existing] = await this.database
-      .select({ payload: sourceStateDerivatives.payload, source: sources })
-      .from(sourceStateDerivativeActivations)
-      .innerJoin(
-        sourceStateDerivatives,
-        eq(
-          sourceStateDerivatives.id,
-          sourceStateDerivativeActivations.derivativeId,
-        ),
-      )
-      .innerJoin(
-        sourceStates,
-        eq(sourceStates.id, sourceStateDerivativeActivations.sourceStateId),
-      )
-      .innerJoin(sources, eq(sources.id, sourceStates.sourceId))
-      .where(
-        and(
-          eq(sourceStates.id, input.stateId),
-          eq(sources.id, input.sourceId),
-          eq(sourceStateDerivativeActivations.kind, sepReadingDerivativeKind),
-          eq(sourceStateDerivatives.sourceStateId, input.stateId),
-          eq(sourceStateDerivatives.kind, sepReadingDerivativeKind),
-          eq(sourceStateDerivatives.valid, true),
-        ),
-      )
-      .orderBy(
-        desc(sourceStateDerivativeActivations.activatedAt),
-        desc(sourceStateDerivativeActivations.id),
-      )
-      .limit(1);
-    const component = existing
-      ? readSepReadingDerivative(existing.payload).components.find(
-          (item) => item.identity === input.componentIdentity,
-        )
-      : undefined;
+    const existing = await activeReadingDerivative(
+      this.database,
+      input.stateId,
+      input.sourceId,
+    );
+    const component = existing?.reading.components.find(
+      (item) => item.identity === input.componentIdentity,
+    );
     if (!existing || !component) return undefined;
     if (input.semanticLocation && !semanticMatches(input, component.role))
       return undefined;

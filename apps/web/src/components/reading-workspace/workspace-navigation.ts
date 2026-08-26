@@ -65,55 +65,68 @@ export function navigateAuthoredLink({
   return navigateScene({ destination, from, fragment: target.fragment });
 }
 
-export function navigateToCitation({
-  component,
+export function citationDestination(
+  topology: ReadingSceneTopology,
+  currentComponentIdentity: string,
+  targetComponentIdentity: string,
+  mentionId: string,
+) {
+  const destination = resolveReadingSceneDestination(topology, {
+    sceneIdentity: targetComponentIdentity,
+    target: `citation:${mentionId}`,
+  });
+  if (destination.movement === "none") return { kind: "none" as const };
+  if (destination.owner === "publisher-note") {
+    return {
+      kind: "publisher-note" as const,
+      componentIdentity: destination.scene.componentIdentity,
+      owner: destination.owner,
+    };
+  }
+  return targetComponentIdentity === currentComponentIdentity
+    ? { kind: "current" as const, owner: destination.owner }
+    : { kind: "component" as const, owner: destination.owner };
+}
+
+export function completeCitationNavigation({
+  destination,
   handleComponentChange,
-  highlightPendingFragment,
   mentionId,
+  onPending,
   onViewChange,
-  pendingFragment,
   preserveScroll,
   returnToCitation,
   setNotesIdentity,
   setReadingToolTab,
   targetComponentIdentity,
-  topology,
   view,
 }: {
-  component: SepReadingData["components"][number];
+  destination: ReturnType<typeof citationDestination>;
   handleComponentChange: (identity: string) => void;
-  highlightPendingFragment: React.RefObject<boolean>;
   mentionId: string;
+  onPending: (owner: "article" | "publisher-note") => void;
   onViewChange: (view: "article" | "bibliography", citation?: string) => void;
-  pendingFragment: React.RefObject<string | undefined>;
   preserveScroll: () => void;
   returnToCitation: (mentionId: string) => void;
   setNotesIdentity: (identity: string | undefined) => void;
   setReadingToolTab: (tab: ReadingToolTab) => void;
   targetComponentIdentity: string;
-  topology: ReadingSceneTopology;
   view: "article" | "bibliography";
 }) {
-  const destination = resolveReadingSceneDestination(topology, {
-    sceneIdentity: targetComponentIdentity,
-    target: `citation:${mentionId}`,
-  });
-  if (destination.movement === "none") return;
-  if (destination.owner === "publisher-note") {
-    pendingFragment.current = mentionId;
-    highlightPendingFragment.current = true;
+  if (destination.kind === "none") return;
+  if (destination.kind === "publisher-note") {
+    onPending(destination.owner);
     preserveScroll();
     setReadingToolTab("supplementary");
     if (view === "bibliography") onViewChange("article");
-    setNotesIdentity(destination.scene.componentIdentity);
+    setNotesIdentity(destination.componentIdentity);
     return;
   }
-  if (targetComponentIdentity === component.identity) {
+  if (destination.kind === "current") {
     returnToCitation(mentionId);
     onViewChange("article");
     return;
   }
-  pendingFragment.current = mentionId;
-  highlightPendingFragment.current = true;
+  onPending(destination.owner);
   handleComponentChange(targetComponentIdentity);
 }

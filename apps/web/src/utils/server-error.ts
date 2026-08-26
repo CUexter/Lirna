@@ -1,3 +1,5 @@
+import { validationIssuePath } from "@lirna/api/client/error-issues";
+
 export type FormattedServerError = {
   message: string;
   technicalDetails?: string;
@@ -11,14 +13,7 @@ function formatIssues(
   const messages: string[] = [];
   for (const issue of issues) {
     if (typeof issue.message !== "string") continue;
-    const path = Array.isArray(issue.path)
-      ? issue.path
-          .filter(
-            (part): part is string | number =>
-              typeof part === "string" || typeof part === "number",
-          )
-          .join(".")
-      : "";
+    const path = validationIssuePath(issue.path);
     messages.push(path ? `${path}: ${issue.message}` : issue.message);
   }
   return messages;

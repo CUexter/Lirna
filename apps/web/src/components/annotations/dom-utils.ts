@@ -233,7 +233,7 @@ export function paintDraftSelection(
   };
 }
 
-function customHighlightRegistry() {
+export function customHighlightRegistry() {
   return (
     CSS as typeof CSS & {
       highlights?: {
@@ -244,7 +244,7 @@ function customHighlightRegistry() {
   ).highlights;
 }
 
-function customHighlightConstructor() {
+export function customHighlightConstructor() {
   return (
     window as typeof window & {
       Highlight?: new (...ranges: Range[]) => unknown;

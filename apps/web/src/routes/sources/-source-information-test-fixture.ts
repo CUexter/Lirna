@@ -1,3 +1,4 @@
+import { readingComponentSummary } from "@lirna/api/client/reading-content";
 import type { InquiryOutputs } from "@/clients/inquiry";
 
 import { readingFixture, sourceId, stateId } from "./-reading-test-fixtures";
@@ -105,19 +106,7 @@ export function readingWorkspaceFixture(
           depth: 0,
         },
       ],
-      components: reading.components.map((component) => ({
-        identity: component.identity,
-        role: component.role,
-        label: component.label,
-        order: component.order,
-        ...(component.parentIdentity
-          ? { parentIdentity: component.parentIdentity }
-          : {}),
-        requestedUrl: component.requestedUrl,
-        finalUrl: component.finalUrl,
-        retrievedAt: component.retrievedAt,
-        sha256: component.sha256,
-      })),
+      components: reading.components.map(readingComponentSummary),
       derivatives: [
         {
           id: "40000000-0000-4000-8000-000000000000",

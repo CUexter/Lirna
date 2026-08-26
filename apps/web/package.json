@@ -25,7 +25,6 @@
     "@tanstack/react-form": "^1.33.2",
     "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-router": "^1.170.18",
-    "better-auth": "catalog:",
     "dotenv": "catalog:",
     "katex": "^0.18.4",
     "lucide-react": "catalog:",

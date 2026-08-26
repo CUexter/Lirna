@@ -1,3 +1,7 @@
+import {
+  readingInlineText,
+  visitReadingInlineGroups,
+} from "@lirna/api/client/reading-content";
 import type { CitationResolution } from "../annotations/dom-utils";
 import type { SepReadingData } from "./content";
 
@@ -29,7 +33,7 @@ export function indexBibliographyMentions(
     mentions.set(entryKey, [...(mentions.get(entryKey) ?? []), mention]);
 
   for (const component of components) {
-    const visit = (values: Inlines, context = inlineText(values)) => {
+    const visit = (values: Inlines, context = readingInlineText(values)) => {
       for (const value of values) {
         if (value.kind === "citation" && value.entryId) {
           const bibliographyComponent = bibliographyComponentFor(
@@ -50,8 +54,11 @@ export function indexBibliographyMentions(
         }
       }
     };
-    visitBlocks(component.introductoryBlocks, visit);
-    visitSections(component.sections, visit);
+    visitReadingInlineGroups(
+      component.introductoryBlocks,
+      component.sections,
+      visit,
+    );
   }
 
   for (const resolution of citationResolutions) {
@@ -86,59 +93,6 @@ function bibliographyComponentFor(
   }
   return components.find(
     (component) => component.identity === mainComponentIdentity,
-  );
-}
-
-function visitSections(
-  sections: Component["sections"],
-  visit: (values: Inlines) => void,
-) {
-  for (const section of sections) {
-    visit(section.title);
-    visitBlocks(section.blocks, visit);
-    visitSections(section.children, visit);
-  }
-}
-
-function visitBlocks(
-  blocks: Component["introductoryBlocks"],
-  visit: (values: Inlines) => void,
-) {
-  for (const block of blocks) {
-    if (block.kind === "statement") {
-      visit(block.label);
-      visit(block.body);
-    } else if (block.kind === "list") {
-      for (const item of block.items) visit(item);
-    } else if (block.kind === "table") {
-      visit(block.caption);
-      visitTableRows([...block.head, ...block.body], visit);
-    } else if (block.kind === "figure") {
-      visit(block.figure.caption);
-      visit(block.figure.description.text);
-    } else if (block.kind !== "diagnostic") {
-      visit(block.children);
-    }
-  }
-}
-
-function visitTableRows(
-  rows: Array<{ cells: Inlines[] }>,
-  visit: (values: Inlines) => void,
-) {
-  for (const row of rows) for (const cell of row.cells) visit(cell);
-}
-
-function inlineText(values: Inlines): string {
-  return normalizeContext(
-    values
-      .map((value) => {
-        if (value.kind === "text") return value.text;
-        if (value.kind === "tex") return value.source;
-        if (value.kind === "citation") return value.label;
-        return inlineText(value.children);
-      })
-      .join(""),
   );
 }
 

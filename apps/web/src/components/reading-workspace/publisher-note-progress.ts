@@ -1,7 +1,5 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { type RefObject, useEffect, useRef } from "react";
+import { type RefObject, useEffect } from "react";
 
-import { inquiry } from "@/clients/inquiry";
 import type { SepReadingData } from "./content";
 import {
   historyPositionKey,
@@ -9,12 +7,10 @@ import {
   historySemanticLocation,
   writeReadingHistoryPosition,
 } from "./reading-history-position";
-import type {
-  ReadingNavigation,
-  ReadingNavigationHandle,
-} from "./reading-navigation";
+import type { ReadingNavigation } from "./reading-navigation";
 import { isReadingTargetReady } from "./reading-navigation-hooks";
 import { resolveReadingResumeLocation } from "./reading-resume-location";
+import { useReadingResumeSession } from "./reading-resume-session";
 import { createReadingSemanticLocation } from "./reading-semantic-location";
 
 export function usePublisherNoteProgress({
@@ -32,42 +28,14 @@ export function usePublisherNoteProgress({
   sourceId: string;
   stateId: string;
 }) {
-  const { mutate } = useMutation(inquiry.sources.resume.save.mutationOptions());
-  const resumeQuery = inquiry.sources.resume.get.queryOptions({
-    input: component
-      ? { sourceId, stateId, componentIdentity: component.identity }
-      : {},
+  const { isPending, mutate, resume, resumeIntent } = useReadingResumeSession({
+    active,
+    component,
+    navigation,
+    owner: "publisher-note",
+    sourceId,
+    stateId,
   });
-  const { data: resume, isPending } = useQuery({
-    ...resumeQuery,
-    enabled: active && Boolean(component),
-  });
-  const resumeIntent = useRef<{
-    handle: ReadingNavigationHandle;
-    key: string;
-  } | null>(null);
-  const componentIdentity = active ? component?.identity : undefined;
-  const resumeKey = componentIdentity
-    ? historyPositionKey(sourceId, stateId, componentIdentity)
-    : undefined;
-
-  useEffect(() => {
-    if (!(componentIdentity && resumeKey)) return;
-    const intent = {
-      handle: navigation.request({
-        cause: "resume",
-        owner: "publisher-note",
-        target: `resume-position:${componentIdentity}`,
-      }),
-      key: resumeKey,
-    };
-    resumeIntent.current = intent;
-    return () => {
-      intent.handle.cancel();
-      if (resumeIntent.current === intent) resumeIntent.current = null;
-    };
-  }, [componentIdentity, navigation, resumeKey]);
-
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!active || !component || !container) return;
@@ -84,7 +52,7 @@ export function usePublisherNoteProgress({
         : undefined;
     let readinessFrame = 0;
     if (!isPending || historyScroll !== undefined) {
-      const intent = resumeIntent.current;
+      const intent = resumeIntent;
       const commitWhenReady = () => {
         if (
           !intent ||
@@ -178,6 +146,7 @@ export function usePublisherNoteProgress({
     isPending,
     mutate,
     resume,
+    resumeIntent,
     scrollContainerRef,
     sourceId,
     stateId,

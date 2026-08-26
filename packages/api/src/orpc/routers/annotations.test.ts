@@ -191,8 +191,6 @@ describe("annotations oRPC router", () => {
 
 function context(annotations: AnnotationOperations): Context {
   return {
-    auth: null,
-    session: {} as NonNullable<Context["session"]>,
     annotations,
     citationResolutions: {} as Context["citationResolutions"],
     readingPositions: {} as Context["readingPositions"],

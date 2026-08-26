@@ -1,7 +1,7 @@
 import { openapi } from "@orpc/openapi";
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
-import { authenticatedProcedure } from "../init";
+import { publicProcedure, unauthenticatedActorId } from "../init";
 import {
   derivativeComparisonSchema,
   readingDerivativeCandidateSchema,
@@ -14,7 +14,7 @@ const input = z.object({
 const notFoundError = { NOT_FOUND: {} };
 
 export const sourceDerivativesRouter = {
-  generate: authenticatedProcedure
+  generate: publicProcedure
     .input(input)
     .output(readingDerivativeCandidateSchema)
     .errors(notFoundError)
@@ -34,7 +34,7 @@ export const sourceDerivativesRouter = {
         throw unavailable("SEP Source-state evidence is unavailable");
       return candidate;
     }),
-  previewActivation: authenticatedProcedure
+  previewActivation: publicProcedure
     .input(input.extend({ derivativeId: z.string().uuid() }))
     .output(derivativeComparisonSchema)
     .errors(notFoundError)
@@ -54,7 +54,7 @@ export const sourceDerivativesRouter = {
         throw unavailable("Valid Reading Derivative is unavailable");
       return comparison;
     }),
-  activate: authenticatedProcedure
+  activate: publicProcedure
     .input(
       input.extend({
         derivativeId: z.string().uuid(),
@@ -83,11 +83,9 @@ export const sourceDerivativesRouter = {
       }),
     )
     .handler(async ({ context, input: activationInput }) => {
-      const actorId = context.session?.user.id;
-      if (!actorId) throw new ORPCError("UNAUTHORIZED");
       const activation = await context.derivativeUpdates.activate({
         ...activationInput,
-        actorId,
+        actorId: unauthenticatedActorId,
       });
       if (!activation)
         throw unavailable("Valid Reading Derivative is unavailable");

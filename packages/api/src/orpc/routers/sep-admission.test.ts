@@ -69,7 +69,7 @@ describe("SEP admission oRPC router", () => {
     expect(submitCalls).toBe(0);
   });
 
-  test("checkUpdate requires authentication and forwards the Source identity", async () => {
+  test("checkUpdate forwards the Source identity without authentication", async () => {
     let checkedSourceId: string | undefined;
     const operations = operationsStub({
       async checkUpdate(candidateSourceId) {
@@ -80,9 +80,6 @@ describe("SEP admission oRPC router", () => {
       },
     });
 
-    await expect(
-      invoke("checkUpdate", { sourceId }, operations, null),
-    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
     await expect(
       invoke("checkUpdate", { sourceId }, operations),
     ).resolves.toMatchObject({ update: { sourceId } });
@@ -219,17 +216,6 @@ describe("SEP admission oRPC router", () => {
     });
   });
 
-  test("admit requires authentication", async () => {
-    await expect(
-      invoke(
-        "admit",
-        { previewId, observationKeys: ["submitted"] },
-        operationsStub(),
-        null,
-      ),
-    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
-  });
-
   test("admit returns not found when the preview is missing", async () => {
     await expect(
       invoke(
@@ -243,7 +229,7 @@ describe("SEP admission oRPC router", () => {
     });
   });
 
-  test("admit forwards observation keys to the operation", async () => {
+  test("admit forwards observation keys without authentication", async () => {
     let admittedArgs: [string, string[]] | undefined;
     const operations = operationsStub({
       async admit(id, observationKeys) {
@@ -294,22 +280,14 @@ function invoke(
   procedure: keyof typeof sepAdmissionsRouter,
   input: unknown,
   operations: SepAdmissionOperations,
-  session: Context["session"] = {
-    user: { id: "user-1" },
-  } as NonNullable<Context["session"]>,
 ): Promise<unknown> {
   return call(sepAdmissionsRouter[procedure] as never, input, {
-    context: context(operations, session),
+    context: context(operations),
   });
 }
 
-function context(
-  sepAdmissions: SepAdmissionOperations,
-  session: Context["session"],
-): Context {
+function context(sepAdmissions: SepAdmissionOperations): Context {
   return {
-    auth: null,
-    session,
     annotations: {} as Context["annotations"],
     citationResolutions: {} as Context["citationResolutions"],
     readingPositions: {} as Context["readingPositions"],

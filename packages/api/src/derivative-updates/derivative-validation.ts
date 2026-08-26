@@ -57,17 +57,7 @@ function check(subject: (typeof subjects)[number], messages: string[]) {
 }
 
 function internalTargetErrors(reading: SepReadingContract) {
-  const targets = new Map(
-    reading.components.map(({ identity }) => [identity, new Set<string>()]),
-  );
-  visitReading(reading, (inline, componentIdentity) => {
-    if (inline.kind === "anchor")
-      targets.get(componentIdentity)?.add(inline.id);
-  });
-  for (const component of reading.components)
-    visitSections(component.sections, ({ id }) =>
-      targets.get(component.identity)?.add(id),
-    );
+  const targets = componentTargets(reading);
   const errors: string[] = [];
   visitReading(reading, (inline, componentIdentity) => {
     if (

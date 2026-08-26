@@ -1,13 +1,5 @@
-// biome-ignore lint/style/noExcessiveLinesPerFile: Router tests share compact context and operation stubs.
 import { describe, expect, test } from "bun:test";
 import { call } from "@orpc/server";
-import type { CitationResolutionOperations } from "../../citation-resolutions/citation-resolution-contract";
-import type { Context } from "../../context";
-import type {
-  ReadingPositionOperations,
-  ReadingPositionRecord,
-} from "../../reading-position/reading-position-contract";
-import type { SepAdmittedStateOperations } from "../../sep-admission/sep-admitted-state";
 import {
   admittedSourceStatesStub,
   readingFixture,
@@ -16,6 +8,13 @@ import {
   stateId,
 } from "./sep-admission.test-fixtures";
 import { sourcesRouter } from "./sources";
+import {
+  citationOperationsStub,
+  citationResolution,
+  invoke,
+  readingPositionsStub,
+  sourcesContext,
+} from "./sources.test-support";
 
 describe("Sources oRPC router", () => {
   test("list forwards admitted Sources without authentication", async () => {
@@ -134,7 +133,10 @@ describe("Sources oRPC router", () => {
         { sourceId, stateId },
         {
           context: {
-            ...context(admittedSourceStatesStub(), readingPositionsStub()),
+            ...sourcesContext(
+              admittedSourceStatesStub(),
+              readingPositionsStub(),
+            ),
             admittedSourceStates: admittedSourceStatesStub({
               async getWorkspace() {
                 return { reading: readingFixture(), state: stateFixture() };
@@ -167,7 +169,7 @@ describe("Sources oRPC router", () => {
                 ];
               },
             }),
-            citationResolutions: citationResolutionsStub({
+            citationResolutions: citationOperationsStub({
               async list() {
                 return [resolution];
               },
@@ -207,7 +209,10 @@ describe("Sources oRPC router", () => {
         { sourceId, stateId },
         {
           context: {
-            ...context(admittedSourceStatesStub(), readingPositionsStub()),
+            ...sourcesContext(
+              admittedSourceStatesStub(),
+              readingPositionsStub(),
+            ),
             admittedSourceStates: admittedSourceStatesStub({
               async getReading() {
                 return readingFixture();
@@ -216,7 +221,7 @@ describe("Sources oRPC router", () => {
                 return [legacySource];
               },
             }),
-            citationResolutions: citationResolutionsStub(),
+            citationResolutions: citationOperationsStub(),
           },
         },
       ),
@@ -227,200 +232,4 @@ describe("Sources oRPC router", () => {
       }),
     );
   });
-
-  test("resume returns the latest persisted reading position", async () => {
-    const position = readingPosition();
-    await expect(
-      call(
-        sourcesRouter.resume.get,
-        {},
-        {
-          context: context(
-            admittedSourceStatesStub(),
-            readingPositionsStub({
-              async get() {
-                return position;
-              },
-            }),
-          ),
-        },
-      ),
-    ).resolves.toEqual(position);
-  });
-
-  test("resume scopes a persisted position to one Source component", async () => {
-    let getInput: Parameters<ReadingPositionOperations["get"]>[0];
-    const position = readingPosition();
-    await expect(
-      call(
-        sourcesRouter.resume.get,
-        { sourceId, stateId, componentIdentity: "article" },
-        {
-          context: context(
-            admittedSourceStatesStub(),
-            readingPositionsStub({
-              async get(input) {
-                getInput = input;
-                return position;
-              },
-            }),
-          ),
-        },
-      ),
-    ).resolves.toEqual(position);
-    expect(getInput).toEqual({
-      sourceId,
-      stateId,
-      componentIdentity: "article",
-    });
-  });
-
-  test("resume rejects a partial component scope", async () => {
-    await expect(
-      call(
-        sourcesRouter.resume.get,
-        { sourceId },
-        {
-          context: context(admittedSourceStatesStub(), readingPositionsStub()),
-        },
-      ),
-    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-  });
-
-  test("resume saves a validated reading position", async () => {
-    let savedInput: Parameters<ReadingPositionOperations["save"]>[0];
-    const position = readingPosition();
-    await expect(
-      call(
-        sourcesRouter.resume.save,
-        {
-          sourceId,
-          stateId,
-          componentIdentity: "article",
-          componentLabel: "Article",
-          scrollTop: 240,
-        },
-        {
-          context: context(
-            admittedSourceStatesStub(),
-            readingPositionsStub({
-              async save(input) {
-                savedInput = input;
-                return position;
-              },
-            }),
-          ),
-        },
-      ),
-    ).resolves.toEqual(position);
-    expect(savedInput).toMatchObject({ sourceId, stateId, scrollTop: 240 });
-  });
 });
-
-function invoke(
-  procedure: keyof typeof sourcesRouter,
-  input: unknown,
-  admittedSourceStates: SepAdmittedStateOperations = admittedSourceStatesStub(),
-  session: Context["session"] = {} as NonNullable<Context["session"]>,
-): Promise<unknown> {
-  return call(sourcesRouter[procedure] as never, input, {
-    context: {
-      auth: null,
-      session,
-      annotations: {} as Context["annotations"],
-      readingPositions: {} as Context["readingPositions"],
-      sepAdmissions: {} as Context["sepAdmissions"],
-      admittedSourceStates,
-    },
-  });
-}
-
-function context(
-  admittedSourceStates: SepAdmittedStateOperations,
-  readingPositions: ReadingPositionOperations,
-): Context {
-  return {
-    auth: null,
-    session: { user: { id: "user-1" } } as NonNullable<Context["session"]>,
-    annotations: {} as Context["annotations"],
-    citationResolutions: {} as Context["citationResolutions"],
-    readingPositions,
-    sepAdmissions: {} as Context["sepAdmissions"],
-    admittedSourceStates,
-  };
-}
-
-function readingPositionsStub(
-  overrides: Partial<ReadingPositionOperations> = {},
-): ReadingPositionOperations {
-  return {
-    async get() {
-      return undefined;
-    },
-    async save() {
-      return undefined;
-    },
-    ...overrides,
-  };
-}
-
-function readingPosition(): ReadingPositionRecord {
-  return {
-    sourceId,
-    stateId,
-    sourceTitle: "Synthetic Reading Source",
-    componentIdentity: "article",
-    componentLabel: "Article",
-    scrollTop: 240,
-    savedAt: "2026-08-18T12:01:00.000Z",
-  };
-}
-
-function citationResolutionsStub(
-  overrides: Partial<CitationResolutionOperations> = {},
-): CitationResolutionOperations {
-  return {
-    async list() {
-      return [];
-    },
-    async history() {
-      return [];
-    },
-    async evidence() {
-      return [];
-    },
-    async create() {
-      return undefined;
-    },
-    async clear() {
-      return false;
-    },
-    ...overrides,
-  };
-}
-
-function citationResolution() {
-  return {
-    id: "40000000-0000-4000-8000-000000000000",
-    sourceId,
-    sourceStateId: stateId,
-    derivativeId: "50000000-0000-4000-8000-000000000000",
-    componentIdentity: "active:/",
-    mentionId: "citation-one",
-    bibliographyComponentIdentity: "active:/",
-    bibliographyEntryId: "entry-one",
-    publisherAnchor: null,
-    offsetBasis: "normalized-derivative-text-v1" as const,
-    normalizedStartOffset: 0,
-    normalizedEndOffset: 4,
-    exactText: "Test",
-    prefix: "",
-    suffix: "",
-    actorId: "user-1",
-    method: "manual" as const,
-    confidence: null,
-    reasoning: null,
-    createdAt: "2026-08-18T12:01:00.000Z",
-    updatedAt: "2026-08-18T12:01:00.000Z",
-  };
-}

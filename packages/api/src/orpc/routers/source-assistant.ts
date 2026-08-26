@@ -1,0 +1,45 @@
+import { openapi } from "@orpc/openapi";
+import { ORPCError } from "@orpc/server";
+import { z } from "zod";
+import { publicProcedure } from "../init";
+import { notFoundError, sourceStateInput } from "./source-router-contracts";
+import { notFound, requireReading } from "./source-router-support";
+
+export const sourceAssistantRouter = {
+  ask: publicProcedure
+    .input(
+      sourceStateInput.extend({
+        componentIdentity: z.string().trim().min(1).max(2_000),
+        question: z.string().trim().min(1).max(4_000),
+      }),
+    )
+    .output(z.object({ answer: z.string().min(1) }))
+    .errors(notFoundError)
+    .meta(
+      openapi({
+        method: "POST",
+        path: "/sources/assistant",
+        operationId: "sources.assistant.ask",
+        summary: "Ask a question about an admitted Source state",
+        tags: ["Sources"],
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      const reading = await requireReading(context, input);
+      const component = reading.components.find(
+        ({ identity }) => identity === input.componentIdentity,
+      );
+      if (!component) throw notFound("SEP Reading component is unavailable");
+      if (!context.researchAssistant) {
+        throw new ORPCError("INTERNAL_SERVER_ERROR", {
+          message: "Research assistant is not configured",
+        });
+      }
+      return context.researchAssistant.answer({
+        question: input.question,
+        sourceTitle: reading.source.title,
+        componentLabel: component.label,
+        sourceText: component.plainText,
+      });
+    }),
+};

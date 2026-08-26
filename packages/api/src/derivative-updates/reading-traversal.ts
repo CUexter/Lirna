@@ -1,3 +1,4 @@
+import { readingBlockInlineGroups } from "../sep-admission/reading-content";
 import type {
   ReadingBlock,
   ReadingInline,
@@ -34,23 +35,8 @@ function visitBlocks(
   visit: (inline: ReadingInline, componentIdentity: string) => void,
 ) {
   for (const block of blocks)
-    for (const inlines of blockInlineGroups(block))
+    for (const inlines of readingBlockInlineGroups(block))
       visitInlines(inlines, componentIdentity, visit);
-}
-
-function blockInlineGroups(block: ReadingBlock): ReadingInline[][] {
-  if (block.kind === "paragraph" || block.kind === "quotation")
-    return [block.children];
-  if (block.kind === "statement") return [block.label, block.body];
-  if (block.kind === "list") return block.items;
-  if (block.kind === "table")
-    return [
-      block.caption,
-      ...[...block.head, ...block.body].flatMap(({ cells }) => cells),
-    ];
-  if (block.kind === "figure")
-    return [block.figure.caption, block.figure.description.text];
-  return [];
 }
 
 function visitInlines(

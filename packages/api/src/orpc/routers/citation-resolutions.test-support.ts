@@ -92,7 +92,7 @@ export function mentionEvidence(
   };
 }
 
-export function operationsStub(
+export function citationOperationsStub(
   overrides: Partial<CitationResolutionOperations> = {},
 ): CitationResolutionOperations {
   return {
@@ -118,17 +118,11 @@ export function operationsStub(
 export function context(
   citationResolutions: CitationResolutionOperations,
   options: {
-    authenticated?: boolean;
     citationInference?: CitationInferenceOperations;
     fail?: (error: unknown) => void;
   } = {},
 ): Context {
   return {
-    auth: null,
-    session:
-      options.authenticated === false
-        ? null
-        : ({ user: { id: "user-1" } } as NonNullable<Context["session"]>),
     citationResolutions,
     ...(options.citationInference
       ? { citationInference: options.citationInference }

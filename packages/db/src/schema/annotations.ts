@@ -3,13 +3,12 @@ import {
   check,
   foreignKey,
   index,
-  integer,
   pgTable,
   text,
-  timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
 
+import { authoredTextColumns } from "./authored-text-columns";
 import { sourceStates, sources } from "./sources";
 
 export const annotations = pgTable(
@@ -22,21 +21,9 @@ export const annotations = pgTable(
     sourceStateId: uuid("source_state_id").notNull(),
     componentIdentity: text("component_identity").notNull(),
     kind: text("kind").notNull(),
-    publisherAnchor: text("publisher_anchor"),
-    offsetBasis: text("offset_basis").notNull(),
-    normalizedStartOffset: integer("start_offset").notNull(),
-    normalizedEndOffset: integer("end_offset").notNull(),
-    exactText: text("exact_text").notNull(),
-    prefix: text("prefix").notNull(),
-    suffix: text("suffix").notNull(),
+    ...authoredTextColumns(),
     color: text("color").notNull(),
     body: text("body"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
   },
   (table) => [
     foreignKey({

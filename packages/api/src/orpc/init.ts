@@ -32,18 +32,7 @@ const observeUnexpectedErrors = base.middleware(
 );
 
 export const publicProcedure = base.use(observeUnexpectedErrors);
-
-export const authenticatedProcedure = publicProcedure.use(
-  base.middleware(async ({ context, next }) => {
-    if (!context.session?.user.id) {
-      throw new ORPCError("UNAUTHORIZED", {
-        message: "Authentication is required",
-        data: { requestId: context.observation?.requestId ?? "unknown" },
-      });
-    }
-    return next({ context });
-  }),
-);
+export const unauthenticatedActorId = "unauthenticated";
 
 function unexpectedError(
   error: Error,

@@ -45,8 +45,6 @@ test("asks about trusted content from the admitted Source state", async () => {
 
 function context(researchAssistant: ResearchAssistantOperations): Context {
   return {
-    auth: null,
-    session: {} as NonNullable<Context["session"]>,
     annotations: {} as AnnotationOperations,
     sepAdmissions: {} as SepAdmissionOperations,
     admittedSourceStates: admittedSourceStatesStub({

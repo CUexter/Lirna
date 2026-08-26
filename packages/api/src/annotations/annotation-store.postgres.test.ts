@@ -38,9 +38,6 @@ describePostgres("Annotation PostgreSQL store", () => {
     database = testDatabase.database;
     cleanupDatabase = testDatabase.cleanup;
     process.env.DATABASE_URL = testDatabase.databaseUrl;
-    process.env.BETTER_AUTH_SECRET =
-      "integration-only-secret-at-least-32-chars";
-    process.env.BETTER_AUTH_URL = "http://localhost:3000";
     process.env.CORS_ORIGIN = "http://localhost:5173";
     process.env.NODE_ENV = "test";
 

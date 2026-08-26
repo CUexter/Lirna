@@ -1,18 +1,9 @@
-import {
-  type Dispatch,
-  type RefObject,
-  type SetStateAction,
-  useEffect,
-} from "react";
+import type { Dispatch, SetStateAction } from "react";
 
-import { scrollToPendingFragment } from "./authored-navigation";
 import type { SepReadingData } from "./content";
 import type { ReadingToolTab } from "./reading-tools-panel";
 import type { ReadingReference } from "./references";
-import {
-  navigateAuthoredLink,
-  navigateToCitation,
-} from "./workspace-navigation";
+import { navigateAuthoredLink } from "./workspace-navigation";
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
 type ReadingView = "article" | "bibliography";
@@ -115,16 +106,6 @@ export function createReadingToolTabChangeHandler({
     });
 }
 
-export function createReturnToCitationHandler(
-  context: Omit<
-    Parameters<typeof navigateToCitation>[0],
-    "mentionId" | "targetComponentIdentity"
-  >,
-) {
-  return (mentionId: string, targetComponentIdentity: string) =>
-    navigateToCitation({ ...context, mentionId, targetComponentIdentity });
-}
-
 export function createClearEditingAnnotationHandler(
   setEditingAnnotationId: SetState<string | undefined>,
 ) {
@@ -137,41 +118,6 @@ export function createCurrentAuthoredLinkHandler(
 ) {
   return (href: string, label: string) =>
     openAuthoredLink(component, href, label);
-}
-
-export function usePendingFragmentScroll({
-  componentIdentity,
-  highlightPendingFragment,
-  initialFragment,
-  notesIdentity,
-  pendingFragment,
-  toolsScrollRef,
-}: {
-  componentIdentity?: string;
-  highlightPendingFragment: RefObject<boolean>;
-  initialFragment?: string;
-  notesIdentity?: string;
-  pendingFragment: RefObject<string | undefined>;
-  toolsScrollRef: RefObject<HTMLDivElement | null>;
-}) {
-  useEffect(() => {
-    if (initialFragment && !pendingFragment.current) {
-      pendingFragment.current = initialFragment;
-    }
-    if (!componentIdentity && !notesIdentity) return;
-    scrollToPendingFragment(pendingFragment, {
-      container: notesIdentity ? toolsScrollRef : undefined,
-      highlight: highlightPendingFragment.current,
-    });
-    highlightPendingFragment.current = false;
-  }, [
-    componentIdentity,
-    highlightPendingFragment,
-    initialFragment,
-    notesIdentity,
-    pendingFragment,
-    toolsScrollRef,
-  ]);
 }
 
 export function activeReadingToolTab(

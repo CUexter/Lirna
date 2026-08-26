@@ -3,14 +3,13 @@ import {
   check,
   foreignKey,
   index,
-  integer,
   pgTable,
   real,
   text,
-  timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
 
+import { authoredTextColumns } from "./authored-text-columns";
 import { sourceStateDerivatives, sourceStates } from "./sources";
 
 export const citationResolutions = pgTable(
@@ -23,24 +22,12 @@ export const citationResolutions = pgTable(
     mentionId: text("mention_id").notNull(),
     bibliographyComponentIdentity: text("bibliography_component_identity"),
     bibliographyEntryId: text("bibliography_entry_id"),
-    publisherAnchor: text("publisher_anchor"),
-    offsetBasis: text("offset_basis").notNull(),
-    normalizedStartOffset: integer("start_offset").notNull(),
-    normalizedEndOffset: integer("end_offset").notNull(),
-    exactText: text("exact_text").notNull(),
-    prefix: text("prefix").notNull(),
-    suffix: text("suffix").notNull(),
+    ...authoredTextColumns(),
     actorId: text("actor_id").notNull(),
     action: text("action").notNull(),
     method: text("method").notNull(),
     confidence: real("confidence"),
     reasoning: text("reasoning"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
   },
   (table) => [
     foreignKey({

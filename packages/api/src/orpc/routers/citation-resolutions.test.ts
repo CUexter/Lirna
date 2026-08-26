@@ -5,51 +5,30 @@ import type { CitationInferenceOperations } from "../../citation-resolutions/cit
 import { InvalidCitationResolutionError } from "../../citation-resolutions/citation-resolution-store";
 import { citationResolutionsRouter } from "./citation-resolutions";
 import {
+  citationOperationsStub,
   context,
   createInput,
   mentionEvidence,
   mentionInput,
-  operationsStub,
   record,
   sourceId,
   stateId,
 } from "./citation-resolutions.test-support";
 
 describe("Citation resolutions oRPC router", () => {
-  test("requires a real session for list, create, inference, and clear", async () => {
-    const unauthenticated = context(operationsStub(), { authenticated: false });
-    const calls = [
-      () =>
-        call(
-          citationResolutionsRouter.list,
-          { sourceId, stateId },
-          { context: unauthenticated },
-        ),
-      () =>
-        call(citationResolutionsRouter.create, createInput(), {
-          context: unauthenticated,
-        }),
-      () =>
-        call(
-          citationResolutionsRouter.infer,
-          { ...mentionInput(), consent: true },
-          { context: unauthenticated },
-        ),
-      () =>
-        call(citationResolutionsRouter.clear, mentionInput(), {
-          context: unauthenticated,
-        }),
-    ];
-    for (const request of calls) {
-      await expect(Promise.resolve().then(request)).rejects.toMatchObject({
-        code: "UNAUTHORIZED",
-      });
-    }
+  test("lists resolutions without authentication", async () => {
+    await expect(
+      call(
+        citationResolutionsRouter.list,
+        { sourceId, stateId },
+        { context: context(citationOperationsStub()) },
+      ),
+    ).resolves.toEqual([]);
   });
 
-  test("records manual selections and clears with the session actor", async () => {
+  test("records manual selections and clears as unauthenticated", async () => {
     const received: unknown[] = [];
-    const operations = operationsStub({
+    const operations = citationOperationsStub({
       async create(input) {
         received.push(input);
         return record(input);
@@ -77,10 +56,13 @@ describe("Citation resolutions oRPC router", () => {
 
     expect(received).toEqual([
       expect.objectContaining({
-        actorId: "user-1",
+        actorId: "unauthenticated",
         bibliographyEntryId: "entry-one",
       }),
-      expect.objectContaining({ actorId: "user-1", mentionId: "citation-one" }),
+      expect.objectContaining({
+        actorId: "unauthenticated",
+        mentionId: "citation-one",
+      }),
     ]);
     expect(created.method).toBe("manual");
     expect(cleared).toBeTrue();
@@ -88,7 +70,7 @@ describe("Citation resolutions oRPC router", () => {
 
   test("maps invalid candidates to a bounded bad request", async () => {
     const failures: unknown[] = [];
-    const operations = operationsStub({
+    const operations = citationOperationsStub({
       async create() {
         throw new InvalidCitationResolutionError();
       },
@@ -106,7 +88,7 @@ describe("Citation resolutions oRPC router", () => {
 
   test("exposes stable bounded evidence and append-only history", async () => {
     const item = record({ ...createInput(), actorId: "user-1" });
-    const operations = operationsStub({
+    const operations = citationOperationsStub({
       async list() {
         return [item];
       },
@@ -143,7 +125,7 @@ describe("Citation resolutions oRPC router", () => {
 
   test("requires execution-time consent and leaves disabled inference non-durable", async () => {
     let createCalls = 0;
-    const operations = operationsStub({
+    const operations = citationOperationsStub({
       async create() {
         createCalls += 1;
         return undefined;
@@ -187,7 +169,7 @@ describe("Citation resolutions oRPC router", () => {
         return result;
       },
     };
-    const operations = operationsStub({
+    const operations = citationOperationsStub({
       async evidence() {
         return [mentionEvidence()];
       },
@@ -239,7 +221,7 @@ describe("Citation resolutions oRPC router", () => {
 
   test("enforces Source policy before invoking inference", async () => {
     let called = false;
-    const operations = operationsStub({
+    const operations = citationOperationsStub({
       async evidence() {
         return [
           mentionEvidence({

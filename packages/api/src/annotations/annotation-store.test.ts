@@ -210,9 +210,11 @@ function storeWith({
           from: () => ({
             innerJoin: () => ({
               innerJoin: () => ({
-                where: () => ({
-                  orderBy: () => ({
-                    limit: () => Promise.resolve(derivativeRows),
+                innerJoin: () => ({
+                  where: () => ({
+                    orderBy: () => ({
+                      limit: () => Promise.resolve(derivativeRows),
+                    }),
                   }),
                 }),
               }),

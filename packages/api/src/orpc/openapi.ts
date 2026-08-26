@@ -16,25 +16,8 @@ const baseConfig: OpenAPIGeneratorGenerateOptions = {
       title: "Lirna API",
       version: "0.1.0",
       description:
-        "First-party personal research and learning API. The health check endpoint is public; all other operations require an authenticated session.",
+        "First-party personal research and learning API. All operations are available without authentication.",
     },
-    components: {
-      securitySchemes: {
-        sessionCookie: {
-          type: "apiKey",
-          in: "cookie",
-          name: "better-auth.session_token",
-          description: "Better Auth session cookie for HTTP environments.",
-        },
-        secureSessionCookie: {
-          type: "apiKey",
-          in: "cookie",
-          name: "__Secure-better-auth.session_token",
-          description: "Better Auth session cookie for HTTPS environments.",
-        },
-      },
-    },
-    security: [{ sessionCookie: [] }, { secureSessionCookie: [] }],
     tags: [
       {
         name: "Annotations",
@@ -47,7 +30,7 @@ const baseConfig: OpenAPIGeneratorGenerateOptions = {
       },
       {
         name: "Health",
-        description: "Service health and authentication-gated diagnostics.",
+        description: "Service health diagnostics.",
       },
     ],
   },
