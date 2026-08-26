@@ -81,8 +81,45 @@ export async function readOfflineWorkingSet(
   const stored = await storage.get(workingSetKey(sourceId, stateId));
   if (stored === undefined) return undefined;
   const record = persistedRecord(stored);
+  if (
+    record.manifest.sourceId !== sourceId ||
+    record.manifest.stateId !== stateId ||
+    !replicaMatchesTarget(record, sourceId, stateId)
+  ) {
+    throw new Error(
+      "Offline replica record does not match the requested Source state",
+    );
+  }
   await validateSnapshot(record);
   return record;
+}
+
+function replicaMatchesTarget(
+  record: OfflineWorkingSetRecord,
+  sourceId: string,
+  stateId: string,
+) {
+  const { workspace, annotations, positions } = record.replica;
+  return (
+    workspace.source.id === sourceId &&
+    workspace.state.id === stateId &&
+    workspace.state.sourceId === sourceId &&
+    workspace.reading.source.id === sourceId &&
+    workspace.reading.source.stateId === stateId &&
+    annotations.every(
+      (annotation) =>
+        annotation.sourceId === sourceId &&
+        annotation.sourceStateId === stateId,
+    ) &&
+    positions.every(
+      (position) =>
+        position.sourceId === sourceId &&
+        position.stateId === stateId &&
+        (!position.semanticLocation ||
+          (position.semanticLocation.source.sourceId === sourceId &&
+            position.semanticLocation.source.stateId === stateId)),
+    )
+  );
 }
 
 export async function markOfflineWorkingSetStale(

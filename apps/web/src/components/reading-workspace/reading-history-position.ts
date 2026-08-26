@@ -61,6 +61,53 @@ export function writeReadingHistoryPosition(
   );
 }
 
+export function removeReadingHistoryPosition(key: string) {
+  const state = historyState();
+  const locations = withoutKey(state[historyLocationsKey], key);
+  const legacyPositions = withoutKey(state[legacyHistoryPositionsKey], key);
+  const legacySemanticPositions = withoutKey(
+    state[legacyHistorySemanticPositionsKey],
+    key,
+  );
+  const legacyNavigation = withoutNavigationPosition(
+    state[legacyHistoryNavigationPositionsKey],
+    key,
+  );
+  if (
+    locations === state[historyLocationsKey] &&
+    legacyPositions === state[legacyHistoryPositionsKey] &&
+    legacySemanticPositions === state[legacyHistorySemanticPositionsKey] &&
+    legacyNavigation === state[legacyHistoryNavigationPositionsKey]
+  )
+    return;
+  window.history.replaceState(
+    {
+      ...state,
+      [historyLocationsKey]: locations,
+      [legacyHistoryPositionsKey]: legacyPositions,
+      [legacyHistorySemanticPositionsKey]: legacySemanticPositions,
+      [legacyHistoryNavigationPositionsKey]: legacyNavigation,
+    },
+    "",
+  );
+}
+
+function withoutKey(value: unknown, key: string) {
+  const positions = objectState(value);
+  if (!(key in positions)) return value;
+  const remaining = { ...positions };
+  delete remaining[key];
+  return remaining;
+}
+
+function withoutNavigationPosition(value: unknown, key: string) {
+  const navigation = objectState(value);
+  const positions = withoutKey(navigation.positions, key);
+  return positions === navigation.positions
+    ? value
+    : { ...navigation, positions };
+}
+
 function historyLocation(state: Record<string, unknown>, key: string) {
   const locations = state[historyLocationsKey];
   if (!locations || typeof locations !== "object") return undefined;
@@ -99,6 +146,8 @@ function historyState(): Record<string, unknown> {
     : {};
 }
 
-function objectState(value: unknown): object {
-  return value && typeof value === "object" ? value : {};
+function objectState(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
 }

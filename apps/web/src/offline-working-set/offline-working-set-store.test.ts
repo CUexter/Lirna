@@ -112,6 +112,24 @@ test("rejects unsupported persisted replica versions", async () => {
   ).rejects.toThrow("version is unsupported or corrupt");
 });
 
+test("rejects foreign replica content under a matching Source-state manifest", async () => {
+  const record: OfflineWorkingSetRecord = {
+    ...(await fixture()),
+    retainedAt: "2026-08-26T12:00:00.000Z",
+    availability: "ready",
+  };
+  record.replica.workspace.state.sourceId = "foreign-source";
+  record.manifest.payloadSha256 = await hash(JSON.stringify(record.replica));
+  const { sourceId, stateId } = record.manifest;
+  const records = new Map<string, OfflineWorkingSetRecord>([
+    [`${sourceId}:${stateId}`, record],
+  ]);
+
+  await expect(
+    readOfflineWorkingSet(sourceId, stateId, memoryStorage(records)),
+  ).rejects.toThrow("does not match the requested Source state");
+});
+
 function fakeIndexedDb(records: Map<IDBValidKey, unknown>) {
   const store = {
     get(key: IDBValidKey) {
