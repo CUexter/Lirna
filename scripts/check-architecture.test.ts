@@ -26,12 +26,6 @@ const workspaces = [
     },
   },
   {
-    name: "@lirna/auth",
-    root: "packages/auth",
-    dependencies: new Set(),
-    exports: { ".": { default: "./src/index.ts" } },
-  },
-  {
     name: "@lirna/env",
     root: "packages/env",
     dependencies: new Set(),
@@ -122,6 +116,13 @@ describe("architecture policy fixtures", () => {
           'import type { OrpcRouter } from "@lirna/api/orpc";',
         ),
       },
+      {
+        path: "apps/web/src/reading-content.ts",
+        ...parseSource(
+          "reading-content.ts",
+          'import { readingInlineText } from "@lirna/api/client/reading-content";',
+        ),
+      },
     ];
 
     expect(evaluatePolicy({ workspaces, files })).toEqual([
@@ -172,6 +173,13 @@ describe("architecture policy fixtures", () => {
         ...parseSource(
           "$sourceId.tsx",
           'createFileRoute("/sources/$sourceId")({}); element.scroll({ top: 10 }); element.scrollTop += 10; element.scrollTop++;',
+        ),
+      },
+      {
+        path: "apps/web/src/routes/sources/-reading-route-tools-tests.tsx",
+        ...parseSource(
+          "-reading-route-tools-tests.tsx",
+          "window.scrollTo(0, 10);",
         ),
       },
     ];

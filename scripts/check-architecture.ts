@@ -111,6 +111,15 @@ function isRouteSupportFile(path) {
   return basename(path).startsWith("-");
 }
 
+function isTestSource(path) {
+  return (
+    /\.(?:test|spec)\.[jt]sx?$/.test(path) ||
+    /(?:^|\/)-[^/]*-(?:tests|test-(?:fixture|fixtures|harness|scenarios|support))\.[jt]sx?$/.test(
+      path,
+    )
+  );
+}
+
 export function evaluatePolicy({ workspaces, files }) {
   const violations = [];
   for (const file of files) {
@@ -133,8 +142,7 @@ export function evaluatePolicy({ workspaces, files }) {
       if (!allowed) violations.push(`${file.path} uses native <${control}>; import an owned UI primitive instead`);
     }
     const readingAuthorityScope =
-      file.path.startsWith("apps/web/src/") &&
-      !/\.(?:test|spec)\.[jt]sx?$/.test(file.path);
+      file.path.startsWith("apps/web/src/") && !isTestSource(file.path);
     if (
       readingAuthorityScope &&
       file.path !==
@@ -152,7 +160,8 @@ export function evaluatePolicy({ workspaces, files }) {
       if (
         owner.name === "web" &&
         dependency.name === "@lirna/api" &&
-        specifier !== "@lirna/api/client"
+        specifier !== "@lirna/api/client" &&
+        !specifier.startsWith("@lirna/api/client/")
       )
         violations.push(
           `${file.path} imports server-owned API implementation ${specifier}; use @lirna/api/client`,
