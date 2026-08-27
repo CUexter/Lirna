@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { inquiry } from "@/clients/inquiry";
-import type { ReadingData } from "./content";
+import type { ReadingDerivative } from "./content";
 import type { ReadingScrollOwner } from "./navigation-observations";
 import { historyPositionKey } from "./reading-history-position";
 import type {
@@ -19,7 +19,7 @@ export function useReadingResumeSession({
   stateId,
 }: {
   active: boolean;
-  component: ReadingData["components"][number] | undefined;
+  component: ReadingDerivative["components"][number] | undefined;
   navigation: ReadingNavigation;
   owner: ReadingScrollOwner;
   sourceId: string;

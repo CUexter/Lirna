@@ -1,6 +1,6 @@
 import { type RefObject, useEffect, useState } from "react";
 
-import type { ReadingData } from "./content";
+import type { ReadingDerivative } from "./content";
 import {
   historyPositionKey,
   historyScrollTop,
@@ -21,7 +21,7 @@ export function useReadingResume({
   stateId,
 }: {
   articleRef: RefObject<HTMLElement | null>;
-  component: ReadingData["components"][number] | undefined;
+  component: ReadingDerivative["components"][number] | undefined;
   navigation: ReadingNavigation;
   sourceId: string;
   stateId: string;

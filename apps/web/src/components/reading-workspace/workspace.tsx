@@ -1,5 +1,4 @@
 import { ComponentUnavailable } from "./component-unavailable";
-import type { ReadingData } from "./content";
 import { createReadingSceneTopology } from "./reading-scene-topology";
 import { ReadingWorkspaceView } from "./reading-workspace-view";
 import { useReadingWorkspaceViewProps } from "./workspace-scene-navigation";

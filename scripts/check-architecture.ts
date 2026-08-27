@@ -6,7 +6,7 @@ import ts from "typescript";
 export const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const workspaceDirectories = ["apps", "packages"];
 const sourceExtensions = new Set([".ts", ".tsx", ".js", ".jsx"]);
-const sourceSpecificReadingImports = [
+const forbiddenCoreReadingImportFragments = [
   "/hooks/use-sep-",
   "/components/source-admission/",
 ];
@@ -183,7 +183,7 @@ export function evaluatePolicy({ workspaces, files }) {
         !testSource;
       if (
         coreReadingWorkspace &&
-        sourceSpecificReadingImports.some((fragment) =>
+        forbiddenCoreReadingImportFragments.some((fragment) =>
           specifier.includes(fragment),
         )
       ) {

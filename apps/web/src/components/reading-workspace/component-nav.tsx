@@ -1,14 +1,14 @@
 import { Button } from "@lirna/ui/components/button";
 
-import type { ReadingData } from "./content";
+import type { ReadingDerivative } from "./content";
 
 export function ReadingComponentNav({
   previous,
   next,
   onSelect,
 }: {
-  previous: ReadingData["components"][number] | undefined;
-  next: ReadingData["components"][number] | undefined;
+  previous: ReadingDerivative["components"][number] | undefined;
+  next: ReadingDerivative["components"][number] | undefined;
   onSelect: (identity: string) => void;
 }) {
   return (

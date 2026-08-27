@@ -2,7 +2,7 @@ import type { ComponentProps, RefObject } from "react";
 import type { CitationResolution } from "../annotations/dom-utils";
 import type { Bibliography } from "./bibliography";
 import type { BibliographyMention } from "./bibliography-mentions";
-import type { ReadingData } from "./content";
+import type { ReadingDerivative } from "./content";
 import type { ReadingNavigation } from "./reading-navigation";
 import type {
   ReadingSceneScrollOwner,
@@ -15,7 +15,7 @@ export type ReadingToolTab =
   | "bibliography"
   | "notes"
   | "supplementary";
-export type ReadingComponent = ReadingData["components"][number];
+export type ReadingComponent = ReadingDerivative["components"][number];
 
 export interface ReadingToolsPanelProps {
   bibliography: {
@@ -29,7 +29,7 @@ export interface ReadingToolsPanelProps {
     selectedEntry?: string;
   };
   component: ReadingComponent;
-  components: ReadingData["components"];
+  components: ReadingDerivative["components"];
   topology: ReadingSceneTopology;
   navigation: {
     activeTab: ReadingToolTab;

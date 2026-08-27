@@ -1,6 +1,6 @@
 import { Button } from "@lirna/ui/components/button";
 
-import type { ReadingData } from "./content";
+import type { ReadingDerivative } from "./content";
 
 export function ReadingBreadcrumb({
   sourceTitle,
@@ -11,8 +11,8 @@ export function ReadingBreadcrumb({
 }: {
   sourceTitle: string;
   mainComponentIdentity: string;
-  component: ReadingData["components"][number];
-  parent: ReadingData["components"][number] | undefined;
+  component: ReadingDerivative["components"][number];
+  parent: ReadingDerivative["components"][number] | undefined;
   onSelect: (identity: string) => void;
 }) {
   return (

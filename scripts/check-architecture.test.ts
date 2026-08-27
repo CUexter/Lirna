@@ -227,9 +227,23 @@ describe("architecture policy fixtures", () => {
         ),
       },
       {
+        path: "apps/web/src/components/reading-workspace/reading-article-pane.tsx",
+        ...parseSource(
+          "reading-article-pane.tsx",
+          'import { SepAdmissionPreview } from "@/components/source-admission/preview";',
+        ),
+      },
+      {
         path: "apps/web/src/components/reading-workspace/source-information.tsx",
         ...parseSource(
           "source-information.tsx",
+          'import { useSepUpdate } from "@/hooks/use-sep-update";',
+        ),
+      },
+      {
+        path: "apps/web/src/components/reading-workspace/workspace.test.tsx",
+        ...parseSource(
+          "workspace.test.tsx",
           'import { useSepUpdate } from "@/hooks/use-sep-update";',
         ),
       },
@@ -237,6 +251,7 @@ describe("architecture policy fixtures", () => {
 
     expect(evaluatePolicy({ workspaces, files })).toEqual([
       "apps/web/src/components/reading-workspace/workspace.tsx imports source-specific module @/hooks/use-sep-update; keep it behind SourceInformation",
+      "apps/web/src/components/reading-workspace/reading-article-pane.tsx imports source-specific module @/components/source-admission/preview; keep it behind SourceInformation",
     ]);
   });
 });

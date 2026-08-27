@@ -1,7 +1,7 @@
 import { env } from "@lirna/env/web";
 import { Badge } from "@lirna/ui/components/badge";
 
-import type { ReadingData } from "./content";
+import type { ReadingDerivative } from "./content";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
@@ -14,9 +14,9 @@ export function ReadingSourceHeader({
   component,
   capture,
 }: {
-  source: ReadingData["source"];
-  component: ReadingData["components"][number];
-  capture: ReadingData["capture"];
+  source: ReadingDerivative["source"];
+  component: ReadingDerivative["components"][number];
+  capture: ReadingDerivative["capture"];
 }) {
   return (
     <header

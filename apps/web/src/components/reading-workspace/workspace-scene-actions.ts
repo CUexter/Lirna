@@ -1,4 +1,4 @@
-import type { ReadingData } from "./content";
+import type { ReadingDerivative } from "./content";
 import {
   type ReadingSceneTopology,
   resolveReadingSceneDestination,
@@ -15,7 +15,7 @@ export function initialReadingToolTab(
 }
 
 export function resolvePublisherNotes(
-  reading: ReadingData,
+  reading: ReadingDerivative,
   notesIdentity: string | undefined,
   topology: ReadingSceneTopology,
 ) {

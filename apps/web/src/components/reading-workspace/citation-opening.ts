@@ -1,17 +1,17 @@
 import { useState } from "react";
 
-import type { ReadingData } from "./content";
+import type { ReadingDerivative } from "./content";
 
 export function useCitationOpening(
-  component: ReadingData["components"][number],
-  components: ReadingData["components"],
+  component: ReadingDerivative["components"][number],
+  components: ReadingDerivative["components"],
   mainComponentIdentity: string,
   openCitation: (entryId: string | undefined, mentionId: string) => void,
 ) {
   const [citationComponentIdentity, setCitationComponentIdentity] =
     useState<string>();
   const openCitationFrom = (
-    citationComponent: ReadingData["components"][number],
+    citationComponent: ReadingDerivative["components"][number],
     entryId: string | undefined,
     mentionId: string,
   ) => {

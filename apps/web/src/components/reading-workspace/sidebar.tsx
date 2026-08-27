@@ -1,6 +1,6 @@
-import type { ReadingData } from "./content";
+import type { ReadingDerivative } from "./content";
 
-export function Toc({ items }: { items: ReadingData["toc"] }) {
+export function Toc({ items }: { items: ReadingDerivative["toc"] }) {
   return (
     <ol className="space-y-1 text-sm">
       {items.map((item) => (

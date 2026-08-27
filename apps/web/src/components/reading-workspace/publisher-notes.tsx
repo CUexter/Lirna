@@ -2,7 +2,7 @@ import {
   AuthoredLinkActions,
   Blocks,
   CitationActions,
-  type ReadingData,
+  type ReadingDerivative,
   ReadingSection,
 } from "./content";
 import {
@@ -19,15 +19,15 @@ export function PublisherNotes({
   onOpenReference,
   referenceIndex,
 }: {
-  component: ReadingData["components"][number];
+  component: ReadingDerivative["components"][number];
   onJumpReference: (reference: ReadingReference) => void;
   onOpenAuthoredLink: (
-    from: ReadingData["components"][number],
+    from: ReadingDerivative["components"][number],
     href: string,
     label: string,
   ) => boolean;
   onOpenCitation: (
-    from: ReadingData["components"][number],
+    from: ReadingDerivative["components"][number],
     entryId: string | undefined,
     mentionId: string,
   ) => void;

@@ -1,5 +1,5 @@
 import { authoredTarget, componentHasFragment } from "./authored-navigation";
-import type { ReadingData } from "./content";
+import type { ReadingDerivative } from "./content";
 import {
   type ReadingSceneTopology,
   resolveReadingSceneDestination,
@@ -21,7 +21,7 @@ export function navigateAuthoredLink({
   referenceIndex,
   topology,
 }: {
-  from: ReadingData["components"][number];
+  from: ReadingDerivative["components"][number];
   href: string;
   label: string;
   navigateScene: (options: {
@@ -29,12 +29,12 @@ export function navigateAuthoredLink({
       ReturnType<typeof resolveReadingSceneDestination>,
       { movement: "move" }
     >;
-    from: ReadingData["components"][number];
+    from: ReadingDerivative["components"][number];
     fragment?: string;
   }) => boolean;
   onUnavailable: (target: string) => void;
   openReference: (reference: ReadingReference) => void;
-  reading: ReadingData;
+  reading: ReadingDerivative;
   referenceIndex: ReferenceIndex;
   topology: ReadingSceneTopology;
 }) {

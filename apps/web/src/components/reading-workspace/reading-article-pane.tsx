@@ -19,7 +19,7 @@ import {
   CitationActions,
   Figure,
   placedFigureIds,
-  type ReadingData,
+  type ReadingDerivative,
   ReadingSection,
 } from "./content";
 import type { ReadingNavigation } from "./reading-navigation";
@@ -31,7 +31,7 @@ import {
 import { ReadingResearchAssistant } from "./research-assistant";
 import { ReadingSourceHeader } from "./source-header";
 
-type Component = ReadingData["components"][number];
+type Component = ReadingDerivative["components"][number];
 
 export function ReadingArticlePane({
   annotations,
@@ -52,7 +52,7 @@ export function ReadingArticlePane({
     view: "article" | "bibliography";
   };
   articleRef: React.RefObject<HTMLElement | null>;
-  capture: ReadingData["capture"];
+  capture: ReadingDerivative["capture"];
   component: Component;
   contentActions: {
     citationResolutions: CitationResolution[];
@@ -75,7 +75,7 @@ export function ReadingArticlePane({
     previous?: Component;
   };
   resumeStatus: "saving" | "saved" | "error";
-  source: ReadingData["source"];
+  source: ReadingDerivative["source"];
 }) {
   const {
     editingId,
@@ -232,7 +232,7 @@ function ArticleAnnotations({
   reading: {
     citationResolutions: CitationResolution[];
     component: Component;
-    source: ReadingData["source"];
+    source: ReadingDerivative["source"];
   };
   readingView: "article" | "bibliography";
   transition: {

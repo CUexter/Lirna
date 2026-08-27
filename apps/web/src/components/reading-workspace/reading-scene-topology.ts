@@ -1,7 +1,7 @@
-import type { ReadingData } from "./content";
+import type { ReadingDerivative } from "./content";
 import type { ReadingScrollOwner } from "./navigation-observations";
 
-type SourceComponent = ReadingData["components"][number];
+type SourceComponent = ReadingDerivative["components"][number];
 
 export type ReadingScenePresentationRegion =
   | "article"
@@ -46,7 +46,7 @@ export type ReadingSceneDestinationResult =
     };
 
 export function createReadingSceneTopology(
-  reading: ReadingData,
+  reading: ReadingDerivative,
 ): ReadingSceneTopology {
   const components = [...reading.components].sort(compareComponents);
   const identities = new Set(components.map((component) => component.identity));
