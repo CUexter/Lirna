@@ -11,6 +11,8 @@ ENV NODE_ENV=production
 RUN cd apps/web && bun run build
 
 FROM nginxinc/nginx-unprivileged:alpine AS runner
+USER root
+RUN apk upgrade --no-cache
 COPY --chown=nginx:nginx --from=builder /app/apps/web/dist /usr/share/nginx/html
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 8080

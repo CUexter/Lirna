@@ -2,7 +2,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { type InquiryOutputs, inquiry } from "@/clients/inquiry";
-import { library } from "@/clients/library";
 
 type Candidate = InquiryOutputs["sources"]["derivatives"]["generate"];
 type ActivationPreview =
@@ -25,7 +24,7 @@ export function useDerivativeUpdate(sourceId: string, stateId: string) {
       onSuccess: async () => {
         setGenerated(undefined);
         await queryClient.invalidateQueries({
-          queryKey: library.sources.readingWorkspace.key({
+          queryKey: inquiry.sources.readingWorkspace.key({
             input: { sourceId, stateId },
           }),
         });

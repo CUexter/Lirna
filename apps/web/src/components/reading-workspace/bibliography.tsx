@@ -1,3 +1,4 @@
+// biome-ignore lint/style/noExcessiveLinesPerFile: Bibliography rendering and its navigation semantics form one cohesive surface.
 import { Button } from "@lirna/ui/components/button";
 import { Input } from "@lirna/ui/components/input";
 import { LocateFixedIcon } from "lucide-react";

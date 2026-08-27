@@ -28,8 +28,8 @@ if TRIVY_TEST_EXIT=23 TRIVY_TEST_LOG="$log" PATH="$tmp/bin:$PATH" "$root/scripts
   exit 1
 fi
 
-grep -Fq 'config --severity HIGH,CRITICAL --exit-code 1 --skip-dirs **/node_modules --skip-dirs prototype --skip-dirs lirna-legacy' "$log"
-grep -Fq 'fs --scanners vuln --pkg-types library --include-dev-deps --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --skip-dirs **/node_modules --skip-dirs prototype --skip-dirs lirna-legacy' "$log"
+grep -Fq 'config --severity HIGH,CRITICAL --exit-code 1 --skip-dirs **/node_modules --skip-dirs .stryker-tmp --skip-dirs .worktrees --skip-dirs prototype --skip-dirs lirna-legacy --disable-telemetry --skip-version-check' "$log"
+grep -Fq 'fs --scanners vuln --pkg-types library --include-dev-deps --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --skip-dirs **/node_modules --skip-dirs .stryker-tmp --skip-dirs .worktrees --skip-dirs prototype --skip-dirs lirna-legacy --disable-telemetry --skip-version-check' "$log"
 grep -Fq 'image --scanners vuln --pkg-types os,library --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --disable-telemetry --skip-version-check lirna-server:test' "$log"
 
 workflow="$root/.github/workflows/trivy.yml"

@@ -1282,7 +1282,10 @@ const orpcPostRoutes = {
     return orpcSuccess(derivativeCandidate);
   },
   "sources/derivatives/previewActivation": () =>
-    orpcSuccess(derivativeCandidate.comparison),
+    orpcSuccess({
+      baselineSequence: 1,
+      consequences: derivativeCandidate.comparison,
+    }),
   "sources/derivatives/activate": activateDerivative,
   "sources/resume": (body, sessionId) =>
     body.includes('"scrollTop"')
@@ -1398,10 +1401,15 @@ const server = createServer(async (request, response) => {
     request.method === "GET" &&
     request.url?.startsWith("/orpc/sources/readingWorkspace")
   ) {
+    const sessionId = requestSessionId(request);
     sendJson(
       response,
       200,
-      orpcSuccess({ reading, citationResolutions: [], ...sourceInformation }),
+      orpcSuccess({
+        reading,
+        citationResolutions: [citationResolutionFor(sessionId)].filter(Boolean),
+        ...sourceInformationFor(sessionId),
+      }),
     );
     return;
   }

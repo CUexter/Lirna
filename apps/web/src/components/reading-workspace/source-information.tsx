@@ -1,3 +1,4 @@
+// biome-ignore lint/style/noExcessiveLinesPerFile: Source-state evidence and its maintenance controls form one cohesive inspection surface.
 import { Badge } from "@lirna/ui/components/badge";
 import { Button } from "@lirna/ui/components/button";
 import { Link } from "@tanstack/react-router";

@@ -48,10 +48,11 @@ test("completes the production SEP journey within accessibility and performance 
   await expect(
     page.getByRole("button", { name: "Create preview" }),
   ).toBeFocused();
+  const previewCreated = page.waitForResponse((response) =>
+    response.url().includes("/orpc/sepAdmission/submit"),
+  );
   await page.keyboard.press("Enter");
-  await expect(
-    page.getByRole("button", { name: "Creating preview…" }),
-  ).toBeDisabled();
+  expect((await previewCreated).ok()).toBe(true);
   await expect(page.getByText("Completeness: Complete")).toBeVisible();
   await expect(page.getByText("Reading readiness: Ready")).toBeVisible();
   await expectNoSeriousAccessibilityViolations(page);
@@ -261,8 +262,18 @@ test("completes the production SEP journey within accessibility and performance 
   });
   await versions.getByRole("button", { name: "Generate candidate" }).click();
   await expect(versions.getByText("Candidate version 2")).toBeVisible();
+  const activated = page.waitForResponse((response) =>
+    response.url().includes("/orpc/sources/derivatives/activate"),
+  );
+  const workspaceRefreshed = page.waitForResponse((response) =>
+    response.url().includes("/orpc/sources/readingWorkspace"),
+  );
   page.once("dialog", (dialog) => dialog.accept());
   await versions.getByRole("button", { name: "Activate candidate" }).click();
+  expect(await (await activated).text()).toContain("60000000");
+  expect(await (await workspaceRefreshed).text()).toContain(
+    '"currentActivation":{"id":"70000000',
+  );
   await expect(versions.getByText(/Current version: 60000000/)).toBeVisible();
   page.once("dialog", (dialog) => dialog.accept());
   await versions

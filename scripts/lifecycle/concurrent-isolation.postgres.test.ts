@@ -117,9 +117,10 @@ async function publicSources(url: string, origin: string) {
   const response = await fetch(`${url}/sources`, {
     headers: { origin },
   });
+  const errorBody = response.ok ? "" : await response.text();
   expect(
     response.ok,
-    `Source list at ${response.url} returned ${response.status}: ${await response.text()}`,
+    `Source list at ${response.url} returned ${response.status}: ${errorBody}`,
   ).toBe(true);
   return response.json();
 }

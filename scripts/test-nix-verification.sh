@@ -33,6 +33,8 @@ test "$(classify 'package.json')" = $'desktop=true\nvm=true'
 test "$(bun "$classifier" --full </dev/null)" = $'desktop=true\nvm=true'
 
 grep -Fq 'run: scripts/test-nix-verification.sh' "$workflow"
+grep -Fq 'uses: oven-sh/setup-bun@v2' "$workflow"
+grep -Fq 'bun-version-file: package.json' "$workflow"
 grep -Fq 'git diff --no-renames --name-only "$BASE_SHA...$HEAD_SHA" | bun scripts/classify-nix-changes.ts' "$workflow"
 grep -Fq 'git diff --no-renames --name-only "$BEFORE_SHA" "${{ github.sha }}" | bun scripts/classify-nix-changes.ts' "$workflow"
 grep -Fq 'bun scripts/classify-nix-changes.ts --full' "$workflow"

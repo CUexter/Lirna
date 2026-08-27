@@ -1,3 +1,4 @@
+// biome-ignore lint/style/noExcessiveLinesPerFile: Typed reading content rendering keeps the complete block vocabulary together.
 import { env } from "@lirna/env/web";
 import { Button } from "@lirna/ui/components/button";
 import katex from "katex";

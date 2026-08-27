@@ -30,20 +30,13 @@ function mutation(name: string) {
 await mock.module("@/clients/inquiry", () => ({
   inquiry: {
     sources: {
+      readingWorkspace: {
+        key: ({ input }: { input: unknown }) => ["reading-workspace", input],
+      },
       derivatives: {
         activate: mutation("activate"),
         generate: mutation("generate"),
         previewActivation: mutation("preview"),
-      },
-    },
-  },
-}));
-
-await mock.module("@/clients/library", () => ({
-  library: {
-    sources: {
-      readingWorkspace: {
-        key: ({ input }: { input: unknown }) => ["reading-workspace", input],
       },
     },
   },
