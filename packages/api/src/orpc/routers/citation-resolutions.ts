@@ -154,9 +154,9 @@ export const citationResolutionsRouter = {
           item.mentionId === input.mentionId,
       );
       if (!mention) throw notFound(context);
-      if (!mention.policy.inferenceEligible) {
+      if (!mention.policy.citationInference.allowed) {
         throw new ORPCError("FORBIDDEN", {
-          message: "Source handling policy does not permit this inference",
+          message: `Source handling policy does not permit this inference: ${mention.policy.citationInference.reasons.join(", ")}`,
         });
       }
       if (!context.citationInference) {

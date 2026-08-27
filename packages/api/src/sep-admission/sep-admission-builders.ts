@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import {
+  type RightsBasis,
+  type SensitivityLevel,
+  sourceHandlingPolicySchema,
+} from "../source-handling-policy/source-handling-policy";
 
 import type { SepObservationKey } from "./sep-capture";
 import { createSepReadingDerivative } from "./sep-reading";
@@ -28,8 +33,8 @@ export function parseStringList(value: unknown) {
 }
 
 export interface AdmissionPreviewFields {
-  rightsBasis: string;
-  sensitivityLevel: string;
+  rightsBasis: unknown;
+  sensitivityLevel: unknown;
 }
 
 export interface PreviewResourceFields {
@@ -54,8 +59,8 @@ export interface AdmissionStateRecord {
   adapterId: "sep";
   observationKey: SepObservationKey;
   canonicalUrl: string;
-  rightsBasis: string;
-  sensitivityLevel: string;
+  rightsBasis: RightsBasis;
+  sensitivityLevel: SensitivityLevel;
   admittedAt: Date;
 }
 
@@ -67,6 +72,7 @@ export function buildStateRecords({
   firstSequence,
   now,
 }: BuildStateRecordsInput): AdmissionStateRecord[] {
+  const policy = sourceHandlingPolicySchema.parse(preview);
   return selectedKeys.map((observationKey, index) => {
     const main = previewResources.find(
       (resource) =>
@@ -80,8 +86,8 @@ export function buildStateRecords({
       adapterId: "sep",
       observationKey,
       canonicalUrl: main.requestedUrl,
-      rightsBasis: preview.rightsBasis,
-      sensitivityLevel: preview.sensitivityLevel,
+      rightsBasis: policy.rightsBasis,
+      sensitivityLevel: policy.sensitivityLevel,
       admittedAt: now,
     };
   });

@@ -2,6 +2,7 @@ import type {
   sepAdmissionPreviews,
   sepPreviewResources,
 } from "@lirna/db/schema/sep-admission";
+import type { SourceHandlingPolicy } from "../source-handling-policy/source-handling-policy";
 
 import type { SepAdmissionObservation } from "./sep-admission-observation";
 import type {
@@ -15,6 +16,11 @@ import type {
   SepObservationKey,
 } from "./sep-capture";
 
+export const sepAdmissionPolicy = {
+  rightsBasis: "publicly-accessible",
+  sensitivityLevel: "ordinary-cloud",
+} as const satisfies SourceHandlingPolicy;
+
 export interface SepAdmissionPreview {
   id: string;
   stableKey: string;
@@ -24,10 +30,7 @@ export interface SepAdmissionPreview {
   publicationHistory: string[];
   submittedUrl: string;
   recommendedArchiveUrl?: string;
-  policy: {
-    rightsBasis: "publicly-accessible";
-    sensitivityLevel: "ordinary-cloud";
-  };
+  policy: typeof sepAdmissionPolicy;
   metrics: {
     requests: number;
     downloadedBytes: number;

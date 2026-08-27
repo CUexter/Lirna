@@ -30,8 +30,15 @@ const evidence = {
   policy: {
     rightsBasis: "publicly-accessible",
     sensitivityLevel: "ordinary-cloud",
-    inferenceEligible: true,
-  },
+    citationInference: {
+      allowed: true,
+      reason: "eligible",
+      request: {
+        activity: "citation-candidate-inference",
+        endpointClass: "ordinary-cloud",
+      },
+    },
+  } as const,
 };
 
 test("supports bounded manual selection and cancellation", async () => {

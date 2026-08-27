@@ -1,6 +1,10 @@
 import { z } from "zod";
 
 import { annotationOffsetBasis } from "../../annotations/annotation-contract";
+import {
+  citationInferenceDecisionSchema,
+  sourceHandlingPolicySchema,
+} from "../../source-handling-policy/source-handling-policy";
 
 const resolutionBase = z.object({
   id: z.string().uuid(),
@@ -58,9 +62,7 @@ export const citationMentionEvidenceSchema = z.object({
       }),
     )
     .max(12),
-  policy: z.object({
-    rightsBasis: z.string(),
-    sensitivityLevel: z.string(),
-    inferenceEligible: z.boolean(),
+  policy: sourceHandlingPolicySchema.extend({
+    citationInference: citationInferenceDecisionSchema,
   }),
 });

@@ -8,6 +8,7 @@ import {
   sepObservationKeySchema,
   sepResourceRoleSchema,
 } from "./sep-admission-builders";
+import { sepAdmissionPolicy } from "./sep-admission-contract";
 
 export const diagnosticSchema = z.object({
   level: z.enum(["info", "warning"]),
@@ -166,10 +167,7 @@ export function toSepAdmissionPreview({
     publicationHistory,
     submittedUrl: preview.submittedUrl,
     recommendedArchiveUrl: preview.recommendedArchiveUrl ?? undefined,
-    policy: {
-      rightsBasis: "publicly-accessible",
-      sensitivityLevel: "ordinary-cloud",
-    },
+    policy: sepAdmissionPolicy,
     metrics: {
       requests: resources.reduce(
         (total, resource) => total + resource.requestCount,

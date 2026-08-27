@@ -6,6 +6,12 @@ import type {
   ReadingInline,
   SepReadingContract,
 } from "../sep-admission/sep-reading-contract";
+import {
+  citationInferenceRequest,
+  decideCitationInference,
+  type RightsBasis,
+  type SensitivityLevel,
+} from "../source-handling-policy/source-handling-policy";
 import type {
   CitationMentionCandidate,
   CitationMentionEvidence,
@@ -23,8 +29,8 @@ export function deriveCitationMentionEvidence({
 }: {
   derivativeId: string;
   reading: SepReadingContract;
-  rightsBasis: string;
-  sensitivityLevel: string;
+  rightsBasis: RightsBasis;
+  sensitivityLevel: SensitivityLevel;
 }): CitationMentionEvidence[] {
   const evidence: CitationMentionEvidence[] = [];
   for (const component of reading.components) {
@@ -52,7 +58,10 @@ export function deriveCitationMentionEvidence({
           policy: {
             rightsBasis,
             sensitivityLevel,
-            inferenceEligible: inferenceEligible(rightsBasis, sensitivityLevel),
+            citationInference: decideCitationInference(
+              { rightsBasis, sensitivityLevel },
+              citationInferenceRequest.endpointClass,
+            ),
           },
         });
       });
@@ -126,13 +135,6 @@ function reasonForRule(rule: string) {
     return "The normalized authored label matched the bounded Bibliography candidates.";
   }
   return `Deterministic rule: ${rule}`;
-}
-
-function inferenceEligible(rightsBasis: string, sensitivityLevel: string) {
-  return (
-    sensitivityLevel === "ordinary-cloud" &&
-    !["reference-only", "inaccessible"].includes(rightsBasis)
-  );
 }
 
 function bounded(value: string, limit: number) {

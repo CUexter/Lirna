@@ -111,10 +111,19 @@ if [[ "$mode" == "active-reading" ]]; then
   exit 0
 fi
 
+if [[ "$mode" == "source-policy" ]]; then
+  POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
+    bun test \
+      "$root/packages/api/src/source-handling-policy/source-handling-policy.postgres.test.ts" \
+      --timeout 30000
+  exit 0
+fi
+
 POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
   bun test \
     "$db_dir/src/postgres.integration.test.ts" \
     "$db_dir/src/annotation-migration.postgres.test.ts" \
+    "$root/packages/api/src/source-handling-policy/source-handling-policy.postgres.test.ts" \
     --timeout 30000
 
 POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \

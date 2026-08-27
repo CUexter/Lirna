@@ -228,7 +228,14 @@ describe("Citation resolutions oRPC router", () => {
             policy: {
               rightsBasis: "owned",
               sensitivityLevel: "local-only",
-              inferenceEligible: false,
+              citationInference: {
+                allowed: false,
+                request: {
+                  activity: "citation-candidate-inference",
+                  endpointClass: "ordinary-cloud",
+                },
+                reasons: ["requires-local-processing"],
+              },
             },
           }),
         ];

@@ -19,6 +19,7 @@ import type {
   SepAdmissionStoredPreview,
 } from "./sep-admission";
 import { sepObservationKeySchema } from "./sep-admission-builders";
+import { sepAdmissionPolicy } from "./sep-admission-contract";
 
 export type SepPreviewStore = Pick<
   SepAdmissionStore,
@@ -45,8 +46,7 @@ export function createSepPreviewStore(
         await tx.insert(sepAdmissionPreviews).values({
           id: record.id,
           ...captureValues(record),
-          rightsBasis: "publicly-accessible",
-          sensitivityLevel: "ordinary-cloud",
+          ...sepAdmissionPolicy,
           replacesSourceId: record.replacesSourceId,
           createdAt: record.createdAt,
           expiresAt: record.expiresAt,

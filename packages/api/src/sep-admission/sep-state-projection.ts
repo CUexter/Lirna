@@ -9,6 +9,7 @@ import {
   derivativeGenerationSchema,
   persistedDerivativeValidationSchema,
 } from "../derivative-updates/derivative-update-schemas";
+import { sourceHandlingPolicySchema } from "../source-handling-policy/source-handling-policy";
 import { readActiveReadingDerivativeInSnapshot } from "./active-reading-derivative-store";
 import { readingComponentSummary } from "./reading-content";
 import {
@@ -143,10 +144,10 @@ export async function readSepAdmittedState(
     publisher: metadata.publisher,
     publicationHistory: parseStringList(metadata.publicationHistory),
     admittedAt: state.admittedAt.toISOString(),
-    policy: {
+    policy: sourceHandlingPolicySchema.parse({
       rightsBasis: state.rightsBasis,
       sensitivityLevel: state.sensitivityLevel,
-    },
+    }),
     diagnostics: diagnosticSchema.array().parse(metadata.diagnostics),
     capture: admittedCaptureReportSchema.parse(metadata.captureDiagnostics),
     resources: resources.map((resource) => ({

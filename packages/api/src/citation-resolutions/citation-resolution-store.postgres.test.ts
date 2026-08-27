@@ -113,7 +113,7 @@ describePostgres("Citation resolution PostgreSQL store", () => {
       mentionId: "citation-mention-1",
       label: "Read",
       state: "ambiguous",
-      policy: { inferenceEligible: true },
+      policy: { citationInference: { allowed: true } },
     });
     expect(evidence?.[0]?.candidates).toHaveLength(12);
     expect(evidence?.[0]?.candidates[0]).toMatchObject({

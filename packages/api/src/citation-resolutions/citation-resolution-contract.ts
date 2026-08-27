@@ -1,3 +1,8 @@
+import type {
+  CitationInferenceDecision,
+  SourceHandlingPolicy,
+} from "../source-handling-policy/source-handling-policy";
+
 export type CitationResolutionMethod = "manual" | "inferred";
 
 export interface CitationResolutionRecord {
@@ -55,10 +60,8 @@ export interface CitationMentionEvidence {
   state: "ambiguous" | "unresolved";
   deterministicReason: string;
   candidates: CitationMentionCandidate[];
-  policy: {
-    rightsBasis: string;
-    sensitivityLevel: string;
-    inferenceEligible: boolean;
+  policy: SourceHandlingPolicy & {
+    citationInference: CitationInferenceDecision;
   };
 }
 

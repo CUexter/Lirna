@@ -1298,19 +1298,124 @@
                         "type": "object",
                         "properties": {
                           "rightsBasis": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "owned",
+                              "lawfully-acquired",
+                              "publicly-accessible",
+                              "explicitly-licensed",
+                              "reference-only",
+                              "inaccessible"
+                            ]
                           },
                           "sensitivityLevel": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "ordinary-cloud",
+                              "restricted-cloud",
+                              "local-only"
+                            ]
                           },
-                          "inferenceEligible": {
-                            "type": "boolean"
+                          "citationInference": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "allowed": {
+                                    "type": "boolean",
+                                    "const": true
+                                  },
+                                  "request": {
+                                    "type": "object",
+                                    "properties": {
+                                      "activity": {
+                                        "type": "string",
+                                        "const": "citation-candidate-inference"
+                                      },
+                                      "endpointClass": {
+                                        "type": "string",
+                                        "enum": [
+                                          "ordinary-cloud",
+                                          "restricted-cloud",
+                                          "local"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "activity",
+                                      "endpointClass"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "reason": {
+                                    "type": "string",
+                                    "const": "eligible"
+                                  }
+                                },
+                                "required": [
+                                  "allowed",
+                                  "request",
+                                  "reason"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "allowed": {
+                                    "type": "boolean",
+                                    "const": false
+                                  },
+                                  "request": {
+                                    "type": "object",
+                                    "properties": {
+                                      "activity": {
+                                        "type": "string",
+                                        "const": "citation-candidate-inference"
+                                      },
+                                      "endpointClass": {
+                                        "type": "string",
+                                        "enum": [
+                                          "ordinary-cloud",
+                                          "restricted-cloud",
+                                          "local"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "activity",
+                                      "endpointClass"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "reasons": {
+                                    "minItems": 1,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "enum": [
+                                        "content-inaccessible",
+                                        "rights-reference-only",
+                                        "requires-restricted-cloud",
+                                        "requires-local-processing"
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "allowed",
+                                  "request",
+                                  "reasons"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
                           }
                         },
                         "required": [
                           "rightsBasis",
                           "sensitivityLevel",
-                          "inferenceEligible"
+                          "citationInference"
                         ],
                         "additionalProperties": false
                       }
@@ -5467,10 +5572,23 @@
                             "type": "object",
                             "properties": {
                               "rightsBasis": {
-                                "type": "string"
+                                "type": "string",
+                                "enum": [
+                                  "owned",
+                                  "lawfully-acquired",
+                                  "publicly-accessible",
+                                  "explicitly-licensed",
+                                  "reference-only",
+                                  "inaccessible"
+                                ]
                               },
                               "sensitivityLevel": {
-                                "type": "string"
+                                "type": "string",
+                                "enum": [
+                                  "ordinary-cloud",
+                                  "restricted-cloud",
+                                  "local-only"
+                                ]
                               }
                             },
                             "required": [
@@ -7223,10 +7341,23 @@
                       "type": "object",
                       "properties": {
                         "rightsBasis": {
-                          "type": "string"
+                          "type": "string",
+                          "enum": [
+                            "owned",
+                            "lawfully-acquired",
+                            "publicly-accessible",
+                            "explicitly-licensed",
+                            "reference-only",
+                            "inaccessible"
+                          ]
                         },
                         "sensitivityLevel": {
-                          "type": "string"
+                          "type": "string",
+                          "enum": [
+                            "ordinary-cloud",
+                            "restricted-cloud",
+                            "local-only"
+                          ]
                         }
                       },
                       "required": [
@@ -11372,10 +11503,23 @@
                           "type": "object",
                           "properties": {
                             "rightsBasis": {
-                              "type": "string"
+                              "type": "string",
+                              "enum": [
+                                "owned",
+                                "lawfully-acquired",
+                                "publicly-accessible",
+                                "explicitly-licensed",
+                                "reference-only",
+                                "inaccessible"
+                              ]
                             },
                             "sensitivityLevel": {
-                              "type": "string"
+                              "type": "string",
+                              "enum": [
+                                "ordinary-cloud",
+                                "restricted-cloud",
+                                "local-only"
+                              ]
                             }
                           },
                           "required": [
@@ -14585,10 +14729,23 @@
                                   "type": "object",
                                   "properties": {
                                     "rightsBasis": {
-                                      "type": "string"
+                                      "type": "string",
+                                      "enum": [
+                                        "owned",
+                                        "lawfully-acquired",
+                                        "publicly-accessible",
+                                        "explicitly-licensed",
+                                        "reference-only",
+                                        "inaccessible"
+                                      ]
                                     },
                                     "sensitivityLevel": {
-                                      "type": "string"
+                                      "type": "string",
+                                      "enum": [
+                                        "ordinary-cloud",
+                                        "restricted-cloud",
+                                        "local-only"
+                                      ]
                                     }
                                   },
                                   "required": [

@@ -189,7 +189,7 @@ function InferenceControls({
         provider. The provider can only suggest a supplied candidate. Nothing is
         saved until you explicitly accept the suggestion.
       </p>
-      {evidence.policy.inferenceEligible ? (
+      {evidence.policy.citationInference.allowed ? (
         <>
           <div className="mt-3 flex items-start gap-2">
             <Checkbox

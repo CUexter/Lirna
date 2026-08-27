@@ -4,6 +4,7 @@ import type {
   DerivativeValidation,
   ReadingDerivativeCandidate,
 } from "../derivative-updates/derivative-update-contract";
+import type { SourceHandlingPolicy } from "../source-handling-policy/source-handling-policy";
 import type {
   CapturedSepResource,
   SepCaptureReport,
@@ -67,10 +68,7 @@ export interface SepAdmittedState {
   publisher: string;
   publicationHistory: string[];
   admittedAt: string;
-  policy: {
-    rightsBasis: string;
-    sensitivityLevel: string;
-  };
+  policy: SourceHandlingPolicy;
   diagnostics: SepDiagnostic[];
   capture: SepCaptureReport | SepHistoricalCaptureReport;
   resources: SepAdmittedResource[];

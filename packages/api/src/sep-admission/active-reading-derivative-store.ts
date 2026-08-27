@@ -10,6 +10,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { compareReadingDerivatives } from "../derivative-updates/derivative-analysis";
 import type { DerivativeComparison } from "../derivative-updates/derivative-update-contract";
 import { serializeActivation } from "../derivative-updates/derivative-update-projection";
+import { sourceHandlingPolicySchema } from "../source-handling-policy/source-handling-policy";
 import type {
   ActiveReadingDerivativeOperations,
   ActiveReadingDerivativeReadResult,
@@ -231,10 +232,10 @@ async function readActiveReadingDerivative(
       activationId: row.activationId,
       activationSequence: row.activationSequence,
       reading: readSepReadingDerivative(row.payload),
-      policy: {
+      policy: sourceHandlingPolicySchema.parse({
         rightsBasis: state.rightsBasis,
         sensitivityLevel: state.sensitivityLevel,
-      },
+      }),
     },
   };
 }

@@ -2,6 +2,7 @@ import type {
   DerivativeActivation,
   DerivativeComparison,
 } from "../derivative-updates/derivative-update-contract";
+import type { SourceHandlingPolicy } from "../source-handling-policy/source-handling-policy";
 import type { SepReadingContract } from "./sep-reading-contract";
 
 export interface ActiveReadingDerivative {
@@ -12,7 +13,7 @@ export interface ActiveReadingDerivative {
   activationId: string;
   activationSequence: number;
   reading: SepReadingContract;
-  policy: { rightsBasis: string; sensitivityLevel: string };
+  policy: SourceHandlingPolicy;
 }
 
 export class ActiveReadingDerivativeInvariantError extends Error {

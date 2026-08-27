@@ -1167,7 +1167,14 @@ const citationEvidence = {
   policy: {
     rightsBasis: "publicly-accessible",
     sensitivityLevel: "ordinary-cloud",
-    inferenceEligible: true,
+    citationInference: {
+      allowed: true,
+      reason: "eligible",
+      request: {
+        activity: "citation-candidate-inference",
+        endpointClass: "ordinary-cloud",
+      },
+    },
   },
 };
 const citationSessions = new Map();

@@ -9,7 +9,9 @@ import {
   sepObservationKeySchema,
   sepResourceRoleSchema,
 } from "../../sep-admission/sep-admission-builders";
+import { sepAdmissionPolicy } from "../../sep-admission/sep-admission-contract";
 import { admittedCaptureReportSchema } from "../../sep-admission/sep-admission-preview";
+import { sourceHandlingPolicySchema } from "../../source-handling-policy/source-handling-policy";
 
 export {
   derivativeComparisonSchema,
@@ -57,8 +59,8 @@ export const sepAdmissionPreviewSchema = z.object({
   submittedUrl: z.string(),
   recommendedArchiveUrl: z.string().optional(),
   policy: z.object({
-    rightsBasis: z.literal("publicly-accessible"),
-    sensitivityLevel: z.literal("ordinary-cloud"),
+    rightsBasis: z.literal(sepAdmissionPolicy.rightsBasis),
+    sensitivityLevel: z.literal(sepAdmissionPolicy.sensitivityLevel),
   }),
   metrics: z.object({
     requests: z.number().int().nonnegative(),
@@ -157,10 +159,7 @@ export const sepAdmittedStateSchema = z.object({
   publisher: z.string(),
   publicationHistory: z.array(z.string()),
   admittedAt: z.string().datetime(),
-  policy: z.object({
-    rightsBasis: z.string(),
-    sensitivityLevel: z.string(),
-  }),
+  policy: sourceHandlingPolicySchema,
   diagnostics: z.array(diagnostic),
   capture: admittedCaptureReportSchema,
   resources: z.array(admittedResource),
