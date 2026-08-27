@@ -73,13 +73,13 @@ if [[ -z "${POSTGRES_ADMIN_URL:-}" ]]; then
     postgres:17@sha256:e38411452a464af89e5adadb8d223bf53b898d47d6ef918b2d58c08707350449 >/dev/null
 
   for _ in {1..60}; do
-    if docker exec "$container" pg_isready --username postgres >/dev/null 2>&1; then
+    if docker exec "$container" pg_isready --host 127.0.0.1 --username postgres >/dev/null 2>&1; then
       break
     fi
     sleep 1
   done
 
-  if ! docker exec "$container" pg_isready --username postgres >/dev/null 2>&1; then
+  if ! docker exec "$container" pg_isready --host 127.0.0.1 --username postgres >/dev/null 2>&1; then
     docker logs "$container" >&2
     printf '%s\n' "Disposable PostgreSQL did not become ready within 60 seconds." >&2
     exit 1

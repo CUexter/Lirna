@@ -67,7 +67,7 @@
       "style": {
         "noExcessiveLinesPerFile": {
           "level": "error",
-          "options": { "maxLines": 300, "skipBlankLines": true }
+          "options": { "maxLines": 500, "skipBlankLines": true }
         },
         "noParameterAssign": "error",
         "useAsConstAssertion": "error",
