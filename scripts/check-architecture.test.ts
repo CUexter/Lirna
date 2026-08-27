@@ -216,4 +216,27 @@ describe("architecture policy fixtures", () => {
       "apps/web/src/routes/sources/$sourceId.tsx uses scrollTop assignment outside ReadingNavigation",
     ]);
   });
+
+  test("keeps source-specific modules outside the core Reading workspace", () => {
+    const files = [
+      {
+        path: "apps/web/src/components/reading-workspace/workspace.tsx",
+        ...parseSource(
+          "workspace.tsx",
+          'import { useSepUpdate } from "@/hooks/use-sep-update";',
+        ),
+      },
+      {
+        path: "apps/web/src/components/reading-workspace/source-information.tsx",
+        ...parseSource(
+          "source-information.tsx",
+          'import { useSepUpdate } from "@/hooks/use-sep-update";',
+        ),
+      },
+    ];
+
+    expect(evaluatePolicy({ workspaces, files })).toEqual([
+      "apps/web/src/components/reading-workspace/workspace.tsx imports source-specific module @/hooks/use-sep-update; keep it behind SourceInformation",
+    ]);
+  });
 });

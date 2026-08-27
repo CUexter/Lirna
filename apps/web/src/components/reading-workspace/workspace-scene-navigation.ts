@@ -29,7 +29,7 @@ export function useReadingWorkspaceViewProps({
   selectedCitation,
   tree,
   view,
-  workspace: { citationResolutions, reading },
+  model: { citationResolutions, reading },
 }: ReadingWorkspaceViewInput) {
   const {
     component,

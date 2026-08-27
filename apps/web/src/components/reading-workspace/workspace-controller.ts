@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type { SepReadingData } from "./content";
+import type { ReadingData } from "./content";
 import type { ReadingToolTab } from "./reading-tools-panel";
 import { navigateAuthoredLink } from "./workspace-navigation";
 
@@ -14,7 +14,7 @@ export function createAuthoredLinkHandler(
   >,
 ) {
   return (
-    from: SepReadingData["components"][number],
+    from: ReadingData["components"][number],
     href: string,
     label: string,
   ) => navigateAuthoredLink({ ...context, from, href, label });
@@ -27,7 +27,7 @@ export function createClearEditingAnnotationHandler(
 }
 
 export function createCurrentAuthoredLinkHandler(
-  component: SepReadingData["components"][number],
+  component: ReadingData["components"][number],
   openAuthoredLink: ReturnType<typeof createAuthoredLinkHandler>,
 ) {
   return (href: string, label: string) =>

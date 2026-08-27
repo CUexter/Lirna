@@ -3,7 +3,7 @@ import { lazy, Suspense } from "react";
 import { z } from "zod";
 
 import { useReadingWorkspaceOpening } from "@/components/reading-workspace/reading-workspace-opening";
-import { SepReadingWorkspace } from "@/components/reading-workspace/workspace";
+import { ReadingWorkspace } from "@/components/reading-workspace/workspace";
 
 const SourceInformation = lazy(() =>
   import("@/components/reading-workspace/source-information").then(
@@ -60,11 +60,14 @@ function RouteComponent() {
           Client installation.
         </p>
       ) : null}
-      <SepReadingWorkspace
+      <ReadingWorkspace
         initialFragment={hash}
+        model={{
+          citationResolutions: opening.workspace.citationResolutions,
+          reading: opening.workspace.reading,
+        }}
         selectedComponent={component}
         view={view ?? "article"}
-        workspace={opening.workspace}
         selectedCitation={citation}
         onFragmentChange={(fragment) =>
           navigate({

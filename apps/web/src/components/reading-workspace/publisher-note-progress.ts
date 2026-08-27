@@ -1,6 +1,6 @@
 import { type RefObject, useEffect } from "react";
 
-import type { SepReadingData } from "./content";
+import type { ReadingData } from "./content";
 import {
   historyPositionKey,
   historyScrollTop,
@@ -22,7 +22,7 @@ export function usePublisherNoteProgress({
   stateId,
 }: {
   active: boolean;
-  component?: SepReadingData["components"][number];
+  component?: ReadingData["components"][number];
   navigation: ReadingNavigation;
   scrollContainerRef: RefObject<HTMLElement | null>;
   sourceId: string;

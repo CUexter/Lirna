@@ -1,6 +1,6 @@
-import type { SepReadingData } from "./content";
+import type { ReadingData } from "./content";
 
-export function Toc({ items }: { items: SepReadingData["toc"] }) {
+export function Toc({ items }: { items: ReadingData["toc"] }) {
   return (
     <ol className="space-y-1 text-sm">
       {items.map((item) => (

@@ -1,5 +1,5 @@
 import { scrollToPendingFragment } from "./authored-navigation";
-import type { SepReadingData } from "./content";
+import type { ReadingData } from "./content";
 import type { ReadingNavigation } from "./reading-navigation";
 import type { ReadingSceneTopology } from "./reading-scene-topology";
 import { resolveReadingSceneDestination } from "./reading-scene-topology";
@@ -16,7 +16,7 @@ export function createWorkspaceAuthoredSceneNavigator({
   topology,
 }: {
   articleRef: React.RefObject<HTMLElement | null>;
-  component: SepReadingData["components"][number];
+  component: ReadingData["components"][number];
   navigation: ReadingNavigation;
   notesIdentity: string | undefined;
   requestTransition: (transition: WorkspaceSceneTransition) => boolean;

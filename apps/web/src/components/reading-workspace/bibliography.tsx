@@ -9,7 +9,7 @@ import {
 } from "./bibliography-mentions";
 import { useBibliographySelection } from "./bibliography-navigation";
 import { CitationResolutionPanel } from "./citation-resolution-panel";
-import type { SepReadingData } from "./content";
+import type { ReadingData } from "./content";
 import type { ReadingNavigation } from "./reading-navigation";
 
 // fallow-ignore-next-line complexity
@@ -27,7 +27,7 @@ export function Bibliography({
   compact = false,
 }: {
   bibliographyComponents: {
-    all: SepReadingData["components"];
+    all: ReadingData["components"];
     citationResolutions: CitationResolution[];
     mainIdentity: string;
   };
@@ -205,7 +205,7 @@ export function Bibliography({
 }
 
 function groupBibliographyByAuthor(
-  components: SepReadingData["components"],
+  components: ReadingData["components"],
   query: string,
   selectedComponentIdentity: string,
   selectedEntry: string | undefined,
@@ -239,15 +239,15 @@ type BibliographyGroup = {
     key: string;
     id: string;
     text: string;
-    links: SepReadingData["components"][number]["bibliography"][number]["entries"][number]["links"];
-    component: SepReadingData["components"][number];
+    links: ReadingData["components"][number]["bibliography"][number]["entries"][number]["links"];
+    component: ReadingData["components"][number];
     selected: boolean;
   }>;
 };
 
 function addBibliographyEntries(
-  bibliography: SepReadingData["components"][number]["bibliography"][number],
-  component: SepReadingData["components"][number],
+  bibliography: ReadingData["components"][number]["bibliography"][number],
+  component: ReadingData["components"][number],
   context: {
     groups: Map<string, BibliographyGroup>;
     inheritedAuthors: Map<string, string>;

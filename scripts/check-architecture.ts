@@ -6,6 +6,10 @@ import ts from "typescript";
 export const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const workspaceDirectories = ["apps", "packages"];
 const sourceExtensions = new Set([".ts", ".tsx", ".js", ".jsx"]);
+const sourceSpecificReadingImports = [
+  "/hooks/use-sep-",
+  "/components/source-admission/",
+];
 const primitiveControls = new Map([
   ["packages/ui/src/components/button.tsx", new Set(["button"])],
   ["packages/ui/src/components/checkbox.tsx", new Set(["input"])],
@@ -170,6 +174,23 @@ export function evaluatePolicy({ workspaces, files }) {
         );
     }
     for (const specifier of file.imports) {
+      const coreReadingWorkspace =
+        file.path.startsWith(
+          "apps/web/src/components/reading-workspace/",
+        ) &&
+        file.path !==
+          "apps/web/src/components/reading-workspace/source-information.tsx" &&
+        !testSource;
+      if (
+        coreReadingWorkspace &&
+        sourceSpecificReadingImports.some((fragment) =>
+          specifier.includes(fragment),
+        )
+      ) {
+        violations.push(
+          `${file.path} imports source-specific module ${specifier}; keep it behind SourceInformation`,
+        );
+      }
       const dependency = packageImport(specifier, workspaces);
       if (!dependency) continue;
       if (owner.name === "web" && specifier === "@lirna/env/server") violations.push(`${file.path} imports the server environment surface`);

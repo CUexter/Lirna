@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 
-import type { SepReadingData } from "./content";
+import type { ReadingData } from "./content";
 import type { ReadingNavigationCause } from "./navigation-observations";
 import type { ReadingNavigation } from "./reading-navigation";
 import {
@@ -10,8 +10,8 @@ import {
 import { type ReadingReference, referenceTarget } from "./references";
 
 export function authoredTarget(
-  reading: SepReadingData,
-  from: SepReadingData["components"][number],
+  reading: ReadingData,
+  from: ReadingData["components"][number],
   href: string,
 ) {
   try {
@@ -32,12 +32,12 @@ export function authoredTarget(
 }
 
 export function componentHasFragment(
-  component: SepReadingData["components"][number],
+  component: ReadingData["components"][number],
   fragment: string,
 ) {
   const ids = new Set<string>(component.figures.map((figure) => figure.id));
   const visitInlines = (
-    values: SepReadingData["components"][number]["sections"][number]["title"],
+    values: ReadingData["components"][number]["sections"][number]["title"],
   ) => {
     for (const value of values) {
       if (value.kind === "anchor") ids.add(value.id);

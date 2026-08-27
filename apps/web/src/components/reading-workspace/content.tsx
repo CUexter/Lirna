@@ -7,11 +7,9 @@ import type { InquiryOutputs } from "@/clients/inquiry";
 import "katex/dist/katex.min.css";
 import { AutoReferencedText, useReferenceTargetId } from "./references";
 
-export type SepReadingData = InquiryOutputs["sources"]["reading"];
+export type ReadingData = InquiryOutputs["sources"]["reading"];
 
-export function placedFigureIds(
-  component: SepReadingData["components"][number],
-) {
+export function placedFigureIds(component: ReadingData["components"][number]) {
   const ids = new Set<string>();
   const visitBlocks = (blocks: typeof component.introductoryBlocks) => {
     for (const block of blocks) {
@@ -40,7 +38,7 @@ export const AuthoredLinkActions = createContext<{
 export function Figure({
   figure,
 }: {
-  figure: SepReadingData["components"][number]["figures"][number];
+  figure: ReadingData["components"][number]["figures"][number];
 }) {
   if (
     !figure.assetDataUrl &&
@@ -94,7 +92,7 @@ export function Figure({
 export function ReadingSection({
   section,
 }: {
-  section: SepReadingData["sections"][number];
+  section: ReadingData["sections"][number];
 }) {
   const Heading = `h${section.level}` as "h2" | "h3" | "h4" | "h5" | "h6";
   return (
@@ -116,7 +114,7 @@ export function ReadingSection({
 export function Blocks({
   blocks,
 }: {
-  blocks: SepReadingData["introductoryBlocks"];
+  blocks: ReadingData["introductoryBlocks"];
 }) {
   return (
     <>
@@ -130,7 +128,7 @@ export function Blocks({
 function Block({
   block,
 }: {
-  block: SepReadingData["introductoryBlocks"][number];
+  block: ReadingData["introductoryBlocks"][number];
 }) {
   const referenceId = useReferenceTargetId(block);
   if (block.kind === "paragraph") {
@@ -223,7 +221,7 @@ function Block({
 function Inlines({
   values,
 }: {
-  values: SepReadingData["sections"][number]["title"];
+  values: ReadingData["sections"][number]["title"];
 }) {
   const citationActions = useContext(CitationActions);
   const authoredLinkActions = useContext(AuthoredLinkActions);
@@ -246,7 +244,7 @@ function Inline({
   citationActions,
   authoredLinkActions,
 }: {
-  value: SepReadingData["sections"][number]["title"][number];
+  value: ReadingData["sections"][number]["title"][number];
   citationActions: React.ContextType<typeof CitationActions>;
   authoredLinkActions: React.ContextType<typeof AuthoredLinkActions>;
 }) {
@@ -352,7 +350,7 @@ function MathNotation({
 export function Diagnostic({
   diagnostic,
 }: {
-  diagnostic: SepReadingData["capture"]["diagnostics"][number];
+  diagnostic: ReadingData["capture"]["diagnostics"][number];
 }) {
   if (!env.VITE_SHOW_DIAGNOSTICS) return null;
   return (
@@ -373,7 +371,7 @@ export function Diagnostic({
 }
 
 function inlinePlainText(
-  values: SepReadingData["components"][number]["figures"][number]["description"]["text"],
+  values: ReadingData["components"][number]["figures"][number]["description"]["text"],
 ): string {
   return values
     .map((value) =>

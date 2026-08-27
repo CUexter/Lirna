@@ -24,6 +24,7 @@ test("renders Source-state scholarly apparatus", async () => {
   expect(view().queryByText("Reading degraded")).toBeNull();
   expect(view().queryByText("Capture and rendering status")).toBeNull();
   expect(view().queryByText("Synthetic capture warning.")).toBeNull();
+  expect(view().queryByText("SEP")).toBeNull();
   expect(view().getAllByText("Synthetic figure")).toHaveLength(1);
   expect(
     view().queryByText("Rendering note: missing-semantic-asset"),

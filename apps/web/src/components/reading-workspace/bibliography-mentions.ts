@@ -3,9 +3,9 @@ import {
   visitReadingInlineGroups,
 } from "@lirna/api/client/reading-content";
 import type { CitationResolution } from "../annotations/dom-utils";
-import type { SepReadingData } from "./content";
+import type { ReadingData } from "./content";
 
-type Component = SepReadingData["components"][number];
+type Component = ReadingData["components"][number];
 type Inlines = Component["sections"][number]["title"];
 
 export type BibliographyMention =
@@ -24,7 +24,7 @@ export type BibliographyMention =
     };
 
 export function indexBibliographyMentions(
-  components: SepReadingData["components"],
+  components: ReadingData["components"],
   mainComponentIdentity: string,
   citationResolutions: CitationResolution[],
 ) {
@@ -79,7 +79,7 @@ export function indexBibliographyMentions(
 }
 
 function bibliographyComponentFor(
-  components: SepReadingData["components"],
+  components: ReadingData["components"],
   citingComponent: Component,
   entryId: string,
   mainComponentIdentity: string,

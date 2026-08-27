@@ -6,13 +6,13 @@ import {
   CardTitle,
 } from "@lirna/ui/components/card";
 
-import type { SepReadingData } from "./content";
+import type { ReadingData } from "./content";
 import { Diagnostic } from "./content";
 
-export function SepReadingCaptureStatus({
+export function ReadingCaptureStatus({
   capture,
 }: {
-  capture: SepReadingData["capture"];
+  capture: ReadingData["capture"];
 }) {
   if (
     !env.VITE_SHOW_DIAGNOSTICS ||

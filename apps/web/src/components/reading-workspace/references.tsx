@@ -6,13 +6,13 @@ import { Button } from "@lirna/ui/components/button";
 import { LocateFixedIcon } from "lucide-react";
 import { createContext, type ReactNode, useContext } from "react";
 
-import type { SepReadingData } from "./content";
+import type { ReadingData } from "./content";
 import {
   type ReadingSceneTopology,
   resolveReadingSceneDestination,
 } from "./reading-scene-topology";
 
-type Component = SepReadingData["components"][number];
+type Component = ReadingData["components"][number];
 type Block = Component["introductoryBlocks"][number];
 type Inline = Component["sections"][number]["title"][number];
 

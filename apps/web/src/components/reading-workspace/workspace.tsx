@@ -1,17 +1,12 @@
-import type { LibraryOutputs } from "@/clients/library";
 import { ComponentUnavailable } from "./component-unavailable";
-import type { SepReadingData } from "./content";
+import type { ReadingData } from "./content";
 import { createReadingSceneTopology } from "./reading-scene-topology";
 import { ReadingWorkspaceView } from "./reading-workspace-view";
 import { useReadingWorkspaceViewProps } from "./workspace-scene-navigation";
 import { useComponentTree } from "./workspace-state";
 import type { ReadingWorkspaceViewInput } from "./workspace-types";
 
-type ReadingWorkspaceData = LibraryOutputs["sources"]["readingWorkspace"];
-
-export type { SepReadingData };
-
-export function SepReadingWorkspace({
+export function ReadingWorkspace({
   initialFragment,
   selectedComponent,
   view,
@@ -19,7 +14,7 @@ export function SepReadingWorkspace({
   onComponentChange,
   onFragmentChange,
   onViewChange,
-  workspace,
+  model,
 }: {
   initialFragment?: string;
   selectedComponent?: string;
@@ -28,9 +23,9 @@ export function SepReadingWorkspace({
   onComponentChange: (identity: string) => void;
   onFragmentChange: (fragment: string) => void;
   onViewChange: (view: "article" | "bibliography", citation?: string) => void;
-  workspace: ReadingWorkspaceData;
+  model: ReadingWorkspaceViewInput["model"];
 }) {
-  const { reading } = workspace;
+  const { reading } = model;
   const topology = createReadingSceneTopology(reading);
   const { component, parent, previous, next, publisherNoteIdentity } =
     useComponentTree(reading, selectedComponent, topology);
@@ -59,7 +54,7 @@ export function SepReadingWorkspace({
         topology,
       }}
       view={view}
-      workspace={workspace}
+      model={model}
     />
   );
 }

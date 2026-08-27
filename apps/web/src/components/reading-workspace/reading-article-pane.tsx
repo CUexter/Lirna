@@ -10,17 +10,17 @@ import type {
   CitationResolution,
   SelectionDraft,
 } from "../annotations/dom-utils";
-import { SepReadingBreadcrumb } from "./breadcrumb";
-import { SepReadingCaptureStatus } from "./capture-status";
-import { SepReadingComponentNav } from "./component-nav";
+import { ReadingBreadcrumb } from "./breadcrumb";
+import { ReadingCaptureStatus } from "./capture-status";
+import { ReadingComponentNav } from "./component-nav";
 import {
   AuthoredLinkActions,
   Blocks,
   CitationActions,
   Figure,
   placedFigureIds,
+  type ReadingData,
   ReadingSection,
-  type SepReadingData,
 } from "./content";
 import type { ReadingNavigation } from "./reading-navigation";
 import {
@@ -29,9 +29,9 @@ import {
   type ReferenceIndex,
 } from "./references";
 import { ReadingResearchAssistant } from "./research-assistant";
-import { SepReadingSourceHeader } from "./source-header";
+import { ReadingSourceHeader } from "./source-header";
 
-type Component = SepReadingData["components"][number];
+type Component = ReadingData["components"][number];
 
 export function ReadingArticlePane({
   annotations,
@@ -52,7 +52,7 @@ export function ReadingArticlePane({
     view: "article" | "bibliography";
   };
   articleRef: React.RefObject<HTMLElement | null>;
-  capture: SepReadingData["capture"];
+  capture: ReadingData["capture"];
   component: Component;
   contentActions: {
     citationResolutions: CitationResolution[];
@@ -75,7 +75,7 @@ export function ReadingArticlePane({
     previous?: Component;
   };
   resumeStatus: "saving" | "saved" | "error";
-  source: SepReadingData["source"];
+  source: ReadingData["source"];
 }) {
   const {
     editingId,
@@ -105,14 +105,14 @@ export function ReadingArticlePane({
   return (
     <div className="flex min-w-0 flex-col gap-8 lg:col-start-1 lg:row-start-1">
       <style>{citationResolutionStyleContent}</style>
-      <SepReadingSourceHeader
+      <ReadingSourceHeader
         capture={capture}
         component={component}
         source={source}
       />
       <ReadingSyncStatus component={component} status={resumeStatus} />
-      <SepReadingCaptureStatus capture={capture} />
-      <SepReadingBreadcrumb
+      <ReadingCaptureStatus capture={capture} />
+      <ReadingBreadcrumb
         component={component}
         mainComponentIdentity={mainComponentIdentity}
         onSelect={onComponentChange}
@@ -153,7 +153,7 @@ export function ReadingArticlePane({
         stateId={source.stateId}
         sourceTitle={source.title}
       />
-      <SepReadingComponentNav
+      <ReadingComponentNav
         next={next}
         onSelect={onComponentChange}
         previous={previous}
@@ -232,7 +232,7 @@ function ArticleAnnotations({
   reading: {
     citationResolutions: CitationResolution[];
     component: Component;
-    source: SepReadingData["source"];
+    source: ReadingData["source"];
   };
   readingView: "article" | "bibliography";
   transition: {

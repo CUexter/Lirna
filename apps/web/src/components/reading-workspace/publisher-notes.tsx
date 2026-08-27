@@ -2,8 +2,8 @@ import {
   AuthoredLinkActions,
   Blocks,
   CitationActions,
+  type ReadingData,
   ReadingSection,
-  type SepReadingData,
 } from "./content";
 import {
   type ReadingReference,
@@ -19,15 +19,15 @@ export function PublisherNotes({
   onOpenReference,
   referenceIndex,
 }: {
-  component: SepReadingData["components"][number];
+  component: ReadingData["components"][number];
   onJumpReference: (reference: ReadingReference) => void;
   onOpenAuthoredLink: (
-    from: SepReadingData["components"][number],
+    from: ReadingData["components"][number],
     href: string,
     label: string,
   ) => boolean;
   onOpenCitation: (
-    from: SepReadingData["components"][number],
+    from: ReadingData["components"][number],
     entryId: string | undefined,
     mentionId: string,
   ) => void;

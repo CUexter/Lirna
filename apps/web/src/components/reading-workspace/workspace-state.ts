@@ -1,7 +1,7 @@
 import { type RefObject, useLayoutEffect } from "react";
 
 import { highlightTarget } from "./authored-navigation";
-import type { SepReadingData } from "./content";
+import type { ReadingData } from "./content";
 import {
   historyPositionKey,
   writeReadingHistoryPosition,
@@ -11,7 +11,7 @@ import type { ReadingSceneTopology } from "./reading-scene-topology";
 import { createReadingSemanticLocation } from "./reading-semantic-location";
 
 export function useComponentTree(
-  reading: SepReadingData,
+  reading: ReadingData,
   selectedComponent: string | undefined,
   topology: ReadingSceneTopology,
 ) {
@@ -132,7 +132,7 @@ export function useScrollRestore({
   onViewChange,
 }: {
   articleRef: RefObject<HTMLElement | null>;
-  component: SepReadingData["components"][number] | undefined;
+  component: ReadingData["components"][number] | undefined;
   navigation: ReadingNavigation;
   sourceId: string;
   stateId: string;

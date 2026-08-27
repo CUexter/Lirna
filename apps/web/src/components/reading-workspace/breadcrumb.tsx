@@ -1,8 +1,8 @@
 import { Button } from "@lirna/ui/components/button";
 
-import type { SepReadingData } from "./content";
+import type { ReadingData } from "./content";
 
-export function SepReadingBreadcrumb({
+export function ReadingBreadcrumb({
   sourceTitle,
   mainComponentIdentity,
   component,
@@ -11,8 +11,8 @@ export function SepReadingBreadcrumb({
 }: {
   sourceTitle: string;
   mainComponentIdentity: string;
-  component: SepReadingData["components"][number];
-  parent: SepReadingData["components"][number] | undefined;
+  component: ReadingData["components"][number];
+  parent: ReadingData["components"][number] | undefined;
   onSelect: (identity: string) => void;
 }) {
   return (

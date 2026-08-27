@@ -6,11 +6,14 @@ import { useAnchoredTargetNavigation } from "../annotations/annotations";
 import type { CitationResolution } from "../annotations/dom-utils";
 import type { BibliographyMention } from "./bibliography-mentions";
 import { useCitationOpening } from "./citation-opening";
-import type { SepReadingData } from "./content";
+import type { ReadingData } from "./content";
 import { useReadingNavigationObservations } from "./navigation-observer";
 import type { ReadingNavigation } from "./reading-navigation";
 import type { ReadingReference } from "./references";
-import type { ReadingView, ReadingWorkspaceData } from "./workspace-types";
+import type {
+  ReadingView,
+  ReadingWorkspaceProjection,
+} from "./workspace-types";
 
 export function useWorkspaceCitationResolution([
   articleRef,
@@ -30,13 +33,13 @@ export function useWorkspaceCitationResolution([
 ]: [
   articleRef: React.RefObject<HTMLElement | null>,
   citationResolutions: CitationResolution[],
-  component: SepReadingData["components"][number],
+  component: ReadingData["components"][number],
   handleComponentChange: (identity: string) => void,
   navigation: ReadingNavigation,
   notesIdentity: string | undefined,
   onViewChange: (view: ReadingView, citation?: string) => void,
   openCitation: Parameters<typeof useCitationOpening>[3],
-  reading: SepReadingData,
+  reading: ReadingData,
   returnToCitationTarget: (
     mentionId: string,
     componentIdentity: string,
@@ -133,7 +136,7 @@ export function useWorkspaceCitationResolution([
       openCurrentCitation,
     );
   const openFrom = (
-    sourceComponent: SepReadingData["components"][number],
+    sourceComponent: ReadingData["components"][number],
     entryId: string | undefined,
     mentionId: string,
   ) =>
@@ -183,21 +186,23 @@ export function useWorkspaceCitationResolution([
     input: { sourceId: source.id, stateId: source.stateId },
   });
   const updateResolution = (resolution: CitationResolution) => {
-    queryClient.setQueryData<ReadingWorkspaceData>(workspaceKey, (workspace) =>
-      workspace
-        ? {
-            ...workspace,
-            citationResolutions: [
-              ...workspace.citationResolutions.filter(
-                (candidate) =>
-                  candidate.componentIdentity !==
-                    resolution.componentIdentity ||
-                  candidate.mentionId !== resolution.mentionId,
-              ),
-              resolution,
-            ],
-          }
-        : workspace,
+    queryClient.setQueryData<ReadingWorkspaceProjection>(
+      workspaceKey,
+      (workspace) =>
+        workspace
+          ? {
+              ...workspace,
+              citationResolutions: [
+                ...workspace.citationResolutions.filter(
+                  (candidate) =>
+                    candidate.componentIdentity !==
+                      resolution.componentIdentity ||
+                    candidate.mentionId !== resolution.mentionId,
+                ),
+                resolution,
+              ],
+            }
+          : workspace,
     );
     queryClient.invalidateQueries({ queryKey: workspaceKey });
   };
@@ -255,7 +260,7 @@ export function useWorkspaceCitationResolution([
               },
               {
                 onSuccess: () => {
-                  queryClient.setQueryData<ReadingWorkspaceData>(
+                  queryClient.setQueryData<ReadingWorkspaceProjection>(
                     workspaceKey,
                     (workspace) =>
                       workspace

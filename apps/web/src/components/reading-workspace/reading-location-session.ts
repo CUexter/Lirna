@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 
-import type { SepReadingData } from "./content";
+import type { ReadingData } from "./content";
 import { usePublisherNoteProgress } from "./publisher-note-progress";
 import type { ReadingNavigation } from "./reading-navigation";
 import { useReadingResume } from "./reading-resume";
@@ -8,7 +8,7 @@ import type { ReadingToolTab } from "./reading-tools-panel";
 import { useScrollRestore } from "./workspace-state";
 import type { ReadingView } from "./workspace-types";
 
-type ReadingComponent = SepReadingData["components"][number];
+type ReadingComponent = ReadingData["components"][number];
 
 export function useReadingLocationSession({
   article,

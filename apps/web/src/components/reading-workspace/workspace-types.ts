@@ -1,8 +1,13 @@
 import type { LibraryOutputs } from "@/clients/library";
-import type { SepReadingData } from "./content";
+import type { ReadingData } from "./content";
 import type { ReadingSceneTopology } from "./reading-scene-topology";
 
-export type ReadingWorkspaceData =
+export type ReadingWorkspaceModel = Pick<
+  LibraryOutputs["sources"]["readingWorkspace"],
+  "citationResolutions" | "reading"
+>;
+
+export type ReadingWorkspaceProjection =
   LibraryOutputs["sources"]["readingWorkspace"];
 
 export type ReadingWorkspaceViewInput = {
@@ -12,15 +17,15 @@ export type ReadingWorkspaceViewInput = {
   onViewChange: (view: ReadingView, citation?: string) => void;
   selectedCitation?: string;
   tree: {
-    component: SepReadingData["components"][number];
-    next?: SepReadingData["components"][number];
-    parent?: SepReadingData["components"][number];
-    previous?: SepReadingData["components"][number];
+    component: ReadingData["components"][number];
+    next?: ReadingData["components"][number];
+    parent?: ReadingData["components"][number];
+    previous?: ReadingData["components"][number];
     publisherNoteIdentity?: string;
     topology: ReadingSceneTopology;
   };
   view: ReadingView;
-  workspace: ReadingWorkspaceData;
+  model: ReadingWorkspaceModel;
 };
 
 export type ReadingView = "article" | "bibliography";
