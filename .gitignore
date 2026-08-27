@@ -62,6 +62,9 @@ reports/mutation
 .cache
 tmp
 temp
+/.fallow/*
+!/.fallow/baselines/
+!/.fallow/baselines/*.json
 
 # Deferred legacy and Nix setup
 lirna-legacy/
