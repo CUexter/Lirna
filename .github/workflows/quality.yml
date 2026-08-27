@@ -54,6 +54,8 @@ jobs:
           bun-version-file: package.json
       - name: Install dependencies
         run: bun install --frozen-lockfile
+      - name: Install Fallow
+        run: npm install --global fallow@3.17.0
       - name: Test quality gate policy
         run: bun run quality:policy
       - name: Run static checks

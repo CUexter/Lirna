@@ -94,8 +94,8 @@ postgresTest(
         ),
         cp(join(repositoryRoot, "package.json"), join(primary, "package.json")),
         symlink(
-          join(repositoryRoot, "node_modules"),
-          join(primary, "node_modules"),
+          join(repositoryRoot, "scripts", "lifecycle", "node_modules"),
+          join(primary, "scripts", "lifecycle", "node_modules"),
         ),
       ]);
       await git(root, "init", "--quiet", primary);
