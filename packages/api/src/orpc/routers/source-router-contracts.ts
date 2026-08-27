@@ -18,16 +18,9 @@ export const sepLibrarySourceSchema = z.object({
   authors: z.array(z.string()),
   publisher: z.string(),
   publicationHistory: z.array(z.string()),
-  kind: z.enum(["sep", "legacy-sep-text"]),
+  kind: z.literal("sep"),
   stableKey: z.string().optional(),
   currentStateId: z.string().uuid().optional(),
-  replacement: z
-    .object({
-      id: z.string().uuid(),
-      title: z.string(),
-      currentStateId: z.string().uuid(),
-    })
-    .optional(),
   states: z.array(
     z.object({
       id: z.string().uuid(),
@@ -56,7 +49,7 @@ export const readingPositionSchema = z.object({
 
 export const readingWorkspaceSchema = z.object({
   reading: sepReadingContractSchema,
-  state: sepAdmittedStateSchema.optional(),
+  state: sepAdmittedStateSchema,
   source: sepLibrarySourceSchema,
   citationResolutions: z.array(citationResolutionSchema),
 });
@@ -93,7 +86,7 @@ export const offlineWorkingSetSchema = z.object({
     }),
   }),
   replica: z.object({
-    workspace: readingWorkspaceSchema.extend({ state: sepAdmittedStateSchema }),
+    workspace: readingWorkspaceSchema,
     annotations: z.array(annotationSchema),
     positions: z.array(readingPositionSchema),
   }),

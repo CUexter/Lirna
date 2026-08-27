@@ -13,19 +13,10 @@ import { DerivativeReview } from "./derivative-review";
 type Workspace = InquiryOutputs["sources"]["readingWorkspace"];
 
 export function SourceInformation({ workspace }: { workspace: Workspace }) {
-  if (workspace.source.kind === "legacy-sep-text" || !workspace.state) {
-    return <LegacySourceInformation source={workspace.source} />;
-  }
-  return (
-    <SepSourceInformation
-      workspace={{ ...workspace, state: workspace.state }}
-    />
-  );
+  return <SepSourceInformation workspace={workspace} />;
 }
 
-type SepWorkspace = Workspace & { state: NonNullable<Workspace["state"]> };
-
-function SepSourceInformation({ workspace }: { workspace: SepWorkspace }) {
+function SepSourceInformation({ workspace }: { workspace: Workspace }) {
   const update = useSepUpdate(workspace.source.id);
   const { source, state } = workspace;
 
@@ -243,54 +234,6 @@ function SepSourceInformation({ workspace }: { workspace: SepWorkspace }) {
             />
           </div>
         ) : null}
-      </div>
-    </section>
-  );
-}
-
-function LegacySourceInformation({ source }: { source: Workspace["source"] }) {
-  return (
-    <section
-      aria-labelledby="source-information-title"
-      className="border-b bg-muted/20 px-4 py-6 sm:px-6 lg:px-10"
-    >
-      <div className="mx-auto flex max-w-6xl flex-col gap-4">
-        <div>
-          <p className="font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
-            Source information
-          </p>
-          <h2
-            className="mt-1 font-serif text-2xl"
-            id="source-information-title"
-          >
-            Legacy SEP text
-          </h2>
-        </div>
-        <p className="max-w-3xl text-muted-foreground text-sm">
-          This preserved prototype remains readable in its original state. A
-          first-class capture is stored as a related Source rather than
-          replacing this content or identity.
-        </p>
-        <div>
-          {source.replacement ? (
-            <Link
-              params={{
-                sourceId: source.replacement.id,
-                stateId: source.replacement.currentStateId,
-              }}
-              to="/sources/$sourceId/$stateId"
-            >
-              Open related replacement: {source.replacement.title}
-            </Link>
-          ) : (
-            <Link
-              search={{ replacesSourceId: source.id }}
-              to="/sources/admission"
-            >
-              Offer related replacement
-            </Link>
-          )}
-        </div>
       </div>
     </section>
   );

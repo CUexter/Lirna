@@ -104,6 +104,7 @@ if [[ "$mode" == "active-reading" ]]; then
       "$root/packages/api/src/citation-resolutions/citation-resolution-store.postgres.test.ts" \
       "$root/packages/api/src/derivative-updates/derivative-update-store.postgres.test.ts" \
       "$root/packages/api/src/reading-position/reading-position-store.postgres.test.ts" \
+      "$root/packages/api/src/reading-workspace/reading-workspace-reader.postgres.test.ts" \
       "$root/packages/api/src/sep-admission/active-reading-derivative-migration.postgres.test.ts" \
       "$root/packages/api/src/sep-admission/active-reading-derivative.postgres.test.ts" \
       "$root/packages/api/src/sep-admission/sep-admitted-state-reader.postgres.test.ts" \
@@ -156,6 +157,7 @@ POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
     "$root/packages/api/src/citation-resolutions/citation-resolution-store.postgres.test.ts" \
     "$root/packages/api/src/derivative-updates/derivative-update-store.postgres.test.ts" \
     "$root/packages/api/src/reading-position/reading-position-store.postgres.test.ts" \
+    "$root/packages/api/src/reading-workspace/reading-workspace-reader.postgres.test.ts" \
     "$root/packages/api/src/sep-admission/active-reading-derivative-migration.postgres.test.ts" \
     "$root/packages/api/src/sep-admission/active-reading-derivative.postgres.test.ts" \
     --timeout 30000

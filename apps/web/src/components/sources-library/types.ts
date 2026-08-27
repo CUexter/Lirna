@@ -5,8 +5,7 @@ export type LibrarySource = {
   authors: string[];
   publisher: string;
   publicationHistory: string[];
-  kind: "sep" | "legacy-sep-text";
-  replacement?: { id: string; title: string; currentStateId: string };
+  kind: "sep";
   states: Array<{
     id: string;
     sequence: number;

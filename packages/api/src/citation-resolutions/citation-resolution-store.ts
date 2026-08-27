@@ -10,6 +10,7 @@ import {
 } from "../authored-targets/authored-target";
 import type { ActiveReadingDerivativeOperations } from "../sep-admission/active-reading-derivative";
 import { DrizzleActiveReadingDerivativeStore } from "../sep-admission/active-reading-derivative-store";
+import type { DatabaseExecutor } from "../sep-admission/sep-state-evidence";
 import { deriveCitationMentionEvidence } from "./citation-mention-evidence";
 import type {
   CitationResolutionDecision,
@@ -34,38 +35,11 @@ export class DrizzleCitationResolutionStore
   ) {}
 
   async list(sourceId: string, stateId: string) {
-    const decisions = await this.history(sourceId, stateId);
-    const latest = new Map<string, CitationResolutionDecision>();
-    for (const decision of decisions) {
-      latest.set(decisionKey(decision), decision);
-    }
-    return [...latest.values()]
-      .filter(isSelectedDecision)
-      .toSorted(
-        (left, right) =>
-          left.componentIdentity.localeCompare(right.componentIdentity) ||
-          left.mentionId.localeCompare(right.mentionId),
-      );
+    return readCitationResolutionsInSnapshot(this.database, sourceId, stateId);
   }
 
   async history(sourceId: string, stateId: string) {
-    const rows = await this.database
-      .select({
-        resolution: citationResolutions,
-        sourceId: sourceStates.sourceId,
-      })
-      .from(citationResolutions)
-      .innerJoin(
-        sourceStates,
-        eq(sourceStates.id, citationResolutions.sourceStateId),
-      )
-      .where(
-        and(eq(sourceStates.id, stateId), eq(sourceStates.sourceId, sourceId)),
-      )
-      .orderBy(asc(citationResolutions.createdAt), asc(citationResolutions.id));
-    return rows.map(({ resolution, sourceId }) =>
-      serializeDecision(resolution, sourceId),
-    );
+    return readCitationResolutionHistory(this.database, sourceId, stateId);
   }
 
   async evidence(sourceId: string, stateId: string) {
@@ -208,6 +182,51 @@ export class DrizzleCitationResolutionStore
         }
       : undefined;
   }
+}
+
+export async function readCitationResolutionsInSnapshot(
+  database: DatabaseExecutor,
+  sourceId: string,
+  stateId: string,
+) {
+  const decisions = await readCitationResolutionHistory(
+    database,
+    sourceId,
+    stateId,
+  );
+  const latest = new Map<string, CitationResolutionDecision>();
+  for (const decision of decisions) latest.set(decisionKey(decision), decision);
+  return [...latest.values()]
+    .filter(isSelectedDecision)
+    .toSorted(
+      (left, right) =>
+        left.componentIdentity.localeCompare(right.componentIdentity) ||
+        left.mentionId.localeCompare(right.mentionId),
+    );
+}
+
+async function readCitationResolutionHistory(
+  database: DatabaseExecutor,
+  sourceId: string,
+  stateId: string,
+) {
+  const rows = await database
+    .select({
+      resolution: citationResolutions,
+      sourceId: sourceStates.sourceId,
+    })
+    .from(citationResolutions)
+    .innerJoin(
+      sourceStates,
+      eq(sourceStates.id, citationResolutions.sourceStateId),
+    )
+    .where(
+      and(eq(sourceStates.id, stateId), eq(sourceStates.sourceId, sourceId)),
+    )
+    .orderBy(asc(citationResolutions.createdAt), asc(citationResolutions.id));
+  return rows.map(({ resolution, sourceId: ownerSourceId }) =>
+    serializeDecision(resolution, ownerSourceId),
+  );
 }
 
 function serializeDecision(

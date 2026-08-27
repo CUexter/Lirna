@@ -1,26 +1,14 @@
 import { createHash } from "node:crypto";
 
 import type { AnnotationRecord } from "../annotations/annotation-contract";
-import type { CitationResolutionRecord } from "../citation-resolutions/citation-resolution-contract";
 import type { ReadingPositionRecord } from "../reading-position/reading-position-contract";
-import type {
-  SepAdmittedState,
-  SepLibrarySource,
-} from "../sep-admission/sep-admitted-state";
+import type { ReadingWorkspaceProjection } from "../reading-workspace/reading-workspace";
 import { standardSepCaptureLimits } from "../sep-admission/sep-bundle";
-import type { SepReadingContract } from "../sep-admission/sep-reading-contract";
 
 const offlineWorkingSetVersion = 1 as const;
 
-interface Workspace {
-  reading: SepReadingContract;
-  state: SepAdmittedState;
-  source: SepLibrarySource;
-  citationResolutions: CitationResolutionRecord[];
-}
-
 export function createOfflineWorkingSetSnapshot(input: {
-  workspace: Workspace;
+  workspace: ReadingWorkspaceProjection;
   annotations: AnnotationRecord[];
   positions: ReadingPositionRecord[];
   synchronizedAt?: Date;

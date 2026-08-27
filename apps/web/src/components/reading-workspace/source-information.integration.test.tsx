@@ -2,43 +2,13 @@ import { expect, test } from "bun:test";
 import { waitFor } from "@testing-library/react";
 import { previewFixture } from "@/components/source-admission/admission-test-fixtures";
 import {
-  readingRouteState,
   renderReading,
   resetActions,
   view,
 } from "./reading-route-test-harness";
 import { setupReadingUser } from "./reading-route-test-scenarios";
 import { sourceId, stateId } from "./reading-test-fixtures";
-import {
-  readingWorkspaceFixture,
-  setSepUpdateResult,
-} from "./source-information-test-fixture";
-
-test("keeps legacy SEP text readable without first-class state evidence", async () => {
-  resetActions();
-  const workspace = readingWorkspaceFixture();
-  readingRouteState.workspaceOverride = {
-    ...workspace,
-    state: undefined,
-    source: {
-      ...workspace.source,
-      kind: "legacy-sep-text",
-      stableKey: undefined,
-    },
-  };
-
-  await renderReading();
-  await waitFor(() =>
-    expect(view().getByRole("heading", { level: 1 }).textContent).toBe(
-      "Synthetic Reading Source",
-    ),
-  );
-  expect(view().getByRole("heading", { name: "Legacy SEP text" })).toBeTruthy();
-  expect(view().getByText(/preserved prototype remains readable/)).toBeTruthy();
-  expect(
-    view().getByRole("link", { name: "Offer related replacement" }),
-  ).toBeTruthy();
-});
+import { setSepUpdateResult } from "./source-information-test-fixture";
 
 test("inspects provenance, switches states, and previews an unchanged update", async () => {
   resetActions();

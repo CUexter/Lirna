@@ -6,31 +6,6 @@ import { formatDate, formatState } from "./format";
 import type { LibrarySource } from "./types";
 
 export function SourceMetadata({ source }: { source: LibrarySource }) {
-  if (source.kind === "legacy-sep-text") {
-    return (
-      <>
-        <Badge variant="outline">Legacy SEP text</Badge>
-        {source.replacement ? (
-          <Link
-            params={{
-              sourceId: source.replacement.id,
-              stateId: source.replacement.currentStateId,
-            }}
-            to="/sources/$sourceId/$stateId"
-          >
-            Related replacement: {source.replacement.title}
-          </Link>
-        ) : (
-          <Link
-            search={{ replacesSourceId: source.id }}
-            to="/sources/admission"
-          >
-            Offer related replacement
-          </Link>
-        )}
-      </>
-    );
-  }
   return (
     <>
       <span>Added {formatDate(source.admittedAt)}</span>

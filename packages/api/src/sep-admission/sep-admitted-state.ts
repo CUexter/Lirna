@@ -93,10 +93,9 @@ export interface SepLibrarySource {
   authors: string[];
   publisher: string;
   publicationHistory: string[];
-  kind: "sep" | "legacy-sep-text";
+  kind: "sep";
   stableKey?: string;
   currentStateId?: string;
-  replacement?: { id: string; title: string; currentStateId: string };
   states: Array<
     Pick<
       SepAdmittedState,
@@ -122,12 +121,6 @@ export interface SepAdmittedStateOperations {
     sourceId: string,
     stateId: string,
   ): Promise<SepReadingContract | undefined>;
-  getWorkspace(
-    sourceId: string,
-    stateId: string,
-  ): Promise<
-    { state: SepAdmittedState; reading: SepReadingContract } | undefined
-  >;
   getUpdateTarget(
     sourceId: string,
   ): Promise<{ stableKey: string; canonicalUrl: string } | undefined>;

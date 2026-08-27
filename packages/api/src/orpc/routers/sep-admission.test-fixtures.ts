@@ -58,9 +58,6 @@ export function admittedSourceStatesStub(
     async getReading() {
       return undefined;
     },
-    async getWorkspace() {
-      return undefined;
-    },
     async getUpdateTarget() {
       return undefined;
     },

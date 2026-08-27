@@ -24,31 +24,12 @@ export const sourceWorkspaceProcedures = {
       }),
     )
     .handler(async ({ context, input }) => {
-      const [workspace, sources, citationResolutions] = await Promise.all([
-        context.admittedSourceStates.getWorkspace(
-          input.sourceId,
-          input.stateId,
-        ),
-        context.admittedSourceStates.listSources(),
-        context.citationResolutions.list(input.sourceId, input.stateId),
-      ]);
-      const source = sources.find(({ id }) => id === input.sourceId);
-      const reading =
-        workspace?.reading ??
-        (source?.kind === "legacy-sep-text"
-          ? await context.admittedSourceStates.getReading(
-              input.sourceId,
-              input.stateId,
-            )
-          : undefined);
-      if (!source || !reading || (source.kind === "sep" && !workspace))
-        throw notFound("SEP Reading Derivative is unavailable");
-      return {
-        reading,
-        ...(workspace ? { state: workspace.state } : {}),
-        source,
-        citationResolutions,
-      };
+      const workspace = await context.readingWorkspaces.read(
+        input.sourceId,
+        input.stateId,
+      );
+      if (!workspace) throw notFound("SEP Reading Derivative is unavailable");
+      return workspace;
     }),
 
   offlineManifest: publicProcedure
@@ -65,18 +46,15 @@ export const sourceWorkspaceProcedures = {
       }),
     )
     .handler(async ({ context, input }) => {
-      const workspace = await context.admittedSourceStates.getWorkspace(
+      const workspace = await context.readingWorkspaces.read(
         input.sourceId,
         input.stateId,
       );
       if (!workspace) throw notFound("SEP Reading Derivative is unavailable");
-      const [sources, citationResolutions, annotations] = await Promise.all([
-        context.admittedSourceStates.listSources(),
-        context.citationResolutions.list(input.sourceId, input.stateId),
-        context.annotations.list(input.sourceId, input.stateId),
-      ]);
-      const source = sources.find(({ id }) => id === input.sourceId);
-      if (!source) throw notFound("SEP Source is unavailable");
+      const annotations = await context.annotations.list(
+        input.sourceId,
+        input.stateId,
+      );
       const positions = (
         await Promise.all(
           workspace.reading.components.map((component) =>
@@ -89,11 +67,7 @@ export const sourceWorkspaceProcedures = {
         )
       ).filter((position) => position !== undefined);
       return createOfflineWorkingSetSnapshot({
-        workspace: {
-          ...workspace,
-          source,
-          citationResolutions,
-        },
+        workspace,
         annotations,
         positions,
       });

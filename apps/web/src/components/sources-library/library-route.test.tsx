@@ -112,47 +112,6 @@ test("shows the Source library failure", async () => {
   expect(view().getByText("Source library unavailable")).toBeTruthy();
 });
 
-test("offers a related replacement without changing a legacy Source", async () => {
-  getSources = async () => [
-    {
-      id: sourceId,
-      title: "Legacy SEP text",
-      admittedAt: "2026-08-18T12:01:00.000Z",
-      authors: [],
-      publisher: "",
-      publicationHistory: [],
-      kind: "legacy-sep-text",
-      currentStateId: stateId,
-      states: [
-        {
-          id: stateId,
-          sequence: 0,
-          observationKey: "submitted",
-          canonicalUrl: "",
-          title: "Legacy SEP text",
-          publisher: "",
-          admittedAt: "2026-08-18T12:01:00.000Z",
-        },
-      ],
-    },
-  ];
-
-  await renderLibrary();
-  await waitFor(() =>
-    expect(view().getAllByText("Legacy SEP text").length).toBeGreaterThan(0),
-  );
-  const replacement = view().getByRole("link", {
-    name: "Offer related replacement",
-  });
-  expect(replacement.getAttribute("href")).toContain(sourceId);
-  expect(view().getAllByText("Legacy SEP text").length).toBeGreaterThan(0);
-
-  const card = view().getByRole("link", {
-    name: "Open Legacy SEP text in reading workspace",
-  });
-  expect(card.getAttribute("tabindex")).toBe("0");
-});
-
 test("deletes a Source after confirmation", async () => {
   getSources = async () => [
     {

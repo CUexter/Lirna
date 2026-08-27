@@ -1,12 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { sepPreviewResources } from "@lirna/db/schema/sep-admission";
-import {
-  sourceStateDerivativeActivations,
-  sourceStateDerivatives,
-  sourceStates,
-  sources,
-} from "@lirna/db/schema/sources";
+import { sourceStateDerivativeActivations } from "@lirna/db/schema/sources";
 import { and, eq } from "drizzle-orm";
 
 import { readingIntegrationHtml } from "./fixtures/admission-preview";
@@ -158,82 +153,6 @@ describePostgres("SEP admitted-state PostgreSQL reader", () => {
     ).resolves.toEqual({
       stableKey: `sep:update-target-${previewId}`,
       canonicalUrl: "https://plato.stanford.edu/entries/reading/",
-    });
-  });
-
-  test("keeps a legacy SEP text state listed and readable", async () => {
-    const previewId = randomUUID();
-    await insertPreview(database, {
-      id: previewId,
-      stableKey: `sep:legacy-reading-${previewId}`,
-      observations: ["submitted"],
-    });
-    const admitted = await store.admit(previewId, ["submitted"], new Date());
-    const reading = await store.getReading(
-      admitted?.sourceId ?? "",
-      admitted?.states[0]?.id ?? "",
-    );
-    expect(reading).toBeDefined();
-    if (!reading) throw new Error("Expected admitted Reading fixture");
-
-    const legacySourceId = randomUUID();
-    const legacyStateId = randomUUID();
-    const legacyDerivativeId = randomUUID();
-    await database.insert(sources).values({
-      id: legacySourceId,
-      title: "Legacy SEP text",
-      stableKey: null,
-    });
-    await database.insert(sourceStates).values({
-      id: legacyStateId,
-      sourceId: legacySourceId,
-      sequence: 0,
-      adapterId: "sep-text-prototype",
-      observationKey: null,
-      canonicalUrl: null,
-      rightsBasis: "publicly-accessible",
-      sensitivityLevel: "ordinary-cloud",
-    });
-    await database.insert(sourceStateDerivatives).values({
-      id: legacyDerivativeId,
-      sourceStateId: legacyStateId,
-      kind: "sep-reading-v1",
-      valid: true,
-      generation: {
-        version: 1,
-        parser: reading.provenance.parser,
-        renderer: { id: "lirna-reading-react", version: "1" },
-        inputResourceHashes: reading.provenance.inputResourceHashes,
-      },
-      payload: {
-        ...reading,
-        source: {
-          ...reading.source,
-          id: legacySourceId,
-          stateId: legacyStateId,
-          title: "Legacy SEP text",
-        },
-      },
-      validation: { schema: "sep-reading-v1", status: "valid" },
-    });
-    await database.insert(sourceStateDerivativeActivations).values({
-      sourceStateId: legacyStateId,
-      derivativeId: legacyDerivativeId,
-      kind: "sep-reading-v1",
-    });
-
-    const legacy = (await store.listSources()).find(
-      ({ id }) => id === legacySourceId,
-    );
-    expect(legacy).toMatchObject({
-      kind: "legacy-sep-text",
-      currentStateId: legacyStateId,
-      states: [{ id: legacyStateId }],
-    });
-    await expect(
-      store.getReading(legacySourceId, legacyStateId),
-    ).resolves.toMatchObject({
-      source: { id: legacySourceId, stateId: legacyStateId },
     });
   });
 

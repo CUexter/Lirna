@@ -22,6 +22,7 @@ import type {
   SepAdmittedStateOperations,
   SepLibrarySource,
 } from "./sep-admitted-state";
+import type { DatabaseExecutor } from "./sep-state-evidence";
 import { readSepAdmittedState } from "./sep-state-projection";
 
 export function createSepAdmittedStateReader(
@@ -43,18 +44,7 @@ export function createSepAdmittedStateReader(
           eq(sepSourceStateMetadata.sourceStateId, sourceStates.id),
         )
         .orderBy(desc(sources.admittedAt), desc(sourceStates.sequence));
-      const relations = await database
-        .select({
-          legacySourceId: sourceRelations.relatedSourceId,
-          replacementId: sources.id,
-          replacementTitle: sources.title,
-        })
-        .from(sourceRelations)
-        .innerJoin(sources, eq(sources.id, sourceRelations.sourceId))
-        .where(eq(sourceRelations.kind, "replacement-capture-for"));
-      const grouped = groupLibrarySources(rows);
-      applyReplacementRelations(grouped, relations);
-      return [...grouped.values()];
+      return [...groupLibrarySources(rows).values()];
     },
 
     async deleteSource(sourceId: string): Promise<boolean> {
@@ -156,20 +146,6 @@ export function createSepAdmittedStateReader(
       return active.status === "active" ? active.value.reading : undefined;
     },
 
-    getWorkspace: (sourceId, stateId) =>
-      database.transaction(
-        async (tx) => {
-          const [state, active] = await Promise.all([
-            readSepAdmittedState(tx, sourceId, stateId),
-            activeReading.readInSnapshot(tx, { sourceId, stateId }),
-          ]);
-          return state && active.status === "active"
-            ? { state, reading: active.value.reading }
-            : undefined;
-        },
-        { isolationLevel: "repeatable read", accessMode: "read only" },
-      ),
-
     async getUpdateTarget(sourceId: string) {
       const [row] = await database
         .select({
@@ -200,6 +176,27 @@ export function createSepAdmittedStateReader(
 
 export const sepAdmittedStateOperations = createSepAdmittedStateReader();
 
+export async function readSepLibrarySourceInSnapshot(
+  database: DatabaseExecutor,
+  sourceId: string,
+) {
+  const rows = await database
+    .select({
+      source: sources,
+      state: sourceStates,
+      metadata: sepSourceStateMetadata,
+    })
+    .from(sources)
+    .innerJoin(sourceStates, eq(sourceStates.sourceId, sources.id))
+    .innerJoin(
+      sepSourceStateMetadata,
+      eq(sepSourceStateMetadata.sourceStateId, sourceStates.id),
+    )
+    .where(and(eq(sources.id, sourceId), eq(sourceStates.adapterId, "sep")))
+    .orderBy(desc(sourceStates.sequence));
+  return groupLibrarySources(rows).get(sourceId);
+}
+
 interface LibraryRow {
   source: typeof sources.$inferSelect;
   state: typeof sourceStates.$inferSelect | null;
@@ -209,6 +206,7 @@ interface LibraryRow {
 function groupLibrarySources(rows: LibraryRow[]) {
   const grouped = new Map<string, SepLibrarySource>();
   for (const row of rows) {
+    if (row.state?.adapterId !== "sep" || !row.metadata) continue;
     const source = grouped.get(row.source.id) ?? librarySource(row);
     appendSepState(source, row);
     grouped.set(row.source.id, source);
@@ -226,7 +224,7 @@ function librarySource(row: LibraryRow): SepLibrarySource {
     publicationHistory: row.metadata
       ? parseStringList(row.metadata.publicationHistory)
       : [],
-    kind: row.state?.adapterId === "sep" ? "sep" : "legacy-sep-text",
+    kind: "sep",
     ...(row.source.stableKey ? { stableKey: row.source.stableKey } : {}),
     states: [],
   };
@@ -234,19 +232,6 @@ function librarySource(row: LibraryRow): SepLibrarySource {
 
 function appendSepState(source: SepLibrarySource, row: LibraryRow) {
   if (!row.state) return;
-  if (row.state.adapterId !== "sep") {
-    source.states.push({
-      id: row.state.id,
-      sequence: row.state.sequence,
-      observationKey: "submitted",
-      canonicalUrl: row.state.canonicalUrl ?? "",
-      title: row.source.title,
-      publisher: "",
-      admittedAt: row.state.admittedAt.toISOString(),
-    });
-    source.currentStateId ??= row.state.id;
-    return;
-  }
   if (!row.metadata) return;
   source.states.push({
     id: row.state.id,
@@ -258,24 +243,4 @@ function appendSepState(source: SepLibrarySource, row: LibraryRow) {
     admittedAt: row.state.admittedAt.toISOString(),
   });
   source.currentStateId ??= row.state.id;
-}
-
-function applyReplacementRelations(
-  grouped: Map<string, SepLibrarySource>,
-  relations: Array<{
-    legacySourceId: string;
-    replacementId: string;
-    replacementTitle: string;
-  }>,
-) {
-  for (const relation of relations) {
-    const legacy = grouped.get(relation.legacySourceId);
-    const replacement = grouped.get(relation.replacementId);
-    if (!legacy || !replacement?.currentStateId) continue;
-    legacy.replacement = {
-      id: relation.replacementId,
-      title: relation.replacementTitle,
-      currentStateId: replacement.currentStateId,
-    };
-  }
 }

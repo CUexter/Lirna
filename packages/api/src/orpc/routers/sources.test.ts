@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { call } from "@orpc/server";
+import type { Context } from "../../context";
 import {
   admittedSourceStatesStub,
   readingFixture,
@@ -9,10 +10,10 @@ import {
 } from "./sep-admission.test-fixtures";
 import { sourcesRouter } from "./sources";
 import {
-  citationOperationsStub,
   citationResolution,
   invoke,
   readingPositionsStub,
+  readingWorkspacesStub,
   sourcesContext,
 } from "./sources.test-support";
 
@@ -125,8 +126,9 @@ describe("Sources oRPC router", () => {
     ).resolves.toBeDefined();
   });
 
-  test("reading workspace composes the Derivative and Citation resolutions", async () => {
+  test("reading workspace forwards the server projection", async () => {
     const resolution = citationResolution();
+    const source = sourceFixture();
     await expect(
       call(
         sourcesRouter.readingWorkspace,
@@ -137,75 +139,91 @@ describe("Sources oRPC router", () => {
               admittedSourceStatesStub(),
               readingPositionsStub(),
             ),
-            admittedSourceStates: admittedSourceStatesStub({
-              async getWorkspace() {
-                return { reading: readingFixture(), state: stateFixture() };
+            readingWorkspaces: {
+              async read() {
+                return {
+                  reading: readingFixture(),
+                  state: stateFixture(),
+                  source,
+                  citationResolutions: [resolution],
+                };
               },
-              async listSources() {
-                return [
-                  {
-                    id: sourceId,
-                    title: "Test entry",
-                    admittedAt: "2026-08-18T12:00:00.000Z",
-                    authors: [],
-                    publisher: "Stanford Encyclopedia of Philosophy",
-                    publicationHistory: [],
-                    kind: "sep",
-                    stableKey: "sep:test",
-                    currentStateId: stateId,
-                    states: [
-                      {
-                        id: stateId,
-                        sequence: 1,
-                        observationKey: "submitted",
-                        canonicalUrl:
-                          "https://plato.stanford.edu/entries/test/",
-                        title: "Test entry",
-                        publisher: "Stanford Encyclopedia of Philosophy",
-                        admittedAt: "2026-08-18T12:00:00.000Z",
-                      },
-                    ],
-                  },
-                ];
-              },
-            }),
-            citationResolutions: citationOperationsStub({
-              async list() {
-                return [resolution];
-              },
-            }),
-          },
+            },
+          } as Context,
         },
       ),
-    ).resolves.toMatchObject({ citationResolutions: [resolution] });
+    ).resolves.toEqual({
+      reading: readingFixture(),
+      state: stateFixture(),
+      source,
+      citationResolutions: [resolution],
+    });
   });
 
-  test("reading workspace keeps a legacy text Source readable without first-class state metadata", async () => {
-    const legacySource = {
-      id: sourceId,
-      title: "Legacy SEP text",
-      admittedAt: "2026-08-18T12:00:00.000Z",
-      authors: [],
-      publisher: "",
-      publicationHistory: [],
-      kind: "legacy-sep-text" as const,
-      currentStateId: stateId,
-      states: [
+  test("reading workspace returns not found when the projection is unavailable", async () => {
+    await expect(
+      call(
+        sourcesRouter.readingWorkspace,
+        { sourceId, stateId },
         {
-          id: stateId,
-          sequence: 0,
-          observationKey: "submitted" as const,
-          canonicalUrl: "",
-          title: "Legacy SEP text",
-          publisher: "",
-          admittedAt: "2026-08-18T12:00:00.000Z",
+          context: sourcesContext(
+            admittedSourceStatesStub(),
+            readingPositionsStub(),
+          ),
+        },
+      ),
+    ).rejects.toMatchObject({
+      code: "NOT_FOUND",
+      message: "SEP Reading Derivative is unavailable",
+    });
+  });
+
+  test("Offline working set uses the Reading workspace projection", async () => {
+    const reading = readingFixture();
+    const activation = {
+      id: "50000000-0000-4000-8000-000000000000",
+      derivativeId: "40000000-0000-4000-8000-000000000000",
+      sequence: 1,
+      actorId: "system:admission",
+      reason: "Initial validated derivative",
+      activatedAt: "2026-08-25T00:00:00.000Z",
+      consequences: {
+        semantic: { changedComponents: [] },
+        structure: [],
+        diagnostics: { added: [], removed: [] },
+        relocations: [],
+      },
+    };
+    const state = stateFixture({
+      derivatives: [
+        {
+          id: activation.derivativeId,
+          kind: "sep-reading-v1",
+          valid: true,
+          generation: {
+            version: 1,
+            parser: { id: "parse5", version: "7.3.0" },
+            renderer: { id: "lirna-reading-react", version: "1" },
+            inputResourceHashes: reading.provenance.inputResourceHashes,
+          },
+          validation: { status: "valid", checks: [] },
+          createdAt: activation.activatedAt,
+          currentActivation: activation,
+          activationHistory: [activation],
+          provenance: reading.provenance,
         },
       ],
+    });
+    if (state.capture.limits) state.capture.limits.maxTotalBytes = 1024 * 1024;
+    const workspace = {
+      reading,
+      state,
+      source: sourceFixture(),
+      citationResolutions: [],
     };
-
     await expect(
       call(
-        sourcesRouter.readingWorkspace,
+        sourcesRouter.offlineManifest,
         { sourceId, stateId },
         {
           context: {
@@ -213,23 +231,44 @@ describe("Sources oRPC router", () => {
               admittedSourceStatesStub(),
               readingPositionsStub(),
             ),
-            admittedSourceStates: admittedSourceStatesStub({
-              async getReading() {
-                return readingFixture();
+            annotations: {
+              async list() {
+                return [];
               },
-              async listSources() {
-                return [legacySource];
+            } as Context["annotations"],
+            readingWorkspaces: readingWorkspacesStub({
+              async read() {
+                return workspace;
               },
             }),
-            citationResolutions: citationOperationsStub(),
           },
         },
       ),
-    ).resolves.toEqual(
-      expect.objectContaining({
-        reading: expect.any(Object),
-        source: legacySource,
-      }),
-    );
+    ).resolves.toMatchObject({ replica: { workspace } });
   });
 });
+
+function sourceFixture() {
+  return {
+    id: sourceId,
+    title: "Test entry",
+    admittedAt: "2026-08-18T12:00:00.000Z",
+    authors: [],
+    publisher: "Stanford Encyclopedia of Philosophy",
+    publicationHistory: [],
+    kind: "sep" as const,
+    stableKey: "sep:test",
+    currentStateId: stateId,
+    states: [
+      {
+        id: stateId,
+        sequence: 1,
+        observationKey: "submitted" as const,
+        canonicalUrl: "https://plato.stanford.edu/entries/test/",
+        title: "Test entry",
+        publisher: "Stanford Encyclopedia of Philosophy",
+        admittedAt: "2026-08-18T12:00:00.000Z",
+      },
+    ],
+  };
+}

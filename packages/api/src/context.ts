@@ -13,6 +13,7 @@ import { DrizzleDerivativeUpdateStore } from "./derivative-updates/derivative-up
 import type { RequestObservation } from "./observation";
 import type { ReadingPositionOperations } from "./reading-position/reading-position-contract";
 import { DrizzleReadingPositionStore } from "./reading-position/reading-position-store";
+import { createReadingWorkspaceReader } from "./reading-workspace/reading-workspace-reader";
 import {
   createOpenRouterResearchAssistant,
   type ResearchAssistantOperations,
@@ -60,6 +61,7 @@ const readingPositionStore = new DrizzleReadingPositionStore(
   db,
   activeReadingDerivativeStore,
 );
+const readingWorkspaceOperations = createReadingWorkspaceReader(db);
 const derivativeUpdateStore = new DrizzleDerivativeUpdateStore(db);
 const researchAssistant = env.OPENROUTER_API_KEY
   ? createOpenRouterResearchAssistant({
@@ -90,6 +92,7 @@ export function createContext({
       ? { citationInference: citationInferenceOverride ?? citationInference }
       : {}),
     readingPositions: readingPositions ?? readingPositionStore,
+    readingWorkspaces: readingWorkspaceOperations,
     derivativeUpdates: derivativeUpdates ?? derivativeUpdateStore,
     activeReadingDerivatives:
       activeReadingDerivatives ?? activeReadingDerivativeStore,

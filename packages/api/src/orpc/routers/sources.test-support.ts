@@ -4,6 +4,7 @@ import type {
   ReadingPositionOperations,
   ReadingPositionRecord,
 } from "../../reading-position/reading-position-contract";
+import type { ReadingWorkspaceOperations } from "../../reading-workspace/reading-workspace";
 import type { SepAdmittedStateOperations } from "../../sep-admission/sep-admitted-state";
 import {
   admittedSourceStatesStub,
@@ -39,8 +40,20 @@ export function sourcesContext(
     citationResolutions: {} as Context["citationResolutions"],
     derivativeUpdates: {} as Context["derivativeUpdates"],
     readingPositions,
+    readingWorkspaces: readingWorkspacesStub(),
     sepAdmissions: {} as Context["sepAdmissions"],
     admittedSourceStates,
+  };
+}
+
+export function readingWorkspacesStub(
+  overrides: Partial<ReadingWorkspaceOperations> = {},
+): ReadingWorkspaceOperations {
+  return {
+    async read() {
+      return undefined;
+    },
+    ...overrides,
   };
 }
 
