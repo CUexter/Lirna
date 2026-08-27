@@ -531,6 +531,8 @@ test("rolls back a managed worktree when configuration generation fails", async 
   await rm(join(primary.checkoutPath, ".lirna"), { recursive: true });
   await writeFile(join(primary.checkoutPath, ".lirna"), "blocks config\n");
   for (const args of [
+    ["-C", primary.checkoutPath, "config", "user.email", "test@example.com"],
+    ["-C", primary.checkoutPath, "config", "user.name", "Lifecycle Test"],
     ["-C", primary.checkoutPath, "add", "--force", ".lirna"],
     ["-C", primary.checkoutPath, "commit", "--quiet", "-m", "block config"],
   ]) {

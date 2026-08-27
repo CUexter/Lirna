@@ -156,6 +156,9 @@ test("completes the production SEP journey within accessibility and performance 
   await page.goto(
     "/sources/10000000-0000-4000-8000-000000000000/20000000-0000-4000-8000-000000000000",
   );
+  await expect(
+    page.getByText("Reading position synced for Article"),
+  ).toBeVisible();
 
   await page
     .getByText("Visible typed paragraph.", { exact: true })
