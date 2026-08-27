@@ -5,9 +5,13 @@ import { z } from "zod";
 import {
   annotationColors,
   annotationKinds,
-  annotationOffsetBasis,
+  InvalidAnnotationError,
 } from "../../annotations/annotation-contract";
-import { InvalidAnnotationAnchorError } from "../../annotations/annotation-store";
+import {
+  authoredTargetInputSchema,
+  authoredTargetSchema,
+  InvalidAuthoredTargetError,
+} from "../../authored-targets/authored-target";
 import { publicProcedure } from "../init";
 
 const sourceStateInput = z.object({
@@ -24,13 +28,7 @@ export const annotationSchema = z.object({
   sourceStateId: z.string().uuid(),
   componentIdentity: z.string(),
   kind,
-  publisherAnchor: z.string().nullable(),
-  offsetBasis: z.literal(annotationOffsetBasis),
-  normalizedStartOffset: z.number().int().nonnegative(),
-  normalizedEndOffset: z.number().int().positive(),
-  exactText: z.string(),
-  prefix: z.string(),
-  suffix: z.string(),
+  ...authoredTargetSchema.shape,
   color,
   body: z.string().nullable(),
   createdAt: z.string().datetime(),
@@ -58,36 +56,27 @@ export const annotationsRouter = {
 
   create: publicProcedure
     .input(
-      sourceStateInput
-        .extend({
+      z
+        .object({
+          ...sourceStateInput.shape,
           componentIdentity: z.string().trim().min(1).max(2_000),
           kind,
-          publisherAnchor: z.string().trim().min(1).max(2_000).optional(),
-          offsetBasis: z.literal(annotationOffsetBasis),
-          normalizedStartOffset: z.number().int().nonnegative(),
-          normalizedEndOffset: z.number().int().positive(),
-          exactText: z.string().min(1).max(20_000),
-          prefix: z.string().max(32),
-          suffix: z.string().max(32),
+          ...authoredTargetInputSchema.shape,
           color,
           body,
         })
-        .refine(
-          (input) => input.normalizedEndOffset > input.normalizedStartOffset,
-          {
-            message: "Annotation end offset must follow its start offset",
-            path: ["normalizedEndOffset"],
-          },
-        )
-        .refine(
-          (input) =>
-            input.normalizedEndOffset - input.normalizedStartOffset ===
-            input.exactText.length,
-          {
-            message: "Annotation range must match its exact text",
-            path: ["exactText"],
-          },
-        ),
+        .superRefine((input, context) => {
+          const result = authoredTargetInputSchema.safeParse(input);
+          if (!result.success) {
+            for (const issue of result.error.issues) {
+              context.addIssue({
+                code: "custom",
+                message: issue.message,
+                path: issue.path,
+              });
+            }
+          }
+        }),
     )
     .output(annotationSchema)
     .errors(annotationErrors)
@@ -106,7 +95,10 @@ export const annotationsRouter = {
         if (!annotation) throw notFound();
         return annotation;
       } catch (error) {
-        if (error instanceof InvalidAnnotationAnchorError) {
+        if (
+          error instanceof InvalidAuthoredTargetError ||
+          error instanceof InvalidAnnotationError
+        ) {
           throw new ORPCError("BAD_REQUEST", { message: error.message });
         }
         throw error;
@@ -134,7 +126,10 @@ export const annotationsRouter = {
         if (!annotation) throw notFound();
         return annotation;
       } catch (error) {
-        if (error instanceof InvalidAnnotationAnchorError) {
+        if (
+          error instanceof InvalidAuthoredTargetError ||
+          error instanceof InvalidAnnotationError
+        ) {
           throw new ORPCError("BAD_REQUEST", { message: error.message });
         }
         throw error;

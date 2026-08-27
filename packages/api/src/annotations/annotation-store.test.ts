@@ -1,13 +1,10 @@
 import { describe, expect, test } from "bun:test";
-
+import { InvalidAuthoredTargetError } from "../authored-targets/authored-target";
 import type {
   AnnotationRecord,
   CreateAnnotationInput,
 } from "./annotation-contract";
-import {
-  DrizzleAnnotationStore,
-  InvalidAnnotationAnchorError,
-} from "./annotation-store";
+import { DrizzleAnnotationStore } from "./annotation-store";
 import { activeReadingStub } from "./annotation-store.test-support";
 
 const sourceId = "10000000-0000-4000-8000-000000000000";
@@ -69,7 +66,7 @@ describe("DrizzleAnnotationStore mapping", () => {
 
     await expect(
       store.create(createInput({ exactText: "fabricat" })),
-    ).rejects.toBeInstanceOf(InvalidAnnotationAnchorError);
+    ).rejects.toBeInstanceOf(InvalidAuthoredTargetError);
   });
 
   test("preserves the existing body when an update omits it", async () => {

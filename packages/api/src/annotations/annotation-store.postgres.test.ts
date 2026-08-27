@@ -148,7 +148,9 @@ describePostgres("Annotation PostgreSQL store", () => {
   });
 
   test("rejects fabricated, stale, publisher-mismatched, and cross-component anchors", async () => {
-    const { InvalidAnnotationAnchorError } = await import("./annotation-store");
+    const { InvalidAuthoredTargetError } = await import(
+      "../authored-targets/authored-target"
+    );
     const invalid = [
       createInput({ exactText: "fabricat" }),
       createInput({ prefix: "stale" }),
@@ -159,7 +161,7 @@ describePostgres("Annotation PostgreSQL store", () => {
 
     for (const input of invalid) {
       await expect(store.create(input)).rejects.toBeInstanceOf(
-        InvalidAnnotationAnchorError,
+        InvalidAuthoredTargetError,
       );
     }
     expect(await store.list(sourceId, stateId)).toEqual([]);

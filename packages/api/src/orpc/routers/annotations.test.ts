@@ -5,7 +5,7 @@ import type {
   AnnotationOperations,
   AnnotationRecord,
 } from "../../annotations/annotation-contract";
-import { InvalidAnnotationAnchorError } from "../../annotations/annotation-store";
+import { InvalidAuthoredTargetError } from "../../authored-targets/authored-target";
 import type { Context } from "../../context";
 import { annotationsRouter } from "./annotations";
 
@@ -115,7 +115,7 @@ describe("annotations oRPC router", () => {
   test("returns bad request for an anchor rejected by the derivative boundary", async () => {
     const operations = operationsStub({
       async create() {
-        throw new InvalidAnnotationAnchorError();
+        throw new InvalidAuthoredTargetError();
       },
     });
 

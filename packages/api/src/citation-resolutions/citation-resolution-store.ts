@@ -3,6 +3,11 @@ import { citationResolutions } from "@lirna/db/schema/citation-resolutions";
 import { sourceStates } from "@lirna/db/schema/sources";
 import { and, asc, eq } from "drizzle-orm";
 
+import {
+  type AuthoredTarget,
+  authoredTargetForPublisherAnchor,
+  InvalidAuthoredTargetError,
+} from "../authored-targets/authored-target";
 import type { ActiveReadingDerivativeOperations } from "../sep-admission/active-reading-derivative";
 import { DrizzleActiveReadingDerivativeStore } from "../sep-admission/active-reading-derivative-store";
 import { deriveCitationMentionEvidence } from "./citation-mention-evidence";
@@ -13,13 +18,10 @@ import type {
   ClearCitationResolutionInput,
   CreateCitationResolutionInput,
 } from "./citation-resolution-contract";
-
-export class InvalidCitationResolutionError extends Error {
-  constructor(message = "Citation mention or candidate is unavailable") {
-    super(message);
-    this.name = "InvalidCitationResolutionError";
-  }
-}
+import {
+  InvalidCitationResolutionError,
+  validateCitationResolutionMetadata,
+} from "./citation-resolution-contract";
 
 export class DrizzleCitationResolutionStore
   implements CitationResolutionOperations
@@ -98,8 +100,18 @@ export class DrizzleCitationResolutionStore
         item.bibliographyEntryId === input.bibliographyEntryId,
     );
     if (!candidate) throw new InvalidCitationResolutionError();
-    validateMethod(input);
-    const anchor = mentionAnchor(component.plainText, mention.label);
+    validateCitationResolutionMetadata(input);
+    let target: AuthoredTarget;
+    try {
+      target = authoredTargetForPublisherAnchor(component, input.mentionId);
+    } catch (error) {
+      if (error instanceof InvalidAuthoredTargetError) {
+        throw new InvalidCitationResolutionError(
+          "Citation mention evidence is unavailable",
+        );
+      }
+      throw error;
+    }
 
     const [resolution] = await this.database
       .insert(citationResolutions)
@@ -110,13 +122,7 @@ export class DrizzleCitationResolutionStore
         mentionId: input.mentionId,
         bibliographyComponentIdentity: candidate.bibliographyComponentIdentity,
         bibliographyEntryId: candidate.bibliographyEntryId,
-        publisherAnchor: input.mentionId,
-        offsetBasis: "normalized-derivative-text-v1",
-        normalizedStartOffset: anchor.start,
-        normalizedEndOffset: anchor.end,
-        exactText: mention.label,
-        prefix: anchor.prefix,
-        suffix: anchor.suffix,
+        ...target,
         actorId: input.actorId,
         action: "selected",
         method: input.method,
@@ -202,43 +208,6 @@ export class DrizzleCitationResolutionStore
         }
       : undefined;
   }
-}
-
-function validateMethod(input: CreateCitationResolutionInput) {
-  if (input.method === "manual") {
-    if (input.confidence !== undefined || input.reasoning !== undefined) {
-      throw new InvalidCitationResolutionError(
-        "Manual decisions cannot include inference metadata",
-      );
-    }
-    return;
-  }
-  if (
-    input.confidence === undefined ||
-    input.confidence < 0 ||
-    input.confidence > 1 ||
-    !input.reasoning?.trim()
-  ) {
-    throw new InvalidCitationResolutionError(
-      "Inferred decisions require confidence and reasoning",
-    );
-  }
-}
-
-function mentionAnchor(plainText: string, label: string) {
-  const start = plainText.indexOf(label);
-  if (start < 0) {
-    throw new InvalidCitationResolutionError(
-      "Citation mention evidence is unavailable",
-    );
-  }
-  const end = start + label.length;
-  return {
-    start,
-    end,
-    prefix: plainText.slice(Math.max(0, start - 32), start),
-    suffix: plainText.slice(end, end + 32),
-  };
 }
 
 function serializeDecision(

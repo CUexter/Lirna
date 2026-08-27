@@ -1,11 +1,26 @@
+import type { AuthoredTarget } from "../authored-targets/authored-target";
 import type {
   CitationInferenceDecision,
   SourceHandlingPolicy,
 } from "../source-handling-policy/source-handling-policy";
 
-export type CitationResolutionMethod = "manual" | "inferred";
+export const citationResolutionMethods = ["manual", "inferred"] as const;
+export type CitationResolutionMethod =
+  (typeof citationResolutionMethods)[number];
+export const citationResolutionActions = ["selected", "cleared"] as const;
+export type CitationResolutionAction =
+  (typeof citationResolutionActions)[number];
+export const citationEvidenceStates = ["ambiguous", "unresolved"] as const;
+export type CitationEvidenceState = (typeof citationEvidenceStates)[number];
 
-export interface CitationResolutionRecord {
+export class InvalidCitationResolutionError extends Error {
+  constructor(message = "Citation mention or candidate is unavailable") {
+    super(message);
+    this.name = "InvalidCitationResolutionError";
+  }
+}
+
+export interface CitationResolutionRecord extends AuthoredTarget {
   id: string;
   sourceId: string;
   sourceStateId: string;
@@ -14,13 +29,6 @@ export interface CitationResolutionRecord {
   mentionId: string;
   bibliographyComponentIdentity: string;
   bibliographyEntryId: string;
-  publisherAnchor: string | null;
-  offsetBasis: "normalized-derivative-text-v1";
-  normalizedStartOffset: number;
-  normalizedEndOffset: number;
-  exactText: string;
-  prefix: string;
-  suffix: string;
   actorId: string;
   method: CitationResolutionMethod;
   confidence: number | null;
@@ -34,7 +42,7 @@ export interface CitationResolutionDecision
     CitationResolutionRecord,
     "bibliographyComponentIdentity" | "bibliographyEntryId"
   > {
-  action: "selected" | "cleared";
+  action: CitationResolutionAction;
   bibliographyComponentIdentity: string | null;
   bibliographyEntryId: string | null;
 }
@@ -57,7 +65,7 @@ export interface CitationMentionEvidence {
   mentionId: string;
   label: string;
   context: string;
-  state: "ambiguous" | "unresolved";
+  state: CitationEvidenceState;
   deterministicReason: string;
   candidates: CitationMentionCandidate[];
   policy: SourceHandlingPolicy & {
@@ -77,6 +85,32 @@ export type CreateCitationResolutionInput = {
   confidence?: number;
   reasoning?: string;
 };
+
+export function validateCitationResolutionMetadata(
+  input: Pick<
+    CreateCitationResolutionInput,
+    "method" | "confidence" | "reasoning"
+  >,
+) {
+  if (input.method === "manual") {
+    if (input.confidence !== undefined || input.reasoning !== undefined) {
+      throw new InvalidCitationResolutionError(
+        "Manual decisions cannot include inference metadata",
+      );
+    }
+    return;
+  }
+  if (
+    input.confidence === undefined ||
+    input.confidence < 0 ||
+    input.confidence > 1 ||
+    !input.reasoning?.trim()
+  ) {
+    throw new InvalidCitationResolutionError(
+      "Inferred decisions require confidence and reasoning",
+    );
+  }
+}
 
 export interface ClearCitationResolutionInput {
   sourceId: string;

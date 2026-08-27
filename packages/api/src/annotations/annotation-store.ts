@@ -3,12 +3,9 @@ import type { db } from "@lirna/db";
 import { annotations } from "@lirna/db/schema/annotations";
 import { sourceStates } from "@lirna/db/schema/sources";
 import { and, asc, eq } from "drizzle-orm";
+import { validateAuthoredTarget } from "../authored-targets/authored-target";
 import type { ActiveReadingDerivativeOperations } from "../sep-admission/active-reading-derivative";
 import { DrizzleActiveReadingDerivativeStore } from "../sep-admission/active-reading-derivative-store";
-import {
-  InvalidAnnotationAnchorError,
-  validateAnnotationAnchor,
-} from "./annotation-anchor";
 import type {
   AnnotationColor,
   AnnotationKind,
@@ -17,8 +14,7 @@ import type {
   CreateAnnotationInput,
   UpdateAnnotationInput,
 } from "./annotation-contract";
-
-export { InvalidAnnotationAnchorError } from "./annotation-anchor";
+import { validateAnnotationBody } from "./annotation-contract";
 
 export class DrizzleAnnotationStore implements AnnotationOperations {
   constructor(
@@ -54,11 +50,9 @@ export class DrizzleAnnotationStore implements AnnotationOperations {
     if (!component) {
       return undefined;
     }
-    validateAnnotationAnchor(component, input);
+    validateAuthoredTarget(component, input);
     const body = normalizeBody(input.body);
-    if (input.kind !== (body ? "note" : "highlight")) {
-      throw new InvalidAnnotationAnchorError();
-    }
+    validateAnnotationBody(input.kind, body);
     const [annotation] = await this.database
       .insert(annotations)
       .values({
@@ -89,9 +83,7 @@ export class DrizzleAnnotationStore implements AnnotationOperations {
     }
     const body =
       input.body === undefined ? undefined : normalizeBody(input.body);
-    if (body !== undefined && input.kind !== (body ? "note" : "highlight")) {
-      throw new InvalidAnnotationAnchorError();
-    }
+    if (body !== undefined) validateAnnotationBody(input.kind, body);
     const [annotation] = await this.database
       .update(annotations)
       .set({

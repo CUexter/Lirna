@@ -1,3 +1,4 @@
+import { annotationColors } from "@lirna/api/client";
 import type { LibraryOutputs } from "@/clients/library";
 
 export type Annotation = LibraryOutputs["annotations"]["list"][number];
@@ -5,7 +6,7 @@ export type CitationResolution =
   LibraryOutputs["citationResolutions"]["list"][number];
 export type AnnotationColor = Annotation["color"];
 
-export const colors: AnnotationColor[] = ["yellow", "green", "blue", "pink"];
+export const colors = annotationColors;
 
 const highlightNames = colors.map((color) => `lirna-annotation-${color}`);
 const targetHighlightName = "lirna-annotation-target";

@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-import { annotationOffsetBasis } from "../../annotations/annotation-contract";
+import { authoredTargetSchema } from "../../authored-targets/authored-target";
+import {
+  citationEvidenceStates,
+  citationResolutionActions,
+  citationResolutionMethods,
+} from "../../citation-resolutions/citation-resolution-contract";
 import {
   citationInferenceDecisionSchema,
   sourceHandlingPolicySchema,
@@ -13,15 +18,9 @@ const resolutionBase = z.object({
   derivativeId: z.string().uuid(),
   componentIdentity: z.string(),
   mentionId: z.string(),
-  publisherAnchor: z.string().nullable(),
-  offsetBasis: z.literal(annotationOffsetBasis),
-  normalizedStartOffset: z.number().int().nonnegative(),
-  normalizedEndOffset: z.number().int().positive(),
-  exactText: z.string(),
-  prefix: z.string(),
-  suffix: z.string(),
+  ...authoredTargetSchema.shape,
   actorId: z.string(),
-  method: z.enum(["manual", "inferred"]),
+  method: z.enum(citationResolutionMethods),
   confidence: z.number().min(0).max(1).nullable(),
   reasoning: z.string().nullable(),
   createdAt: z.string().datetime(),
@@ -34,7 +33,7 @@ export const citationResolutionSchema = resolutionBase.extend({
 });
 
 export const citationResolutionDecisionSchema = resolutionBase.extend({
-  action: z.enum(["selected", "cleared"]),
+  action: z.enum(citationResolutionActions),
   bibliographyComponentIdentity: z.string().nullable(),
   bibliographyEntryId: z.string().nullable(),
 });
@@ -48,7 +47,7 @@ export const citationMentionEvidenceSchema = z.object({
   mentionId: z.string(),
   label: z.string(),
   context: z.string(),
-  state: z.enum(["ambiguous", "unresolved"]),
+  state: z.enum(citationEvidenceStates),
   deterministicReason: z.string(),
   candidates: z
     .array(

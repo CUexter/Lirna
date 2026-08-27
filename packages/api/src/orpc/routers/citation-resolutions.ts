@@ -1,7 +1,10 @@
 import { openapi } from "@orpc/openapi";
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
-import { InvalidCitationResolutionError } from "../../citation-resolutions/citation-resolution-store";
+import {
+  citationResolutionMethods,
+  InvalidCitationResolutionError,
+} from "../../citation-resolutions/citation-resolution-contract";
 import type { Context } from "../../context";
 import { publicProcedure, unauthenticatedActorId } from "../init";
 import {
@@ -21,7 +24,7 @@ const mentionInput = sourceStateInput.extend({
 const selectionInput = mentionInput.extend({
   bibliographyComponentIdentity: z.string().trim().min(1).max(2_000),
   bibliographyEntryId: z.string().trim().min(1).max(2_000),
-  method: z.enum(["manual", "inferred"]).default("manual"),
+  method: z.enum(citationResolutionMethods).default("manual"),
   confidence: z.number().min(0).max(1).optional(),
   reasoning: z.string().trim().min(1).max(1_000).optional(),
 });

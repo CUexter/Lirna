@@ -9,8 +9,15 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-import { authoredTextColumns } from "./authored-text-columns";
+import {
+  authoredTextChecks,
+  authoredTextColumns,
+  inVocabulary,
+} from "./authored-text-columns";
 import { sourceStateDerivatives, sourceStates } from "./sources";
+
+export const citationResolutionActions = ["selected", "cleared"] as const;
+export const citationResolutionMethods = ["manual", "inferred"] as const;
 
 export const citationResolutions = pgTable(
   "citation_resolutions",
@@ -46,21 +53,14 @@ export const citationResolutions = pgTable(
       table.mentionId,
       table.createdAt,
     ),
-    check(
-      "citation_resolutions_offsets_check",
-      sql`${table.normalizedStartOffset} >= 0 AND ${table.normalizedEndOffset} > ${table.normalizedStartOffset}`,
-    ),
-    check(
-      "citation_resolutions_offset_basis_check",
-      sql`${table.offsetBasis} = 'normalized-derivative-text-v1'`,
-    ),
+    ...authoredTextChecks(table, "citation_resolutions"),
     check(
       "citation_resolutions_action_check",
-      sql`${table.action} IN ('selected', 'cleared')`,
+      inVocabulary(table.action, citationResolutionActions),
     ),
     check(
       "citation_resolutions_method_check",
-      sql`${table.method} IN ('manual', 'inferred')`,
+      inVocabulary(table.method, citationResolutionMethods),
     ),
     check(
       "citation_resolutions_target_check",
@@ -69,10 +69,6 @@ export const citationResolutions = pgTable(
     check(
       "citation_resolutions_inference_check",
       sql`(${table.method} = 'manual' AND ${table.confidence} IS NULL AND ${table.reasoning} IS NULL) OR (${table.method} = 'inferred' AND ${table.action} = 'selected' AND ${table.confidence} BETWEEN 0 AND 1 AND length(${table.reasoning}) > 0)`,
-    ),
-    check(
-      "citation_resolutions_exact_text_check",
-      sql`length(${table.exactText}) > 0`,
     ),
   ],
 );

@@ -1,40 +1,46 @@
+import type {
+  AuthoredTarget,
+  AuthoredTargetInput,
+} from "../authored-targets/authored-target";
+
 export const annotationColors = ["yellow", "green", "blue", "pink"] as const;
 export type AnnotationColor = (typeof annotationColors)[number];
 export const annotationKinds = ["highlight", "note"] as const;
 export type AnnotationKind = (typeof annotationKinds)[number];
-export const annotationOffsetBasis = "normalized-derivative-text-v1" as const;
 
-export interface AnnotationRecord {
+export class InvalidAnnotationError extends Error {
+  constructor(message = "Annotation kind does not match its body") {
+    super(message);
+    this.name = "InvalidAnnotationError";
+  }
+}
+
+export function validateAnnotationBody(
+  kind: AnnotationKind,
+  body: string | null,
+) {
+  if (kind !== (body ? "note" : "highlight")) {
+    throw new InvalidAnnotationError();
+  }
+}
+
+export interface AnnotationRecord extends AuthoredTarget {
   id: string;
   sourceId: string;
   sourceStateId: string;
   componentIdentity: string;
   kind: AnnotationKind;
-  publisherAnchor: string | null;
-  offsetBasis: typeof annotationOffsetBasis;
-  normalizedStartOffset: number;
-  normalizedEndOffset: number;
-  exactText: string;
-  prefix: string;
-  suffix: string;
   color: AnnotationColor;
   body: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface CreateAnnotationInput {
+export interface CreateAnnotationInput extends AuthoredTargetInput {
   sourceId: string;
   stateId: string;
   componentIdentity: string;
   kind: AnnotationKind;
-  publisherAnchor?: string;
-  offsetBasis: typeof annotationOffsetBasis;
-  normalizedStartOffset: number;
-  normalizedEndOffset: number;
-  exactText: string;
-  prefix: string;
-  suffix: string;
   color: AnnotationColor;
   body?: string;
 }

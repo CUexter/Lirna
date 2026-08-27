@@ -1,4 +1,3 @@
-import { sql } from "drizzle-orm";
 import {
   check,
   foreignKey,
@@ -8,8 +7,15 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-import { authoredTextColumns } from "./authored-text-columns";
+import {
+  authoredTextChecks,
+  authoredTextColumns,
+  inVocabulary,
+} from "./authored-text-columns";
 import { sourceStates, sources } from "./sources";
+
+export const annotationKinds = ["highlight", "note"] as const;
+export const annotationColors = ["yellow", "green", "blue", "pink"] as const;
 
 export const annotations = pgTable(
   "annotations",
@@ -36,22 +42,11 @@ export const annotations = pgTable(
       table.componentIdentity,
       table.normalizedStartOffset,
     ),
-    check(
-      "annotations_offsets_check",
-      sql`${table.normalizedStartOffset} >= 0 AND ${table.normalizedEndOffset} > ${table.normalizedStartOffset}`,
-    ),
-    check(
-      "annotations_kind_check",
-      sql`${table.kind} IN ('highlight', 'note')`,
-    ),
-    check(
-      "annotations_offset_basis_check",
-      sql`${table.offsetBasis} = 'normalized-derivative-text-v1'`,
-    ),
+    ...authoredTextChecks(table, "annotations"),
+    check("annotations_kind_check", inVocabulary(table.kind, annotationKinds)),
     check(
       "annotations_color_check",
-      sql`${table.color} IN ('yellow', 'green', 'blue', 'pink')`,
+      inVocabulary(table.color, annotationColors),
     ),
-    check("annotations_exact_text_check", sql`length(${table.exactText}) > 0`),
   ],
 );

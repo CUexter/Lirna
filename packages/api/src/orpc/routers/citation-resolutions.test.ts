@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { call } from "@orpc/server";
 
-import type { CitationInferenceOperations } from "../../citation-resolutions/citation-resolution-contract";
-import { InvalidCitationResolutionError } from "../../citation-resolutions/citation-resolution-store";
+import {
+  type CitationInferenceOperations,
+  InvalidCitationResolutionError,
+} from "../../citation-resolutions/citation-resolution-contract";
 import { citationResolutionsRouter } from "./citation-resolutions";
 import {
   citationOperationsStub,
