@@ -1,0 +1,13 @@
+{
+  "finding_counts": {
+    "scripts/e2e-api-substitute.mjs": {
+      "complexity_moderate": {
+        "count": 2
+      }
+    }
+  },
+  "runtime_coverage_findings": [],
+  "target_keys": [
+    "packages/api/src/sep-admission/sep-reading-dom.ts:high impact"
+  ]
+}
