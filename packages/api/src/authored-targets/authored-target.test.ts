@@ -46,6 +46,34 @@ describe("authored targets", () => {
     expect(parsed.success).toBeTrue();
     expect(invalid.success).toBeFalse();
   });
+
+  test("starts a publisher section span at its first authored text", () => {
+    const component = readingComponent();
+    component.introductoryBlocks = [
+      { kind: "paragraph", children: [{ kind: "text", text: "Intro" }] },
+    ];
+    component.sections = [
+      {
+        id: "body",
+        title: [{ kind: "anchor", id: "empty-title", children: [] }],
+        level: 2,
+        blocks: [
+          { kind: "paragraph", children: [{ kind: "text", text: "Body" }] },
+        ],
+        children: [],
+      },
+    ];
+    component.plainText = "Intro\n\nBody";
+
+    expect(authoredTargetForPublisherAnchor(component, "body")).toMatchObject({
+      normalizedStartOffset: 7,
+      normalizedEndOffset: 11,
+      exactText: "Body",
+    });
+    expect(() =>
+      authoredTargetForPublisherAnchor(component, "empty-title"),
+    ).toThrow();
+  });
 });
 
 function readingComponent(): ReadingComponent {

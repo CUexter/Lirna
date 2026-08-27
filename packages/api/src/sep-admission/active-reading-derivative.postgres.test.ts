@@ -75,6 +75,28 @@ describePostgres("active Reading Derivative module in PostgreSQL", () => {
     expect(invalidActivations).toHaveLength(0);
   });
 
+  test("treats a persisted canonical-text mismatch as an invalid candidate", async () => {
+    const { sourceId, stateId } = await admit("canonical-text-mismatch");
+    const payload = await admission.getReading(sourceId, stateId);
+    const component = payload?.components[0];
+    if (!payload || !component) throw new Error("Reading fixture missing");
+    component.plainText = "Stale canonical text";
+    const derivativeId = randomUUID();
+    await database.insert(sourceStateDerivatives).values({
+      id: derivativeId,
+      sourceStateId: stateId,
+      kind: "sep-reading-v1",
+      valid: true,
+      generation: generation(2),
+      payload,
+      validation: { schema: "sep-reading-v1", status: "valid" },
+    });
+
+    await expect(
+      activeReading.previewActivation({ sourceId, stateId, derivativeId }),
+    ).resolves.toEqual({ status: "candidate-invalid" });
+  });
+
   test("rejects an Activation after its reviewed baseline becomes stale", async () => {
     const { sourceId, stateId } = await admit("stale");
     const first = await updates.generate({ sourceId, stateId });

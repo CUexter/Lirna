@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { compareReadingDerivatives } from "./derivative-analysis";
-import { derivativeReadingFixture as reading } from "./derivative-test-fixture";
+import {
+  derivativeReadingFixture as reading,
+  refreshDerivativeText,
+} from "./derivative-test-fixture";
 import { validateReadingCandidate } from "./derivative-validation";
 
 describe("Reading Derivative validation and comparison", () => {
@@ -104,7 +107,9 @@ describe("Reading Derivative validation and comparison", () => {
       sha256: "b".repeat(64),
     });
 
-    const validation = validateReadingCandidate(candidate);
+    const validation = validateReadingCandidate(
+      refreshDerivativeText(candidate),
+    );
     expect(
       validation.checks.filter(({ status }) => status === "failed"),
     ).toEqual([

@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
+import { authoredTargetForPublisherAnchor } from "../authored-targets/authored-target";
 import { createSepReadingDerivative } from "./sep-reading";
+import { readSepReadingDerivative } from "./sep-reading-contract";
 
 const source = {
   id: "10000000-0000-4000-8000-000000000000",
@@ -145,6 +147,28 @@ describe("SEP Reading figures", () => {
         kind: "figure",
         figure: expect.objectContaining({ id: "possible-worlds" }),
       }),
+    );
+    const component = result.components[0];
+    if (!component) throw new Error("Reading component missing");
+    expect(
+      authoredTargetForPublisherAnchor(component, "possible-worlds"),
+    ).toMatchObject({ exactText: "Possible Worlds Possible Worlds" });
+  });
+
+  test("reads version-one figures with only a publisher caption", () => {
+    const result = derivative(
+      '<main><h2 id="figures">Figures</h2><figure id="captioned"><figcaption>Caption only</figcaption></figure></main>',
+    );
+    const component = result.components[0];
+    const block = component?.sections[0]?.blocks[0];
+    if (block?.kind !== "figure") throw new Error("Figure block missing");
+    block.figure.caption = [{ kind: "text", text: " Caption only " }];
+    component.plainText = "Figures\n\nCaption only";
+    result.plainText = "Figures\n\nCaption only";
+    const persisted = { ...result, version: 1 as const };
+
+    expect(readSepReadingDerivative(persisted).plainText).toBe(
+      "Figures\n\nCaption only",
     );
   });
 

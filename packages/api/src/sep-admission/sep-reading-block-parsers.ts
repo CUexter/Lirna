@@ -65,9 +65,10 @@ export function attachAnchor(block: ReadingBlock, id: string) {
   } else if (block.kind === "list") {
     block.items[0]?.unshift(anchor);
   } else if (block.kind === "table") {
-    (block.caption.length ? block.caption : block.body[0]?.cells[0])?.unshift(
-      anchor,
-    );
+    (block.caption.length
+      ? block.caption
+      : (block.head[0]?.cells[0] ?? block.body[0]?.cells[0])
+    )?.unshift(anchor);
   } else if (block.kind !== "diagnostic") {
     block.children.unshift(anchor);
   }

@@ -19,7 +19,7 @@ import {
   textContent,
 } from "./sep-reading-dom";
 import { extractFigures } from "./sep-reading-figures";
-import { readingArticleText } from "./sep-reading-text";
+import { projectReadingArticle } from "./sep-reading-text";
 import { collectTargets } from "./sep-reading-toc";
 
 interface SepReadingResource {
@@ -162,7 +162,7 @@ function buildReadingContract(
   diagnostics: ReadingDiagnostic[],
 ): SepReadingContract {
   return sepReadingContractSchema.parse({
-    version: 1 as const,
+    version: 2 as const,
     source: options.source,
     mainComponent: {
       identity: options.main.identity,
@@ -248,10 +248,10 @@ function createReadingComponent(
     sections: extraction.sections,
     figures: figureExtraction.figures,
     bibliography: bibliography.groups,
-    plainText: readingArticleText(
+    plainText: projectReadingArticle(
       extraction.introductoryBlocks,
       extraction.sections,
-    ),
+    ).text,
   };
 }
 

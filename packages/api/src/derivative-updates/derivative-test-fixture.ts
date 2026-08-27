@@ -1,4 +1,5 @@
 import type { SepReadingContract } from "../sep-admission/sep-reading-contract";
+import { projectReadingArticle } from "../sep-admission/sep-reading-text";
 
 const source = {
   id: "10000000-0000-4000-8000-000000000000",
@@ -90,4 +91,18 @@ export function derivativeReadingFixture(
       inputResourceHashes: [{ identity: "article", sha256: component.sha256 }],
     },
   };
+}
+
+export function refreshDerivativeText(reading: SepReadingContract) {
+  for (const component of reading.components) {
+    component.plainText = projectReadingArticle(
+      component.introductoryBlocks,
+      component.sections,
+    ).text;
+  }
+  const main = reading.components.find(
+    (component) => component.identity === reading.mainComponent.identity,
+  );
+  if (main) reading.plainText = main.plainText;
+  return reading;
 }

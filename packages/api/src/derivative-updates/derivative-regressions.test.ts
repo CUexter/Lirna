@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { compareReadingDerivatives } from "./derivative-analysis";
-import { derivativeReadingFixture as reading } from "./derivative-test-fixture";
+import {
+  derivativeReadingFixture as reading,
+  refreshDerivativeText,
+} from "./derivative-test-fixture";
 import { validateReadingCandidate } from "./derivative-validation";
 
 test("requires the precise Footnote component and fragment target", () => {
@@ -71,7 +74,7 @@ test("detects reordered structure and changed diagnostic text", () => {
 });
 
 function footnoteStatus(candidate: ReturnType<typeof reading>) {
-  return validateReadingCandidate(candidate).checks.find(
+  return validateReadingCandidate(refreshDerivativeText(candidate)).checks.find(
     ({ subject }) => subject === "footnotes",
   )?.status;
 }

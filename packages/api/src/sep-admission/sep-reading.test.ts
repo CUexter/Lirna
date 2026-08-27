@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { authoredTargetForPublisherAnchor } from "../authored-targets/authored-target";
 import { createSepReadingDerivative } from "./sep-reading";
 import { readSepReadingDerivative } from "./sep-reading-contract";
 
@@ -105,7 +106,7 @@ describe("SEP Reading derivative", () => {
   });
   test("retains typed SEP meaning instead of flattening notation and structure", () => {
     const result = derivative(
-      `<main><h2 id="meaning">Meaning</h2><p><em>Emphasis</em> H<sub>2</sub>O x<sup>2</sup> <span data-tex="\\frac{x}{2}"></span> <span class="display" data-tex="\\unknown{x}"></span> <a href="https://example.com">safe</a> <a href="javascript:alert(1)">unsafe</a></p><dl><dt>Definition.</dt><dd>A labeled body.</dd></dl><blockquote>A quotation.</blockquote><ol><li>First</li><li>Second</li></ol><table><caption>Data</caption><tr><th>Term</th><th>Value</th></tr><tr><td>A</td><td>B</td></tr></table><table><tr><td>Layout</td><td>Only</td></tr></table><figure id="diagram">Diagram</figure></main>`,
+      `<main><h2 id="meaning">Meaning</h2><p><em>Emphasis</em> H<sub>2</sub>O x<sup>2</sup> <span data-tex="\\frac{x}{2}"></span> <span class="display" data-tex="\\unknown{x}"></span> <a href="https://example.com">safe</a> <a href="javascript:alert(1)">unsafe</a></p><dl><dt>Definition.</dt><dd>A labeled body.</dd></dl><blockquote>A quotation.</blockquote><ol><li>First</li><li>Second</li></ol><a name="evidence-table"></a><table><caption>Data</caption><tr><th>Term</th><th>Value</th></tr><tr><td>A</td><td>B</td></tr></table><table><tr><td>Layout</td><td>Only</td></tr></table><figure id="diagram">Diagram</figure></main>`,
     );
     const blocks = result.sections[0]?.blocks ?? [];
     expect(blocks.map((block) => block.kind)).toEqual([
@@ -127,6 +128,21 @@ describe("SEP Reading derivative", () => {
         expect.objectContaining({ code: "unsafe-link" }),
       ]),
     );
+    expect(result.plainText).toBe(
+      "Meaning\n\nEmphasis H2O x2 \\frac{x}{2} \\unknown{x} safe unsafe\n\nDefinition. A labeled body.\n\nA quotation.\n\nFirst Second\n\nData Term Value A B\n\nLayout Only",
+    );
+    const component = result.components[0];
+    if (!component) throw new Error("Reading component missing");
+    expect(
+      authoredTargetForPublisherAnchor(component, "meaning"),
+    ).toMatchObject({
+      normalizedStartOffset: 0,
+      normalizedEndOffset: result.plainText.length,
+      exactText: result.plainText,
+    });
+    expect(
+      authoredTargetForPublisherAnchor(component, "evidence-table"),
+    ).toMatchObject({ exactText: "Data Term Value A B" });
   });
   test("preserves inline spacing and reads content inside ordinary wrappers", () => {
     const result = derivative(
@@ -136,6 +152,69 @@ describe("SEP Reading derivative", () => {
       { kind: "text", text: "Knowledge" },
     ]);
     expect(result.plainText).toContain("justified true belief");
+  });
+  test("rejects a typed Derivative whose canonical authored text disagrees with its content", () => {
+    const result = derivative(
+      '<main><h2 id="knowledge">Knowledge</h2><p>Evidence.</p></main>',
+    );
+    const component = result.components[0];
+    if (!component) throw new Error("Reading component missing");
+    component.plainText = "Different text";
+
+    expect(() => readSepReadingDerivative(result)).toThrow();
+  });
+  test("rejects a typed Derivative whose main Source component is missing", () => {
+    const result = derivative(
+      '<main><h2 id="knowledge">Knowledge</h2><p>Evidence.</p></main>',
+    );
+    result.mainComponent.identity = "missing-component";
+
+    expect(() => readSepReadingDerivative(result)).toThrow();
+  });
+  test("calculates publisher spans when it reads a version-one payload", () => {
+    const persisted = JSON.parse(
+      JSON.stringify(
+        derivative(
+          '<main><h2 id="tables">Tables</h2><table><caption>Data</caption><tr><th>Head</th></tr><tr><td>Body</td></tr></table></main>',
+        ),
+      ),
+    );
+    persisted.version = 1;
+    persisted.components[0].plainText = "Tables\n\nBody";
+    persisted.plainText = "Tables\n\nBody";
+    expect(JSON.stringify(persisted)).not.toContain("publisherAnchorSpans");
+
+    const reading = readSepReadingDerivative(persisted);
+    const component = reading.components[0];
+    if (!component) throw new Error("Reading component missing");
+    expect(authoredTargetForPublisherAnchor(component, "tables")).toMatchObject(
+      { exactText: "Tables\n\nBody" },
+    );
+  });
+  test("calculates publisher spans for header-only tables and inline anchors", () => {
+    const result = derivative(
+      '<main><h2 id="anchors">Anchors</h2><a name="header-table"></a><table><tr><th>Term</th></tr></table><p>Before <a id="inline-term">term</a> after.</p></main>',
+    );
+    const component = result.components[0];
+    if (!component) throw new Error("Reading component missing");
+
+    expect(
+      authoredTargetForPublisherAnchor(component, "header-table"),
+    ).toMatchObject({ exactText: "Term" });
+    expect(
+      authoredTargetForPublisherAnchor(component, "inline-term"),
+    ).toMatchObject({ exactText: "term" });
+  });
+  test("excludes Lirna diagnostics from canonical authored text", () => {
+    const result = derivative(
+      '<main><h2 id="knowledge">Knowledge</h2><aside>Unsupported publication structure.</aside><p>Evidence.</p></main>',
+    );
+
+    expect(result.plainText).toBe("Knowledge\n\nEvidence.");
+    expect(result.sections[0]?.blocks.map((block) => block.kind)).toEqual([
+      "diagnostic",
+      "paragraph",
+    ]);
   });
   test("diagnoses duplicate authored internal targets", () => {
     const result = derivative(

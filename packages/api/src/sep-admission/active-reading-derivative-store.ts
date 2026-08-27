@@ -24,6 +24,7 @@ import {
 } from "./active-reading-derivative-queries";
 import {
   readSepReadingDerivative,
+  sepReadingContractSchema,
   sepReadingDerivativeKind,
 } from "./sep-reading-contract";
 import type { DatabaseExecutor } from "./sep-state-evidence";
@@ -272,8 +273,8 @@ async function readCandidate(
     );
   if (!candidate) return { status: "candidate-not-found" as const };
   if (!candidate.valid) return { status: "candidate-invalid" as const };
-  return {
-    status: "ready" as const,
-    reading: readSepReadingDerivative(candidate.payload),
-  };
+  const reading = sepReadingContractSchema.safeParse(candidate.payload);
+  return reading.success
+    ? { status: "ready" as const, reading: reading.data }
+    : { status: "candidate-invalid" as const };
 }

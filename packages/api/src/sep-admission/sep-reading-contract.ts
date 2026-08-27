@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  projectReadingArticle,
+  projectVersionOneReadingArticle,
+} from "./sep-reading-text";
 import type {
   ReadingBibliographyGroup,
   ReadingBlock,
@@ -181,48 +185,85 @@ const bibliographyGroupSchema: z.ZodType<ReadingBibliographyGroup> = z.object({
   }),
 });
 
-export const sepReadingContractSchema = z.object({
-  version: z.literal(1),
-  source: z.object({
-    id: z.string().uuid(),
-    stateId: z.string().uuid(),
-    title: z.string().min(1),
-    authors: z.array(z.string()),
-    publisher: z.string().min(1),
-    publicationHistory: z.array(z.string()),
-    canonicalUrl: z.string().url(),
-    observation: z.enum(["submitted", "recommended-archive"]),
-    admittedAt: z.string().datetime(),
-  }),
-  mainComponent: z.object({
-    identity: z.string().min(1),
-    requestedUrl: z.string().url(),
-    finalUrl: z.string().url(),
-    retrievedAt: z.string().datetime(),
-    sha256: z.string().regex(/^[0-9a-f]{64}$/),
-  }),
-  components: z.array(componentSchema).min(1),
-  capture: z.object({
-    completeness: z.enum(["complete", "partial", "stopped"]),
-    readingReadiness: z.enum(["ready", "degraded"]),
-    readinessReasons: z.array(z.string()),
-    diagnostics: z.array(diagnosticSchema),
-  }),
-  toc: z.array(tocSchema),
-  introductoryBlocks: z.array(blockSchema),
-  sections: z.array(sectionSchema),
-  plainText: z.string(),
-  provenance: z.object({
-    adapter: z.object({ id: z.literal("sep"), version: z.literal("1") }),
-    parser: z.object({ id: z.literal("parse5"), version: z.literal("7.3.0") }),
-    inputResourceHashes: z.array(
-      z.object({
-        identity: z.string().min(1),
-        sha256: z.string().regex(/^[0-9a-f]{64}$/),
+export const sepReadingContractSchema = z
+  .object({
+    version: z.union([z.literal(1), z.literal(2)]),
+    source: z.object({
+      id: z.string().uuid(),
+      stateId: z.string().uuid(),
+      title: z.string().min(1),
+      authors: z.array(z.string()),
+      publisher: z.string().min(1),
+      publicationHistory: z.array(z.string()),
+      canonicalUrl: z.string().url(),
+      observation: z.enum(["submitted", "recommended-archive"]),
+      admittedAt: z.string().datetime(),
+    }),
+    mainComponent: z.object({
+      identity: z.string().min(1),
+      requestedUrl: z.string().url(),
+      finalUrl: z.string().url(),
+      retrievedAt: z.string().datetime(),
+      sha256: z.string().regex(/^[0-9a-f]{64}$/),
+    }),
+    components: z.array(componentSchema).min(1),
+    capture: z.object({
+      completeness: z.enum(["complete", "partial", "stopped"]),
+      readingReadiness: z.enum(["ready", "degraded"]),
+      readinessReasons: z.array(z.string()),
+      diagnostics: z.array(diagnosticSchema),
+    }),
+    toc: z.array(tocSchema),
+    introductoryBlocks: z.array(blockSchema),
+    sections: z.array(sectionSchema),
+    plainText: z.string(),
+    provenance: z.object({
+      adapter: z.object({ id: z.literal("sep"), version: z.literal("1") }),
+      parser: z.object({
+        id: z.literal("parse5"),
+        version: z.literal("7.3.0"),
       }),
-    ),
-  }),
-});
+      inputResourceHashes: z.array(
+        z.object({
+          identity: z.string().min(1),
+          sha256: z.string().regex(/^[0-9a-f]{64}$/),
+        }),
+      ),
+    }),
+  })
+  .superRefine((reading, context) => {
+    for (const [index, component] of reading.components.entries()) {
+      const projection = (
+        reading.version === 1
+          ? projectVersionOneReadingArticle
+          : projectReadingArticle
+      )(component.introductoryBlocks, component.sections);
+      if (projection.text !== component.plainText) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Reading component plain text does not match its typed content",
+          path: ["components", index, "plainText"],
+        });
+      }
+    }
+    const main = reading.components.find(
+      (component) => component.identity === reading.mainComponent.identity,
+    );
+    if (!main) {
+      context.addIssue({
+        code: "custom",
+        message: "Reading main component is missing",
+        path: ["mainComponent", "identity"],
+      });
+    } else if (reading.plainText !== main.plainText) {
+      context.addIssue({
+        code: "custom",
+        message: "Reading plain text does not match its main component",
+        path: ["plainText"],
+      });
+    }
+  });
 
 export type SepReadingContract = z.infer<typeof sepReadingContractSchema>;
 
