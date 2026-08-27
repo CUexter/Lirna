@@ -1,3 +1,4 @@
+// biome-ignore lint/style/noExcessiveLinesPerFile: The production gate keeps its single end-to-end journey and shared measurements together.
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 

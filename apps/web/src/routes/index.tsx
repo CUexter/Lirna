@@ -1,4 +1,3 @@
-// biome-ignore lint/style/noExcessiveLinesPerFile: The home route keeps its section composition and local presentation helpers together.
 import { Badge } from "@lirna/ui/components/badge";
 import { Button, buttonVariants } from "@lirna/ui/components/button";
 import {
