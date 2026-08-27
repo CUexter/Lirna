@@ -116,13 +116,18 @@ async function readJson(revision, path) {
     ]);
     return JSON.parse(stdout.replace(/,\s*([}\]])/g, "$1"));
   } catch (error) {
-    if (
-      error.code === 128 &&
-      String(error.stderr).includes(`path '${path}' does not exist`)
-    )
-      return undefined;
+    if (isMissingPathError(error, path)) return undefined;
     throw error;
   }
+}
+
+export function isMissingPathError(error, path) {
+  if (error.code !== 128) return false;
+  const stderr = String(error.stderr);
+  return (
+    stderr.includes(`path '${path}' does not exist`) ||
+    stderr.includes(`path '${path}' exists on disk, but not in`)
+  );
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
