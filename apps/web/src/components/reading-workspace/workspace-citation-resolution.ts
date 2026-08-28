@@ -1,14 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
-import { library } from "@/clients/library";
 import { useAnchoredTargetNavigation } from "../annotations/annotations";
 import type { CitationResolution } from "../annotations/dom-utils";
 import type { BibliographyMention } from "./bibliography-mentions";
-import {
-  type CitationResolutionTarget,
-  type CitationResolutionWork,
-  useCitationResolutionWrites,
+import type {
+  CitationResolutionTarget,
+  CitationResolutionWork,
 } from "./citation-resolution-writes";
 import type { ReadingDerivative } from "./content";
 import {
@@ -16,6 +13,7 @@ import {
   readingToolsOwnerFor,
 } from "./navigation-observations";
 import type { ReadingNavigation } from "./reading-navigation";
+import { useWorkspaceCitationResolutionPanel } from "./workspace-citation-resolution-panel";
 import type { ReadingView } from "./workspace-types";
 
 type ReadingComponent = ReadingDerivative["components"][number];
@@ -31,6 +29,7 @@ interface CitationResolutionMovement {
 }
 
 interface WorkspaceCitationResolutionInput {
+  evidenceAccess: "online" | "retained";
   movement: CitationResolutionMovement;
   reading: {
     citationResolutions: CitationResolution[];
@@ -49,6 +48,7 @@ interface WorkspaceCitationResolutionInput {
 }
 
 export function useWorkspaceCitationResolution({
+  evidenceAccess,
   movement,
   reading,
   scene,
@@ -100,15 +100,6 @@ export function useWorkspaceCitationResolution({
     view,
   ]);
 
-  const citationEvidence = useQuery(
-    library.citationResolutions.evidence.queryOptions({
-      input: {
-        expectedDerivativeId: target.derivativeId,
-        sourceId: target.sourceId,
-        stateId: target.stateId,
-      },
-    }),
-  );
   const navigateToResolution = useAnchoredTargetNavigation({
     articleRef,
     componentIdentity: component.identity,
@@ -128,12 +119,6 @@ export function useWorkspaceCitationResolution({
     movement.activatePassage(() => navigateToResolution(pending.resolution));
   }, [component.identity, movement, navigateToResolution]);
 
-  const activeEvidence = citationEvidence.data?.find(
-    (item) =>
-      item.derivativeId === target.derivativeId &&
-      item.componentIdentity === active?.componentIdentity &&
-      item.mentionId === active.mentionId,
-  );
   const activeResolution = reading.citationResolutions.find(
     (item) =>
       item.derivativeId === target.derivativeId &&
@@ -144,14 +129,18 @@ export function useWorkspaceCitationResolution({
   const isCurrent = (work: CitationResolutionWork) =>
     sameTarget(renderTarget.current, work.target) &&
     activeWorkId.current === work.id;
-  const writes = useCitationResolutionWrites({
+  const resolution = useWorkspaceCitationResolutionPanel({
     active,
+    activeWorkId,
+    cancel: movement.cancel,
     current: activeResolution,
-    evidence: activeEvidence,
+    evidenceAccess,
     isCurrent,
+    nextWorkId,
+    setActive,
     target,
   });
-  const resetWrites = useEffectEvent(writes.reset);
+  const resetWrites = useEffectEvent(resolution.reset);
   useEffect(() => {
     const nextTarget = {
       derivativeId: targetDerivativeId,
@@ -172,29 +161,21 @@ export function useWorkspaceCitationResolution({
     entryId: string | undefined,
     mentionId: string,
   ) => {
-    const evidenceForMention = citationEvidence.data?.find(
-      (item) =>
-        item.derivativeId === target.derivativeId &&
-        item.componentIdentity === sourceComponent.identity &&
-        item.mentionId === mentionId,
-    );
     const current = reading.citationResolutions.find(
       (item) =>
         item.derivativeId === target.derivativeId &&
         item.componentIdentity === sourceComponent.identity &&
         item.mentionId === mentionId,
     );
-    if (evidenceForMention) {
-      const work = {
-        componentIdentity: sourceComponent.identity,
-        id: ++nextWorkId.current,
-        mentionId,
-        target,
-      };
-      activeWorkId.current = work.id;
-      setActive(work);
-      writes.reset();
-    }
+    const work = {
+      componentIdentity: sourceComponent.identity,
+      id: ++nextWorkId.current,
+      mentionId,
+      target,
+    };
+    activeWorkId.current = work.id;
+    setActive(work);
+    resolution.reset();
     const bibliographyComponent = bibliographyOwner(
       sourceComponent,
       entryId,
@@ -236,49 +217,8 @@ export function useWorkspaceCitationResolution({
         resolutionId,
         bibliographyComponentIdentity,
       }),
-    resolution: createResolutionPanel({
-      active,
-      activeWorkId,
-      isCurrent,
-      movement,
-      nextWorkId,
-      setActive,
-      writes,
-    }),
+    resolution: resolution.panel,
     returnToMention,
-  };
-}
-
-function createResolutionPanel({
-  active,
-  activeWorkId,
-  isCurrent,
-  movement,
-  nextWorkId,
-  setActive,
-  writes,
-}: {
-  active: CitationResolutionWork | undefined;
-  activeWorkId: React.RefObject<number | undefined>;
-  isCurrent: (work: CitationResolutionWork) => boolean;
-  movement: CitationResolutionMovement;
-  nextWorkId: React.RefObject<number>;
-  setActive: React.Dispatch<
-    React.SetStateAction<CitationResolutionWork | undefined>
-  >;
-  writes: ReturnType<typeof useCitationResolutionWrites>;
-}) {
-  if (!(writes.panel && active)) return undefined;
-  return {
-    ...writes.panel,
-    onCancel: () =>
-      movement.cancel(() => {
-        if (!isCurrent(active)) return;
-        nextWorkId.current += 1;
-        activeWorkId.current = undefined;
-        setActive(undefined);
-        writes.reset();
-      }),
   };
 }
 

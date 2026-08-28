@@ -58,6 +58,11 @@ export function useCitationResolutionWrites({
     createResolution.reset();
     clearResolution.reset();
   };
+  const resetFailures = () => {
+    if (inferResolution.isError) inferResolution.reset();
+    if (createResolution.isError) createResolution.reset();
+    if (clearResolution.isError) clearResolution.reset();
+  };
   const invalidateWorkspace = () =>
     queryClient.invalidateQueries({ queryKey: workspaceKey });
   const updateResolution = (
@@ -83,8 +88,14 @@ export function useCitationResolutionWrites({
     panel:
       active && evidence
         ? {
+            availability: "ready" as const,
             current,
             evidence,
+            failure: mutationFailure(
+              clearResolution.error,
+              createResolution.error,
+              inferResolution.error,
+            ),
             inference,
             pending: {
               clear:
@@ -96,6 +107,7 @@ export function useCitationResolutionWrites({
                 createWorkId.current === active.id,
             },
             onClear: () => {
+              resetFailures();
               const work = active;
               clearWorkId.current = work.id;
               clearResolution.mutate(
@@ -119,6 +131,7 @@ export function useCitationResolutionWrites({
               );
             },
             onInfer: () => {
+              resetFailures();
               const work = active;
               inferWorkId.current = work.id;
               inferResolution.mutate(
@@ -142,6 +155,7 @@ export function useCitationResolutionWrites({
               selectedInference?: Extract<Inference, { status: "suggested" }>,
             ) => {
               if (!isCurrent(active)) return;
+              resetFailures();
               createWorkId.current = active.id;
               createResolution.mutate(
                 {
@@ -170,6 +184,10 @@ export function useCitationResolutionWrites({
           }
         : undefined,
   };
+}
+
+function mutationFailure(...errors: Array<Error | null>) {
+  return errors.find((error) => error)?.message;
 }
 
 function projectResolution(

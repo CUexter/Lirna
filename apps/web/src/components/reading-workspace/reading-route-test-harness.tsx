@@ -27,6 +27,7 @@ export const readingRouteState = {
   citationEvidence: [] as unknown[],
   citationResolutionError: undefined as Error | undefined,
   citationResolutions: [] as Workspace["citationResolutions"],
+  getCitationEvidence: async (): Promise<unknown[]> => [],
   getReading: async (
     _input?: unknown,
   ): Promise<ReturnType<typeof readingFixture>> => readingFixture(),
@@ -108,7 +109,7 @@ await mock.module("@/clients/library", () => ({
       evidence: {
         queryOptions: ({ input }: { input: unknown }) => ({
           queryKey: ["citation-evidence", input],
-          queryFn: async () => readingRouteState.citationEvidence,
+          queryFn: () => readingRouteState.getCitationEvidence(),
         }),
       },
       list: {
@@ -173,6 +174,8 @@ export function resetActions() {
   readingRouteState.citationEvidence = [];
   readingRouteState.citationResolutionError = undefined;
   readingRouteState.citationResolutions = [];
+  readingRouteState.getCitationEvidence = async () =>
+    readingRouteState.citationEvidence;
   readingRouteState.retainedReplica = undefined;
   readingRouteState.workspaceOverride = undefined;
   readingRouteState.getReading = async (input) => {

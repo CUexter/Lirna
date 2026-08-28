@@ -10,7 +10,7 @@ import {
 
 const evidence: unknown[] = [];
 await mock.module("@/clients/library", () =>
-  citationResolutionLibraryStub(evidence),
+  citationResolutionLibraryStub(async () => evidence),
 );
 const { useWorkspaceCitationResolution } = await import(
   "./workspace-citation-resolution"
@@ -20,7 +20,7 @@ afterEach(cleanup);
 
 test("does not retain a rejected cross-component passage return", async () => {
   const activations: string[] = [];
-  const harness = createCitationResolutionHarness(evidence, {
+  const harness = createCitationResolutionHarness({
     activatePassage: () => activations.push("activate"),
     moveToComponent: () => undefined,
   });
@@ -29,7 +29,7 @@ test("does not retain a rejected cross-component passage return", async () => {
     (props) => useWorkspaceCitationResolution(props),
     { initialProps: harness.props(), wrapper: harness.queryWrapper },
   );
-  await harness.waitForEvidence();
+  await harness.waitForEvidence(evidence);
 
   act(() => result.current.returnToMention(returnMention(supplement.identity)));
   rerender(harness.props({ component: supplement }));
@@ -40,7 +40,7 @@ test("does not retain a rejected cross-component passage return", async () => {
 test("does not install a delayed passage return after the target changes", async () => {
   const activations: string[] = [];
   let commitMovement: () => void = () => undefined;
-  const harness = createCitationResolutionHarness(evidence, {
+  const harness = createCitationResolutionHarness({
     activatePassage: () => activations.push("activate"),
     moveToComponent: (_identity, onCommit) => {
       commitMovement = onCommit;
@@ -51,7 +51,7 @@ test("does not install a delayed passage return after the target changes", async
     (props) => useWorkspaceCitationResolution(props),
     { initialProps: harness.props(), wrapper: harness.queryWrapper },
   );
-  await harness.waitForEvidence();
+  await harness.waitForEvidence(evidence);
   act(() => result.current.returnToMention(returnMention(supplement.identity)));
 
   rerender(harness.props({ derivativeId: "another-derivative" }));

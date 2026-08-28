@@ -5,32 +5,43 @@ import { useState } from "react";
 
 import type { LibraryOutputs } from "@/clients/library";
 import type { CitationResolution } from "../annotations/dom-utils";
+import {
+  CitationEvidenceAvailability,
+  type CitationEvidenceAvailabilityProps,
+} from "./citation-evidence-availability";
 
 type Evidence = LibraryOutputs["citationResolutions"]["evidence"][number];
 type Inference = LibraryOutputs["citationResolutions"]["infer"];
 
-export function CitationResolutionPanel({
-  current,
-  evidence,
-  inference,
-  pending,
-  onCancel,
-  onClear,
-  onInfer,
-  onSelect,
-}: {
-  current?: CitationResolution;
-  evidence: Evidence;
-  inference?: Inference;
-  pending: { clear: boolean; infer: boolean; select: boolean };
-  onCancel: () => void;
-  onClear: () => void;
-  onInfer: () => void;
-  onSelect: (
-    candidate: Evidence["candidates"][number],
-    inference?: Extract<Inference, { status: "suggested" }>,
-  ) => void;
-}) {
+export type CitationResolutionPanelProps =
+  | (CitationEvidenceAvailabilityProps & {
+      evidence?: never;
+      onClear?: never;
+      onInfer?: never;
+      onSelect?: never;
+    })
+  | {
+      availability: "ready";
+      current?: CitationResolution;
+      evidence: Evidence;
+      failure?: string;
+      inference?: Inference;
+      pending: { clear: boolean; infer: boolean; select: boolean };
+      onCancel: () => void;
+      onClear: () => void;
+      onInfer: () => void;
+      onRetryEvidence?: never;
+      onSelect: (
+        candidate: Evidence["candidates"][number],
+        inference?: Extract<Inference, { status: "suggested" }>,
+      ) => void;
+    };
+
+export function CitationResolutionPanel(props: CitationResolutionPanelProps) {
+  if (props.availability !== "ready") {
+    return <CitationEvidenceAvailability {...props} />;
+  }
+  const { current, evidence, failure, inference, pending } = props;
   const [consent, setConsent] = useState(false);
   const suggested =
     inference?.status === "suggested"
@@ -63,19 +74,28 @@ export function CitationResolutionPanel({
       <CandidateChoices
         current={current}
         evidence={evidence}
-        onSelect={onSelect}
+        onSelect={props.onSelect}
         pending={pending.select}
       />
       <InferenceControls
         consent={consent}
         evidence={evidence}
         onConsent={setConsent}
-        onInfer={onInfer}
+        onInfer={() => {
+          setConsent(false);
+          props.onInfer();
+        }}
         pending={pending.infer}
       />
+      {failure ? (
+        <p className="text-destructive text-sm" role="alert">
+          {failure} The confirmed Citation resolution is unchanged. Retry or
+          cancel this work.
+        </p>
+      ) : null}
       <InferenceResult
         inference={inference}
-        onSelect={onSelect}
+        onSelect={props.onSelect}
         pending={pending.select}
         suggested={suggested}
       />
@@ -83,7 +103,7 @@ export function CitationResolutionPanel({
         {current ? (
           <Button
             disabled={pending.clear}
-            onClick={onClear}
+            onClick={props.onClear}
             size="sm"
             type="button"
             variant="destructive"
@@ -91,7 +111,12 @@ export function CitationResolutionPanel({
             Clear resolution
           </Button>
         ) : null}
-        <Button onClick={onCancel} size="sm" type="button" variant="outline">
+        <Button
+          onClick={props.onCancel}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
           Cancel
         </Button>
       </div>

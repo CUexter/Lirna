@@ -31,7 +31,7 @@ export function useReadingWorkspaceViewProps({
   selectedCitation,
   tree,
   view,
-  model: { citationResolutions, reading, state },
+  model: { citationResolutions, evidenceAccess, reading, state },
 }: ReadingWorkspaceViewInput) {
   const {
     component,
@@ -196,6 +196,7 @@ export function useReadingWorkspaceViewProps({
     throw new Error("Reading workspace has no active Derivative");
   }
   const citation = useWorkspaceCitationResolution({
+    evidenceAccess,
     movement: {
       activatePassage: (activate) => {
         const destination = resolveReadingSceneDestination(topology, {

@@ -19,7 +19,10 @@ const evidence = [
 let createResolution = async (_input: unknown): Promise<unknown> => undefined;
 
 await mock.module("@/clients/library", () =>
-  citationResolutionLibraryStub(evidence, () => createResolution),
+  citationResolutionLibraryStub(
+    async () => evidence,
+    () => createResolution,
+  ),
 );
 
 const { useWorkspaceCitationResolution } = await import(
@@ -40,10 +43,10 @@ test("keeps active Citation work across scene changes and resets it for another 
       wrapper: queryClientWrapper(harness.client),
     },
   );
-  await harness.waitForEvidence();
+  await harness.waitForEvidence(evidence);
 
   act(() => result.current.openCurrent("entry-one", "citation-one"));
-  expect(result.current.resolution?.evidence.mentionId).toBe("citation-one");
+  expect(result.current.resolution?.evidence?.mentionId).toBe("citation-one");
 
   rerender(
     harness.props({
@@ -51,7 +54,7 @@ test("keeps active Citation work across scene changes and resets it for another 
       view: "bibliography",
     }),
   );
-  expect(result.current.resolution?.evidence.mentionId).toBe("citation-one");
+  expect(result.current.resolution?.evidence?.mentionId).toBe("citation-one");
 
   rerender(harness.props({ derivativeId: "another-derivative" }));
   await waitFor(() => expect(result.current.resolution).toBeUndefined());
@@ -68,11 +71,11 @@ test("keeps active Citation work until cancellation movement commits", async () 
     () => useWorkspaceCitationResolution(harness.props()),
     { wrapper: queryClientWrapper(harness.client) },
   );
-  await harness.waitForEvidence();
+  await harness.waitForEvidence(evidence);
   act(() => result.current.openCurrent("entry-one", "citation-one"));
 
   act(() => result.current.resolution?.onCancel());
-  expect(result.current.resolution?.evidence.mentionId).toBe("citation-one");
+  expect(result.current.resolution?.evidence?.mentionId).toBe("citation-one");
 
   act(() => commitCancellation());
   expect(result.current.resolution).toBeUndefined();
@@ -87,10 +90,10 @@ test("ignores mutation completion for an obsolete mention", async () => {
     () => useWorkspaceCitationResolution(harness.props()),
     { wrapper: queryClientWrapper(harness.client) },
   );
-  await harness.waitForEvidence();
+  await harness.waitForEvidence(evidence);
   act(() => result.current.openCurrent("entry-one", "citation-one"));
   act(() =>
-    result.current.resolution?.onSelect(evidence[0]?.candidates[0] as never),
+    result.current.resolution?.onSelect?.(evidence[0]?.candidates[0] as never),
   );
   act(() => result.current.openCurrent("entry-two", "citation-two"));
 
@@ -101,7 +104,7 @@ test("ignores mutation completion for an obsolete mention", async () => {
       harness.workspaceKey,
     )?.citationResolutions,
   ).toEqual([]);
-  expect(result.current.resolution?.evidence.mentionId).toBe("citation-two");
+  expect(result.current.resolution?.evidence?.mentionId).toBe("citation-two");
 });
 
 test("ignores mutation completion after cancellation commits", async () => {
@@ -113,10 +116,10 @@ test("ignores mutation completion after cancellation commits", async () => {
     () => useWorkspaceCitationResolution(harness.props()),
     { wrapper: queryClientWrapper(harness.client) },
   );
-  await harness.waitForEvidence();
+  await harness.waitForEvidence(evidence);
   act(() => result.current.openCurrent("entry-one", "citation-one"));
   act(() =>
-    result.current.resolution?.onSelect(evidence[0]?.candidates[0] as never),
+    result.current.resolution?.onSelect?.(evidence[0]?.candidates[0] as never),
   );
   act(() => result.current.resolution?.onCancel());
 
@@ -138,10 +141,10 @@ test("ignores a completion projected from another Derivative", async () => {
     () => useWorkspaceCitationResolution(harness.props()),
     { wrapper: queryClientWrapper(harness.client) },
   );
-  await harness.waitForEvidence();
+  await harness.waitForEvidence(evidence);
   act(() => result.current.openCurrent("entry-one", "citation-one"));
   act(() =>
-    result.current.resolution?.onSelect(evidence[0]?.candidates[0] as never),
+    result.current.resolution?.onSelect?.(evidence[0]?.candidates[0] as never),
   );
 
   await resolveMutation(completion, {
@@ -173,7 +176,7 @@ test("routes article, publisher-note, manual, return, and cancel actions through
     () => useWorkspaceCitationResolution(harness.props()),
     { wrapper: queryClientWrapper(harness.client) },
   );
-  await harness.waitForEvidence();
+  await harness.waitForEvidence(evidence);
   const publisherNote = harness.reading.components.find(
     (component) => component.role === "notes",
   );
@@ -214,5 +217,5 @@ test("routes article, publisher-note, manual, return, and cancel actions through
 });
 
 function createHarness(movementOverrides: Partial<Movement> = {}) {
-  return createCitationResolutionHarness(evidence, movementOverrides);
+  return createCitationResolutionHarness(movementOverrides);
 }

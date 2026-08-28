@@ -79,6 +79,41 @@ test("requires disclosure and separate consent before inference", async () => {
   expect((request as HTMLButtonElement).disabled).toBeFalse();
   await user.click(request);
   expect(onInfer).toHaveBeenCalledTimes(1);
+  expect(
+    within(document.body)
+      .getByRole("checkbox", {
+        name: /I consent to sending this displayed data/,
+      })
+      .getAttribute("aria-checked"),
+  ).toBe("false");
+  expect((request as HTMLButtonElement).disabled).toBeTrue();
+});
+
+test("does not carry inference consent into another mention or reopened work", async () => {
+  const user = userEvent.setup();
+  const { rerender, unmount } = renderPanel();
+  const consent = () =>
+    within(document.body).getByRole("checkbox", {
+      name: /I consent to sending this displayed data/,
+    });
+  await user.click(consent());
+
+  rerender(
+    panel({
+      evidence: {
+        ...evidence,
+        id: "another-derivative:article:citation-two",
+        mentionId: "citation-two",
+        sourceStateId: "another-source-state",
+      },
+    }),
+  );
+  expect(consent().getAttribute("aria-checked")).toBe("false");
+
+  await user.click(consent());
+  unmount();
+  renderPanel();
+  expect(consent().getAttribute("aria-checked")).toBe("false");
 });
 
 test("keeps manual controls on provider failure and requires acceptance of a suggestion", async () => {
@@ -142,9 +177,13 @@ function renderPanel(overrides: Partial<Parameters<typeof panel>[0]> = {}) {
 }
 
 function panel(overrides: Record<string, unknown> = {}) {
+  const panelEvidence =
+    (overrides.evidence as typeof evidence | undefined) ?? evidence;
   return (
     <CitationResolutionPanel
-      evidence={evidence}
+      availability="ready"
+      evidence={panelEvidence}
+      key={panelEvidence.id}
       onCancel={() => undefined}
       onClear={() => undefined}
       onInfer={() => undefined}

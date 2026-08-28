@@ -59,7 +59,7 @@ export async function followPublisherNoteLinkAtPosition(
 
 export async function openCitationBibliography(user: ReadingUser) {
   await user.click(
-    view().getByRole("button", { name: "Citation: [1] (resolved)" }),
+    await view().findByRole("button", { name: "Citation: [1] (resolved)" }),
   );
   await waitFor(() => view().getByRole("region", { name: "Bibliography" }));
 }

@@ -64,6 +64,7 @@ function RouteComponent() {
         initialFragment={hash}
         model={{
           citationResolutions: opening.workspace.citationResolutions,
+          evidenceAccess: opening.origin,
           reading: opening.workspace.reading,
           state: opening.workspace.state,
         }}

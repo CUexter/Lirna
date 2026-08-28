@@ -105,7 +105,11 @@ export function Bibliography({
         />
         {resolution ? (
           <CitationResolutionPanel
-            key={resolution.evidence.id}
+            key={
+              resolution.availability === "ready"
+                ? resolution.evidence.id
+                : resolution.mentionId
+            }
             {...resolution}
           />
         ) : null}

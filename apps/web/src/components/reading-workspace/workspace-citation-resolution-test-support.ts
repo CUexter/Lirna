@@ -17,10 +17,16 @@ export type Movement = Parameters<
 >[0]["movement"];
 
 export function citationResolutionLibraryStub(
-  evidence: unknown,
+  readEvidence: () => Promise<unknown>,
   createResolution: () => (input: unknown) => Promise<unknown> = () =>
     async () =>
       undefined,
+  inferResolution: () => Promise<unknown> = async () => ({
+    status: "unavailable",
+    candidateId: null,
+    confidence: null,
+    reasoning: "Provider unavailable",
+  }),
 ) {
   return {
     library: {
@@ -33,7 +39,7 @@ export function citationResolutionLibraryStub(
         evidence: {
           queryOptions: ({ input }: { input: unknown }) => ({
             queryKey: ["citation-evidence", input],
-            queryFn: async () => evidence,
+            queryFn: readEvidence,
           }),
         },
         create: {
@@ -46,12 +52,7 @@ export function citationResolutionLibraryStub(
         },
         infer: {
           mutationOptions: () => ({
-            mutationFn: async () => ({
-              status: "unavailable",
-              candidateId: null,
-              confidence: null,
-              reasoning: "Provider unavailable",
-            }),
+            mutationFn: inferResolution,
           }),
         },
       },
@@ -60,7 +61,6 @@ export function citationResolutionLibraryStub(
 }
 
 export function createCitationResolutionHarness(
-  evidence: unknown,
   movementOverrides: Partial<Movement> = {},
 ) {
   const reading = readingFixture();
@@ -85,6 +85,7 @@ export function createCitationResolutionHarness(
       overrides: {
         component?: (typeof reading.components)[number];
         derivativeId?: string;
+        evidenceAccess?: "online" | "retained";
         view?: "article" | "bibliography";
       } = {},
     ) => ({
@@ -107,15 +108,16 @@ export function createCitationResolutionHarness(
         sourceId,
         stateId,
       },
+      evidenceAccess: overrides.evidenceAccess ?? ("online" as const),
     }),
-    waitForEvidence: () =>
+    waitForEvidence: (expected: unknown) =>
       waitFor(() =>
         expect(
           client.getQueryData<unknown>([
             "citation-evidence",
             { expectedDerivativeId: derivativeId, sourceId, stateId },
           ]),
-        ).toEqual(evidence),
+        ).toEqual(expected),
       ),
   };
 }

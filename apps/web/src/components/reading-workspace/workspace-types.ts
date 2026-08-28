@@ -5,7 +5,7 @@ import type { ReadingSceneTopology } from "./reading-scene-topology";
 export type ReadingWorkspaceModel = Pick<
   LibraryOutputs["sources"]["readingWorkspace"],
   "citationResolutions" | "reading" | "state"
->;
+> & { evidenceAccess: "online" | "retained" };
 
 export type ReadingWorkspaceViewInput = {
   initialFragment?: string;
