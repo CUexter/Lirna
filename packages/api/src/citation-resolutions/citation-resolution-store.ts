@@ -23,6 +23,10 @@ import {
   InvalidCitationResolutionError,
   validateCitationResolutionMetadata,
 } from "./citation-resolution-contract";
+import {
+  readActiveCitationDerivative,
+  runSerializedCitationWrite,
+} from "./citation-resolution-transaction";
 
 export class DrizzleCitationResolutionStore
   implements CitationResolutionOperations
@@ -55,7 +59,20 @@ export class DrizzleCitationResolutionStore
   }
 
   async create(input: CreateCitationResolutionInput) {
-    const active = await this.activeReading(input.sourceId, input.stateId);
+    return runSerializedCitationWrite(this.database, input, (tx) =>
+      this.createLocked(tx, input),
+    );
+  }
+
+  private async createLocked(
+    database: DatabaseExecutor,
+    input: CreateCitationResolutionInput,
+  ) {
+    const active = await readActiveCitationDerivative(
+      database,
+      input.sourceId,
+      input.stateId,
+    );
     if (!active) return undefined;
     const component = active.reading.components.find(
       (candidate) => candidate.identity === input.componentIdentity,
@@ -75,19 +92,9 @@ export class DrizzleCitationResolutionStore
     );
     if (!candidate) throw new InvalidCitationResolutionError();
     validateCitationResolutionMetadata(input);
-    let target: AuthoredTarget;
-    try {
-      target = authoredTargetForPublisherAnchor(component, input.mentionId);
-    } catch (error) {
-      if (error instanceof InvalidAuthoredTargetError) {
-        throw new InvalidCitationResolutionError(
-          "Citation mention evidence is unavailable",
-        );
-      }
-      throw error;
-    }
+    const target = this.target(component, input.mentionId);
 
-    const [resolution] = await this.database
+    const [resolution] = await database
       .insert(citationResolutions)
       .values({
         sourceStateId: input.stateId,
@@ -113,18 +120,42 @@ export class DrizzleCitationResolutionStore
   }
 
   async clear(input: ClearCitationResolutionInput) {
-    const active = await this.activeReading(input.sourceId, input.stateId);
+    return runSerializedCitationWrite(this.database, input, (tx) =>
+      this.clearLocked(tx, input),
+    );
+  }
+
+  private async clearLocked(
+    database: DatabaseExecutor,
+    input: ClearCitationResolutionInput,
+  ) {
+    const active = await readActiveCitationDerivative(
+      database,
+      input.sourceId,
+      input.stateId,
+    );
     if (!active) return undefined;
     if (!this.mention(active, input.componentIdentity, input.mentionId)) {
       throw new InvalidCitationResolutionError();
     }
-    const current = (await this.list(input.sourceId, input.stateId)).find(
+    const component = active.reading.components.find(
+      (candidate) => candidate.identity === input.componentIdentity,
+    );
+    if (!component) throw new InvalidCitationResolutionError();
+    const target = this.target(component, input.mentionId);
+    const current = (
+      await readCitationResolutionsInSnapshot(
+        database,
+        input.sourceId,
+        input.stateId,
+      )
+    ).find(
       (item) =>
         item.componentIdentity === input.componentIdentity &&
         item.mentionId === input.mentionId,
     );
     if (!current) return false;
-    const inserted = await this.database
+    const inserted = await database
       .insert(citationResolutions)
       .values({
         sourceStateId: input.stateId,
@@ -133,13 +164,7 @@ export class DrizzleCitationResolutionStore
         mentionId: input.mentionId,
         bibliographyComponentIdentity: null,
         bibliographyEntryId: null,
-        publisherAnchor: current.publisherAnchor,
-        offsetBasis: current.offsetBasis,
-        normalizedStartOffset: current.normalizedStartOffset,
-        normalizedEndOffset: current.normalizedEndOffset,
-        exactText: current.exactText,
-        prefix: current.prefix,
-        suffix: current.suffix,
+        ...target,
         actorId: input.actorId,
         action: "cleared",
         method: "manual",
@@ -166,6 +191,22 @@ export class DrizzleCitationResolutionStore
         item.componentIdentity === componentIdentity &&
         item.mentionId === mentionId,
     );
+  }
+
+  private target(
+    component: Parameters<typeof authoredTargetForPublisherAnchor>[0],
+    mentionId: string,
+  ): AuthoredTarget {
+    try {
+      return authoredTargetForPublisherAnchor(component, mentionId);
+    } catch (error) {
+      if (error instanceof InvalidAuthoredTargetError) {
+        throw new InvalidCitationResolutionError(
+          "Citation mention evidence is unavailable",
+        );
+      }
+      throw error;
+    }
   }
 
   private async activeReading(sourceId: string, stateId: string) {

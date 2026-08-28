@@ -5,6 +5,18 @@ import { Client, Pool } from "pg";
 
 import * as schema from "../schema";
 
+export function createPostgresTestClient(databaseUrl: string) {
+  return new Client({ connectionString: databaseUrl });
+}
+
+export function createPostgresTestConnection(databaseUrl: string) {
+  const pool = new Pool({ connectionString: databaseUrl });
+  return {
+    database: drizzle(pool, { schema }),
+    close: () => pool.end(),
+  };
+}
+
 export async function createPostgresTestDatabase(
   adminUrl: string,
   databaseName: string,

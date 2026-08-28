@@ -148,6 +148,36 @@ describePostgres("Citation resolution PostgreSQL store", () => {
       { bibliographyEntryId: "entry-02" },
     ]);
 
+    const shiftedPayload = ambiguousReading();
+    const shiftedComponent = shiftedPayload.components[0];
+    const shiftedTitle = shiftedComponent?.sections[0]?.title;
+    if (!(shiftedComponent && shiftedTitle)) {
+      throw new Error("Shifted Reading fixture is missing");
+    }
+    shiftedTitle.unshift({ kind: "text", text: "Before " });
+    shiftedComponent.plainText = `Before ${shiftedComponent.plainText}`;
+    shiftedPayload.plainText = shiftedComponent.plainText;
+    const [shiftedDerivative] = await database
+      .insert(sourceStateDerivatives)
+      .values({
+        sourceStateId: stateId,
+        kind: "sep-reading-v1",
+        valid: true,
+        generation: {
+          ...generationMetadata(shiftedPayload.provenance.inputResourceHashes),
+          version: 2,
+        },
+        payload: shiftedPayload,
+        validation: { schema: "sep-reading-v1", status: "valid" },
+      })
+      .returning({ id: sourceStateDerivatives.id });
+    await database.insert(sourceStateDerivativeActivations).values({
+      sourceStateId: stateId,
+      derivativeId: shiftedDerivative?.id ?? "",
+      kind: "sep-reading-v1",
+      sequence: 2,
+    });
+
     expect(
       await store.clear({
         sourceId,
@@ -168,8 +198,12 @@ describePostgres("Citation resolution PostgreSQL store", () => {
       history.every((decision) => decision.actorId === actorId),
     ).toBeTrue();
     expect(history[2]).toMatchObject({
+      derivativeId: shiftedDerivative?.id,
       bibliographyComponentIdentity: null,
       bibliographyEntryId: null,
+      normalizedStartOffset: 7,
+      normalizedEndOffset: 11,
+      exactText: "Read",
       method: "manual",
     });
     expect(await evidenceSnapshot()).toEqual(evidenceBefore);
@@ -209,6 +243,23 @@ describePostgres("Citation resolution PostgreSQL store", () => {
         .insert(citationResolutions)
         .values({
           ...valid,
+          derivativeId: randomUUID(),
+          bibliographyComponentIdentity: "article:main",
+          bibliographyEntryId: "entry-01",
+          confidence: 0.5,
+        })
+        .execute(),
+    ).rejects.toMatchObject({
+      cause: {
+        code: "23503",
+        constraint: "citation_resolution_derivative_fk",
+      },
+    });
+    await expect(
+      database
+        .insert(citationResolutions)
+        .values({
+          ...valid,
           sourceStateId: randomUUID(),
           bibliographyComponentIdentity: "article:main",
           bibliographyEntryId: "entry-01",
@@ -216,6 +267,44 @@ describePostgres("Citation resolution PostgreSQL store", () => {
         })
         .execute(),
     ).rejects.toMatchObject({ cause: { code: "23503" } });
+
+    const otherStateId = randomUUID();
+    await database.insert(sourceStates).values({
+      id: otherStateId,
+      sourceId,
+      sequence: 1,
+      adapterId: "test",
+      rightsBasis: "publicly-accessible",
+      sensitivityLevel: "ordinary-cloud",
+    });
+    const [otherDerivative] = await database
+      .insert(sourceStateDerivatives)
+      .values({
+        sourceStateId: otherStateId,
+        kind: "sep-reading-v1",
+        valid: true,
+        generation: generationMetadata([]),
+        payload: ambiguousReading(),
+        validation: { schema: "sep-reading-v1", status: "valid" },
+      })
+      .returning({ id: sourceStateDerivatives.id });
+    await expect(
+      database
+        .insert(citationResolutions)
+        .values({
+          ...valid,
+          derivativeId: otherDerivative?.id ?? "",
+          bibliographyComponentIdentity: "article:main",
+          bibliographyEntryId: "entry-01",
+          confidence: 0.5,
+        })
+        .execute(),
+    ).rejects.toMatchObject({
+      cause: {
+        code: "23514",
+        constraint: "citation_resolutions_derivative_state_check",
+      },
+    });
     expect(await store.evidence(randomUUID(), stateId)).toBeUndefined();
   });
 });
