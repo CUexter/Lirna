@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { waitFor, within } from "@testing-library/react";
+import type { ReadingNavigationObservation } from "./navigation-observations";
 import {
   renderReading,
   resetActions,
@@ -13,6 +14,50 @@ import {
   returnFromArticleBibliography,
   setupReadingUser,
 } from "./reading-route-test-scenarios";
+
+test("Citation opening emits only its Bibliography lifecycle observation", async () => {
+  resetActions();
+  const user = setupReadingUser();
+  const observations: ReadingNavigationObservation[] = [];
+  const listener = (event: Event) =>
+    observations.push(
+      (event as CustomEvent<ReadingNavigationObservation>).detail,
+    );
+  window.addEventListener("lirna:reading-navigation", listener);
+
+  try {
+    await renderReading("?component=article");
+    await waitFor(() =>
+      expect(
+        view().getByRole("button", { name: "Citation: [1] (resolved)" }),
+      ).toBeTruthy(),
+    );
+    observations.length = 0;
+
+    await openCitationBibliography(user);
+    await waitFor(() =>
+      expect(
+        observations.some(({ cause }) => cause === "bibliography-opening"),
+      ).toBe(true),
+    );
+
+    expect(
+      observations
+        .map(({ cause }) => cause)
+        .filter((cause) =>
+          [
+            "bibliography-opening",
+            "component-transition",
+            "direct-reader-scroll",
+            "publisher-note-navigation",
+            "reference-opening",
+          ].includes(cause),
+        ),
+    ).toEqual(["bibliography-opening"]);
+  } finally {
+    window.removeEventListener("lirna:reading-navigation", listener);
+  }
+});
 
 test("filters publisher bibliography and preserves component search when returning from a Citation", async () => {
   resetActions();

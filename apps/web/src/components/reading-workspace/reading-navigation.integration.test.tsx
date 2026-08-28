@@ -2,6 +2,7 @@ import { expect, mock, test } from "bun:test";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, waitFor } from "@testing-library/react";
 
+import type { ReadingNavigationObservation } from "./navigation-observations";
 import { readingFixture, sourceId, stateId } from "./reading-test-fixtures";
 
 let resolveResume!: (value: unknown) => void;
@@ -30,7 +31,7 @@ await mock.module("@/clients/inquiry", () => ({
   },
 }));
 
-const { useReadingNavigationObservations } = await import(
+const { useReadingSceneNavigationObservations } = await import(
   "./navigation-observer"
 );
 const { useReadingNavigationScope } = await import(
@@ -43,11 +44,10 @@ function Harness({ resumeStateId = stateId }: { resumeStateId?: string }) {
   const component = readingFixture().components[0];
   const { articleRef, navigation, toolsScrollRef } =
     useReadingNavigationScope();
-  useReadingNavigationObservations({
+  useReadingSceneNavigationObservations({
     componentIdentity: component.identity,
     navigation,
     toolsScrollRef,
-    view: "article",
   });
   useReadingResume({
     articleRef,
@@ -63,6 +63,74 @@ function Harness({ resumeStateId = stateId }: { resumeStateId?: string }) {
     </>
   );
 }
+
+function SceneObservationHarness() {
+  const { navigation, toolsScrollRef } = useReadingNavigationScope();
+  useReadingSceneNavigationObservations({
+    componentIdentity: "supplement-one",
+    navigation,
+    notesIdentity: "publisher-notes",
+    selectedReference: {
+      componentIdentity: "supplement-one",
+      context: "Numbered target context.",
+      label: "(1)",
+      targetId: "reading-reference-number-1",
+      title: "Numbered statement (1)",
+    },
+    toolsScrollRef,
+  });
+  return (
+    <div data-reading-scroll-owner="publisher-note" ref={toolsScrollRef} />
+  );
+}
+
+test("the Reading scene owns general navigation observations", () => {
+  const observations: ReadingNavigationObservation[] = [];
+  const listener = (event: Event) =>
+    observations.push(
+      (event as CustomEvent<ReadingNavigationObservation>).detail,
+    );
+  window.addEventListener("lirna:reading-navigation", listener);
+  let rendered: ReturnType<typeof render> | undefined;
+
+  try {
+    rendered = render(<SceneObservationHarness />);
+    window.dispatchEvent(new WheelEvent("wheel"));
+    window.dispatchEvent(new Event("scroll"));
+
+    expect(
+      observations.map(({ cause, owner, target }) => ({
+        cause,
+        owner,
+        target,
+      })),
+    ).toEqual([
+      {
+        cause: "component-transition",
+        owner: "article",
+        target: "component:supplement-one",
+      },
+      {
+        cause: "reference-opening",
+        owner: "publisher-note",
+        target: "reference:supplement-one:reading-reference-number-1",
+      },
+      {
+        cause: "publisher-note-navigation",
+        owner: "publisher-note",
+        target: "component:publisher-notes",
+      },
+      {
+        cause: "direct-reader-scroll",
+        owner: "article",
+        target: "scroll-top:0",
+      },
+    ]);
+  } finally {
+    rendered?.unmount();
+    window.removeEventListener("lirna:reading-navigation", listener);
+  }
+});
 
 test("reader control cancels a pending resume before it resolves", async () => {
   resumeStarted = false;

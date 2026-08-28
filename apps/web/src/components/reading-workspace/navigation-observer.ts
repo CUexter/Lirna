@@ -8,24 +8,18 @@ import {
 import type { ReadingNavigation } from "./reading-navigation";
 import { type ReadingReference, referenceTarget } from "./references";
 
-export function useReadingNavigationObservations({
+export function useReadingSceneNavigationObservations({
   componentIdentity,
   navigation,
   notesIdentity,
-  selectedCitation,
-  selectedCitationComponentIdentity,
   selectedReference,
   toolsScrollRef,
-  view,
 }: {
   componentIdentity: string;
   navigation: ReadingNavigation;
   notesIdentity?: string;
-  selectedCitation?: string;
-  selectedCitationComponentIdentity?: string;
   selectedReference?: ReadingReference;
   toolsScrollRef: RefObject<HTMLDivElement | null>;
-  view: "article" | "bibliography";
 }) {
   useEffect(
     () =>
@@ -50,22 +44,6 @@ export function useReadingNavigationObservations({
       target: referenceTarget(selectedReference),
     });
   }, [selectedReference, toolsScrollRef]);
-  useEffect(() => {
-    if (view !== "bibliography") return;
-    observeReadingNavigation({
-      cause: "bibliography-opening",
-      owner: readingToolsOwnerFor(toolsScrollRef.current),
-      target: selectedCitation
-        ? `bibliography:${selectedCitationComponentIdentity ?? componentIdentity}:${selectedCitation}`
-        : "bibliography",
-    });
-  }, [
-    componentIdentity,
-    selectedCitation,
-    selectedCitationComponentIdentity,
-    toolsScrollRef,
-    view,
-  ]);
   useEffect(() => {
     if (!notesIdentity) return;
     observeReadingNavigation({

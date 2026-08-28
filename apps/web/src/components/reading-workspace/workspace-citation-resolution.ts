@@ -7,9 +7,11 @@ import type { CitationResolution } from "../annotations/dom-utils";
 import type { BibliographyMention } from "./bibliography-mentions";
 import { useCitationOpening } from "./citation-opening";
 import type { ReadingDerivative } from "./content";
-import { useReadingNavigationObservations } from "./navigation-observer";
+import {
+  observeReadingNavigation,
+  readingToolsOwnerFor,
+} from "./navigation-observations";
 import type { ReadingNavigation } from "./reading-navigation";
-import type { ReadingReference } from "./references";
 import type { ReadingView, ReadingWorkspaceModel } from "./workspace-types";
 
 export function useWorkspaceCitationResolution([
@@ -18,13 +20,11 @@ export function useWorkspaceCitationResolution([
   component,
   handleComponentChange,
   navigation,
-  notesIdentity,
   onViewChange,
   openCitation,
   reading,
   returnToCitationTarget,
   selectedCitation,
-  selectedReference,
   toolsScrollRef,
   view,
 ]: [
@@ -33,7 +33,6 @@ export function useWorkspaceCitationResolution([
   component: ReadingDerivative["components"][number],
   handleComponentChange: (identity: string) => void,
   navigation: ReadingNavigation,
-  notesIdentity: string | undefined,
   onViewChange: (view: ReadingView, citation?: string) => void,
   openCitation: Parameters<typeof useCitationOpening>[3],
   reading: ReadingDerivative,
@@ -42,7 +41,6 @@ export function useWorkspaceCitationResolution([
     componentIdentity: string,
   ) => void,
   selectedCitation: string | undefined,
-  selectedReference: ReadingReference | undefined,
   toolsScrollRef: React.RefObject<HTMLDivElement | null>,
   view: ReadingView,
 ]) {
@@ -54,16 +52,22 @@ export function useWorkspaceCitationResolution([
       reading.mainComponent.identity,
       openCitation,
     );
-  useReadingNavigationObservations({
-    componentIdentity: component.identity,
-    navigation,
-    notesIdentity,
+  useEffect(() => {
+    if (view !== "bibliography") return;
+    observeReadingNavigation({
+      cause: "bibliography-opening",
+      owner: readingToolsOwnerFor(toolsScrollRef.current),
+      target: selectedCitation
+        ? `bibliography:${citationComponentIdentity ?? component.identity}:${selectedCitation}`
+        : "bibliography",
+    });
+  }, [
+    citationComponentIdentity,
+    component.identity,
     selectedCitation,
-    selectedCitationComponentIdentity: citationComponentIdentity,
-    selectedReference,
     toolsScrollRef,
     view,
-  });
+  ]);
   const queryClient = useQueryClient();
   const navigateToCitationResolution = useAnchoredTargetNavigation({
     articleRef,

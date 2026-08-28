@@ -1,4 +1,5 @@
 import { createReferenceJumper } from "./authored-navigation";
+import { useReadingSceneNavigationObservations } from "./navigation-observer";
 import { useReadingLocationSession } from "./reading-location-session";
 import {
   useExplicitFragmentNavigation,
@@ -59,6 +60,13 @@ export function useReadingWorkspaceViewProps({
     toolsScrollRef,
     transitionUnavailable,
   } = useWorkspaceSceneState(view, initialNotesIdentity);
+  useReadingSceneNavigationObservations({
+    componentIdentity: component.identity,
+    navigation,
+    notesIdentity,
+    selectedReference,
+    toolsScrollRef,
+  });
   const activateFragment = useExplicitFragmentNavigation({
     componentIdentity: component.identity,
     fragment: initialFragment,
@@ -186,13 +194,11 @@ export function useReadingWorkspaceViewProps({
     component,
     navigateComponentScene,
     navigation,
-    notesIdentity,
     onViewChange,
     openCitation,
     reading,
     returnToCitationTarget,
     selectedCitation,
-    selectedReference,
     toolsScrollRef,
     view,
   ]);
