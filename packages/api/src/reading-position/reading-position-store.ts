@@ -4,7 +4,6 @@ import { sourceStates, sources } from "@lirna/db/schema/sources";
 import { and, desc, eq } from "drizzle-orm";
 
 import type { ActiveReadingDerivativeOperations } from "../sep-admission/active-reading-derivative";
-import { DrizzleActiveReadingDerivativeStore } from "../sep-admission/active-reading-derivative-store";
 import type {
   ReadingPositionOperations,
   ReadingPositionRecord,
@@ -18,9 +17,7 @@ import {
 export class DrizzleReadingPositionStore implements ReadingPositionOperations {
   constructor(
     private readonly database: typeof db,
-    private readonly activeReading: ActiveReadingDerivativeOperations = new DrizzleActiveReadingDerivativeStore(
-      database,
-    ),
+    private readonly activeReading: ActiveReadingDerivativeOperations,
   ) {}
 
   async get(input?: {

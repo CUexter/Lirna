@@ -5,7 +5,6 @@ import { sourceStates } from "@lirna/db/schema/sources";
 import { and, asc, eq } from "drizzle-orm";
 import { validateAuthoredTarget } from "../authored-targets/authored-target";
 import type { ActiveReadingDerivativeOperations } from "../sep-admission/active-reading-derivative";
-import { DrizzleActiveReadingDerivativeStore } from "../sep-admission/active-reading-derivative-store";
 import type {
   AnnotationColor,
   AnnotationKind,
@@ -19,9 +18,7 @@ import { validateAnnotationBody } from "./annotation-contract";
 export class DrizzleAnnotationStore implements AnnotationOperations {
   constructor(
     private readonly database: typeof db,
-    private readonly activeReading: ActiveReadingDerivativeOperations = new DrizzleActiveReadingDerivativeStore(
-      database,
-    ),
+    private readonly activeReading: ActiveReadingDerivativeOperations,
   ) {}
 
   async list(sourceId: string, stateId: string): Promise<AnnotationRecord[]> {

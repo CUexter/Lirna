@@ -7,7 +7,6 @@ import {
   InvalidAuthoredTargetError,
 } from "../authored-targets/authored-target";
 import type { ActiveReadingDerivativeOperations } from "../sep-admission/active-reading-derivative";
-import { DrizzleActiveReadingDerivativeStore } from "../sep-admission/active-reading-derivative-store";
 import type { DatabaseExecutor } from "../sep-admission/sep-state-evidence";
 import { deriveCitationMentionEvidence } from "./citation-mention-evidence";
 import type {
@@ -34,9 +33,7 @@ export class DrizzleCitationResolutionStore
 {
   constructor(
     private readonly database: typeof db,
-    private readonly activeReadingDerivatives: ActiveReadingDerivativeOperations = new DrizzleActiveReadingDerivativeStore(
-      database,
-    ),
+    private readonly activeReadingDerivatives: ActiveReadingDerivativeOperations,
   ) {}
 
   async list(sourceId: string, stateId: string) {

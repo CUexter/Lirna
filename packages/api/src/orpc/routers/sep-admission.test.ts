@@ -4,6 +4,7 @@ import { call } from "@orpc/server";
 import type { Context } from "../../context";
 import type { SepAdmissionOperations } from "../../sep-admission/sep-admission";
 import { SepAdmissionError } from "../../sep-admission/sep-capture";
+import { createTestContext } from "../application-test-support";
 import { sepAdmissionsRouter } from "./sep-admission";
 import {
   operationsStub,
@@ -287,18 +288,14 @@ function invoke(
 }
 
 function context(sepAdmissions: SepAdmissionOperations): Context {
-  return {
-    activeReadingDerivatives: {} as Context["activeReadingDerivatives"],
-    annotations: {} as Context["annotations"],
-    citationResolutions: {} as Context["citationResolutions"],
-    derivativeUpdates: {} as Context["derivativeUpdates"],
-    readingPositions: {} as Context["readingPositions"],
-    sepAdmissions,
-    admittedSourceStates: {} as Context["admittedSourceStates"],
-    observation: {
-      requestId: "req-test",
-      fail() {},
-      emit() {},
+  return createTestContext(
+    { sepAdmissions },
+    {
+      observation: {
+        requestId: "req-test",
+        fail() {},
+        emit() {},
+      },
     },
-  };
+  );
 }

@@ -35,12 +35,24 @@ export async function openSepAdmissionPostgres(label: string) {
   process.env.CORS_ORIGIN = "http://localhost:5173";
   process.env.NODE_ENV = "test";
 
-  const { createDrizzleSepAdmissionStore } = await import(
-    "../sep-admission-store"
+  const [
+    { createDrizzleSepAdmissionStore },
+    { DrizzleActiveReadingDerivativeStore },
+    { createSepAdmittedStateReader },
+  ] = await Promise.all([
+    import("../sep-admission-store"),
+    import("../active-reading-derivative-store"),
+    import("../sep-admitted-state-reader"),
+  ]);
+  const activeReading = new DrizzleActiveReadingDerivativeStore(
+    testDatabase.database,
   );
   return {
     database: testDatabase.database,
-    store: createDrizzleSepAdmissionStore(testDatabase.database),
+    store: {
+      ...createDrizzleSepAdmissionStore(testDatabase.database),
+      ...createSepAdmittedStateReader(testDatabase.database, activeReading),
+    },
     cleanup: testDatabase.cleanup,
   };
 }

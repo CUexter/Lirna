@@ -1,9 +1,8 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
-import type { AnnotationOperations } from "../../annotations/annotation-contract";
 import type { Context } from "../../context";
 import type { ResearchAssistantOperations } from "../../research-assistant/research-assistant";
-import type { SepAdmissionOperations } from "../../sep-admission/sep-admission";
+import { createTestContext } from "../application-test-support";
 import {
   admittedSourceStatesStub,
   readingFixture,
@@ -44,9 +43,7 @@ test("asks about trusted content from the admitted Source state", async () => {
 });
 
 function context(researchAssistant: ResearchAssistantOperations): Context {
-  return {
-    annotations: {} as AnnotationOperations,
-    sepAdmissions: {} as SepAdmissionOperations,
+  return createTestContext({
     admittedSourceStates: admittedSourceStatesStub({
       async getReading() {
         const reading = readingFixture();
@@ -57,5 +54,5 @@ function context(researchAssistant: ResearchAssistantOperations): Context {
       },
     }),
     researchAssistant,
-  } as Context;
+  });
 }

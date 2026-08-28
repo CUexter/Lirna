@@ -204,15 +204,16 @@ async function createFixture({
   });
 
   const activationConnection = createPostgresTestConnection(databaseUrl);
+  const activeReading = new DrizzleActiveReadingDerivativeStore(
+    activationConnection.database,
+  );
   return {
     sourceId,
     stateId,
     oldDerivativeId: oldDerivative.id,
     newDerivativeId: newDerivative.id,
-    activeReading: new DrizzleActiveReadingDerivativeStore(
-      activationConnection.database,
-    ),
-    resolutions: new DrizzleCitationResolutionStore(database),
+    activeReading,
+    resolutions: new DrizzleCitationResolutionStore(database, activeReading),
     close: activationConnection.close,
   };
 }

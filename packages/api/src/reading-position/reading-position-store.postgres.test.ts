@@ -36,10 +36,17 @@ describePostgres("Reading position PostgreSQL store", () => {
     );
     database = testDatabase.database;
     cleanupDatabase = testDatabase.cleanup;
-    const { DrizzleReadingPositionStore } = await import(
-      "./reading-position-store"
+    const [
+      { DrizzleReadingPositionStore },
+      { DrizzleActiveReadingDerivativeStore },
+    ] = await Promise.all([
+      import("./reading-position-store"),
+      import("../sep-admission/active-reading-derivative-store"),
+    ]);
+    store = new DrizzleReadingPositionStore(
+      database,
+      new DrizzleActiveReadingDerivativeStore(database),
     );
-    store = new DrizzleReadingPositionStore(database);
 
     await database.insert(sources).values({
       id: sourceId,

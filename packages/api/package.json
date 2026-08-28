@@ -17,6 +17,9 @@
     "./context": {
       "default": "./src/context.ts"
     },
+    "./application": {
+      "default": "./src/application.ts"
+    },
     "./orpc": {
       "default": "./src/orpc/index.ts"
     },

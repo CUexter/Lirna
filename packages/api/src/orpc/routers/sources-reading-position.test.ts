@@ -3,6 +3,7 @@ import { call } from "@orpc/server";
 
 import type { Context } from "../../context";
 import type { ReadingPositionOperations } from "../../reading-position/reading-position-contract";
+import { createTestContext } from "../application-test-support";
 import {
   admittedSourceStatesStub,
   sourceId,
@@ -62,11 +63,7 @@ test("rejects semantic identity combined with another scene's pixels", async () 
 });
 
 function context(overrides: Partial<ReadingPositionOperations> = {}): Context {
-  return {
-    activeReadingDerivatives: {} as Context["activeReadingDerivatives"],
-    annotations: {} as Context["annotations"],
-    citationResolutions: {} as Context["citationResolutions"],
-    derivativeUpdates: {} as Context["derivativeUpdates"],
+  return createTestContext({
     readingPositions: {
       async get() {
         return undefined;
@@ -76,9 +73,8 @@ function context(overrides: Partial<ReadingPositionOperations> = {}): Context {
       },
       ...overrides,
     },
-    sepAdmissions: {} as Context["sepAdmissions"],
     admittedSourceStates: admittedSourceStatesStub(),
-  };
+  });
 }
 
 function readingLocation(

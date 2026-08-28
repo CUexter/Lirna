@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { call } from "@orpc/server";
-import type { Context } from "../context";
+import { createTestContext } from "./application-test-support";
 import { publicProcedure } from "./init";
 
 describe("oRPC error boundary", () => {
@@ -63,6 +63,6 @@ describe("oRPC error boundary", () => {
   });
 });
 
-function requestContext(overrides: Partial<Context> = {}) {
-  return { ...overrides } as Context;
+function requestContext(options: Parameters<typeof createTestContext>[1] = {}) {
+  return createTestContext({}, options);
 }

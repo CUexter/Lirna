@@ -3,6 +3,7 @@ import { call } from "@orpc/server";
 import type { Context } from "../../context";
 import type { DerivativeUpdateOperations } from "../../derivative-updates/derivative-update-contract";
 import type { ActiveReadingDerivativeOperations } from "../../sep-admission/active-reading-derivative";
+import { createTestContext } from "../application-test-support";
 import { sourceDerivativesRouter } from "./source-derivatives";
 
 const sourceId = "10000000-0000-4000-8000-000000000000";
@@ -137,15 +138,10 @@ function context(
   derivativeUpdates: DerivativeUpdateOperations,
   activeReadingDerivatives: ActiveReadingDerivativeOperations = activeOperations(),
 ): Context {
-  return {
+  return createTestContext({
     derivativeUpdates,
     activeReadingDerivatives,
-    annotations: {} as Context["annotations"],
-    citationResolutions: {} as Context["citationResolutions"],
-    readingPositions: {} as Context["readingPositions"],
-    sepAdmissions: {} as Context["sepAdmissions"],
-    admittedSourceStates: {} as Context["admittedSourceStates"],
-  };
+  });
 }
 
 function invalidCandidate() {

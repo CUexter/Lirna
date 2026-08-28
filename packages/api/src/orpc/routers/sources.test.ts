@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { call } from "@orpc/server";
-import type { Context } from "../../context";
 import {
   admittedSourceStatesStub,
   readingFixture,
@@ -134,22 +133,22 @@ describe("Sources oRPC router", () => {
         sourcesRouter.readingWorkspace,
         { sourceId, stateId },
         {
-          context: {
-            ...sourcesContext(
-              admittedSourceStatesStub(),
-              readingPositionsStub(),
-            ),
-            readingWorkspaces: {
-              async read() {
-                return {
-                  reading: readingFixture(),
-                  state: stateFixture(),
-                  source,
-                  citationResolutions: [resolution],
-                };
+          context: sourcesContext(
+            admittedSourceStatesStub(),
+            readingPositionsStub(),
+            {
+              readingWorkspaces: {
+                async read() {
+                  return {
+                    reading: readingFixture(),
+                    state: stateFixture(),
+                    source,
+                    citationResolutions: [resolution],
+                  };
+                },
               },
             },
-          } as Context,
+          ),
         },
       ),
     ).resolves.toEqual({
@@ -226,22 +225,31 @@ describe("Sources oRPC router", () => {
         sourcesRouter.offlineManifest,
         { sourceId, stateId },
         {
-          context: {
-            ...sourcesContext(
-              admittedSourceStatesStub(),
-              readingPositionsStub(),
-            ),
-            annotations: {
-              async list() {
-                return [];
+          context: sourcesContext(
+            admittedSourceStatesStub(),
+            readingPositionsStub(),
+            {
+              annotations: {
+                async list() {
+                  return [];
+                },
+                async create() {
+                  return undefined;
+                },
+                async update() {
+                  return undefined;
+                },
+                async delete() {
+                  return false;
+                },
               },
-            } as Context["annotations"],
-            readingWorkspaces: readingWorkspacesStub({
-              async read() {
-                return workspace;
-              },
-            }),
-          },
+              readingWorkspaces: readingWorkspacesStub({
+                async read() {
+                  return workspace;
+                },
+              }),
+            },
+          ),
         },
       ),
     ).resolves.toMatchObject({ replica: { workspace } });

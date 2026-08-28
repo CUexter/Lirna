@@ -1,4 +1,4 @@
-import { db } from "@lirna/db";
+import type { db } from "@lirna/db";
 import {
   sepAdmissionOutcomes,
   sepAdmissionPreviews,
@@ -13,7 +13,7 @@ import {
   sources,
 } from "@lirna/db/schema/sources";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
-import { DrizzleActiveReadingDerivativeStore } from "./active-reading-derivative-store";
+import type { ActiveReadingDerivativeOperations } from "./active-reading-derivative";
 import {
   parseStringList,
   sepObservationKeySchema,
@@ -26,9 +26,9 @@ import type { DatabaseExecutor } from "./sep-state-evidence";
 import { readSepAdmittedState } from "./sep-state-projection";
 
 export function createSepAdmittedStateReader(
-  database: typeof db = db,
+  database: typeof db,
+  activeReading: ActiveReadingDerivativeOperations,
 ): SepAdmittedStateOperations {
-  const activeReading = new DrizzleActiveReadingDerivativeStore(database);
   return {
     async listSources(): Promise<SepLibrarySource[]> {
       const rows = await database
@@ -173,8 +173,6 @@ export function createSepAdmittedStateReader(
     },
   };
 }
-
-export const sepAdmittedStateOperations = createSepAdmittedStateReader();
 
 export async function readSepLibrarySourceInSnapshot(
   database: DatabaseExecutor,

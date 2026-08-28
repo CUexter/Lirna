@@ -5,6 +5,7 @@ import type {
   CitationResolutionRecord,
 } from "../../citation-resolutions/citation-resolution-contract";
 import type { Context } from "../../context";
+import { createTestContext } from "../application-test-support";
 
 export const sourceId = "10000000-0000-4000-8000-000000000000";
 export const stateId = "20000000-0000-4000-8000-000000000000";
@@ -129,21 +130,19 @@ export function context(
     fail?: (error: unknown) => void;
   } = {},
 ): Context {
-  return {
-    activeReadingDerivatives: {} as Context["activeReadingDerivatives"],
-    citationResolutions,
-    derivativeUpdates: {} as Context["derivativeUpdates"],
-    ...(options.citationInference
-      ? { citationInference: options.citationInference }
-      : {}),
-    observation: {
-      requestId: "req-test",
-      emit() {},
-      fail: options.fail ?? (() => undefined),
+  return createTestContext(
+    {
+      citationResolutions,
+      ...(options.citationInference
+        ? { citationInference: options.citationInference }
+        : {}),
     },
-    annotations: {} as Context["annotations"],
-    readingPositions: {} as Context["readingPositions"],
-    sepAdmissions: {} as Context["sepAdmissions"],
-    admittedSourceStates: {} as Context["admittedSourceStates"],
-  };
+    {
+      observation: {
+        requestId: "req-test",
+        emit() {},
+        fail: options.fail ?? (() => undefined),
+      },
+    },
+  );
 }

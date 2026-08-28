@@ -46,10 +46,17 @@ describePostgres("Citation resolution PostgreSQL store", () => {
     process.env.CORS_ORIGIN = "http://localhost:5173";
     process.env.NODE_ENV = "test";
 
-    const { DrizzleCitationResolutionStore } = await import(
-      "./citation-resolution-store"
+    const [
+      { DrizzleCitationResolutionStore },
+      { DrizzleActiveReadingDerivativeStore },
+    ] = await Promise.all([
+      import("./citation-resolution-store"),
+      import("../sep-admission/active-reading-derivative-store"),
+    ]);
+    store = new DrizzleCitationResolutionStore(
+      database,
+      new DrizzleActiveReadingDerivativeStore(database),
     );
-    store = new DrizzleCitationResolutionStore(database);
     await database.insert(sources).values({
       id: sourceId,
       title: "Citation evidence",

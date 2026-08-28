@@ -7,6 +7,7 @@ import type {
 } from "../../annotations/annotation-contract";
 import { InvalidAuthoredTargetError } from "../../authored-targets/authored-target";
 import type { Context } from "../../context";
+import { createTestContext } from "../application-test-support";
 import { annotationsRouter } from "./annotations";
 
 const sourceId = "10000000-0000-4000-8000-000000000000";
@@ -190,15 +191,7 @@ describe("annotations oRPC router", () => {
 });
 
 function context(annotations: AnnotationOperations): Context {
-  return {
-    annotations,
-    activeReadingDerivatives: {} as Context["activeReadingDerivatives"],
-    citationResolutions: {} as Context["citationResolutions"],
-    derivativeUpdates: {} as Context["derivativeUpdates"],
-    readingPositions: {} as Context["readingPositions"],
-    sepAdmissions: {} as Context["sepAdmissions"],
-    admittedSourceStates: {} as Context["admittedSourceStates"],
-  };
+  return createTestContext({ annotations });
 }
 
 function operationsStub(

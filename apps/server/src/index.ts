@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { productionApplication } from "@lirna/api/application";
 import { createContext } from "@lirna/api/context";
 import { validationIssuePath } from "@lirna/api/error-issues";
 import type { RequestObservation } from "@lirna/api/observation";
@@ -184,6 +185,7 @@ export function createApp(
 
   app.use("/orpc/*", async (c, next) => {
     const context = createContext({
+      application: productionApplication,
       observation: c.get("requestObservation"),
       debugErrors,
     });
@@ -198,6 +200,7 @@ export function createApp(
   app.use("/*", async (c, next) => {
     const { matched, response } = await openApiHandler.handle(c.req.raw, {
       context: await createContext({
+        application: productionApplication,
         observation: c.get("requestObservation"),
         debugErrors,
       }),

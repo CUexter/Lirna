@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { db } from "@lirna/db";
+import type { db } from "@lirna/db";
 import {
   sepAdmissionOutcomes,
   sepPreviewResources,
@@ -30,11 +30,7 @@ import {
   readAdmissionOutcome,
   resourcesForState,
 } from "./sep-admission-deduplication";
-import type {
-  SepAdmittedState,
-  SepAdmittedStateOperations,
-} from "./sep-admitted-state";
-import { createSepAdmittedStateReader } from "./sep-admitted-state-reader";
+import type { SepAdmittedState } from "./sep-admitted-state";
 import {
   createSepCaptureClient,
   SepAdmissionError,
@@ -47,15 +43,15 @@ import {
   selectLivePreviewForUpdate,
 } from "./sep-preview-store";
 
+// PostgreSQL fixtures import this after installing their isolated database environment.
+// fallow-ignore-next-line unused-export
 export function createDrizzleSepAdmissionStore(
-  database: typeof db = db,
-): SepAdmissionStore & SepAdmittedStateOperations {
+  database: typeof db,
+): SepAdmissionStore {
   const preview = createSepPreviewStore(database);
-  const reader = createSepAdmittedStateReader(database);
 
   return {
     ...preview,
-    ...reader,
     async admit(
       id: string,
       observationKeys: SepObservationKey[],
@@ -308,7 +304,9 @@ function observationLabel(key: SepObservationKey) {
   return key === "submitted" ? "Active" : "Recommended archive";
 }
 
-export const sepAdmissionOperations = createSepAdmissionOperations({
-  store: createDrizzleSepAdmissionStore(),
-  capture: createSepCaptureClient(),
-});
+export function createDrizzleSepAdmissionOperations(database: typeof db) {
+  return createSepAdmissionOperations({
+    store: createDrizzleSepAdmissionStore(database),
+    capture: createSepCaptureClient(),
+  });
+}

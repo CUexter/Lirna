@@ -1,11 +1,12 @@
 import { call } from "@orpc/server";
-import type { Context } from "../../context";
+import type { Application, Context } from "../../context";
 import type {
   ReadingPositionOperations,
   ReadingPositionRecord,
 } from "../../reading-position/reading-position-contract";
 import type { ReadingWorkspaceOperations } from "../../reading-workspace/reading-workspace";
 import type { SepAdmittedStateOperations } from "../../sep-admission/sep-admitted-state";
+import { createTestContext } from "../application-test-support";
 import {
   admittedSourceStatesStub,
   sourceId,
@@ -21,29 +22,21 @@ export function invoke(
   admittedSourceStates: SepAdmittedStateOperations = admittedSourceStatesStub(),
 ): Promise<unknown> {
   return call(sourcesRouter[procedure] as never, input, {
-    context: {
-      annotations: {} as Context["annotations"],
-      readingPositions: {} as Context["readingPositions"],
-      sepAdmissions: {} as Context["sepAdmissions"],
-      admittedSourceStates,
-    },
+    context: createTestContext({ admittedSourceStates }),
   });
 }
 
 export function sourcesContext(
   admittedSourceStates: SepAdmittedStateOperations,
   readingPositions: ReadingPositionOperations,
+  adapters: Partial<Application> = {},
 ): Context {
-  return {
-    activeReadingDerivatives: {} as Context["activeReadingDerivatives"],
-    annotations: {} as Context["annotations"],
-    citationResolutions: {} as Context["citationResolutions"],
-    derivativeUpdates: {} as Context["derivativeUpdates"],
+  return createTestContext({
+    admittedSourceStates,
     readingPositions,
     readingWorkspaces: readingWorkspacesStub(),
-    sepAdmissions: {} as Context["sepAdmissions"],
-    admittedSourceStates,
-  };
+    ...adapters,
+  });
 }
 
 export function readingWorkspacesStub(

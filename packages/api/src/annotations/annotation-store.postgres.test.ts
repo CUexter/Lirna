@@ -41,8 +41,17 @@ describePostgres("Annotation PostgreSQL store", () => {
     process.env.CORS_ORIGIN = "http://localhost:5173";
     process.env.NODE_ENV = "test";
 
-    const { DrizzleAnnotationStore } = await import("./annotation-store");
-    store = new DrizzleAnnotationStore(database);
+    const [
+      { DrizzleAnnotationStore },
+      { DrizzleActiveReadingDerivativeStore },
+    ] = await Promise.all([
+      import("./annotation-store"),
+      import("../sep-admission/active-reading-derivative-store"),
+    ]);
+    store = new DrizzleAnnotationStore(
+      database,
+      new DrizzleActiveReadingDerivativeStore(database),
+    );
     await database.insert(sources).values([
       {
         id: sourceId,
