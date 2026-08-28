@@ -15,6 +15,8 @@ import {
   type SepAdmissionPostgres,
   sepAdmissionPostgresAdminUrl,
 } from "../sep-admission/fixtures/postgres";
+import type { SepReadingContract } from "../sep-admission/sep-reading-contract";
+import { refreshDerivativeText } from "./derivative-test-fixture";
 import { DrizzleDerivativeUpdateStore } from "./derivative-update-store";
 
 const describePostgres = sepAdmissionPostgresAdminUrl
@@ -61,8 +63,23 @@ describePostgres("Reading Derivative updates in PostgreSQL", () => {
     const stateId = admitted?.states[0]?.id;
     if (!sourceId || !stateId) throw new Error("Admission failed");
     const initialState = await admission.getState(sourceId, stateId);
-    const initialDerivativeId = initialState?.derivatives[0]?.id;
-    if (!initialDerivativeId) throw new Error("Initial derivative missing");
+    if (!initialState) throw new Error("Initial state missing");
+    const initialDerivative = initialState.derivatives[0];
+    if (!initialDerivative) throw new Error("Initial derivative missing");
+    const initialDerivativeId = initialDerivative.id;
+    expect(initialDerivative.validation).toMatchObject({
+      status: "valid",
+      checks: expect.arrayContaining([
+        expect.objectContaining({
+          subject: "typed-structure",
+          status: "passed",
+        }),
+        expect.objectContaining({
+          subject: "diagnostics",
+          status: "passed",
+        }),
+      ]),
+    });
     const reading = await admission.getReading(sourceId, stateId);
     const component = reading?.components[0];
     if (!component) throw new Error("Reading component missing");
@@ -116,6 +133,9 @@ describePostgres("Reading Derivative updates in PostgreSQL", () => {
     expect(candidates.map(({ generation }) => generation.version)).toEqual([
       2, 3,
     ]);
+    expect(
+      candidates.map(({ previousDerivativeId }) => previousDerivativeId),
+    ).toEqual([initialDerivativeId, initialDerivativeId]);
     const candidate = candidates[0];
     expect(candidate).toMatchObject({
       valid: true,
@@ -163,6 +183,37 @@ describePostgres("Reading Derivative updates in PostgreSQL", () => {
         reason: "Reviewed upgrade",
       },
     });
+    const regeneratedState = await admission.getState(sourceId, stateId);
+    if (!regeneratedState) throw new Error("Regenerated state missing");
+    const persistedCandidate = regeneratedState.derivatives.find(
+      ({ id }) => id === candidate.id,
+    );
+    if (!persistedCandidate) throw new Error("Persisted candidate missing");
+    const regeneratedReading = await admission.getReading(sourceId, stateId);
+    if (!regeneratedReading) throw new Error("Regenerated reading missing");
+    expect({
+      sourceStateId: regeneratedState.id,
+      kind: persistedCandidate.kind,
+      valid: persistedCandidate.valid,
+      generation: {
+        parser: persistedCandidate.generation.parser,
+        renderer: persistedCandidate.generation.renderer,
+        inputResourceHashes: persistedCandidate.generation.inputResourceHashes,
+      },
+      payload: regeneratedReading,
+      validation: persistedCandidate.validation,
+    }).toEqual({
+      sourceStateId: initialState.id,
+      kind: initialDerivative.kind,
+      valid: initialDerivative.valid,
+      generation: {
+        parser: initialDerivative.generation.parser,
+        renderer: initialDerivative.generation.renderer,
+        inputResourceHashes: initialDerivative.generation.inputResourceHashes,
+      },
+      payload: reading,
+      validation: initialDerivative.validation,
+    });
     const rollbackPreview = await activeReading.previewActivation({
       sourceId,
       stateId,
@@ -206,10 +257,7 @@ describePostgres("Reading Derivative updates in PostgreSQL", () => {
     ]);
 
     const ambiguousId = randomUUID();
-    const ambiguousReading = structuredClone(reading);
-    const ambiguousComponent = ambiguousReading.components[0];
-    if (!ambiguousComponent) throw new Error("Reading component missing");
-    ambiguousComponent.plainText = `Preface\n${component.plainText}\n\n${component.plainText}`;
+    const ambiguousReading = createAmbiguousReading(reading);
     await database.insert(sourceStateDerivatives).values({
       id: ambiguousId,
       sourceStateId: stateId,
@@ -265,6 +313,24 @@ describePostgres("Reading Derivative updates in PostgreSQL", () => {
     ]);
   });
 });
+
+function createAmbiguousReading(reading: SepReadingContract) {
+  const ambiguousReading = structuredClone(reading);
+  const component = ambiguousReading.components[0];
+  if (!component) throw new Error("Reading component missing");
+  const repeatedSection = component.sections[0];
+  if (!repeatedSection) throw new Error("Reading section missing");
+  component.introductoryBlocks = [
+    {
+      kind: "paragraph",
+      children: [{ kind: "text", text: "Preface" }],
+    },
+  ];
+  component.sections.push(structuredClone(repeatedSection));
+  ambiguousReading.introductoryBlocks = component.introductoryBlocks;
+  ambiguousReading.sections = component.sections;
+  return refreshDerivativeText(ambiguousReading);
+}
 
 async function resourceEvidence(stateId: string) {
   return database

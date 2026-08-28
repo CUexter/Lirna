@@ -106,6 +106,7 @@ export async function readSepAdmittedState(
     const validation = persistedDerivativeValidationSchema.parse(
       derivative.validation,
     );
+    const generationError = readGenerationError(derivative.payload);
     return {
       id: derivative.id,
       kind: derivative.kind,
@@ -118,6 +119,7 @@ export async function readSepAdmittedState(
         status: validation.status,
         checks: validation.checks,
       },
+      ...(generationError ? { generationError } : {}),
       ...(validation.comparison ? { comparison: validation.comparison } : {}),
       createdAt: derivative.createdAt.toISOString(),
       ...(current && activation
@@ -173,4 +175,16 @@ export async function readSepAdmittedState(
     components: reading?.components.map(readingComponentSummary) ?? [],
     derivatives,
   };
+}
+
+function readGenerationError(payload: unknown) {
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    !("generationError" in payload)
+  )
+    return undefined;
+  return typeof payload.generationError === "string"
+    ? payload.generationError
+    : undefined;
 }

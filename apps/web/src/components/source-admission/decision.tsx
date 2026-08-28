@@ -72,6 +72,7 @@ export function SepAdmissionDecision({
               ? "Immutable states created"
               : "Existing immutable states reused"}
           </p>
+          <AdmissionReadingStatus result={result} />
           {result.states.map((state) => (
             <Link
               className={buttonVariants({
@@ -179,6 +180,39 @@ export function SepAdmissionDecision({
       </CardFooter>
     </Card>
   );
+}
+
+function AdmissionReadingStatus({ result }: { result: AdmissionResult }) {
+  const unavailableReading = unavailableReadingDerivative(result);
+  if (!unavailableReading) return null;
+  return (
+    <p
+      className="border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm"
+      role="alert"
+    >
+      Source state was admitted, but its Reading Derivative needs regeneration
+      before the Reading workspace is available.
+      {unavailableReading.generationError
+        ? ` ${unavailableReading.generationError}`
+        : ""}
+    </p>
+  );
+}
+
+function unavailableReadingDerivative(result: AdmissionResult) {
+  const state = result.states.find(
+    (candidate) =>
+      candidate.derivatives.some(({ valid }) => !valid) &&
+      candidate.derivatives.every(
+        ({ currentActivation }) => !currentActivation,
+      ),
+  );
+  if (!state) return undefined;
+  return {
+    generationError: state.derivatives.find(
+      ({ generationError }) => generationError,
+    )?.generationError,
+  };
 }
 
 function admissionLabel(selected: ObservationKey[]) {

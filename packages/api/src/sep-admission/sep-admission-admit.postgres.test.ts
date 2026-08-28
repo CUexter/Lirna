@@ -200,30 +200,56 @@ describePostgres("SEP Admission PostgreSQL store", () => {
     expect(states.map(({ sequence }) => sequence)).toEqual([0, 1, 2]);
   });
 
-  test("rolls back every permanent record when derivative creation fails", async () => {
-    const stableKey = `sep:rollback-${randomUUID()}`;
+  test("admits immutable evidence when Derivative creation fails without activating the invalid candidate", async () => {
+    const stableKey = `sep:invalid-derivative-${randomUUID()}`;
     const previewId = await insertPreview(database, {
       stableKey,
       observations: ["submitted"],
       charset: "definitely-not-a-real-encoding",
     });
 
-    await expect(
-      store.admit(previewId, ["submitted"], new Date()),
-    ).rejects.toThrow("unsupported character encoding");
+    const admitted = await store.admit(previewId, ["submitted"], new Date());
+    const state = admitted?.states[0];
 
     expect(
       await database
         .select({ id: sources.id })
         .from(sources)
         .where(eq(sources.stableKey, stableKey)),
-    ).toEqual([]);
+    ).toHaveLength(1);
     expect(
       await database
         .select({ id: sepSourceStateMetadata.sourceStateId })
         .from(sepSourceStateMetadata)
         .where(eq(sepSourceStateMetadata.admissionPreviewId, previewId)),
-    ).toEqual([]);
+    ).toHaveLength(1);
+    expect(state).toMatchObject({
+      components: [],
+      derivatives: [
+        {
+          valid: false,
+          validation: {
+            status: "invalid",
+            checks: expect.arrayContaining([
+              expect.objectContaining({
+                subject: "typed-structure",
+                status: "failed",
+              }),
+            ]),
+          },
+          generationError: expect.stringContaining(
+            "unsupported character encoding",
+          ),
+          activationHistory: [],
+        },
+      ],
+    });
+    expect(state?.derivatives[0]?.currentActivation).toBeUndefined();
+    await expect(
+      state
+        ? store.getReading(admitted.sourceId, state.id)
+        : Promise.resolve(undefined),
+    ).resolves.toBeUndefined();
   });
 
   test("rejects a different observation selection after admission", async () => {

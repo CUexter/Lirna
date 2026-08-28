@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
+  type CreatedReadingDerivative,
+  createReadingDerivative,
+} from "../derivative-updates/reading-derivative-creation";
+import {
   type RightsBasis,
   type SensitivityLevel,
   sourceHandlingPolicySchema,
@@ -8,10 +12,6 @@ import {
 
 import type { SepObservationKey } from "./sep-capture";
 import { createSepReadingDerivative } from "./sep-reading";
-import {
-  type SepReadingContract,
-  sepReadingDerivativeKind,
-} from "./sep-reading-contract";
 
 export const sepObservationKeySchema = z.enum([
   "submitted",
@@ -133,6 +133,7 @@ export interface BuildReadingDerivativeInput {
   state: {
     id: string;
     observationKey: string;
+    canonicalUrl: string;
     admittedAt: Date;
   };
   main: AdmissionReadingResource;
@@ -149,21 +150,6 @@ export interface BuildReadingDerivativeInput {
   };
 }
 
-export interface AdmissionReadingDerivativeRecord {
-  id: string;
-  sourceStateId: string;
-  kind: typeof sepReadingDerivativeKind;
-  valid: true;
-  generation: {
-    version: 1;
-    parser: { id: "parse5"; version: "7.3.0" };
-    renderer: { id: "lirna-reading-react"; version: "1" };
-    inputResourceHashes: Array<{ identity: string; sha256: string }>;
-  };
-  payload: SepReadingContract;
-  validation: { schema: "sep-reading-v1"; status: "valid" };
-}
-
 export function buildReadingDerivative({
   source,
   state,
@@ -171,68 +157,63 @@ export function buildReadingDerivative({
   resources,
   metadata,
   preview,
-}: BuildReadingDerivativeInput): AdmissionReadingDerivativeRecord {
-  const capture = buildReadingCaptureReport(preview);
-  return {
-    id: randomUUID(),
+}: BuildReadingDerivativeInput): CreatedReadingDerivative {
+  return createReadingDerivative({
     sourceStateId: state.id,
-    kind: sepReadingDerivativeKind,
-    valid: true,
-    generation: {
-      version: 1,
-      parser: { id: "parse5", version: "7.3.0" },
-      renderer: { id: "lirna-reading-react", version: "1" },
-      inputResourceHashes: resources
-        .map(({ identity, sha256 }) => ({ identity, sha256 }))
-        .toSorted((left, right) => left.identity.localeCompare(right.identity)),
+    generationVersion: 1,
+    inputResourceHashes: resources.map(({ identity, sha256 }) => ({
+      identity,
+      sha256,
+    })),
+    createPayload: () => {
+      const capture = buildReadingCaptureReport(preview);
+      return createSepReadingDerivative({
+        source: {
+          id: source.id,
+          stateId: state.id,
+          title: metadata.title,
+          authors: metadata.authors,
+          publisher: metadata.publisher,
+          publicationHistory: metadata.publicationHistory,
+          canonicalUrl: state.canonicalUrl,
+          observation: sepObservationKeySchema.parse(state.observationKey),
+          admittedAt: state.admittedAt.toISOString(),
+        },
+        main: {
+          ...main,
+          mediaType: main.mediaType ?? undefined,
+        },
+        resources: resources.map(({ identity, sha256 }) => ({
+          identity,
+          sha256,
+        })),
+        components: resources.map((resource) => ({
+          identity: resource.identity,
+          role: sepResourceRoleSchema.parse(resource.role),
+          requestedUrl: resource.requestedUrl,
+          finalUrl: resource.finalUrl,
+          retrievedAt: resource.retrievedAt,
+          sha256: resource.sha256,
+          mediaType: resource.mediaType ?? undefined,
+          charset: resource.charset,
+          body: resource.body,
+          discoveryEdge: resource.discoveryEdge,
+        })),
+        capture: {
+          completeness: capture.completeness,
+          readingReadiness: capture.readingReadiness,
+          readinessReasons: capture.readinessReasons,
+          diagnostics: z
+            .array(
+              z.object({
+                level: z.enum(["info", "warning"]),
+                code: z.string(),
+                message: z.string(),
+              }),
+            )
+            .parse(preview.diagnostics),
+        },
+      });
     },
-    payload: createSepReadingDerivative({
-      source: {
-        id: source.id,
-        stateId: state.id,
-        title: metadata.title,
-        authors: metadata.authors,
-        publisher: metadata.publisher,
-        publicationHistory: metadata.publicationHistory,
-        canonicalUrl: main.requestedUrl,
-        observation: sepObservationKeySchema.parse(state.observationKey),
-        admittedAt: state.admittedAt.toISOString(),
-      },
-      main: {
-        ...main,
-        mediaType: main.mediaType ?? undefined,
-      },
-      resources: resources.map(({ identity, sha256 }) => ({
-        identity,
-        sha256,
-      })),
-      components: resources.map((resource) => ({
-        identity: resource.identity,
-        role: sepResourceRoleSchema.parse(resource.role),
-        requestedUrl: resource.requestedUrl,
-        finalUrl: resource.finalUrl,
-        retrievedAt: resource.retrievedAt,
-        sha256: resource.sha256,
-        mediaType: resource.mediaType ?? undefined,
-        charset: resource.charset,
-        body: resource.body,
-        discoveryEdge: resource.discoveryEdge,
-      })),
-      capture: {
-        completeness: capture.completeness,
-        readingReadiness: capture.readingReadiness,
-        readinessReasons: capture.readinessReasons,
-        diagnostics: z
-          .array(
-            z.object({
-              level: z.enum(["info", "warning"]),
-              code: z.string(),
-              message: z.string(),
-            }),
-          )
-          .parse(preview.diagnostics),
-      },
-    }),
-    validation: { schema: "sep-reading-v1", status: "valid" },
-  };
+  });
 }

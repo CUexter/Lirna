@@ -184,6 +184,7 @@ export const sepAdmittedStateSchema = z.object({
       valid: z.boolean(),
       generation: derivativeGenerationSchema,
       validation: derivativeValidationSchema,
+      generationError: z.string().optional(),
       comparison: derivativeComparisonSchema.optional(),
       createdAt: z.string().datetime(),
       currentActivation: z

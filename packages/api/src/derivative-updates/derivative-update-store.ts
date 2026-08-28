@@ -1,16 +1,9 @@
-import { randomUUID } from "node:crypto";
 import type { db } from "@lirna/db";
 import { sourceStateDerivatives, sourceStates } from "@lirna/db/schema/sources";
 import { and, eq } from "drizzle-orm";
-import {
-  readSepReadingDerivative,
-  sepReadingDerivativeKind,
-} from "../sep-admission/sep-reading-contract";
+import { readSepReadingDerivative } from "../sep-admission/sep-reading-contract";
 import { compareReadingDerivatives } from "./derivative-analysis";
-import {
-  buildCandidateFromEvidence,
-  generationError,
-} from "./derivative-candidate-builder";
+import { buildCandidateFromEvidence } from "./derivative-candidate-builder";
 import type { DerivativeUpdateOperations } from "./derivative-update-contract";
 import {
   invalidComparison,
@@ -23,10 +16,7 @@ import {
   derivativeCount,
   derivativeEvidence,
 } from "./derivative-update-queries";
-import { validateReadingCandidate } from "./derivative-validation";
-
-const generationParser = { id: "parse5", version: "7.3.0" } as const;
-const generationRenderer = { id: "lirna-reading-react", version: "1" } as const;
+import { createReadingDerivative } from "./reading-derivative-creation";
 
 export class DrizzleDerivativeUpdateStore
   implements DerivativeUpdateOperations
@@ -59,42 +49,38 @@ export class DrizzleDerivativeUpdateStore
       input.stateId,
     );
     if (!evidence) return undefined;
-    const baseline = await activeDerivative(database, input.stateId);
+    const activeBaseline = await activeDerivative(database, input.stateId);
     const anchors = await authoredAnchors(database, input.stateId);
-    let payload: unknown;
-    try {
-      payload = buildCandidateFromEvidence(evidence);
-    } catch (error) {
-      payload = { generationError: generationError(error) };
-    }
-    const validation = validateReadingCandidate(payload);
+    const derivative = createReadingDerivative({
+      sourceStateId: input.stateId,
+      generationVersion: (await derivativeCount(database, input.stateId)) + 1,
+      ...(activeBaseline?.id
+        ? { previousDerivativeId: activeBaseline.id }
+        : {}),
+      inputResourceHashes: evidence.resources.map(({ identity, sha256 }) => ({
+        identity,
+        sha256,
+      })),
+      createPayload: () => buildCandidateFromEvidence(evidence),
+    });
+    const { generation, id, payload, validation } = derivative;
     const reading =
       validation.status === "valid"
         ? readSepReadingDerivative(payload)
         : undefined;
-    const previous = baseline?.reading;
+    const previous = activeBaseline?.reading;
     const comparison = reading
-      ? compareReadingDerivatives(previous, reading, baseline?.id, anchors)
-      : invalidComparison(baseline?.id, anchors);
-    const generation = {
-      version: (await derivativeCount(database, input.stateId)) + 1,
-      parser: generationParser,
-      renderer: generationRenderer,
-      inputResourceHashes: evidence.resources
-        .map(({ identity, sha256 }) => ({ identity, sha256 }))
-        .toSorted((left, right) => left.identity.localeCompare(right.identity)),
-    };
-    const id = randomUUID();
+      ? compareReadingDerivatives(
+          previous,
+          reading,
+          activeBaseline?.id,
+          anchors,
+        )
+      : invalidComparison(activeBaseline?.id, anchors);
     const [created] = await database
       .insert(sourceStateDerivatives)
       .values({
-        id,
-        sourceStateId: input.stateId,
-        kind: sepReadingDerivativeKind,
-        previousDerivativeId: baseline?.id,
-        valid: validation.status === "valid",
-        generation,
-        payload,
+        ...derivative,
         validation: { ...validation, comparison },
       })
       .returning({ createdAt: sourceStateDerivatives.createdAt });
@@ -102,7 +88,7 @@ export class DrizzleDerivativeUpdateStore
       ? projectCandidate({
           id,
           sourceStateId: input.stateId,
-          previousDerivativeId: baseline?.id,
+          previousDerivativeId: activeBaseline?.id,
           generation,
           validation,
           comparison,

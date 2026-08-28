@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { authoredTargetForPublisherAnchor } from "../authored-targets/authored-target";
+import { validateReadingCandidate } from "../derivative-updates/derivative-validation";
 import { createSepReadingDerivative } from "./sep-reading";
 import { readSepReadingDerivative } from "./sep-reading-contract";
 
@@ -72,6 +73,7 @@ describe("SEP Reading derivative", () => {
         source: { componentIdentity: "active:/", locator: "#missing-toc" },
       }),
     );
+    expect(validateReadingCandidate(result).status).toBe("valid");
     expect(readSepReadingDerivative(result)).toEqual(result);
   });
   test("retains legacy block targets and generated proposition numbers", () => {

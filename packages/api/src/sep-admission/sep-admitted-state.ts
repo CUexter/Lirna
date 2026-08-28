@@ -21,6 +21,7 @@ export interface SepDerivativeProvenance {
   valid: boolean;
   generation: ReadingDerivativeCandidate["generation"];
   validation: DerivativeValidation;
+  generationError?: string;
   comparison?: DerivativeComparison;
   createdAt: string;
   currentActivation?: DerivativeActivation;

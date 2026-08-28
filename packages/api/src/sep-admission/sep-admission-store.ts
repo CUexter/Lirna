@@ -14,7 +14,7 @@ import {
   sources,
 } from "@lirna/db/schema/sources";
 import { asc, eq, max } from "drizzle-orm";
-
+import type { CreatedReadingDerivative } from "../derivative-updates/reading-derivative-creation";
 import {
   createSepAdmissionOperations,
   type SepAdmissionResult,
@@ -43,6 +43,7 @@ import {
 import { decodeCapturedHtml, parseEntryMetadata } from "./sep-html";
 import {
   createSepPreviewStore,
+  type SepAdmissionTransaction,
   selectLivePreviewForUpdate,
 } from "./sep-preview-store";
 
@@ -236,15 +237,7 @@ export function createDrizzleSepAdmissionStore(
         onStage?.("database_persistence");
         if (derivatives.length > 0) {
           await tx.insert(sourceStateDerivatives).values(derivatives);
-          await tx.insert(sourceStateDerivativeActivations).values(
-            derivatives.map((derivative) => ({
-              sourceStateId: derivative.sourceStateId,
-              derivativeId: derivative.id,
-              kind: derivative.kind,
-              sequence: 1,
-              activatedAt: now,
-            })),
-          );
+          await activateInitialDerivatives(tx, derivatives, now);
         }
         const outcomes = selectedKeys.map((observationKey) => {
           const created = stateRecords.find(
@@ -291,6 +284,24 @@ export function createDrizzleSepAdmissionStore(
       };
     },
   };
+}
+
+async function activateInitialDerivatives(
+  tx: SepAdmissionTransaction,
+  derivatives: CreatedReadingDerivative[],
+  activatedAt: Date,
+) {
+  const values = derivatives
+    .filter(({ valid }) => valid)
+    .map((derivative) => ({
+      sourceStateId: derivative.sourceStateId,
+      derivativeId: derivative.id,
+      kind: derivative.kind,
+      sequence: 1,
+      activatedAt,
+    }));
+  if (values.length > 0)
+    await tx.insert(sourceStateDerivativeActivations).values(values);
 }
 
 function observationLabel(key: SepObservationKey) {

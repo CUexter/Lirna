@@ -26,6 +26,8 @@ export function buildCandidateFromEvidence(evidence: {
   const capture = admittedCaptureReportSchema.parse(
     metadata.captureDiagnostics,
   );
+  if (!state.canonicalUrl)
+    throw new Error("Immutable Source-state evidence has no canonical URL");
   return createSepReadingDerivative({
     source: {
       id: state.sourceId,
@@ -34,7 +36,7 @@ export function buildCandidateFromEvidence(evidence: {
       authors: parseStringList(metadata.authors),
       publisher: metadata.publisher,
       publicationHistory: parseStringList(metadata.publicationHistory),
-      canonicalUrl: state.canonicalUrl ?? main.finalUrl,
+      canonicalUrl: state.canonicalUrl,
       observation: sepObservationKeySchema.parse(metadata.observationKey),
       admittedAt: state.admittedAt.toISOString(),
     },
@@ -54,8 +56,4 @@ export function buildCandidateFromEvidence(evidence: {
       diagnostics: diagnosticSchema.array().parse(metadata.diagnostics),
     },
   });
-}
-
-export function generationError(error: unknown) {
-  return error instanceof Error ? error.message : "Unknown generation error";
 }

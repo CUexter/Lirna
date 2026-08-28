@@ -193,6 +193,68 @@ test("renders a completed Admission with links to its immutable states", async (
   ).toBeTruthy();
 });
 
+test("reports an admitted state whose initial Reading Derivative is invalid", async () => {
+  const result = admittedFixture();
+  const state = result.states[0];
+  if (!state) throw new Error("Admitted state fixture missing");
+  state.derivatives.push({
+    id: "40000000-0000-4000-8000-000000000000",
+    kind: "sep-reading-v1",
+    valid: false,
+    generation: {
+      version: 1,
+      parser: { id: "parse5", version: "7.3.0" },
+      renderer: { id: "lirna-reading-react", version: "1" },
+      inputResourceHashes: [],
+    },
+    validation: {
+      status: "invalid",
+      checks: [
+        {
+          subject: "typed-structure",
+          status: "failed",
+          messages: ["Unsupported character encoding."],
+        },
+      ],
+    },
+    generationError: "Unsupported character encoding.",
+    createdAt: "2026-08-18T12:01:00.000Z",
+    activationHistory: [],
+  });
+  const rootRoute = createRootRoute();
+  const previewRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/",
+    component: () => (
+      <SepAdmissionPreview
+        admission={{
+          pending: false,
+          result,
+          onAdmit: () => undefined,
+        }}
+        lifecycle={{
+          extendPending: false,
+          deletePending: false,
+          retryPending: false,
+          onDelete: () => undefined,
+          onExtend: () => undefined,
+          onRetry: () => undefined,
+        }}
+        preview={previewFixture()}
+      />
+    ),
+  });
+
+  await renderRoute(rootRoute.addChildren([previewRoute]), "/");
+
+  expect(view().getByRole("alert").textContent).toContain(
+    "Source state was admitted, but its Reading Derivative needs regeneration",
+  );
+  expect(view().getByRole("alert").textContent).toContain(
+    "Unsupported character encoding.",
+  );
+});
+
 function renderPreview({
   onAdmit = () => undefined,
   onDelete = () => undefined,

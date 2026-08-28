@@ -128,6 +128,7 @@ describe("SEP admission builders", () => {
     const state = {
       id: "22222222-2222-4222-8222-222222222222",
       observationKey: "submitted" as const,
+      canonicalUrl: main.requestedUrl,
       admittedAt,
     };
 
@@ -149,7 +150,19 @@ describe("SEP admission builders", () => {
       sourceStateId: state.id,
       kind: "sep-reading-v1",
       valid: true,
-      validation: { schema: "sep-reading-v1", status: "valid" },
+      validation: {
+        status: "valid",
+        checks: expect.arrayContaining([
+          expect.objectContaining({
+            subject: "typed-structure",
+            status: "passed",
+          }),
+          expect.objectContaining({
+            subject: "diagnostics",
+            status: "passed",
+          }),
+        ]),
+      },
     });
     expect(uuidPattern.test(derivative.id)).toBe(true);
     expect(derivative.payload).toMatchObject({
@@ -176,6 +189,25 @@ describe("SEP admission builders", () => {
       },
     });
     expect(JSON.stringify(derivative.payload)).not.toContain("window.pwned");
+
+    const invalid = buildReadingDerivative({
+      source: { id: sourceId },
+      state,
+      main,
+      resources: [main, citation],
+      metadata: {
+        title: preview.title,
+        authors: preview.authors,
+        publisher: preview.publisher,
+        publicationHistory: preview.publicationHistory,
+      },
+      preview: { ...preview, captureDiagnostics: {} },
+    });
+    expect(invalid).toMatchObject({
+      valid: false,
+      payload: { generationError: expect.any(String) },
+      validation: { status: "invalid" },
+    });
   });
 });
 
