@@ -29,6 +29,7 @@ let database: Awaited<
   ReturnType<typeof createPostgresTestDatabase>
 >["database"];
 let cleanupDatabase: (() => Promise<void>) | undefined;
+let derivativeId: string;
 let store: InstanceType<
   typeof import("./citation-resolution-store")["DrizzleCitationResolutionStore"]
 >;
@@ -82,9 +83,10 @@ describePostgres("Citation resolution PostgreSQL store", () => {
         validation: { schema: "sep-reading-v1", status: "valid" },
       })
       .returning({ id: sourceStateDerivatives.id });
+    derivativeId = derivative?.id ?? "";
     await database.insert(sourceStateDerivativeActivations).values({
       sourceStateId: stateId,
-      derivativeId: derivative?.id ?? "",
+      derivativeId,
       kind: "sep-reading-v1",
     });
     await database.insert(sourceStateResources).values({
@@ -189,6 +191,7 @@ describePostgres("Citation resolution PostgreSQL store", () => {
       await store.clear({
         sourceId,
         stateId,
+        expectedDerivativeId: shiftedDerivative?.id ?? "",
         componentIdentity: "article:main",
         mentionId: "citation-mention-1",
         actorId,
@@ -369,6 +372,7 @@ function selection(bibliographyEntryId: string) {
   return {
     sourceId,
     stateId,
+    expectedDerivativeId: derivativeId,
     componentIdentity: "article:main",
     mentionId: "citation-mention-1",
     bibliographyComponentIdentity: "article:main",

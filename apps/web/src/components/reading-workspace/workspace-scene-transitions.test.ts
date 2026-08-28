@@ -186,6 +186,25 @@ test("orders Bibliography consequences behind the transition seam", () => {
   ]);
 });
 
+test("reports article movement only after a delayed transition commits", () => {
+  const calls: string[] = [];
+  let continueTransition: () => void = () => undefined;
+  const { transitions } = createTransitionHarness({
+    hasUnsavedAnnotation: () => true,
+    onAnnotationDiscardRequired: (commit) => {
+      calls.push("confirm");
+      continueTransition = commit;
+    },
+    onViewChange: (view) => calls.push(`view:${view}`),
+  });
+
+  transitions.request({ kind: "article" }, () => calls.push("committed"));
+  expect(calls).toEqual(["confirm"]);
+
+  continueTransition();
+  expect(calls).toEqual(["confirm", "view:article", "committed"]);
+});
+
 test("replaces an older pending passage for the same scroll owner", () => {
   let pending: PendingSceneFragment | undefined = {
     fragment: "old-passage",

@@ -5,6 +5,7 @@ import {
   useExplicitFragmentNavigation,
   useSceneFragmentNavigation,
 } from "./reading-navigation-hooks";
+import { resolveReadingSceneDestination } from "./reading-scene-topology";
 import type { ReadingToolTab } from "./reading-tools-panel";
 import { createReferenceIndex, type ReadingReference } from "./references";
 import { createWorkspaceAuthoredSceneNavigator } from "./workspace-authored-scene-navigation";
@@ -30,7 +31,7 @@ export function useReadingWorkspaceViewProps({
   selectedCitation,
   tree,
   view,
-  model: { citationResolutions, reading },
+  model: { citationResolutions, reading, state },
 }: ReadingWorkspaceViewInput) {
   const {
     component,
@@ -188,20 +189,57 @@ export function useReadingWorkspaceViewProps({
       mentionId,
       targetComponentIdentity,
     });
-  const citation = useWorkspaceCitationResolution([
-    articleRef,
-    citationResolutions,
-    component,
-    navigateComponentScene,
-    navigation,
-    onViewChange,
-    openCitation,
-    reading,
-    returnToCitationTarget,
-    selectedCitation,
-    toolsScrollRef,
-    view,
-  ]);
+  const activeDerivative = state.derivatives.find(
+    (derivative) => derivative.currentActivation,
+  );
+  if (!activeDerivative) {
+    throw new Error("Reading workspace has no active Derivative");
+  }
+  const citation = useWorkspaceCitationResolution({
+    movement: {
+      activatePassage: (activate) => {
+        const destination = resolveReadingSceneDestination(topology, {
+          sceneIdentity: component.identity,
+          target: "citation:resolved-passage",
+        });
+        if (destination.movement === "move") {
+          transitions.request({ activate, destination, kind: "passage" });
+        } else {
+          transitions.request({
+            kind: "unavailable",
+            reason: destination.reason,
+            targetDescription: "Citation resolution passage",
+          });
+        }
+      },
+      cancel: (onCommit) => transitions.request({ kind: "article" }, onCommit),
+      moveToComponent: (identity, onCommit) =>
+        transitions.request(
+          { identity, kind: "component", originOwner: "article" },
+          onCommit,
+        ),
+      openBibliography: (entryId) => openCitation(entryId, ""),
+      returnToCitationTarget,
+    },
+    reading: {
+      citationResolutions,
+      components: reading.components,
+      mainComponentIdentity: reading.mainComponent.identity,
+    },
+    scene: {
+      articleRef,
+      component,
+      navigation,
+      selectedCitation,
+      toolsScrollRef,
+      view,
+    },
+    target: {
+      derivativeId: activeDerivative.id,
+      sourceId: source.id,
+      stateId: source.stateId,
+    },
+  });
   return {
     articlePaneProps: {
       annotations: {

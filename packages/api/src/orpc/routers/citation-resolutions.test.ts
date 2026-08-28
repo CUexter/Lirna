@@ -10,6 +10,7 @@ import {
   citationOperationsStub,
   context,
   createInput,
+  evidenceInput,
   mentionEvidence,
   mentionInput,
   record,
@@ -110,11 +111,9 @@ describe("Citation resolutions oRPC router", () => {
       ),
     ).resolves.toEqual([item]);
     await expect(
-      call(
-        citationResolutionsRouter.evidence,
-        { sourceId, stateId },
-        { context: requestContext },
-      ),
+      call(citationResolutionsRouter.evidence, evidenceInput(), {
+        context: requestContext,
+      }),
     ).resolves.toEqual([mentionEvidence()]);
     await expect(
       call(
@@ -156,6 +155,26 @@ describe("Citation resolutions oRPC router", () => {
       reasoning: "Citation inference is disabled",
     });
     expect(createCalls).toBe(0);
+  });
+
+  test("rejects inference evidence from an obsolete Derivative", async () => {
+    const operations = citationOperationsStub({
+      async evidence() {
+        return [mentionEvidence()];
+      },
+    });
+
+    await expect(
+      call(
+        citationResolutionsRouter.infer,
+        {
+          ...mentionInput(),
+          consent: true,
+          expectedDerivativeId: "50000000-0000-4000-8000-000000000000",
+        },
+        { context: context(operations) },
+      ),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
   test("minimizes inference payload and rejects low-confidence or out-of-set output", async () => {

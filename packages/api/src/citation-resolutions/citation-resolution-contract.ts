@@ -76,6 +76,7 @@ export interface CitationMentionEvidence {
 export type CreateCitationResolutionInput = {
   sourceId: string;
   stateId: string;
+  expectedDerivativeId: string;
   componentIdentity: string;
   mentionId: string;
   bibliographyComponentIdentity: string;
@@ -115,6 +116,7 @@ export function validateCitationResolutionMetadata(
 export interface ClearCitationResolutionInput {
   sourceId: string;
   stateId: string;
+  expectedDerivativeId: string;
   componentIdentity: string;
   mentionId: string;
   actorId: string;

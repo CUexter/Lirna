@@ -16,9 +16,15 @@ export function mentionInput() {
   return {
     sourceId,
     stateId,
+    expectedDerivativeId: derivativeId,
     componentIdentity: "article",
     mentionId: "citation-one",
   };
+}
+
+export function evidenceInput() {
+  const { componentIdentity: _, mentionId: __, ...input } = mentionInput();
+  return input;
 }
 
 export function createInput() {

@@ -216,7 +216,7 @@ async function createCitationResolution(input: unknown) {
     id: "50000000-0000-4000-8000-000000000000",
     sourceId,
     sourceStateId: stateId,
-    derivativeId: "60000000-0000-4000-8000-000000000000",
+    derivativeId: "40000000-0000-4000-8000-000000000000",
     componentIdentity: "article",
     mentionId: "citation-one",
     bibliographyComponentIdentity: "article",

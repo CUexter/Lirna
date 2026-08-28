@@ -86,6 +86,7 @@ test("manually resolves only a server-supplied Citation candidate", async () => 
   expect(citationResolutionCalls[0]).toEqual({
     sourceId,
     stateId,
+    expectedDerivativeId: "40000000-0000-4000-8000-000000000000",
     componentIdentity: "article",
     mentionId: "citation-one",
     bibliographyComponentIdentity: "article",
@@ -99,7 +100,7 @@ function mentionEvidence() {
     id: "60000000-0000-4000-8000-000000000000:article:citation-one",
     sourceId,
     sourceStateId: stateId,
-    derivativeId: "60000000-0000-4000-8000-000000000000",
+    derivativeId: "40000000-0000-4000-8000-000000000000",
     componentIdentity: "article",
     mentionId: "citation-one",
     label: "[1]",

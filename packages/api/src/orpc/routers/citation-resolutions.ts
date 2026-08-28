@@ -17,7 +17,10 @@ const sourceStateInput = z.object({
   sourceId: z.string().uuid(),
   stateId: z.string().uuid(),
 });
-const mentionInput = sourceStateInput.extend({
+const evidenceInput = sourceStateInput.extend({
+  expectedDerivativeId: z.string().uuid(),
+});
+const mentionInput = evidenceInput.extend({
   componentIdentity: z.string().trim().min(1).max(2_000),
   mentionId: z.string().trim().min(1).max(2_000),
 });
@@ -61,7 +64,7 @@ export const citationResolutionsRouter = {
     ),
 
   evidence: publicProcedure
-    .input(sourceStateInput)
+    .input(evidenceInput)
     .output(z.array(citationMentionEvidenceSchema))
     .errors({ NOT_FOUND: {} })
     .meta(
@@ -153,6 +156,7 @@ export const citationResolutionsRouter = {
       const evidence = await requireEvidence(context, input);
       const mention = evidence.find(
         (item) =>
+          item.derivativeId === input.expectedDerivativeId &&
           item.componentIdentity === input.componentIdentity &&
           item.mentionId === input.mentionId,
       );
@@ -211,14 +215,20 @@ export const citationResolutionsRouter = {
 
 async function requireEvidence(
   context: Context,
-  input: { sourceId: string; stateId: string },
+  input: {
+    expectedDerivativeId: string;
+    sourceId: string;
+    stateId: string;
+  },
 ) {
   const evidence = await context.citationResolutions.evidence(
     input.sourceId,
     input.stateId,
   );
   if (!evidence) throw notFound(context);
-  return evidence;
+  return evidence.filter(
+    (item) => item.derivativeId === input.expectedDerivativeId,
+  );
 }
 
 function operation(

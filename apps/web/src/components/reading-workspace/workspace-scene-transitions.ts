@@ -34,6 +34,7 @@ export type WorkspaceSceneTransition =
       targetDescription: string;
     }
   | { kind: "bibliography"; entryId?: string }
+  | { kind: "article" }
   | { kind: "citation"; mentionId: string; targetComponentIdentity: string }
   | {
       identity: string;
@@ -88,7 +89,10 @@ type ResolvedWorkspaceTransition =
 export function createWorkspaceSceneTransitions(
   dependencies: WorkspaceSceneTransitionDependencies,
 ) {
-  const request = (transition: WorkspaceSceneTransition) => {
+  const request = (
+    transition: WorkspaceSceneTransition,
+    onCommit?: () => void,
+  ) => {
     const resolved = resolveWorkspaceTransition(transition, dependencies);
     const unavailable = transitionUnavailable(resolved);
     if (unavailable) {
@@ -100,7 +104,7 @@ export function createWorkspaceSceneTransitions(
     }
     const commit = () => {
       dependencies.onUnavailable(undefined);
-      commitWorkspaceTransition(resolved, dependencies);
+      if (commitWorkspaceTransition(resolved, dependencies)) onCommit?.();
     };
     if (leavesAnnotation(resolved) && dependencies.hasUnsavedAnnotation()) {
       dependencies.onAnnotationDiscardRequired(commit);
@@ -187,6 +191,7 @@ function transitionUnavailable(transition: ResolvedWorkspaceTransition) {
 
 function leavesAnnotation(transition: ResolvedWorkspaceTransition) {
   return (
+    transition.kind === "article" ||
     transition.kind === "bibliography" ||
     (transition.kind === "tool" && transition.tab === "bibliography") ||
     (transition.kind === "scene" &&
@@ -199,7 +204,9 @@ function commitWorkspaceTransition(
   transition: ResolvedWorkspaceTransition,
   dependencies: WorkspaceSceneTransitionDependencies,
 ) {
-  if (transition.kind === "current-citation") {
+  if (transition.kind === "article") {
+    dependencies.onViewChange("article");
+  } else if (transition.kind === "current-citation") {
     dependencies.clearPendingTargets(transition.owner);
     dependencies.returnToCitation(transition.mentionId);
     dependencies.onViewChange("article");
@@ -214,6 +221,9 @@ function commitWorkspaceTransition(
     dependencies.saveLocation();
     dependencies.clearPendingTargets(transition.destination.owner);
     transition.activate();
+    if (dependencies.view === "bibliography") {
+      dependencies.onViewChange("article");
+    }
   } else if (transition.kind === "bibliography") {
     dependencies.saveLocation();
     dependencies.setNotesIdentity(undefined);
@@ -227,8 +237,13 @@ function commitWorkspaceTransition(
     transition.kind === "scene" &&
     transition.destination.movement === "move"
   ) {
-    commitSceneTransition(transition, transition.destination, dependencies);
+    return commitSceneTransition(
+      transition,
+      transition.destination,
+      dependencies,
+    );
   }
+  return true;
 }
 
 function commitToolTransition(
@@ -252,7 +267,7 @@ function commitSceneTransition(
   destination: Extract<ReadingSceneDestinationResult, { movement: "move" }>,
   dependencies: WorkspaceSceneTransitionDependencies,
 ) {
-  dependencies.navigation
+  return dependencies.navigation
     .request({
       cause: transition.cause,
       owner: destination.owner,

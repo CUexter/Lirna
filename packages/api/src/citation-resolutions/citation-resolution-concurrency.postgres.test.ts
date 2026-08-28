@@ -94,7 +94,7 @@ describePostgres("Citation resolution write concurrency in PostgreSQL", () => {
     }
   }, 30_000);
 
-  test("revalidates a clear against the Derivative activated first", async () => {
+  test("rejects a clear after another Derivative activates first", async () => {
     const fixture = await createFixture({
       candidateAvailable: true,
       shiftMention: true,
@@ -108,6 +108,7 @@ describePostgres("Citation resolution write concurrency in PostgreSQL", () => {
       const clearing = fixture.resolutions.clear({
         sourceId: fixture.sourceId,
         stateId: fixture.stateId,
+        expectedDerivativeId: fixture.oldDerivativeId,
         componentIdentity: "article:main",
         mentionId: "citation-mention-1",
         actorId: "user-1",
@@ -116,17 +117,16 @@ describePostgres("Citation resolution write concurrency in PostgreSQL", () => {
       await blocked.release();
 
       await expect(activation).resolves.toMatchObject({ status: "activated" });
-      await expect(clearing).resolves.toBeTrue();
+      await expect(clearing).rejects.toBeInstanceOf(
+        InvalidCitationResolutionError,
+      );
       const history = await fixture.resolutions.history(
         fixture.sourceId,
         fixture.stateId,
       );
       expect(history.at(-1)).toMatchObject({
-        action: "cleared",
-        derivativeId: fixture.newDerivativeId,
-        normalizedStartOffset: 7,
-        normalizedEndOffset: 11,
-        exactText: "Read",
+        action: "selected",
+        derivativeId: fixture.oldDerivativeId,
       });
     } finally {
       await blocked.close();
@@ -257,6 +257,7 @@ function selection(fixture: Fixture) {
   return {
     sourceId: fixture.sourceId,
     stateId: fixture.stateId,
+    expectedDerivativeId: fixture.oldDerivativeId,
     componentIdentity: "article:main",
     mentionId: "citation-mention-1",
     bibliographyComponentIdentity: "article:main",

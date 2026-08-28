@@ -76,6 +76,7 @@ export class DrizzleCitationResolutionStore
       input.stateId,
     );
     if (!active) return undefined;
+    requireExpectedDerivative(active, input.expectedDerivativeId);
     const component = active.reading.components.find(
       (candidate) => candidate.identity === input.componentIdentity,
     );
@@ -133,6 +134,7 @@ export class DrizzleCitationResolutionStore
       input.stateId,
     );
     if (!active) return undefined;
+    requireExpectedDerivative(active, input.expectedDerivativeId);
     if (!this.mention(active, input.componentIdentity, input.mentionId)) {
       throw new InvalidCitationResolutionError();
     }
@@ -220,6 +222,17 @@ export class DrizzleCitationResolutionStore
           sensitivityLevel: active.value.policy.sensitivityLevel,
         }
       : undefined;
+  }
+}
+
+function requireExpectedDerivative(
+  active: { derivativeId: string },
+  expectedDerivativeId: string,
+) {
+  if (active.derivativeId !== expectedDerivativeId) {
+    throw new InvalidCitationResolutionError(
+      "Active Reading Derivative changed during Citation resolution",
+    );
   }
 }
 

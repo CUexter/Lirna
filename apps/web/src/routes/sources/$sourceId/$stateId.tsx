@@ -65,6 +65,7 @@ function RouteComponent() {
         model={{
           citationResolutions: opening.workspace.citationResolutions,
           reading: opening.workspace.reading,
+          state: opening.workspace.state,
         }}
         selectedComponent={component}
         view={view ?? "article"}

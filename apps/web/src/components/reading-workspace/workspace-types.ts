@@ -4,7 +4,7 @@ import type { ReadingSceneTopology } from "./reading-scene-topology";
 
 export type ReadingWorkspaceModel = Pick<
   LibraryOutputs["sources"]["readingWorkspace"],
-  "citationResolutions" | "reading"
+  "citationResolutions" | "reading" | "state"
 >;
 
 export type ReadingWorkspaceViewInput = {
