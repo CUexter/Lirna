@@ -69,7 +69,7 @@ export class DrizzleActiveReadingDerivativeStore
         baseline?.reading,
         candidate.reading,
         baseline?.derivativeId,
-        await readAuthoredAnchors(this.database, input.stateId),
+        await readAuthoredAnchors(this.database, input.sourceId, input.stateId),
       ),
     };
   }
@@ -122,7 +122,7 @@ export class DrizzleActiveReadingDerivativeStore
       baseline?.reading,
       candidate.reading,
       baseline?.derivativeId,
-      await readAuthoredAnchors(tx, input.stateId),
+      await readAuthoredAnchors(tx, input.sourceId, input.stateId),
     );
     if (!isDeepStrictEqual(consequences, input.expectedConsequences))
       return { status: "stale-review" };

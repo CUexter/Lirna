@@ -1,7 +1,7 @@
 import type { annotations } from "@lirna/db/schema/annotations";
-import type { citationResolutions } from "@lirna/db/schema/citation-resolutions";
 import type { readingPositions } from "@lirna/db/schema/reading-positions";
 import type { sourceStateDerivativeActivations } from "@lirna/db/schema/sources";
+import type { CitationResolutionRecord } from "../citation-resolutions/citation-resolution-contract";
 import { readingSemanticLocationSchema } from "../reading-position/reading-position-contract";
 import type { SepReadingContract } from "../sep-admission/sep-reading-contract";
 import { sepReadingDerivativeKind } from "../sep-admission/sep-reading-contract";
@@ -15,22 +15,14 @@ import type {
 export function projectAuthoredAnchors(
   annotationRows: Array<typeof annotations.$inferSelect>,
   positionRows: Array<typeof readingPositions.$inferSelect>,
-  resolutionRows: Array<typeof citationResolutions.$inferSelect>,
+  resolutions: CitationResolutionRecord[],
 ): AuthoredAnchor[] {
-  const latest = new Map<string, (typeof resolutionRows)[number]>();
-  for (const resolution of resolutionRows)
-    latest.set(
-      `${resolution.componentIdentity}\u0000${resolution.mentionId}`,
-      resolution,
-    );
   return [
     ...annotationRows.map((item) => anchor("annotation", item.id, item)),
     ...positionRows.map(positionAnchor),
-    ...[...latest.values()]
-      .filter(({ action }) => action === "selected")
-      .map((item) =>
-        anchor("citation-resolution", item.id, item, item.derivativeId),
-      ),
+    ...resolutions.map((item) =>
+      anchor("citation-resolution", item.id, item, item.derivativeId),
+    ),
   ];
 }
 
@@ -119,9 +111,7 @@ export function serializeActivation(
 function anchor(
   recordType: "annotation" | "citation-resolution",
   recordId: string,
-  item:
-    | typeof annotations.$inferSelect
-    | typeof citationResolutions.$inferSelect,
+  item: typeof annotations.$inferSelect | CitationResolutionRecord,
   derivativeId?: string,
 ): AuthoredAnchor {
   return {

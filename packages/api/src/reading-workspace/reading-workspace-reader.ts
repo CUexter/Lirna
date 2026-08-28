@@ -1,6 +1,6 @@
 import type { db } from "@lirna/db";
 
-import { readCitationResolutionsInSnapshot } from "../citation-resolutions/citation-resolution-store";
+import { readCitationResolutionsInSnapshot } from "../citation-resolutions/citation-resolution-reader";
 import { readActiveReadingDerivativeInSnapshot } from "../sep-admission/active-reading-derivative-store";
 import { readSepLibrarySourceInSnapshot } from "../sep-admission/sep-admitted-state-reader";
 import { readSepAdmittedState } from "../sep-admission/sep-state-projection";

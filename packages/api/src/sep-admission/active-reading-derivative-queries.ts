@@ -1,12 +1,13 @@
 import { annotations } from "@lirna/db/schema/annotations";
-import { citationResolutions } from "@lirna/db/schema/citation-resolutions";
 import { readingPositions } from "@lirna/db/schema/reading-positions";
 import { asc, eq } from "drizzle-orm";
+import { readCitationResolutionsInSnapshot } from "../citation-resolutions/citation-resolution-reader";
 import { projectAuthoredAnchors } from "../derivative-updates/derivative-update-projection";
 import type { DatabaseExecutor } from "./sep-state-evidence";
 
 export async function readAuthoredAnchors(
   database: DatabaseExecutor,
+  sourceId: string,
   stateId: string,
 ) {
   const [annotationRows, positionRows, resolutionRows] = await Promise.all([
@@ -20,11 +21,7 @@ export async function readAuthoredAnchors(
       .from(readingPositions)
       .where(eq(readingPositions.sourceStateId, stateId))
       .orderBy(asc(readingPositions.componentIdentity)),
-    database
-      .select()
-      .from(citationResolutions)
-      .where(eq(citationResolutions.sourceStateId, stateId))
-      .orderBy(asc(citationResolutions.createdAt), asc(citationResolutions.id)),
+    readCitationResolutionsInSnapshot(database, sourceId, stateId),
   ]);
   return projectAuthoredAnchors(annotationRows, positionRows, resolutionRows);
 }

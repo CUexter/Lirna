@@ -50,7 +50,11 @@ export class DrizzleDerivativeUpdateStore
     );
     if (!evidence) return undefined;
     const activeBaseline = await activeDerivative(database, input.stateId);
-    const anchors = await authoredAnchors(database, input.stateId);
+    const anchors = await authoredAnchors(
+      database,
+      input.sourceId,
+      input.stateId,
+    );
     const derivative = createReadingDerivative({
       sourceStateId: input.stateId,
       generationVersion: (await derivativeCount(database, input.stateId)) + 1,

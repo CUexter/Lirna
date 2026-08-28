@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import type { CitationResolutionRecord } from "../citation-resolutions/citation-resolution-contract";
 import {
   invalidComparison,
   projectAuthoredAnchors,
@@ -52,12 +53,16 @@ test("projects legacy validation and invalid inactive candidates safely", () => 
   });
 });
 
-test("omits a citation decision after its latest action clears the selection", () => {
-  const base = {
+test("adapts a current Citation resolution into an authored anchor", () => {
+  const resolution: CitationResolutionRecord = {
+    id: "40000000-0000-4000-8000-000000000000",
+    sourceId: "10000000-0000-4000-8000-000000000000",
     sourceStateId: "20000000-0000-4000-8000-000000000000",
     derivativeId: "30000000-0000-4000-8000-000000000000",
     componentIdentity: "article",
     mentionId: "citation-one",
+    bibliographyComponentIdentity: "article",
+    bibliographyEntryId: "entry-one",
     publisherAnchor: null,
     offsetBasis: "normalized-derivative-text-v1",
     normalizedStartOffset: 0,
@@ -69,27 +74,17 @@ test("omits a citation decision after its latest action clears the selection", (
     method: "manual",
     confidence: null,
     reasoning: null,
-    createdAt: new Date("2026-08-25T00:00:00.000Z"),
-    updatedAt: new Date("2026-08-25T00:00:00.000Z"),
+    createdAt: "2026-08-25T00:00:00.000Z",
+    updatedAt: "2026-08-25T00:00:00.000Z",
   };
-  const rows: Parameters<typeof projectAuthoredAnchors>[2] = [
-    {
-      ...base,
-      id: "40000000-0000-4000-8000-000000000000",
-      action: "selected",
-      bibliographyComponentIdentity: "article",
-      bibliographyEntryId: "entry-one",
-    },
-    {
-      ...base,
-      id: "50000000-0000-4000-8000-000000000000",
-      action: "cleared",
-      bibliographyComponentIdentity: null,
-      bibliographyEntryId: null,
-      createdAt: new Date("2026-08-25T00:01:00.000Z"),
-      updatedAt: new Date("2026-08-25T00:01:00.000Z"),
-    },
-  ];
 
-  expect(projectAuthoredAnchors([], [], rows)).toEqual([]);
+  expect(projectAuthoredAnchors([], [], [resolution])).toEqual([
+    expect.objectContaining({
+      recordType: "citation-resolution",
+      recordId: resolution.id,
+      derivativeId: resolution.derivativeId,
+      bibliographyComponentIdentity: resolution.bibliographyComponentIdentity,
+      bibliographyEntryId: resolution.bibliographyEntryId,
+    }),
+  ]);
 });

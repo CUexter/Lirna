@@ -307,6 +307,55 @@ describePostgres("Citation resolution PostgreSQL store", () => {
     });
     expect(await store.evidence(randomUUID(), stateId)).toBeUndefined();
   });
+
+  test("uses decision id to break equal-time latest-selection ties", async () => {
+    const [derivative] = await database
+      .select({ id: sourceStateDerivatives.id })
+      .from(sourceStateDerivatives)
+      .where(eq(sourceStateDerivatives.sourceStateId, stateId));
+    if (!derivative) throw new Error("Reading Derivative fixture is missing");
+    const decidedAt = new Date("2026-08-25T00:00:00.000Z");
+    const base = {
+      sourceStateId: stateId,
+      derivativeId: derivative.id,
+      componentIdentity: "article:main",
+      mentionId: "equal-time-mention",
+      bibliographyComponentIdentity: "article:main",
+      publisherAnchor: null,
+      offsetBasis: "normalized-derivative-text-v1" as const,
+      normalizedStartOffset: 0,
+      normalizedEndOffset: 4,
+      exactText: "Read",
+      prefix: "",
+      suffix: " evidence carefully.",
+      actorId,
+      action: "selected" as const,
+      method: "manual" as const,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+    };
+    await database.insert(citationResolutions).values([
+      {
+        ...base,
+        id: "10000000-0000-4000-8000-000000000001",
+        bibliographyEntryId: "entry-01",
+      },
+      {
+        ...base,
+        id: "10000000-0000-4000-8000-000000000002",
+        bibliographyEntryId: "entry-02",
+      },
+    ]);
+
+    expect(
+      (await store.list(sourceId, stateId)).find(
+        ({ mentionId }) => mentionId === base.mentionId,
+      ),
+    ).toMatchObject({
+      id: "10000000-0000-4000-8000-000000000002",
+      bibliographyEntryId: "entry-02",
+    });
+  });
 });
 
 function selection(bibliographyEntryId: string) {

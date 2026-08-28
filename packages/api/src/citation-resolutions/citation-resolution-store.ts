@@ -1,7 +1,5 @@
 import type { db } from "@lirna/db";
 import { citationResolutions } from "@lirna/db/schema/citation-resolutions";
-import { sourceStates } from "@lirna/db/schema/sources";
-import { and, asc, eq } from "drizzle-orm";
 
 import {
   type AuthoredTarget,
@@ -13,7 +11,6 @@ import { DrizzleActiveReadingDerivativeStore } from "../sep-admission/active-rea
 import type { DatabaseExecutor } from "../sep-admission/sep-state-evidence";
 import { deriveCitationMentionEvidence } from "./citation-mention-evidence";
 import type {
-  CitationResolutionDecision,
   CitationResolutionOperations,
   CitationResolutionRecord,
   ClearCitationResolutionInput,
@@ -23,6 +20,10 @@ import {
   InvalidCitationResolutionError,
   validateCitationResolutionMetadata,
 } from "./citation-resolution-contract";
+import {
+  readCitationResolutionHistoryInSnapshot,
+  readCitationResolutionsInSnapshot,
+} from "./citation-resolution-reader";
 import {
   readActiveCitationDerivative,
   runSerializedCitationWrite,
@@ -43,7 +44,11 @@ export class DrizzleCitationResolutionStore
   }
 
   async history(sourceId: string, stateId: string) {
-    return readCitationResolutionHistory(this.database, sourceId, stateId);
+    return readCitationResolutionHistoryInSnapshot(
+      this.database,
+      sourceId,
+      stateId,
+    );
   }
 
   async evidence(sourceId: string, stateId: string) {
@@ -112,11 +117,7 @@ export class DrizzleCitationResolutionStore
       })
       .returning();
     if (!resolution) return undefined;
-    const decision = serializeDecision(resolution, input.sourceId);
-    if (!isSelectedDecision(decision)) {
-      throw new InvalidCitationResolutionError();
-    }
-    return selectedRecord(decision);
+    return serializeSelectedResolution(resolution, input.sourceId);
   }
 
   async clear(input: ClearCitationResolutionInput) {
@@ -225,91 +226,27 @@ export class DrizzleCitationResolutionStore
   }
 }
 
-export async function readCitationResolutionsInSnapshot(
-  database: DatabaseExecutor,
-  sourceId: string,
-  stateId: string,
-) {
-  const decisions = await readCitationResolutionHistory(
-    database,
-    sourceId,
-    stateId,
-  );
-  const latest = new Map<string, CitationResolutionDecision>();
-  for (const decision of decisions) latest.set(decisionKey(decision), decision);
-  return [...latest.values()]
-    .filter(isSelectedDecision)
-    .toSorted(
-      (left, right) =>
-        left.componentIdentity.localeCompare(right.componentIdentity) ||
-        left.mentionId.localeCompare(right.mentionId),
-    );
-}
-
-async function readCitationResolutionHistory(
-  database: DatabaseExecutor,
-  sourceId: string,
-  stateId: string,
-) {
-  const rows = await database
-    .select({
-      resolution: citationResolutions,
-      sourceId: sourceStates.sourceId,
-    })
-    .from(citationResolutions)
-    .innerJoin(
-      sourceStates,
-      eq(sourceStates.id, citationResolutions.sourceStateId),
-    )
-    .where(
-      and(eq(sourceStates.id, stateId), eq(sourceStates.sourceId, sourceId)),
-    )
-    .orderBy(asc(citationResolutions.createdAt), asc(citationResolutions.id));
-  return rows.map(({ resolution, sourceId: ownerSourceId }) =>
-    serializeDecision(resolution, ownerSourceId),
-  );
-}
-
-function serializeDecision(
+function serializeSelectedResolution(
   resolution: typeof citationResolutions.$inferSelect,
   sourceId: string,
-): CitationResolutionDecision {
+): CitationResolutionRecord {
+  if (
+    resolution.action !== "selected" ||
+    resolution.bibliographyComponentIdentity === null ||
+    resolution.bibliographyEntryId === null
+  ) {
+    throw new InvalidCitationResolutionError();
+  }
+  const { action: _action, ...record } = resolution;
   return {
-    ...resolution,
+    ...record,
     sourceId,
-    action: resolution.action as CitationResolutionDecision["action"],
+    bibliographyComponentIdentity: resolution.bibliographyComponentIdentity,
+    bibliographyEntryId: resolution.bibliographyEntryId,
     offsetBasis:
-      resolution.offsetBasis as CitationResolutionDecision["offsetBasis"],
-    method: resolution.method as CitationResolutionDecision["method"],
+      resolution.offsetBasis as CitationResolutionRecord["offsetBasis"],
+    method: resolution.method as CitationResolutionRecord["method"],
     createdAt: resolution.createdAt.toISOString(),
     updatedAt: resolution.updatedAt.toISOString(),
   };
-}
-
-function decisionKey(decision: CitationResolutionDecision) {
-  return `${decision.componentIdentity}\u0000${decision.mentionId}`;
-}
-
-function isSelectedDecision(
-  decision: CitationResolutionDecision,
-): decision is CitationResolutionDecision & {
-  action: "selected";
-  bibliographyComponentIdentity: string;
-  bibliographyEntryId: string;
-} {
-  return (
-    decision.action === "selected" &&
-    decision.bibliographyComponentIdentity !== null &&
-    decision.bibliographyEntryId !== null
-  );
-}
-
-function selectedRecord(
-  decision: CitationResolutionDecision & {
-    bibliographyComponentIdentity: string;
-    bibliographyEntryId: string;
-  },
-): CitationResolutionRecord {
-  const { action: _action, ...record } = decision;
-  return record;
 }
