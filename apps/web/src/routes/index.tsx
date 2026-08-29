@@ -30,9 +30,8 @@ import {
   SearchIcon,
   SparklesIcon,
 } from "lucide-react";
-
+import { ModeToggle } from "@/app/components/ModeToggle";
 import { inquiry } from "@/clients/inquiry";
-import { ModeToggle } from "@/components/app-shell/mode-toggle";
 
 export const Route = createFileRoute("/")({
   component: RouteComponent,

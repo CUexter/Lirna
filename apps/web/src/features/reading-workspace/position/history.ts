@@ -1,0 +1,169 @@
+import type { ReadingSemanticLocation } from "./semanticLocation";
+
+const legacyHistoryPositionsKey = "lirnaReadingPositions";
+const legacyHistoryNavigationPositionsKey = "lirnaReadingNavigationPositions";
+const legacyHistorySemanticPositionsKey = "lirnaReadingSemanticPositions";
+const historyLocationsKey = "lirnaReadingLocations";
+const historyLocationSavedAtKey = "lirnaReadingLocationSavedAt";
+
+export function historyPositionKey(
+  sourceId: string,
+  stateId: string,
+  componentIdentity: string,
+) {
+  return JSON.stringify([sourceId, stateId, componentIdentity]);
+}
+
+export function historyScrollTop(
+  sourceId: string,
+  stateId: string,
+  componentIdentity: string,
+) {
+  const key = historyPositionKey(sourceId, stateId, componentIdentity);
+  const state = window.history.state;
+  if (!state || typeof state !== "object") return undefined;
+  return (
+    historyLocation(state, key)?.fallback.scrollTop ??
+    legacyNavigationScrollTop(state, key) ??
+    stateScrollTop(state[legacyHistoryPositionsKey], key)
+  );
+}
+
+export function historySemanticLocation(
+  sourceId: string,
+  stateId: string,
+  componentIdentity: string,
+) {
+  const key = historyPositionKey(sourceId, stateId, componentIdentity);
+  const state = window.history.state;
+  if (!state || typeof state !== "object") return undefined;
+  const current = historyLocation(state, key);
+  if (current) return current;
+  const positions = state[legacyHistorySemanticPositionsKey];
+  if (!positions || typeof positions !== "object") return undefined;
+  const location = (positions as Record<string, unknown>)[key];
+  return location && typeof location === "object"
+    ? (location as ReadingSemanticLocation)
+    : undefined;
+}
+
+export function historyPositionSavedAt(key: string) {
+  const savedAt = objectState(historyState()[historyLocationSavedAtKey])[key];
+  return typeof savedAt === "string" ? savedAt : undefined;
+}
+
+export function writeReadingHistoryPosition(
+  key: string,
+  semanticLocation: ReadingSemanticLocation,
+  savedAt = new Date().toISOString(),
+) {
+  const state = historyState();
+  const savedPositions = objectState(state[historyLocationSavedAtKey]);
+  const currentSavedAt = savedPositions[key];
+  if (typeof currentSavedAt === "string" && currentSavedAt > savedAt)
+    return false;
+  const locations = objectState(state[historyLocationsKey]);
+  window.history.replaceState(
+    {
+      ...state,
+      [historyLocationsKey]: { ...locations, [key]: semanticLocation },
+      [historyLocationSavedAtKey]: { ...savedPositions, [key]: savedAt },
+    },
+    "",
+  );
+  return true;
+}
+
+export function removeReadingHistoryPosition(key: string) {
+  const state = historyState();
+  const locations = withoutKey(state[historyLocationsKey], key);
+  const savedPositions = withoutKey(state[historyLocationSavedAtKey], key);
+  const legacyPositions = withoutKey(state[legacyHistoryPositionsKey], key);
+  const legacySemanticPositions = withoutKey(
+    state[legacyHistorySemanticPositionsKey],
+    key,
+  );
+  const legacyNavigation = withoutNavigationPosition(
+    state[legacyHistoryNavigationPositionsKey],
+    key,
+  );
+  if (
+    locations === state[historyLocationsKey] &&
+    savedPositions === state[historyLocationSavedAtKey] &&
+    legacyPositions === state[legacyHistoryPositionsKey] &&
+    legacySemanticPositions === state[legacyHistorySemanticPositionsKey] &&
+    legacyNavigation === state[legacyHistoryNavigationPositionsKey]
+  )
+    return;
+  window.history.replaceState(
+    {
+      ...state,
+      [historyLocationsKey]: locations,
+      [historyLocationSavedAtKey]: savedPositions,
+      [legacyHistoryPositionsKey]: legacyPositions,
+      [legacyHistorySemanticPositionsKey]: legacySemanticPositions,
+      [legacyHistoryNavigationPositionsKey]: legacyNavigation,
+    },
+    "",
+  );
+}
+
+function withoutKey(value: unknown, key: string) {
+  const positions = objectState(value);
+  if (!(key in positions)) return value;
+  const remaining = { ...positions };
+  delete remaining[key];
+  return remaining;
+}
+
+function withoutNavigationPosition(value: unknown, key: string) {
+  const navigation = objectState(value);
+  const positions = withoutKey(navigation.positions, key);
+  return positions === navigation.positions
+    ? value
+    : { ...navigation, positions };
+}
+
+function historyLocation(state: Record<string, unknown>, key: string) {
+  const locations = state[historyLocationsKey];
+  if (!locations || typeof locations !== "object") return undefined;
+  const location = (locations as Record<string, unknown>)[key];
+  return location && typeof location === "object"
+    ? (location as ReadingSemanticLocation)
+    : undefined;
+}
+
+function legacyNavigationScrollTop(
+  state: Record<string, unknown>,
+  key: string,
+) {
+  const snapshot = state[legacyHistoryNavigationPositionsKey];
+  if (!snapshot || typeof snapshot !== "object") return undefined;
+  const { href, positions } = snapshot as {
+    href?: unknown;
+    positions?: unknown;
+  };
+  return href === window.location.href
+    ? stateScrollTop(positions, key)
+    : undefined;
+}
+
+function stateScrollTop(positions: unknown, key: string) {
+  if (!positions || typeof positions !== "object") return undefined;
+  const scrollTop = (positions as Record<string, unknown>)[key];
+  return typeof scrollTop === "number" && Number.isFinite(scrollTop)
+    ? Math.max(0, scrollTop)
+    : undefined;
+}
+
+function historyState(): Record<string, unknown> {
+  return window.history.state && typeof window.history.state === "object"
+    ? window.history.state
+    : {};
+}
+
+function objectState(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
+}

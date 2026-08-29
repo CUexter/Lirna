@@ -7,7 +7,7 @@ import {
   renderAdmission,
   resetActions,
   view,
-} from "@/components/source-admission/admission-test-harness";
+} from "@/features/source-admission/test-support/harness";
 
 test("wires an HTTPS URL submission to an Admission preview", async () => {
   resetActions();

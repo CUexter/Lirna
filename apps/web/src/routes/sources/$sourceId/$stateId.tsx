@@ -1,16 +1,15 @@
 import { createFileRoute, useLocation } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
 import { z } from "zod";
-
-import { ReadingWorkspace } from "@/components/reading-workspace/workspace";
-import { useReadingWorkspaceOpening } from "@/offline-working-set/reading-workspace-opening";
+import { ReadingWorkspace } from "@/features/reading-workspace/components/Workspace";
+import { useReadingWorkspaceOpening } from "@/features/reading-workspace/opening/hooks/useOpening";
 
 const SourceInformation = lazy(() =>
-  import("@/components/reading-workspace/source-information").then(
-    (module) => ({
-      default: module.SourceInformation,
-    }),
-  ),
+  import(
+    "@/features/reading-workspace/tools/components/SourceInformation"
+  ).then((module) => ({
+    default: module.SourceInformation,
+  })),
 );
 
 export const Route = createFileRoute("/sources/$sourceId/$stateId")({

@@ -3,9 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { library } from "@/clients/library";
-
-import { LibraryPage } from "@/components/sources-library/library-page";
-import { offlineWorkingSets } from "@/offline-working-set/offline-working-set";
+import { offlineWorkingSets } from "@/features/offline-working-set/workingSets";
+import { LibraryPage } from "@/features/source-library/components/Page";
 
 export const Route = createFileRoute("/sources/")({
   component: RouteComponent,

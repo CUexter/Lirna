@@ -65,7 +65,7 @@ describe("coverage source baseline", () => {
       ),
     ).toBe(false);
     expect(
-      isEligibleSource("apps/web/src/test-support/mutation-options.ts"),
+      isEligibleSource("apps/web/src/test-support/mutationOptions.ts"),
     ).toBe(false);
     expect(isEligibleSource("packages/ui/src/components/button.tsx")).toBe(
       true,

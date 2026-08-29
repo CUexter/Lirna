@@ -2,9 +2,9 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import ReactDOM from "react-dom/client";
 
-import Loader from "./components/app-shell/loader";
+import Loader from "./app/components/Loader";
+import { queryClient } from "./infrastructure/queryClient";
 import { routeTree } from "./routeTree.gen";
-import { queryClient } from "./utils/query-client";
 
 if (
   /^\/sources\/[^/]+\/[^/]+\/?$/.test(window.location.pathname) &&

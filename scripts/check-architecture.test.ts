@@ -76,6 +76,20 @@ describe("architecture policy fixtures", () => {
     expect(evaluatePolicy({ workspaces, files })).toEqual([]);
   });
 
+  test("recognizes camelCase test support filenames", () => {
+    const files = [
+      {
+        path: "apps/web/src/features/example/test-support/harness.tsx",
+        ...parseSource(
+          "harness.tsx",
+          'createFileRoute("/example")({}); window.scrollTo(0, 10);',
+        ),
+      },
+    ];
+
+    expect(evaluatePolicy({ workspaces, files })).toEqual([]);
+  });
+
   test("rejects test source under the file-based route tree", () => {
     const files = [
       {
@@ -173,22 +187,22 @@ describe("architecture policy fixtures", () => {
   test("keeps Reading owner commands behind ReadingNavigation", () => {
     const files = [
       {
-        path: "apps/web/src/components/reading-workspace/reading-navigation.ts",
+        path: "apps/web/src/features/reading-workspace/navigation/model.ts",
         ...parseSource(
           "reading-navigation.ts",
           "target.scrollIntoView(); container.scrollTo({ top: 10 });",
         ),
       },
       {
-        path: "apps/web/src/components/reading-workspace/reference.ts",
+        path: "apps/web/src/features/reading-workspace/bibliography/reference.ts",
         ...parseSource("reference.ts", "target.scrollIntoView();"),
       },
       {
-        path: "apps/web/src/components/annotations/annotations.tsx",
+        path: "apps/web/src/features/reading-workspace/annotations/components/Surface.tsx",
         ...parseSource("annotations.tsx", "window.scrollBy(0, 10);"),
       },
       {
-        path: "apps/web/src/components/reading-workspace/resume.ts",
+        path: "apps/web/src/features/reading-workspace/position/resume.ts",
         ...parseSource("resume.ts", "container.scrollTop = 10;"),
       },
       {
@@ -199,7 +213,7 @@ describe("architecture policy fixtures", () => {
         ),
       },
       {
-        path: "apps/web/src/components/reading-workspace/reading-route-tools.test.tsx",
+        path: "apps/web/src/features/reading-workspace/tools/route.test.tsx",
         ...parseSource(
           "-reading-route-tools-tests.tsx",
           "window.scrollTo(0, 10);",
@@ -208,9 +222,9 @@ describe("architecture policy fixtures", () => {
     ];
 
     expect(evaluatePolicy({ workspaces, files })).toEqual([
-      "apps/web/src/components/reading-workspace/reference.ts uses scrollIntoView outside ReadingNavigation",
-      "apps/web/src/components/annotations/annotations.tsx uses scrollBy outside ReadingNavigation",
-      "apps/web/src/components/reading-workspace/resume.ts uses scrollTop assignment outside ReadingNavigation",
+      "apps/web/src/features/reading-workspace/bibliography/reference.ts uses scrollIntoView outside ReadingNavigation",
+      "apps/web/src/features/reading-workspace/annotations/components/Surface.tsx uses scrollBy outside ReadingNavigation",
+      "apps/web/src/features/reading-workspace/position/resume.ts uses scrollTop assignment outside ReadingNavigation",
       "apps/web/src/routes/sources/$sourceId.tsx uses scroll outside ReadingNavigation",
       "apps/web/src/routes/sources/$sourceId.tsx uses scrollTop assignment outside ReadingNavigation",
       "apps/web/src/routes/sources/$sourceId.tsx uses scrollTop assignment outside ReadingNavigation",
@@ -220,38 +234,38 @@ describe("architecture policy fixtures", () => {
   test("keeps source-specific modules outside the core Reading workspace", () => {
     const files = [
       {
-        path: "apps/web/src/components/reading-workspace/workspace.tsx",
+        path: "apps/web/src/features/reading-workspace/components/Workspace.tsx",
         ...parseSource(
-          "workspace.tsx",
-          'import { useSepUpdate } from "@/hooks/use-sep-update";',
+          "ReadingWorkspace.tsx",
+          'import { useSepUpdate } from "@/features/reading-workspace/tools/hooks/useSepUpdate";',
         ),
       },
       {
-        path: "apps/web/src/components/reading-workspace/reading-article-pane.tsx",
+        path: "apps/web/src/features/reading-workspace/article/components/Pane.tsx",
         ...parseSource(
-          "reading-article-pane.tsx",
-          'import { SepAdmissionPreview } from "@/components/source-admission/preview";',
+          "ReadingArticlePane.tsx",
+          'import { SepAdmissionPreview } from "@/features/source-admission/components/Preview";',
         ),
       },
       {
-        path: "apps/web/src/components/reading-workspace/source-information.tsx",
+        path: "apps/web/src/features/reading-workspace/tools/components/SourceInformation.tsx",
         ...parseSource(
-          "source-information.tsx",
-          'import { useSepUpdate } from "@/hooks/use-sep-update";',
+          "SourceInformation.tsx",
+          'import { useSepUpdate } from "@/features/reading-workspace/tools/hooks/useSepUpdate";',
         ),
       },
       {
-        path: "apps/web/src/components/reading-workspace/workspace.test.tsx",
+        path: "apps/web/src/features/reading-workspace/readingWorkspace.test.tsx",
         ...parseSource(
-          "workspace.test.tsx",
-          'import { useSepUpdate } from "@/hooks/use-sep-update";',
+          "readingWorkspace.test.tsx",
+          'import { useSepUpdate } from "@/features/reading-workspace/tools/hooks/useSepUpdate";',
         ),
       },
     ];
 
     expect(evaluatePolicy({ workspaces, files })).toEqual([
-      "apps/web/src/components/reading-workspace/workspace.tsx imports source-specific module @/hooks/use-sep-update; keep it behind SourceInformation",
-      "apps/web/src/components/reading-workspace/reading-article-pane.tsx imports source-specific module @/components/source-admission/preview; keep it behind SourceInformation",
+      "apps/web/src/features/reading-workspace/components/Workspace.tsx imports source-specific module @/features/reading-workspace/tools/hooks/useSepUpdate; keep it behind SourceInformation",
+      "apps/web/src/features/reading-workspace/article/components/Pane.tsx imports source-specific module @/features/source-admission/components/Preview; keep it behind SourceInformation",
     ]);
   });
 });

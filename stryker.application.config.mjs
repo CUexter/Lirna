@@ -18,14 +18,23 @@ const shardMutate = {
     "packages/api/src/**/*.ts",
     "!packages/api/src/sep-admission/**",
   ],
-  "web-annotations": ["apps/web/src/components/annotations/**/*.{ts,tsx}"],
-  "web-reading": ["apps/web/src/components/reading-workspace/**/*.{ts,tsx}"],
+  "web-annotations": [
+    "apps/web/src/features/reading-workspace/annotations/**/*.{ts,tsx}",
+  ],
+  "web-reading": [
+    "apps/web/src/features/reading-workspace/**/*.{ts,tsx}",
+    "!apps/web/src/features/reading-workspace/annotations/**",
+  ],
   "web-source": [
-    "apps/web/src/components/{app-shell,source-admission,sources-library}/**/*.{ts,tsx}",
+    "apps/web/src/features/{source-admission,source-library}/**/*.{ts,tsx}",
+    "apps/web/src/app/**/*.{ts,tsx}",
   ],
   "web-app": [
     "apps/web/src/**/*.{ts,tsx}",
-    "!apps/web/src/components/**",
+    "!apps/web/src/features/reading-workspace/**",
+    "!apps/web/src/features/source-admission/**",
+    "!apps/web/src/features/source-library/**",
+    "!apps/web/src/app/**",
     "!apps/web/src/main.tsx",
   ],
   platform: [
@@ -47,17 +56,19 @@ const shardTests = {
     "!packages/api/src/sep-admission/**",
   ],
   "web-annotations": [
-    "apps/web/src/components/annotations/**/*.{test,spec}.{ts,tsx}",
+    "apps/web/src/features/reading-workspace/annotations/**/*.{test,spec}.{ts,tsx}",
   ],
   "web-reading": [
-    "apps/web/src/components/reading-workspace/**/*.{test,spec}.{ts,tsx}",
+    "apps/web/src/features/reading-workspace/**/*.{test,spec}.{ts,tsx}",
+    "!apps/web/src/features/reading-workspace/annotations/**",
   ],
   "web-source": [
-    "apps/web/src/components/source-admission/**/*.{test,spec}.{ts,tsx}",
-    "apps/web/src/components/sources-library/**/*.{test,spec}.{ts,tsx}",
+    "apps/web/src/features/source-admission/**/*.{test,spec}.{ts,tsx}",
+    "apps/web/src/features/source-library/**/*.{test,spec}.{ts,tsx}",
   ],
   "web-app": [
-    "apps/web/src/{clients,hooks,routes,utils}/**/*.{test,spec}.{ts,tsx}",
+    "apps/web/src/{clients,infrastructure,routes,test-support}/**/*.{test,spec}.{ts,tsx}",
+    "apps/web/src/features/offline-working-set/**/*.{test,spec}.{ts,tsx}",
     "apps/web/tests/routes/**/*.{test,spec}.{ts,tsx}",
   ],
   platform: [

@@ -11,10 +11,9 @@ import { Label } from "@lirna/ui/components/label";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeftIcon, SearchIcon } from "lucide-react";
 import { z } from "zod";
-
-import { ServerErrorMessage } from "@/components/server-error-message";
-import { SepAdmissionPreview } from "@/components/source-admission/preview";
-import { useSepAdmission } from "@/hooks/use-sep-admission";
+import { SepAdmissionPreview } from "@/features/source-admission/components/Preview";
+import { useSepAdmission } from "@/features/source-admission/hooks/useAdmission";
+import { ServerErrorMessage } from "@/infrastructure/server/components/ErrorMessage";
 
 export const Route = createFileRoute("/sources/admission")({
   validateSearch: z.object({ replacesSourceId: z.string().uuid().optional() }),

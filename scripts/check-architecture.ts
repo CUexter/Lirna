@@ -7,8 +7,8 @@ export const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const workspaceDirectories = ["apps", "packages"];
 const sourceExtensions = new Set([".ts", ".tsx", ".js", ".jsx"]);
 const forbiddenCoreReadingImportFragments = [
-  "/hooks/use-sep-",
-  "/components/source-admission/",
+  "/hooks/useSep",
+  "/features/source-admission/",
 ];
 const primitiveControls = new Map([
   ["packages/ui/src/components/button.tsx", new Set(["button"])],
@@ -118,6 +118,10 @@ function isRouteSupportFile(path) {
 function isTestSource(path) {
   return (
     /\.(?:test|spec)\.[jt]sx?$/.test(path) ||
+    path.includes("/test-support/") ||
+    /(?:Test(?:Fixtures?|Harness|Scenarios?|Support)|Fixture)\.[jt]sx?$/.test(
+      path,
+    ) ||
     /(?:^|\/)[^/]*-(?:tests|test-(?:fixture|fixtures|harness|scenarios|support))\.[jt]sx?$/.test(
       path,
     )
@@ -166,7 +170,7 @@ export function evaluatePolicy({ workspaces, files }) {
     if (
       readingAuthorityScope &&
       file.path !==
-        "apps/web/src/components/reading-workspace/reading-navigation.ts"
+        "apps/web/src/features/reading-workspace/navigation/model.ts"
     ) {
       for (const command of file.scrollCommands ?? [])
         violations.push(
@@ -176,10 +180,12 @@ export function evaluatePolicy({ workspaces, files }) {
     for (const specifier of file.imports) {
       const coreReadingWorkspace =
         file.path.startsWith(
-          "apps/web/src/components/reading-workspace/",
+          "apps/web/src/features/reading-workspace/",
         ) &&
         file.path !==
-          "apps/web/src/components/reading-workspace/source-information.tsx" &&
+          "apps/web/src/features/reading-workspace/tools/components/SourceInformation.tsx" &&
+        file.path !==
+          "apps/web/src/features/reading-workspace/tools/hooks/useSepUpdate.ts" &&
         !testSource;
       if (
         coreReadingWorkspace &&

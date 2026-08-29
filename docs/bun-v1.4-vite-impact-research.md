@@ -61,7 +61,7 @@ This is a research recommendation, not an accepted architecture decision.
   `import.meta.env.VITE_SERVER_URL`, the Docker build supplies that variable, and
   TypeScript includes `vite/client` types
   ([web environment](../packages/env/src/web.ts),
-  [server URL](../apps/web/src/utils/server-url.ts),
+  [server URL](../apps/web/src/infrastructure/server/url.ts),
   [Dockerfile](../apps/web/Dockerfile), [tsconfig](../apps/web/tsconfig.json)).
 - Tests do not depend on Vitest or Vite. Unit/component tests use `bun test` with
   Happy DOM, browser E2E tests use Playwright, and the production Vite output is

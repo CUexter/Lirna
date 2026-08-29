@@ -5,7 +5,7 @@ import { RPCLink } from "@orpc/client/fetch";
 import type { RouterClient } from "@orpc/server";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 
-import { serverUrl } from "@/utils/server-url";
+import { serverUrl } from "@/infrastructure/server/url";
 
 const link = new RPCLink({
   origin: serverUrl,

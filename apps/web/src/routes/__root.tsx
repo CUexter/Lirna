@@ -8,7 +8,7 @@ import {
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
-import { ThemeProvider } from "@/components/app-shell/theme-provider";
+import { ThemeProvider } from "@/app/components/ThemeProvider";
 
 import "../index.css";
 
