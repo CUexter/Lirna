@@ -1,6 +1,6 @@
 import { openapi } from "@orpc/openapi";
 import { z } from "zod";
-import { sepReadingContractSchema } from "../../sep-admission/sep-reading-contract";
+import { sepReadingContractSchema } from "../../sep-admission/reading/contract";
 import { publicProcedure } from "../init";
 import { sepAdmittedStateSchema } from "./sep-admission-schemas";
 import { sourceAssistantRouter } from "./source-assistant";

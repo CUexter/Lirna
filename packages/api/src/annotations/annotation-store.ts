@@ -4,8 +4,8 @@ import { annotations } from "@lirna/db/schema/annotations";
 import { sourceStates } from "@lirna/db/schema/sources";
 import { and, asc, eq } from "drizzle-orm";
 import { validateAuthoredTarget } from "../authored-targets/authored-target";
-import type { ActiveReadingDerivativeOperations } from "../sep-admission/active-reading-derivative";
-import type { DatabaseExecutor } from "../sep-admission/sep-state-evidence";
+import type { ActiveReadingDerivativeOperations } from "../sep-admission/state/active-reading-derivative";
+import type { DatabaseExecutor } from "../sep-admission/state/evidence";
 import type {
   AnnotationColor,
   AnnotationKind,

@@ -4,15 +4,13 @@ const shard = process.env.MUTATION_SHARD;
 
 const shardMutate = {
   "api-sep-reading": [
-    "packages/api/src/sep-admission/sep-reading*.ts",
-    "packages/api/src/sep-admission/sep-bibliography.ts",
-    "packages/api/src/sep-admission/sep-html.ts",
+    "packages/api/src/sep-admission/reading/**/*.ts",
+    "packages/api/src/sep-admission/capture/html.ts",
   ],
   "api-sep-capture": [
     "packages/api/src/sep-admission/**/*.ts",
-    "!packages/api/src/sep-admission/sep-reading*.ts",
-    "!packages/api/src/sep-admission/sep-bibliography.ts",
-    "!packages/api/src/sep-admission/sep-html.ts",
+    "!packages/api/src/sep-admission/reading/**",
+    "!packages/api/src/sep-admission/capture/html.ts",
   ],
   "api-core": [
     "packages/api/src/**/*.ts",
@@ -46,9 +44,8 @@ const shardMutate = {
 
 const shardTests = {
   "api-sep-reading": [
-    "packages/api/src/sep-admission/sep-reading*.test.ts",
-    "packages/api/src/sep-admission/sep-bibliography.test.ts",
-    "packages/api/src/sep-admission/sep-html.test.ts",
+    "packages/api/src/sep-admission/reading/**/*.test.ts",
+    "packages/api/src/sep-admission/capture/html.test.ts",
   ],
   "api-sep-capture": ["packages/api/src/sep-admission/**/*.test.ts"],
   "api-core": [

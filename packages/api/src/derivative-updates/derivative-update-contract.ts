@@ -1,4 +1,4 @@
-import type { SepReadingContract } from "../sep-admission/sep-reading-contract";
+import type { SepReadingContract } from "../sep-admission/reading/contract";
 
 export type RelocationClassification =
   | "exact"

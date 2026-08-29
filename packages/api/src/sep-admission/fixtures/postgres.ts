@@ -5,7 +5,7 @@ import {
 } from "@lirna/db/schema/sep-admission";
 import { createPostgresTestDatabase } from "@lirna/db/test-support/postgres-database";
 
-import type { SepAdmissionCreateRecord } from "../sep-admission";
+import type { SepAdmissionCreateRecord } from "../admission/operations";
 import {
   type AdmissionObservationKey,
   admissionCaptureLimits,
@@ -40,9 +40,9 @@ export async function openSepAdmissionPostgres(label: string) {
     { DrizzleActiveReadingDerivativeStore },
     { createSepAdmittedStateReader },
   ] = await Promise.all([
-    import("../sep-admission-store"),
-    import("../active-reading-derivative-store"),
-    import("../sep-admitted-state-reader"),
+    import("../admission/store"),
+    import("../state/active-reading-derivative-store"),
+    import("../state/admitted-state-reader"),
   ]);
   const activeReading = new DrizzleActiveReadingDerivativeStore(
     testDatabase.database,

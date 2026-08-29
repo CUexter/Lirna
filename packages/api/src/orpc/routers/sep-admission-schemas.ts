@@ -8,9 +8,9 @@ import {
 import {
   sepObservationKeySchema,
   sepResourceRoleSchema,
-} from "../../sep-admission/sep-admission-builders";
-import { sepAdmissionPolicy } from "../../sep-admission/sep-admission-contract";
-import { admittedCaptureReportSchema } from "../../sep-admission/sep-admission-preview";
+} from "../../sep-admission/admission/builders";
+import { sepAdmissionPolicy } from "../../sep-admission/admission/contract";
+import { admittedCaptureReportSchema } from "../../sep-admission/admission/preview";
 import { sourceHandlingPolicySchema } from "../../source-handling-policy/source-handling-policy";
 
 export {

@@ -2,12 +2,12 @@ import type {
   SepAdmissionOperations,
   SepAdmissionPreview,
   SepAdmissionResult,
-} from "../../sep-admission/sep-admission";
+} from "../../sep-admission/admission/operations";
+import type { SepReadingContract } from "../../sep-admission/reading/contract";
 import type {
   SepAdmittedState,
   SepAdmittedStateOperations,
-} from "../../sep-admission/sep-admitted-state";
-import type { SepReadingContract } from "../../sep-admission/sep-reading-contract";
+} from "../../sep-admission/state/admitted-state";
 
 export const previewId = "10000000-0000-4000-8000-000000000000";
 export const sourceId = "20000000-0000-4000-8000-000000000000";

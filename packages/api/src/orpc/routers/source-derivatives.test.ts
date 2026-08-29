@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { call } from "@orpc/server";
 import type { Context } from "../../context";
 import type { DerivativeUpdateOperations } from "../../derivative-updates/derivative-update-contract";
-import type { ActiveReadingDerivativeOperations } from "../../sep-admission/active-reading-derivative";
+import type { ActiveReadingDerivativeOperations } from "../../sep-admission/state/active-reading-derivative";
 import { createTestContext } from "../application-test-support";
 import { sourceDerivativesRouter } from "./source-derivatives";
 

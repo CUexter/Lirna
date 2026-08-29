@@ -1,9 +1,9 @@
 import type { CitationResolutionRecord } from "../citation-resolutions/citation-resolution-contract";
+import type { SepReadingContract } from "../sep-admission/reading/contract";
 import type {
   SepAdmittedState,
   SepLibrarySource,
-} from "../sep-admission/sep-admitted-state";
-import type { SepReadingContract } from "../sep-admission/sep-reading-contract";
+} from "../sep-admission/state/admitted-state";
 
 export interface ReadingWorkspaceProjection {
   reading: SepReadingContract;

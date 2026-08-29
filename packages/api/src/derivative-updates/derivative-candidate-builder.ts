@@ -7,12 +7,12 @@ import {
   parseStringList,
   sepObservationKeySchema,
   sepResourceRoleSchema,
-} from "../sep-admission/sep-admission-builders";
+} from "../sep-admission/admission/builders";
 import {
   admittedCaptureReportSchema,
   diagnosticSchema,
-} from "../sep-admission/sep-admission-preview";
-import { createSepReadingDerivative } from "../sep-admission/sep-reading";
+} from "../sep-admission/admission/preview";
+import { createSepReadingDerivative } from "../sep-admission/reading/derivative";
 
 export function buildCandidateFromEvidence(evidence: {
   state: typeof sourceStates.$inferSelect;

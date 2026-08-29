@@ -6,8 +6,8 @@ import {
   authoredTargetForPublisherAnchor,
   InvalidAuthoredTargetError,
 } from "../authored-targets/authored-target";
-import type { ActiveReadingDerivativeOperations } from "../sep-admission/active-reading-derivative";
-import type { DatabaseExecutor } from "../sep-admission/sep-state-evidence";
+import type { ActiveReadingDerivativeOperations } from "../sep-admission/state/active-reading-derivative";
+import type { DatabaseExecutor } from "../sep-admission/state/evidence";
 import { deriveCitationMentionEvidence } from "./citation-mention-evidence";
 import type {
   CitationResolutionOperations,

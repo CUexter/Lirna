@@ -12,7 +12,7 @@
       "default": "./src/error-issues.ts"
     },
     "./client/reading-content": {
-      "default": "./src/sep-admission/reading-content.ts"
+      "default": "./src/sep-admission/reading/content.ts"
     },
     "./context": {
       "default": "./src/context.ts"
@@ -30,7 +30,7 @@
       "default": "./src/observation.ts"
     },
     "./reading-content": {
-      "default": "./src/sep-admission/reading-content.ts"
+      "default": "./src/sep-admission/reading/content.ts"
     },
     "./error-issues": {
       "default": "./src/error-issues.ts"

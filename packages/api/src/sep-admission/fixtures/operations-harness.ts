@@ -2,8 +2,8 @@ import {
   createSepAdmissionOperations,
   type SepAdmissionCreateRecord,
   type SepAdmissionStore,
-} from "../sep-admission";
-import type { SepCaptureClient } from "../sep-capture";
+} from "../admission/operations";
+import type { SepCaptureClient } from "../capture/client";
 import {
   captureReport,
   optionsWithArchive,

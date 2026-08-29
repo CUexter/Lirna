@@ -3,8 +3,8 @@ import { readingPositions } from "@lirna/db/schema/reading-positions";
 import { sourceStates, sources } from "@lirna/db/schema/sources";
 import { and, asc, desc, eq, lt } from "drizzle-orm";
 
-import type { ActiveReadingDerivativeOperations } from "../sep-admission/active-reading-derivative";
-import type { DatabaseExecutor } from "../sep-admission/sep-state-evidence";
+import type { ActiveReadingDerivativeOperations } from "../sep-admission/state/active-reading-derivative";
+import type { DatabaseExecutor } from "../sep-admission/state/evidence";
 import type {
   ReadingPositionOperations,
   ReadingPositionRecord,

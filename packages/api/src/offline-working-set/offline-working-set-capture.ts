@@ -3,7 +3,7 @@ import type { db } from "@lirna/db";
 import { readAnnotationsInSnapshot } from "../annotations/annotation-store";
 import { readReadingPositionsInSnapshot } from "../reading-position/reading-position-store";
 import { readReadingWorkspaceInSnapshot } from "../reading-workspace/reading-workspace-reader";
-import { readActiveReadingDerivativeInSnapshot } from "../sep-admission/active-reading-derivative-store";
+import { readActiveReadingDerivativeInSnapshot } from "../sep-admission/state/active-reading-derivative-store";
 import {
   decideOfflineRetention,
   type OfflineRetentionDecision,

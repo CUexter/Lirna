@@ -1,11 +1,11 @@
 import {
   readingInlineText,
   visitReadingInlineGroups,
-} from "../sep-admission/reading-content";
+} from "../sep-admission/reading/content";
 import type {
   ReadingInline,
   SepReadingContract,
-} from "../sep-admission/sep-reading-contract";
+} from "../sep-admission/reading/contract";
 import {
   citationInferenceRequest,
   decideCitationInference,

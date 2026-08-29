@@ -46,7 +46,7 @@ describePostgres("Annotation PostgreSQL store", () => {
       { DrizzleActiveReadingDerivativeStore },
     ] = await Promise.all([
       import("./annotation-store"),
-      import("../sep-admission/active-reading-derivative-store"),
+      import("../sep-admission/state/active-reading-derivative-store"),
     ]);
     store = new DrizzleAnnotationStore(
       database,

@@ -1,7 +1,7 @@
 import type {
   SepAdmissionCreateRecord,
   SepAdmissionStoredPreview,
-} from "../sep-admission";
+} from "../admission/operations";
 
 export function resource(
   role: "main" | "citation-information",

@@ -1,10 +1,10 @@
 import { z } from "zod";
 
-import type { ReadingComponent } from "../sep-admission/sep-reading-contract";
+import type { ReadingComponent } from "../sep-admission/reading/contract";
 import {
   projectReadingArticle,
   projectVersionOneReadingArticle,
-} from "../sep-admission/sep-reading-text";
+} from "../sep-admission/reading/text";
 
 export const authoredTargetOffsetBasis =
   "normalized-derivative-text-v1" as const;

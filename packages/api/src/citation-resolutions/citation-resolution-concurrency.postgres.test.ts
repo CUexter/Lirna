@@ -13,7 +13,7 @@ import {
 
 import { readingPayload } from "../annotations/annotation-store.postgres-test-support";
 import { generationMetadata } from "../derivative-updates/derivative-test-fixture";
-import { DrizzleActiveReadingDerivativeStore } from "../sep-admission/active-reading-derivative-store";
+import { DrizzleActiveReadingDerivativeStore } from "../sep-admission/state/active-reading-derivative-store";
 import { createPostgresInsertBlocker } from "./citation-resolution-concurrency.postgres-test-support";
 import { InvalidCitationResolutionError } from "./citation-resolution-contract";
 import { DrizzleCitationResolutionStore } from "./citation-resolution-store";

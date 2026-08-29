@@ -2,7 +2,7 @@ import { citationResolutions } from "@lirna/db/schema/citation-resolutions";
 import { sourceStates } from "@lirna/db/schema/sources";
 import { and, asc, eq } from "drizzle-orm";
 
-import type { DatabaseExecutor } from "../sep-admission/sep-state-evidence";
+import type { DatabaseExecutor } from "../sep-admission/state/evidence";
 import type {
   CitationResolutionDecision,
   CitationResolutionRecord,

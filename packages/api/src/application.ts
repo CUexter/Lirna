@@ -19,12 +19,12 @@ import {
   createOpenRouterResearchAssistant,
   type ResearchAssistantOperations,
 } from "./research-assistant/research-assistant";
-import type { ActiveReadingDerivativeOperations } from "./sep-admission/active-reading-derivative";
-import { DrizzleActiveReadingDerivativeStore } from "./sep-admission/active-reading-derivative-store";
-import type { SepAdmissionOperations } from "./sep-admission/sep-admission";
-import { createDrizzleSepAdmissionOperations } from "./sep-admission/sep-admission-store";
-import type { SepAdmittedStateOperations } from "./sep-admission/sep-admitted-state";
-import { createSepAdmittedStateReader } from "./sep-admission/sep-admitted-state-reader";
+import type { SepAdmissionOperations } from "./sep-admission/admission/operations";
+import { createDrizzleSepAdmissionOperations } from "./sep-admission/admission/store";
+import type { ActiveReadingDerivativeOperations } from "./sep-admission/state/active-reading-derivative";
+import { DrizzleActiveReadingDerivativeStore } from "./sep-admission/state/active-reading-derivative-store";
+import type { SepAdmittedStateOperations } from "./sep-admission/state/admitted-state";
+import { createSepAdmittedStateReader } from "./sep-admission/state/admitted-state-reader";
 
 export type ApplicationAdapters = {
   sepAdmissions?: SepAdmissionOperations;

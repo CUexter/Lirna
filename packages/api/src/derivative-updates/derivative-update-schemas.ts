@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { sepReadingContractSchema } from "../sep-admission/sep-reading-contract";
+import { sepReadingContractSchema } from "../sep-admission/reading/contract";
 
 const relocation = z.object({
   recordType: z.enum(["annotation", "reading-position", "citation-resolution"]),

@@ -7,7 +7,6 @@ import {
   sourceStateResources,
 } from "@lirna/db/schema/sources";
 import { asc, eq } from "drizzle-orm";
-import { DrizzleActiveReadingDerivativeStore } from "../sep-admission/active-reading-derivative-store";
 import { readingIntegrationHtml } from "../sep-admission/fixtures/admission-preview";
 import {
   insertPreview,
@@ -15,7 +14,8 @@ import {
   type SepAdmissionPostgres,
   sepAdmissionPostgresAdminUrl,
 } from "../sep-admission/fixtures/postgres";
-import type { SepReadingContract } from "../sep-admission/sep-reading-contract";
+import type { SepReadingContract } from "../sep-admission/reading/contract";
+import { DrizzleActiveReadingDerivativeStore } from "../sep-admission/state/active-reading-derivative-store";
 import { refreshDerivativeText } from "./derivative-test-fixture";
 import { DrizzleDerivativeUpdateStore } from "./derivative-update-store";
 

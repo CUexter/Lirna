@@ -1,7 +1,7 @@
 import type { db } from "@lirna/db";
 import { sourceStateDerivatives, sourceStates } from "@lirna/db/schema/sources";
 import { and, eq } from "drizzle-orm";
-import { readSepReadingDerivative } from "../sep-admission/sep-reading-contract";
+import { readSepReadingDerivative } from "../sep-admission/reading/contract";
 import { compareReadingDerivatives } from "./derivative-analysis";
 import { buildCandidateFromEvidence } from "./derivative-candidate-builder";
 import type { DerivativeUpdateOperations } from "./derivative-update-contract";

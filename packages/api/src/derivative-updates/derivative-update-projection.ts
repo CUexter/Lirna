@@ -3,8 +3,8 @@ import type { readingPositions } from "@lirna/db/schema/reading-positions";
 import type { sourceStateDerivativeActivations } from "@lirna/db/schema/sources";
 import type { CitationResolutionRecord } from "../citation-resolutions/citation-resolution-contract";
 import { readingSemanticLocationSchema } from "../reading-position/reading-position-contract";
-import type { SepReadingContract } from "../sep-admission/sep-reading-contract";
-import { sepReadingDerivativeKind } from "../sep-admission/sep-reading-contract";
+import type { SepReadingContract } from "../sep-admission/reading/contract";
+import { sepReadingDerivativeKind } from "../sep-admission/reading/contract";
 import type { AuthoredAnchor } from "./derivative-analysis";
 import type {
   DerivativeActivation,

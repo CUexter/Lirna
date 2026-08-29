@@ -52,7 +52,7 @@ describePostgres("Citation resolution PostgreSQL store", () => {
       { DrizzleActiveReadingDerivativeStore },
     ] = await Promise.all([
       import("./citation-resolution-store"),
-      import("../sep-admission/active-reading-derivative-store"),
+      import("../sep-admission/state/active-reading-derivative-store"),
     ]);
     store = new DrizzleCitationResolutionStore(
       database,

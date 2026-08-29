@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
-import type { SepReadingContract } from "../sep-admission/sep-reading-contract";
-import { sepReadingDerivativeKind } from "../sep-admission/sep-reading-contract";
+import type { SepReadingContract } from "../sep-admission/reading/contract";
+import { sepReadingDerivativeKind } from "../sep-admission/reading/contract";
 import type {
   DerivativeValidation,
   ReadingDerivativeCandidate,

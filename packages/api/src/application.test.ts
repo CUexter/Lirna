@@ -3,7 +3,7 @@ import "./application.test-env";
 import { createApplication, productionApplication } from "./application";
 import { createContext } from "./context";
 import type { ReadingWorkspaceOperations } from "./reading-workspace/reading-workspace";
-import type { ActiveReadingDerivativeOperations } from "./sep-admission/active-reading-derivative";
+import type { ActiveReadingDerivativeOperations } from "./sep-admission/state/active-reading-derivative";
 
 const sourceId = "10000000-0000-4000-8000-000000000000";
 const stateId = "20000000-0000-4000-8000-000000000000";

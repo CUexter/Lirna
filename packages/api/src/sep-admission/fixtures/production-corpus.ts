@@ -1,5 +1,5 @@
-import type { FixturePage } from "../sep-capture-test-fixture";
-import { html, image } from "../sep-capture-test-fixture";
+import type { FixturePage } from "../capture/test-support";
+import { html, image } from "../capture/test-support";
 
 export const productionEntryUrl =
   "https://plato.stanford.edu/entries/synthetic-production/";

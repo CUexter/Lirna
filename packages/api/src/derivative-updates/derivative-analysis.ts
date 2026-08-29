@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { SepReadingContract } from "../sep-admission/sep-reading-contract";
+import type { SepReadingContract } from "../sep-admission/reading/contract";
 import { compareDerivativeStructure } from "./derivative-structure";
 import type {
   DerivativeComparison,

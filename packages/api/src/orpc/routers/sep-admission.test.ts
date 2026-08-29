@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { call } from "@orpc/server";
 
 import type { Context } from "../../context";
-import type { SepAdmissionOperations } from "../../sep-admission/sep-admission";
-import { SepAdmissionError } from "../../sep-admission/sep-capture";
+import type { SepAdmissionOperations } from "../../sep-admission/admission/operations";
+import { SepAdmissionError } from "../../sep-admission/capture/client";
 import { createTestContext } from "../application-test-support";
 import { sepAdmissionsRouter } from "./sep-admission";
 import {

@@ -1,10 +1,10 @@
-import { readingBlockInlineGroups } from "../sep-admission/reading-content";
+import { readingBlockInlineGroups } from "../sep-admission/reading/content";
 import type {
   ReadingBlock,
   ReadingInline,
   ReadingSection,
   SepReadingContract,
-} from "../sep-admission/sep-reading-contract";
+} from "../sep-admission/reading/contract";
 
 export function visitReading(
   reading: SepReadingContract,

@@ -41,7 +41,7 @@ describePostgres("Reading position PostgreSQL store", () => {
       { DrizzleActiveReadingDerivativeStore },
     ] = await Promise.all([
       import("./reading-position-store"),
-      import("../sep-admission/active-reading-derivative-store"),
+      import("../sep-admission/state/active-reading-derivative-store"),
     ]);
     store = new DrizzleReadingPositionStore(
       database,

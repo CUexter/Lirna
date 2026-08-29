@@ -2,8 +2,8 @@ import type { db } from "@lirna/db";
 import { sourceStates } from "@lirna/db/schema/sources";
 import { and, eq } from "drizzle-orm";
 
-import { readActiveReadingDerivativeInSnapshot } from "../sep-admission/active-reading-derivative-store";
-import type { DatabaseExecutor } from "../sep-admission/sep-state-evidence";
+import { readActiveReadingDerivativeInSnapshot } from "../sep-admission/state/active-reading-derivative-store";
+import type { DatabaseExecutor } from "../sep-admission/state/evidence";
 
 export async function readActiveCitationDerivative(
   database: DatabaseExecutor,

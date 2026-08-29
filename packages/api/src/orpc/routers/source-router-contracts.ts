@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { readingSemanticLocationSchema } from "../../reading-position/reading-position-contract";
-import { sepObservationKeySchema } from "../../sep-admission/sep-admission-builders";
-import { sepReadingContractSchema } from "../../sep-admission/sep-reading-contract";
+import { sepObservationKeySchema } from "../../sep-admission/admission/builders";
+import { sepReadingContractSchema } from "../../sep-admission/reading/contract";
 import { annotationSchema } from "./annotations";
 import { citationResolutionSchema } from "./citation-resolution-schema";
 import { sepAdmittedStateSchema } from "./sep-admission-schemas";

@@ -1,11 +1,11 @@
 import type { db } from "@lirna/db";
 
 import { readCitationResolutionsInSnapshot } from "../citation-resolutions/citation-resolution-reader";
-import { readActiveReadingDerivativeInSnapshot } from "../sep-admission/active-reading-derivative-store";
-import { readSepLibrarySourceInSnapshot } from "../sep-admission/sep-admitted-state-reader";
-import type { SepReadingContract } from "../sep-admission/sep-reading-contract";
-import type { DatabaseExecutor } from "../sep-admission/sep-state-evidence";
-import { readSepAdmittedState } from "../sep-admission/sep-state-projection";
+import type { SepReadingContract } from "../sep-admission/reading/contract";
+import { readActiveReadingDerivativeInSnapshot } from "../sep-admission/state/active-reading-derivative-store";
+import { readSepLibrarySourceInSnapshot } from "../sep-admission/state/admitted-state-reader";
+import type { DatabaseExecutor } from "../sep-admission/state/evidence";
+import { readSepAdmittedState } from "../sep-admission/state/projection";
 import type {
   ReadingWorkspaceOperations,
   ReadingWorkspaceProjection,

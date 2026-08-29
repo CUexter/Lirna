@@ -1,5 +1,5 @@
-import type { SepReadingContract } from "../sep-admission/sep-reading-contract";
-import { sepReadingContractSchema } from "../sep-admission/sep-reading-contract";
+import type { SepReadingContract } from "../sep-admission/reading/contract";
+import { sepReadingContractSchema } from "../sep-admission/reading/contract";
 import type { DerivativeValidation } from "./derivative-update-contract";
 import { visitReading, visitSections } from "./reading-traversal";
 

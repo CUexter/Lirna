@@ -2,8 +2,8 @@ import { openapi } from "@orpc/openapi";
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
-import { sepObservationKeySchema } from "../../sep-admission/sep-admission-builders";
-import { SepAdmissionError } from "../../sep-admission/sep-capture";
+import { sepObservationKeySchema } from "../../sep-admission/admission/builders";
+import { SepAdmissionError } from "../../sep-admission/capture/client";
 import { publicProcedure } from "../init";
 import {
   sepAdmissionPreviewSchema,

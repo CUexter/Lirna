@@ -1,5 +1,5 @@
-import type { SepReadingContract } from "../sep-admission/sep-reading-contract";
-import { projectReadingArticle } from "../sep-admission/sep-reading-text";
+import type { SepReadingContract } from "../sep-admission/reading/contract";
+import { projectReadingArticle } from "../sep-admission/reading/text";
 
 const source = {
   id: "10000000-0000-4000-8000-000000000000",

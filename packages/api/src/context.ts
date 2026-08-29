@@ -9,9 +9,9 @@ import type { OfflineWorkingSetOperations } from "./offline-working-set/offline-
 import type { ReadingPositionOperations } from "./reading-position/reading-position-contract";
 import type { ReadingWorkspaceOperations } from "./reading-workspace/reading-workspace";
 import type { ResearchAssistantOperations } from "./research-assistant/research-assistant";
-import type { ActiveReadingDerivativeOperations } from "./sep-admission/active-reading-derivative";
-import type { SepAdmissionOperations } from "./sep-admission/sep-admission";
-import type { SepAdmittedStateOperations } from "./sep-admission/sep-admitted-state";
+import type { SepAdmissionOperations } from "./sep-admission/admission/operations";
+import type { ActiveReadingDerivativeOperations } from "./sep-admission/state/active-reading-derivative";
+import type { SepAdmittedStateOperations } from "./sep-admission/state/admitted-state";
 
 export interface Application {
   sepAdmissions: SepAdmissionOperations;

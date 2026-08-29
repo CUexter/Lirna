@@ -4,7 +4,7 @@ import type {
   ReadingPositionOperations,
   ReadingPositionRecord,
 } from "../../reading-position/reading-position-contract";
-import type { SepAdmittedStateOperations } from "../../sep-admission/sep-admitted-state";
+import type { SepAdmittedStateOperations } from "../../sep-admission/state/admitted-state";
 import { createTestContext } from "../application-test-support";
 import {
   admittedSourceStatesStub,

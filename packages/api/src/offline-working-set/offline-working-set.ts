@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import type { AnnotationRecord } from "../annotations/annotation-contract";
 import type { ReadingPositionRecord } from "../reading-position/reading-position-contract";
 import type { ReadingWorkspaceProjection } from "../reading-workspace/reading-workspace";
-import { standardSepCaptureLimits } from "../sep-admission/sep-bundle";
+import { standardSepCaptureLimits } from "../sep-admission/capture/bundle";
 
 const offlineWorkingSetVersion = 1 as const;
 

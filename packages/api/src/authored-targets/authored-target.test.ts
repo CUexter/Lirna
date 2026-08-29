@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { ReadingComponent } from "../sep-admission/sep-reading-contract";
+import type { ReadingComponent } from "../sep-admission/reading/contract";
 import {
   authoredTargetForPublisherAnchor,
   authoredTargetInputSchema,

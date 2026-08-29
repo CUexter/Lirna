@@ -1,14 +1,14 @@
 import { sourceStateDerivatives, sourceStates } from "@lirna/db/schema/sources";
 import { and, eq } from "drizzle-orm";
-import { readAuthoredAnchors } from "../sep-admission/active-reading-derivative-queries";
-import { readActiveReadingDerivativeInSnapshot } from "../sep-admission/active-reading-derivative-store";
-import { sepReadingDerivativeKind } from "../sep-admission/sep-reading-contract";
+import { sepReadingDerivativeKind } from "../sep-admission/reading/contract";
+import { readAuthoredAnchors } from "../sep-admission/state/active-reading-derivative-queries";
+import { readActiveReadingDerivativeInSnapshot } from "../sep-admission/state/active-reading-derivative-store";
 import {
   type DatabaseExecutor,
   readSepStateEvidence,
-} from "../sep-admission/sep-state-evidence";
+} from "../sep-admission/state/evidence";
 
-export type { DatabaseExecutor } from "../sep-admission/sep-state-evidence";
+export type { DatabaseExecutor } from "../sep-admission/state/evidence";
 
 export async function derivativeEvidence(
   database: DatabaseExecutor,

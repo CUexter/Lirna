@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { SepReadingContract } from "../sep-admission/sep-reading-contract";
+import type { SepReadingContract } from "../sep-admission/reading/contract";
 import type { DerivativeComparison } from "./derivative-update-contract";
 
 const subjects = ["components", "sections", "figures", "bibliography"] as const;
