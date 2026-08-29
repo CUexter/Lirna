@@ -35,15 +35,10 @@ test("explains absent, transferring, and failed retention states", () => {
 });
 
 test.each([
-  ["ready", "Ready for offline reading"],
-  ["partial", "Partially ready for offline reading"],
-  ["stale", "Stale, last usable replica retained"],
-  [
-    "pending-removal",
-    "Removal requested; replica remains usable until confirmed",
-  ],
-] as const)("explains the %s replica lifecycle", (availability, label) => {
-  render(<OfflineWorkingSetStatus inspection={inspection(availability)} />);
+  ["ready", "Ready for supported offline activities"],
+  ["partial", "Partial capability for supported offline activities"],
+] as const)("explains %s named-activity readiness", (readiness, label) => {
+  render(<OfflineWorkingSetStatus inspection={inspection({ readiness })} />);
   expect(view().getByText(label)).toBeTruthy();
   expect(view().getByText(/100 bytes stored replica/)).toBeTruthy();
   expect(
@@ -52,11 +47,35 @@ test.each([
   expect(
     view().getByText(/Source-resource bodies are not retained/),
   ).toBeTruthy();
+  expect(view().getByText(/Read retained typed content/)).toBeTruthy();
+  expect(
+    view().getByText(/Save reading progress offline: unsupported/),
+  ).toBeTruthy();
+});
+
+test("reports local readability, freshness, and removal independently", () => {
+  const rendered = render(
+    <OfflineWorkingSetStatus
+      inspection={inspection({ freshness: "outdated" })}
+    />,
+  );
+  expect(view().getByText(/Locally available: readable/)).toBeTruthy();
+  expect(view().getByText(/Freshness: outdated/)).toBeTruthy();
+  expect(view().getByText(/Removal: not requested/)).toBeTruthy();
+
+  rendered.rerender(
+    <OfflineWorkingSetStatus
+      inspection={inspection({ freshness: "unknown", removal: "pending" })}
+    />,
+  );
+  expect(view().getByText(/Freshness: unknown/)).toBeTruthy();
+  expect(view().getByText(/Removal: pending/)).toBeTruthy();
+  expect(view().getByText(/Locally available: readable/)).toBeTruthy();
 });
 
 test("drives retain progress and completion through the public panel", async () => {
   let complete: (() => void) | undefined;
-  const retained = inspection("ready");
+  const retained = inspection();
   const workingSets = moduleFixture({
     retain: (_target, onProgress) => {
       if (!onProgress) throw new Error("Progress observer required");
@@ -80,11 +99,13 @@ test("drives retain progress and completion through the public panel", async () 
   fireEvent.click(view().getByRole("button", { name: /Retain for/ }));
   await waitFor(() => view().getByText("Retained 1 of 3 items."));
   act(() => complete?.());
-  await waitFor(() => view().getByText("Ready for offline reading"));
+  await waitFor(() =>
+    view().getByText("Ready for supported offline activities"),
+  );
 });
 
 test("reports persistence failures from lifecycle controls", async () => {
-  const retained = inspection("ready");
+  const retained = inspection();
   const workingSets = moduleFixture({
     inspect: async () => retained,
     requestRemoval: async () => {
@@ -107,14 +128,38 @@ test("reports persistence failures from lifecycle controls", async () => {
   );
 });
 
+test("refreshes freshness when the module observes authoritative change", async () => {
+  let freshness: "current" | "outdated" = "current";
+  let notify: (() => void) | undefined;
+  const workingSets = moduleFixture({
+    inspect: async () => inspection({ freshness }),
+    subscribe: (_target, onChange) => {
+      notify = onChange;
+      return () => undefined;
+    },
+  });
+  render(
+    <OfflineWorkingSetPanel
+      sourceId="source-id"
+      stateId="state-id"
+      workingSets={workingSets}
+    />,
+  );
+  await waitFor(() => view().getByText(/Freshness: current/));
+
+  freshness = "outdated";
+  act(() => notify?.());
+  await waitFor(() => view().getByText(/Freshness: outdated/));
+  expect(view().getByText(/Locally available: readable/)).toBeTruthy();
+});
+
 test("ignores an obsolete replica read after Source-state navigation", async () => {
   let finishOldRead: (() => void) | undefined;
   const workingSets = moduleFixture({
     inspect: ({ sourceId }) => {
-      if (sourceId === "new-source")
-        return Promise.resolve(inspection("ready"));
+      if (sourceId === "new-source") return Promise.resolve(inspection());
       return new Promise((resolve) => {
-        finishOldRead = () => resolve(inspection("stale"));
+        finishOldRead = () => resolve(inspection({ freshness: "outdated" }));
       });
     },
   });
@@ -132,26 +177,43 @@ test("ignores an obsolete replica read after Source-state navigation", async () 
       workingSets={workingSets}
     />,
   );
-  await waitFor(() => view().getByText("Ready for offline reading"));
+  await waitFor(() =>
+    view().getByText("Ready for supported offline activities"),
+  );
   act(() => finishOldRead?.());
-  expect(view().queryByText("Stale, last usable replica retained")).toBeNull();
+  expect(view().queryByText(/Freshness: outdated/)).toBeNull();
 });
 
 function inspection(
-  availability: Extract<
-    OfflineWorkingSetInspection,
-    { status: "available" }
-  >["availability"],
+  overrides: Partial<
+    Extract<OfflineWorkingSetInspection, { status: "available" }>
+  > = {},
 ): OfflineWorkingSetInspection {
+  const readiness = overrides.readiness ?? "ready";
   return {
     status: "available",
-    availability,
+    localAvailability: "readable",
+    freshness: "current",
+    removal: "retained",
+    readiness,
+    activities: [
+      {
+        activity: "read-retained-content",
+        label: "Read retained typed content",
+        state: readiness === "partial" ? "limited" : "supported",
+      },
+      {
+        activity: "save-reading-progress",
+        label: "Save reading progress offline",
+        state: "unsupported",
+      },
+    ],
     retainedAt: "2026-08-25T12:00:00.000Z",
     synchronizedAt: "2026-08-25T12:00:00.000Z",
     replicaBytes: 100,
     referencedResourceBytes: 250,
     referencedResourceCount: 2,
-    reasons: availability === "partial" ? ["Supplement unavailable"] : [],
+    ...overrides,
   };
 }
 
@@ -160,10 +222,11 @@ function moduleFixture(
 ): OfflineWorkingSets {
   return {
     inspect: async () => ({ status: "absent" }),
+    subscribe: () => () => undefined,
     open: async () => ({ status: "absent" }),
-    retain: async () => inspection("ready"),
-    requestRemoval: async () => inspection("pending-removal"),
-    restore: async () => inspection("ready"),
+    retain: async () => inspection(),
+    requestRemoval: async () => inspection({ removal: "pending" }),
+    restore: async () => inspection(),
     confirmRemoval: async () => ({ status: "absent" }),
     ...overrides,
   };

@@ -1,17 +1,12 @@
 import type { InquiryOutputs } from "@/clients/inquiry";
-import { inquiry } from "@/clients/inquiry";
-import { queryClient } from "@/utils/query-client";
 import type {
-  OfflineWorkingSetCurrentness,
   OfflineWorkingSetInspection,
   OfflineWorkingSets,
   OfflineWorkingSetTarget,
   RetainedReadingWorkspace,
 } from "./offline-working-set";
-import {
-  indexedDbOfflineWorkingSetStorage,
-  type OfflineWorkingSetStorage,
-} from "./offline-working-set-storage";
+import { offlineActivityReadiness } from "./offline-working-set-activities";
+import type { OfflineWorkingSetStorage } from "./offline-working-set-storage";
 
 export type OfflineSnapshot = InquiryOutputs["sources"]["offlineManifest"];
 
@@ -22,29 +17,30 @@ interface OfflineWorkingSetRecord extends OfflineSnapshot {
 
 interface OfflineWorkingSetDependencies {
   fetchSnapshot(target: OfflineWorkingSetTarget): Promise<OfflineSnapshot>;
+  fetchCurrentness(target: OfflineWorkingSetTarget): Promise<{
+    activationId?: string;
+    currentStateId?: string;
+  }>;
   now(): Date;
   storage: OfflineWorkingSetStorage;
-}
-
-export function createBrowserOfflineWorkingSets() {
-  return createOfflineWorkingSets({
-    fetchSnapshot: (target) =>
-      queryClient.fetchQuery(
-        inquiry.sources.offlineManifest.queryOptions({
-          input: target,
-          staleTime: 0,
-        }),
-      ),
-    now: () => new Date(),
-    storage: indexedDbOfflineWorkingSetStorage,
-  });
+  subscribeToCurrentness(
+    target: OfflineWorkingSetTarget,
+    onChange: () => void,
+  ): () => void;
 }
 
 export function createOfflineWorkingSets({
   fetchSnapshot,
+  fetchCurrentness,
   now,
   storage,
+  subscribeToCurrentness,
 }: OfflineWorkingSetDependencies): OfflineWorkingSets {
+  const observedFreshness = new Map<
+    string,
+    "current" | "outdated" | "unknown"
+  >();
+
   async function read(target: OfflineWorkingSetTarget) {
     const stored = await storage.get(workingSetKey(target));
     if (stored === undefined) return undefined;
@@ -54,24 +50,32 @@ export function createOfflineWorkingSets({
     return record;
   }
 
-  async function inspect(
-    target: OfflineWorkingSetTarget,
-    currentness?: OfflineWorkingSetCurrentness,
-  ) {
-    let record = await read(target);
+  async function inspect(target: OfflineWorkingSetTarget) {
+    const record = await read(target);
     if (!record) return absent();
-    if (
-      record.availability !== "pending-removal" &&
-      isStale(record, target, currentness)
-    ) {
-      record = { ...record, availability: "stale" };
-      await writeRecord(record, storage);
+    const observed = await freshness(record, target);
+    observedFreshness.set(workingSetKey(target), observed);
+    return inspection(record, observed);
+  }
+
+  async function freshness(
+    record: OfflineWorkingSetRecord,
+    target: OfflineWorkingSetTarget,
+  ): Promise<"current" | "outdated" | "unknown"> {
+    try {
+      const current = await fetchCurrentness(target);
+      return current.currentStateId === target.stateId &&
+        current.activationId === record.manifest.activeDerivative.activationId
+        ? "current"
+        : "outdated";
+    } catch {
+      return "unknown";
     }
-    return inspection(record);
   }
 
   return {
     inspect,
+    subscribe: subscribeToCurrentness,
     async open(target) {
       const record = await read(target);
       return record ? reading(record) : absent();
@@ -93,14 +97,19 @@ export function createOfflineWorkingSets({
       };
       await writeRecord(record, storage);
       onProgress(totalSteps, totalSteps);
-      return inspection(record);
+      const observed = capturedFreshness(snapshot, target);
+      observedFreshness.set(workingSetKey(target), observed);
+      return inspection(record, observed);
     },
     async requestRemoval(target) {
       const record = await read(target);
       if (!record) return absent();
       const pending = { ...record, availability: "pending-removal" as const };
       await writeRecord(pending, storage);
-      return inspection(pending);
+      return inspection(
+        pending,
+        observedFreshness.get(workingSetKey(target)) ?? "unknown",
+      );
     },
     async restore(target) {
       const record = await read(target);
@@ -114,13 +123,17 @@ export function createOfflineWorkingSets({
             : "partial",
       };
       await writeRecord(restored, storage);
-      return inspection(restored);
+      return inspection(
+        restored,
+        observedFreshness.get(workingSetKey(target)) ?? "unknown",
+      );
     },
     async confirmRemoval(target) {
       const record = await read(target);
       if (!record) return absent();
       requirePendingRemoval(record, "removed");
       await storage.delete(workingSetKey(target));
+      observedFreshness.delete(workingSetKey(target));
       return absent();
     },
   };
@@ -128,17 +141,38 @@ export function createOfflineWorkingSets({
 
 function inspection(
   record: OfflineWorkingSetRecord,
+  freshness: "current" | "outdated" | "unknown",
 ): OfflineWorkingSetInspection {
+  const readiness = record.manifest.serverRetention.state;
   return {
     status: "available",
-    availability: record.availability,
+    localAvailability: "readable",
+    freshness,
+    removal: record.availability === "pending-removal" ? "pending" : "retained",
+    readiness,
+    activities: offlineActivityReadiness(
+      readiness,
+      record.manifest.serverRetention.reasons,
+    ),
     retainedAt: record.retainedAt,
     synchronizedAt: record.manifest.synchronizedAt,
     replicaBytes: record.manifest.replicaBytes,
     referencedResourceBytes: record.manifest.referencedResourceBytes,
     referencedResourceCount: record.manifest.resources.length,
-    reasons: record.manifest.serverRetention.reasons,
   };
+}
+
+function capturedFreshness(
+  snapshot: OfflineSnapshot,
+  target: OfflineWorkingSetTarget,
+): "current" | "outdated" {
+  const currentActivation = snapshot.replica.workspace.state.derivatives.find(
+    (derivative) => derivative.currentActivation,
+  )?.currentActivation?.id;
+  return snapshot.replica.workspace.source.currentStateId === target.stateId &&
+    currentActivation === snapshot.manifest.activeDerivative.activationId
+    ? "current"
+    : "outdated";
 }
 
 function reading(record: OfflineWorkingSetRecord): RetainedReadingWorkspace {
@@ -165,20 +199,6 @@ function requirePendingRemoval(
 
 function absent() {
   return { status: "absent" as const };
-}
-
-function isStale(
-  record: OfflineWorkingSetRecord,
-  target: OfflineWorkingSetTarget,
-  currentness?: OfflineWorkingSetCurrentness,
-) {
-  return Boolean(
-    (currentness?.activationId &&
-      record.manifest.activeDerivative.activationId !==
-        currentness.activationId) ||
-      (currentness?.currentStateId &&
-        currentness.currentStateId !== target.stateId),
-  );
 }
 
 function validateTarget(

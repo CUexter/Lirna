@@ -207,11 +207,6 @@ function SepSourceInformation({ workspace }: { workspace: Workspace }) {
         <DerivativeReview sourceId={source.id} state={state} />
 
         <OfflineWorkingSetPanel
-          activationId={
-            state.derivatives.find((item) => item.currentActivation)
-              ?.currentActivation?.id
-          }
-          currentStateId={source.currentStateId}
           key={`${source.id}:${state.id}`}
           sourceId={source.id}
           stateId={state.id}

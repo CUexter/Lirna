@@ -50,6 +50,7 @@ await mock.module("@/offline-working-set/offline-working-set", () => ({
     requestRemoval: async () => ({ status: "absent" }),
     restore: async () => ({ status: "absent" }),
     retain: async () => ({ status: "absent" }),
+    subscribe: () => () => undefined,
   },
 }));
 

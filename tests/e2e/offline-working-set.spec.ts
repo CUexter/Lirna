@@ -11,7 +11,19 @@ test("retains and reads a verified working set with the backend unavailable", as
   await page
     .getByRole("button", { name: "Retain for offline reading" })
     .click();
-  await expect(page.getByText("Ready for offline reading")).toBeVisible();
+  await expect(
+    page.getByText("Ready for supported offline activities"),
+  ).toBeVisible();
+  await expect(page.getByText(/Freshness: current/)).toBeVisible();
+  await expect(
+    page.getByText(/View retained Annotations: supported/),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/Save reading progress offline: unsupported/),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/Application-shell availability is not verified/),
+  ).toBeVisible();
   await expect(page.getByText(/stored replica/)).toBeVisible();
   await expect(
     page.getByText(/declared for .* referenced Source resources/),
@@ -32,6 +44,7 @@ test("retains and reads a verified working set with the backend unavailable", as
   await page.route("**/orpc/**", (route) => route.abort("connectionfailed"));
   await page.reload();
 
+  await expect(page.getByText(/Freshness: unknown/)).toBeVisible();
   await expect(
     page.getByText(/Backend unavailable.*verified replica/),
   ).toBeVisible();
@@ -91,11 +104,9 @@ test("makes removal recoverable until explicit confirmation", async ({
     .getByRole("button", { name: "Retain for offline reading" })
     .click();
   await page.getByRole("button", { name: "Remove retained copy" }).click();
-  await expect(
-    page.getByText(/replica remains usable until confirmed/),
-  ).toBeVisible();
+  await expect(page.getByText(/Removal: pending/)).toBeVisible();
   await page.getByRole("button", { name: "Keep retained copy" }).click();
-  await expect(page.getByText("Ready for offline reading")).toBeVisible();
+  await expect(page.getByText(/Removal: not requested/)).toBeVisible();
   await page.getByRole("button", { name: "Remove retained copy" }).click();
   await page.getByRole("button", { name: "Confirm removal" }).click();
   await expect(page.getByText(/Not retained/)).toBeVisible();
@@ -120,9 +131,7 @@ test("retains the last usable activation when the working set becomes stale", as
   await versions.getByRole("button", { name: "Generate candidate" }).click();
   page.once("dialog", (dialog) => dialog.accept());
   await versions.getByRole("button", { name: "Activate candidate" }).click();
-  await expect(
-    page.getByText("Stale, last usable replica retained"),
-  ).toBeVisible();
+  await expect(page.getByText(/Freshness: outdated/)).toBeVisible();
   await page.route("**/orpc/**", (route) => route.abort("connectionfailed"));
   await page.reload();
   await expect(page.getByText("Visible typed paragraph.")).toBeVisible();
@@ -139,7 +148,7 @@ test("explains partial readiness and recovers by retrying", async ({
     .getByRole("button", { name: "Retain for offline reading" })
     .click();
   await expect(
-    page.getByText("Partially ready for offline reading"),
+    page.getByText("Partial capability for supported offline activities"),
   ).toBeVisible();
   await expect(page.getByText("Supplement unavailable")).toBeVisible();
 
@@ -147,5 +156,7 @@ test("explains partial readiness and recovers by retrying", async ({
     "x-e2e-session": `offline-recovered-${testInfo.project.name}-${testInfo.retry}`,
   });
   await page.getByRole("button", { name: "Retry and synchronize" }).click();
-  await expect(page.getByText("Ready for offline reading")).toBeVisible();
+  await expect(
+    page.getByText("Ready for supported offline activities"),
+  ).toBeVisible();
 });

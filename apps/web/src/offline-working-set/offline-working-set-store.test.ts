@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 
 import { readingWorkspaceFixture } from "@/components/reading-workspace/source-information-test-fixture";
 import type { OfflineWorkingSetTarget } from "./offline-working-set";
+import type { OfflineSnapshot } from "./offline-working-set-store";
 import { createMemoryOfflineWorkingSets } from "./offline-working-set-test-support";
 
 const target: OfflineWorkingSetTarget = {
@@ -11,23 +12,29 @@ const target: OfflineWorkingSetTarget = {
 
 test("owns retention, currentness, and recoverable removal behind one interface", async () => {
   const progress: Array<[number, number]> = [];
+  let activationId = "40000000-0000-4000-8000-000000000000";
+  let currentStateId = target.stateId;
   const { workingSets } = createMemoryOfflineWorkingSets({
+    fetchCurrentness: async () => ({
+      activationId,
+      currentStateId,
+    }),
     fetchSnapshot: fixture,
   });
 
-  await expect(
-    workingSets.inspect(target, {
-      activationId: "40000000-0000-4000-8000-000000000000",
-      currentStateId: target.stateId,
-    }),
-  ).resolves.toEqual({ status: "absent" });
+  await expect(workingSets.inspect(target)).resolves.toEqual({
+    status: "absent",
+  });
   await expect(
     workingSets.retain(target, (completed, total) =>
       progress.push([completed, total]),
     ),
   ).resolves.toMatchObject({
     status: "available",
-    availability: "ready",
+    localAvailability: "readable",
+    freshness: "current",
+    removal: "retained",
+    readiness: "ready",
     replicaBytes: expect.any(Number),
     referencedResourceBytes: 1200,
     referencedResourceCount: 1,
@@ -38,9 +45,17 @@ test("owns retention, currentness, and recoverable removal behind one interface"
     [2, 2],
   ]);
 
-  await expect(
-    workingSets.inspect(target, { activationId: "new-activation" }),
-  ).resolves.toMatchObject({ availability: "stale" });
+  activationId = "new-activation";
+  await expect(workingSets.inspect(target)).resolves.toMatchObject({
+    localAvailability: "readable",
+    freshness: "outdated",
+  });
+  activationId = "40000000-0000-4000-8000-000000000000";
+  currentStateId = "new-source-state";
+  await expect(workingSets.inspect(target)).resolves.toMatchObject({
+    localAvailability: "readable",
+    freshness: "outdated",
+  });
   await expect(workingSets.restore(target)).rejects.toThrow(
     "must have removal requested before it can be restored",
   );
@@ -48,14 +63,17 @@ test("owns retention, currentness, and recoverable removal behind one interface"
     "must have removal requested before it can be removed",
   );
   await expect(workingSets.requestRemoval(target)).resolves.toMatchObject({
-    availability: "pending-removal",
+    localAvailability: "readable",
+    freshness: "outdated",
+    removal: "pending",
   });
   await expect(workingSets.open(target)).resolves.toMatchObject({
     status: "available",
     workspace: { source: { id: target.sourceId } },
   });
   await expect(workingSets.restore(target)).resolves.toMatchObject({
-    availability: "ready",
+    localAvailability: "readable",
+    removal: "retained",
   });
   await expect(workingSets.restore(target)).rejects.toThrow(
     "must have removal requested before it can be restored",
@@ -68,6 +86,59 @@ test("owns retention, currentness, and recoverable removal behind one interface"
     status: "absent",
   });
   await expect(workingSets.open(target)).resolves.toEqual({ status: "absent" });
+});
+
+test("reports freshness as unknown when no authoritative comparison is possible", async () => {
+  const { workingSets } = createMemoryOfflineWorkingSets({
+    fetchCurrentness: async () => {
+      throw new Error("Backend unavailable");
+    },
+    fetchSnapshot: fixture,
+  });
+  await workingSets.retain(target);
+
+  await expect(workingSets.inspect(target)).resolves.toMatchObject({
+    localAvailability: "readable",
+    freshness: "unknown",
+  });
+  await expect(workingSets.open(target)).resolves.toMatchObject({
+    status: "available",
+  });
+  await expect(workingSets.requestRemoval(target)).resolves.toMatchObject({
+    freshness: "unknown",
+    removal: "pending",
+  });
+});
+
+test("names supported activities and limitations independently", async () => {
+  const snapshot = await fixture();
+  snapshot.manifest.serverRetention = {
+    state: "partial",
+    reasons: ["Supplement unavailable"],
+  };
+  const { workingSets } = createMemoryOfflineWorkingSets({
+    fetchSnapshot: async () => snapshot,
+  });
+
+  await expect(workingSets.retain(target)).resolves.toMatchObject({
+    readiness: "partial",
+    activities: [
+      {
+        activity: "read-retained-content",
+        state: "limited",
+        reason: "Supplement unavailable",
+      },
+      { activity: "view-retained-annotations", state: "supported" },
+      {
+        activity: "view-retained-citation-selections",
+        state: "supported",
+      },
+      { activity: "restore-retained-position", state: "supported" },
+      { activity: "save-reading-progress", state: "unsupported" },
+      { activity: "change-authored-records", state: "unsupported" },
+      { activity: "launch-without-network", state: "unsupported" },
+    ],
+  });
 });
 
 test("validates a replacement before preserving it and leaves the prior replica usable", async () => {
@@ -132,7 +203,7 @@ test("reports unsupported persisted records through the module interface", async
   );
 });
 
-async function fixture() {
+async function fixture(): Promise<OfflineSnapshot> {
   const workspace = readingWorkspaceFixture();
   if (!workspace.state) throw new Error("Fixture requires a first-class state");
   const replica = {

@@ -10,14 +10,10 @@ import {
 export function OfflineWorkingSetPanel({
   sourceId,
   stateId,
-  activationId,
-  currentStateId,
   workingSets = offlineWorkingSets,
 }: {
   sourceId: string;
   stateId: string;
-  activationId?: string;
-  currentStateId?: string;
   workingSets?: OfflineWorkingSets;
 }) {
   const [inspection, setInspection] = useState<OfflineWorkingSetInspection>();
@@ -32,20 +28,21 @@ export function OfflineWorkingSetPanel({
     let current = true;
     async function load() {
       try {
-        const result = await workingSets.inspect(
-          { sourceId, stateId },
-          { activationId, currentStateId },
-        );
+        const result = await workingSets.inspect({ sourceId, stateId });
         if (current) setInspection(result);
       } catch (cause) {
         if (current) setError(message(cause));
       }
     }
+    const unsubscribe = workingSets.subscribe({ sourceId, stateId }, () => {
+      void load();
+    });
     void load();
     return () => {
       current = false;
+      unsubscribe();
     };
-  }, [activationId, currentStateId, sourceId, stateId, workingSets]);
+  }, [sourceId, stateId, workingSets]);
 
   async function retain() {
     setPending(true);
@@ -129,7 +126,8 @@ function RetentionAction({
     !error &&
     !(
       inspection?.status === "available" &&
-      ["stale", "partial"].includes(inspection.availability)
+      (inspection.freshness === "outdated" ||
+        inspection.readiness === "partial")
     )
   ) {
     return null;
@@ -165,7 +163,7 @@ function RemovalActions({
   }
 
   if (inspection?.status !== "available") return null;
-  if (inspection.availability !== "pending-removal") {
+  if (inspection.removal !== "pending") {
     return (
       <Button
         onClick={() =>
@@ -237,24 +235,40 @@ export function OfflineWorkingSetStatus({
     return (
       <p className="mt-2 text-sm">Not retained on this Client installation.</p>
     );
-  const labels = {
-    ready: "Ready for offline reading",
-    partial: "Partially ready for offline reading",
-    stale: "Stale, last usable replica retained",
-    "pending-removal":
-      "Removal requested; replica remains usable until confirmed",
-  };
   const byteSummary = `${formatBytes(inspection.replicaBytes)} stored replica · ${formatBytes(inspection.referencedResourceBytes)} declared for ${inspection.referencedResourceCount} referenced Source resources · synchronized ${new Date(inspection.synchronizedAt).toLocaleString()}`;
   return (
     <div className="mt-2 text-sm" aria-live="polite">
-      <p className="font-medium">{labels[inspection.availability]}</p>
+      <p className="font-medium">
+        {inspection.readiness === "ready"
+          ? "Ready for supported offline activities"
+          : "Partial capability for supported offline activities"}
+      </p>
+      <p>Locally available: readable on this Client installation.</p>
+      <p>Freshness: {freshnessLabel(inspection.freshness)}</p>
+      <p>
+        Removal:{" "}
+        {inspection.removal === "pending" ? "pending" : "not requested"}. The
+        replica remains readable until removal is confirmed.
+      </p>
       <p>{byteSummary}</p>
       <p>Source-resource bodies are not retained or locally hashed.</p>
-      {inspection.reasons.map((reason) => (
-        <p key={reason}>{reason}</p>
-      ))}
+      <ul className="mt-2 list-disc pl-5">
+        {inspection.activities.map((activity) => (
+          <li key={activity.activity}>
+            {activity.label}: {activity.state}
+            {activity.reason ? ` - ${activity.reason}` : ""}
+          </li>
+        ))}
+      </ul>
     </div>
   );
+}
+
+function freshnessLabel(freshness: "current" | "outdated" | "unknown") {
+  if (freshness === "current") return "current after an online comparison.";
+  if (freshness === "outdated")
+    return "outdated; the historical replica remains readable.";
+  return "unknown because no online comparison was possible.";
 }
 
 function message(error: unknown) {

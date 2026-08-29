@@ -61,8 +61,14 @@ await mock.module("@/clients/library", () => ({
 
 await mock.module("@/offline-working-set/offline-working-set", () => ({
   offlineWorkingSets: {
+    confirmRemoval: async () => ({ status: "absent" }),
+    inspect: async () => ({ status: "absent" }),
     open: ({ sourceId, stateId }: Target) =>
       openingReads.retained({ sourceId, stateId }),
+    requestRemoval: async () => ({ status: "absent" }),
+    restore: async () => ({ status: "absent" }),
+    retain: async () => ({ status: "absent" }),
+    subscribe: () => () => undefined,
   },
 }));
 
