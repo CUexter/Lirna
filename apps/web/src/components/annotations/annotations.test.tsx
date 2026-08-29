@@ -126,7 +126,6 @@ test("scopes active component annotations, ignores stale text, updates, and dele
     await waitFor(() =>
       expect(calls.update).toEqual([
         {
-          ...annotationInput,
           id: "annotation-1",
           color: "green",
           kind: "note",
@@ -152,11 +151,7 @@ test("scopes active component annotations, ignores stale text, updates, and dele
       "Revised note.",
     );
     await user.click(view().getByRole("button", { name: "Delete annotation" }));
-    await waitFor(() =>
-      expect(calls.delete).toEqual([
-        { ...annotationInput, id: "annotation-1" },
-      ]),
-    );
+    await waitFor(() => expect(calls.delete).toEqual([{ id: "annotation-1" }]));
   } finally {
     highlights.restore();
   }

@@ -46,8 +46,6 @@ export interface CreateAnnotationInput extends AuthoredTargetInput {
 }
 
 export interface UpdateAnnotationInput {
-  sourceId: string;
-  stateId: string;
   id: string;
   color: AnnotationColor;
   kind: AnnotationKind;
@@ -59,5 +57,5 @@ export interface AnnotationOperations {
   list(sourceId: string, stateId: string): Promise<AnnotationRecord[]>;
   create(input: CreateAnnotationInput): Promise<AnnotationRecord | undefined>;
   update(input: UpdateAnnotationInput): Promise<AnnotationRecord | undefined>;
-  delete(sourceId: string, stateId: string, id: string): Promise<boolean>;
+  delete(id: string): Promise<boolean>;
 }

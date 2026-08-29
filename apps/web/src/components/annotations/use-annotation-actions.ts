@@ -45,7 +45,6 @@ export function useAnnotationActions({
     if (state.editing) {
       queries.update.mutate(
         {
-          ...queries.input,
           id: state.editing.id,
           color: state.color,
           kind: state.body.trim() ? "note" : "highlight",
@@ -71,7 +70,7 @@ export function useAnnotationActions({
   const deleteAnnotation = () => {
     if (!state.editing || !window.confirm("Delete this annotation?")) return;
     queries.remove.mutate(
-      { ...queries.input, id: state.editing.id },
+      { id: state.editing.id },
       { onSuccess: handleSuccess },
     );
   };

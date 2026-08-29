@@ -79,8 +79,6 @@ describe("DrizzleAnnotationStore mapping", () => {
     });
 
     await store.update({
-      sourceId,
-      stateId,
       id: annotationId,
       color: "blue",
       kind: "note",
@@ -99,8 +97,6 @@ describe("DrizzleAnnotationStore mapping", () => {
     });
 
     await store.update({
-      sourceId,
-      stateId,
       id: annotationId,
       color: "blue",
       kind: "highlight",
@@ -109,16 +105,12 @@ describe("DrizzleAnnotationStore mapping", () => {
     expect(updated?.body).toBeNull();
   });
 
-  test("reports whether a delete matched the Source state", async () => {
-    const missing = storeWith({ stateRows: [] });
-    await expect(
-      missing.delete(sourceId, stateId, annotationId),
-    ).resolves.toBeFalse();
+  test("reports whether a delete matched an annotation", async () => {
+    const missing = storeWith({});
+    await expect(missing.delete(annotationId)).resolves.toBeFalse();
 
     const deleted = storeWith({ writeRows: [{ id: annotationId }] });
-    await expect(
-      deleted.delete(sourceId, stateId, annotationId),
-    ).resolves.toBeTrue();
+    await expect(deleted.delete(annotationId)).resolves.toBeTrue();
   });
 });
 
@@ -187,14 +179,12 @@ function record(overrides: Partial<AnnotationRecord>): AnnotationRecord {
 }
 
 function storeWith({
-  stateRows = [{ id: stateId }],
   derivativeRows = [{}],
   listRows = [],
   writeRows = [],
   onInsert,
   onUpdate,
 }: {
-  stateRows?: unknown[];
   derivativeRows?: unknown[];
   listRows?: unknown[];
   writeRows?: unknown[];
@@ -231,7 +221,7 @@ function storeWith({
       }
       return {
         from: () => ({
-          where: () => ({ limit: () => Promise.resolve(stateRows) }),
+          where: () => ({ limit: () => Promise.resolve([]) }),
         }),
       };
     },

@@ -126,8 +126,6 @@ describePostgres("Annotation PostgreSQL store", () => {
     expect(await store.list(sourceId, stateId)).toHaveLength(1);
 
     const preserved = await store.update({
-      sourceId,
-      stateId,
       id: created?.id ?? "",
       color: "green",
       kind: "note",
@@ -135,8 +133,6 @@ describePostgres("Annotation PostgreSQL store", () => {
     expect(preserved).toMatchObject({ color: "green", body: "Initial note" });
 
     const updated = await store.update({
-      sourceId,
-      stateId,
       id: created?.id ?? "",
       color: "blue",
       kind: "highlight",
@@ -149,10 +145,8 @@ describePostgres("Annotation PostgreSQL store", () => {
       color: "blue",
       body: null,
     });
-    expect(
-      await store.delete(otherSourceId, stateId, created?.id ?? ""),
-    ).toBeFalse();
-    expect(await store.delete(sourceId, stateId, created?.id ?? "")).toBeTrue();
+    expect(await store.delete(randomUUID())).toBeFalse();
+    expect(await store.delete(created?.id ?? "")).toBeTrue();
     expect(await store.list(sourceId, stateId)).toEqual([]);
   });
 

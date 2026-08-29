@@ -84,9 +84,6 @@ export class DrizzleAnnotationStore implements AnnotationOperations {
   async update(
     input: UpdateAnnotationInput,
   ): Promise<AnnotationRecord | undefined> {
-    if (!(await this.sourceStateExists(input.sourceId, input.stateId))) {
-      return undefined;
-    }
     const body =
       input.body === undefined ? undefined : normalizeBody(input.body);
     if (body !== undefined) validateAnnotationBody(input.kind, body);
@@ -97,40 +94,17 @@ export class DrizzleAnnotationStore implements AnnotationOperations {
         ...(body === undefined ? {} : { body, kind: input.kind }),
         updatedAt: new Date(),
       })
-      .where(
-        and(
-          eq(annotations.id, input.id),
-          eq(annotations.sourceStateId, input.stateId),
-        ),
-      )
+      .where(eq(annotations.id, input.id))
       .returning();
     return annotation ? serializeAnnotation(annotation) : undefined;
   }
 
-  async delete(
-    sourceId: string,
-    stateId: string,
-    id: string,
-  ): Promise<boolean> {
-    if (!(await this.sourceStateExists(sourceId, stateId))) return false;
+  async delete(id: string): Promise<boolean> {
     const deleted = await this.database
       .delete(annotations)
-      .where(
-        and(eq(annotations.id, id), eq(annotations.sourceStateId, stateId)),
-      )
+      .where(eq(annotations.id, id))
       .returning({ id: annotations.id });
     return deleted.length > 0;
-  }
-
-  private async sourceStateExists(sourceId: string, stateId: string) {
-    const rows = await this.database
-      .select({ id: sourceStates.id })
-      .from(sourceStates)
-      .where(
-        and(eq(sourceStates.id, stateId), eq(sourceStates.sourceId, sourceId)),
-      )
-      .limit(1);
-    return rows.length > 0;
   }
 
   private async readingComponent(

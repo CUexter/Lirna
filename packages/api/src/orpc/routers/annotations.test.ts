@@ -144,7 +144,7 @@ describe("annotations oRPC router", () => {
     ).resolves.toEqual([record]);
   });
 
-  test("deletes an annotation within its Source state", async () => {
+  test("deletes an annotation by id", async () => {
     let deletedArgs: string[] | undefined;
     const operations = operationsStub({
       async delete(...args) {
@@ -156,30 +156,28 @@ describe("annotations oRPC router", () => {
     await expect(
       call(
         annotationsRouter.delete,
-        { sourceId, stateId, id: annotationId },
+        { id: annotationId },
         { context: context(operations) },
       ),
     ).resolves.toEqual({ deleted: true });
-    expect(deletedArgs).toEqual([sourceId, stateId, annotationId]);
+    expect(deletedArgs).toEqual([annotationId]);
   });
 
-  test("returns not found when deleting outside the Source state", async () => {
+  test("returns not found when deleting an unavailable annotation", async () => {
     await expect(
       call(
         annotationsRouter.delete,
-        { sourceId, stateId, id: annotationId },
+        { id: annotationId },
         { context: context(operationsStub()) },
       ),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
-  test("returns not found when an annotation is outside the Source state", async () => {
+  test("returns not found when updating an unavailable annotation", async () => {
     await expect(
       call(
         annotationsRouter.update,
         {
-          sourceId,
-          stateId,
           id: annotationId,
           color: "pink",
           kind: "highlight",

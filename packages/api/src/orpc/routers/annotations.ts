@@ -106,9 +106,7 @@ export const annotationsRouter = {
     }),
 
   update: publicProcedure
-    .input(
-      sourceStateInput.extend({ id: z.string().uuid(), color, kind, body }),
-    )
+    .input(z.object({ id: z.string().uuid(), color, kind, body }))
     .output(annotationSchema)
     .errors(annotationErrors)
     .meta(
@@ -137,7 +135,7 @@ export const annotationsRouter = {
     }),
 
   delete: publicProcedure
-    .input(sourceStateInput.extend({ id: z.string().uuid() }))
+    .input(z.object({ id: z.string().uuid() }))
     .output(z.object({ deleted: z.literal(true) }))
     .errors(notFoundError)
     .meta(
@@ -150,11 +148,7 @@ export const annotationsRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      const deleted = await context.annotations.delete(
-        input.sourceId,
-        input.stateId,
-        input.id,
-      );
+      const deleted = await context.annotations.delete(input.id);
       if (!deleted) throw notFound();
       return { deleted: true };
     }),
