@@ -170,6 +170,37 @@ describePostgres("Reading position PostgreSQL store", () => {
     ).resolves.toMatchObject({ scrollTop: 90 });
   });
 
+  test("keeps the later position and makes repeated synchronization idempotent", async () => {
+    const later = await store.save({
+      sourceId,
+      stateId,
+      componentIdentity: "supplement",
+      componentLabel: "Supplement",
+      scrollTop: 700,
+      savedAt: "2026-08-30T12:00:00.000Z",
+    });
+    const older = await store.save({
+      sourceId,
+      stateId,
+      componentIdentity: "supplement",
+      componentLabel: "Supplement",
+      scrollTop: 100,
+      savedAt: "2026-08-29T12:00:00.000Z",
+    });
+    const repeated = await store.save({
+      sourceId,
+      stateId,
+      componentIdentity: "supplement",
+      componentLabel: "Supplement",
+      scrollTop: 800,
+      savedAt: "2026-08-30T12:00:00.000Z",
+    });
+
+    expect(later).toMatchObject({ scrollTop: 700 });
+    expect(older).toEqual(later);
+    expect(repeated).toEqual(later);
+  });
+
   test("rejects an owner that does not belong to the persisted scene", async () => {
     await expect(
       store.save({

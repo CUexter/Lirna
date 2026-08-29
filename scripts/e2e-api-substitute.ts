@@ -20,6 +20,8 @@ const resumePosition = {
   scrollTop: 0,
   savedAt: "2026-08-17T12:00:00.000Z",
 };
+const offlineProgressAttempts = new Map();
+const offlineProgressSaves = new Map();
 const standardLimits = {
   maxComponents: 64,
   maxAssets: 256,
@@ -1120,20 +1122,53 @@ function createAnnotation(body, sessionId) {
 }
 
 function resumePositionFor(sessionId) {
-  return sessionId.startsWith("production-")
+  return durableResumeSession(sessionId)
     ? (resumeSessions.get(sessionId) ?? resumePosition)
     : null;
 }
 
 function saveResumePosition(body, sessionId) {
   const input = JSON.parse(body).json;
+  if (sessionId.startsWith("offline-progress-")) {
+    const saveNumber = offlineProgressSaves.get(sessionId) ?? 0;
+    offlineProgressSaves.set(sessionId, saveNumber + 1);
+    if (saveNumber === 0)
+      return orpcError(
+        "Synthetic progress synchronization failure",
+        "INTERNAL_SERVER_ERROR",
+      );
+    if (input.scrollTop === 0) {
+      input.scrollTop = 900;
+      input.savedAt = "2099-08-29T12:00:00.000Z";
+    }
+  }
+  if (input.savedAt && !sessionId.startsWith("offline-progress-")) {
+    const attempt = offlineProgressAttempts.get(input.savedAt) ?? 0;
+    offlineProgressAttempts.set(input.savedAt, attempt + 1);
+    if (attempt === 0)
+      return orpcError(
+        "Synthetic progress synchronization failure",
+        "INTERNAL_SERVER_ERROR",
+      );
+    if (input.scrollTop === 0) {
+      input.scrollTop = 900;
+      input.savedAt = "2099-08-29T12:00:00.000Z";
+    }
+  }
   const saved = {
     ...resumePosition,
     ...input,
-    savedAt: "2026-08-25T12:00:00.000Z",
+    savedAt: input.savedAt ?? "2026-08-25T12:00:00.000Z",
   };
-  if (sessionId.startsWith("production-")) resumeSessions.set(sessionId, saved);
+  if (durableResumeSession(sessionId)) resumeSessions.set(sessionId, saved);
   return orpcSuccess(saved);
+}
+
+function durableResumeSession(sessionId) {
+  return (
+    sessionId.startsWith("production-") ||
+    sessionId.startsWith("offline-progress-")
+  );
 }
 
 const citationEvidence = {
@@ -1301,11 +1336,11 @@ const orpcPostRoutes = {
       ? saveResumePosition(body, sessionId)
       : orpcSuccess(resumePositionFor(sessionId)),
   "sources/resume/get": (_body, sessionId) =>
-    sessionId.startsWith("production-")
+    durableResumeSession(sessionId)
       ? orpcSuccess(resumePositionFor(sessionId))
       : undefined,
   "sources/resume/save": (body, sessionId) =>
-    sessionId.startsWith("production-")
+    durableResumeSession(sessionId)
       ? saveResumePosition(body, sessionId)
       : undefined,
   "annotations/list": (_body, sessionId) =>

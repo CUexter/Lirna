@@ -61,6 +61,19 @@ export function OfflineWorkingSetPanel({
     }
   }
 
+  async function retryProgress() {
+    setPending(true);
+    setError(undefined);
+    try {
+      await workingSets.retryProgress({ sourceId, stateId });
+      setInspection(await workingSets.inspect({ sourceId, stateId }));
+    } catch (cause) {
+      setError(message(cause));
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <section
       aria-labelledby="offline-working-set-title"
@@ -86,6 +99,12 @@ export function OfflineWorkingSetPanel({
           onRetain={retain}
           pending={pending}
         />
+        {inspection?.status === "available" &&
+        inspection.progressSynchronization !== "synchronized" ? (
+          <Button disabled={pending} onClick={retryProgress} variant="outline">
+            {pending ? "Retrying…" : "Retry progress synchronization"}
+          </Button>
+        ) : null}
         <RemovalActions
           events={{
             onChange: setInspection,
@@ -263,6 +282,7 @@ export function OfflineWorkingSetStatus({
         replica remains readable until removal is confirmed.
       </p>
       <p>{byteSummary}</p>
+      <p>Progress synchronization: {inspection.progressSynchronization}.</p>
       <p>Source-resource bodies are not retained or locally hashed.</p>
       <ul className="mt-2 list-disc pl-5">
         {inspection.activities.map((activity) => (

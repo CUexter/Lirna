@@ -7,6 +7,15 @@ export interface OfflineWorkingSetRecord extends OfflineSnapshot {
   schemaVersion: 1;
   retainedAt: string;
   availability: "ready" | "partial" | "stale" | "pending-removal";
+  pendingProgress?: PendingReadingProgress[];
+}
+
+type ReadingPosition = NonNullable<InquiryOutputs["sources"]["resume"]["get"]>;
+
+export interface PendingReadingProgress {
+  position: ReadingPosition;
+  synchronization: "pending" | "failed";
+  message?: string;
 }
 
 export class UnsupportedOfflineWorkingSetSchemaError extends Error {
@@ -94,34 +103,81 @@ export async function validateSnapshot(snapshot: OfflineSnapshot) {
   }
 }
 
+export async function refreshReplicaIntegrity<T extends OfflineSnapshot>(
+  snapshot: T,
+): Promise<T> {
+  const serialized = JSON.stringify(snapshot.replica);
+  return {
+    ...snapshot,
+    manifest: {
+      ...snapshot.manifest,
+      replicaBytes: new TextEncoder().encode(serialized).byteLength,
+      replicaSha256: await sha256(serialized),
+    },
+  };
+}
+
 function validateRecord(candidate: Partial<OfflineWorkingSetRecord>) {
-  const availability = candidate.availability;
-  const manifest = candidate.manifest;
-  const replica = candidate.replica;
   if (
-    !isRecord(manifest) ||
-    manifest.version !== 1 ||
-    typeof manifest.sourceId !== "string" ||
-    typeof manifest.stateId !== "string" ||
-    !Array.isArray(manifest.resources) ||
-    !isRecord(manifest.activeDerivative) ||
-    !isRecord(manifest.serverRetention) ||
-    typeof manifest.replicaBytes !== "number" ||
-    typeof manifest.referencedResourceBytes !== "number" ||
-    typeof manifest.replicaSha256 !== "string" ||
+    !validManifest(candidate.manifest) ||
     typeof candidate.retainedAt !== "string" ||
-    !isRecord(replica) ||
-    !Array.isArray(replica.annotations) ||
-    !Array.isArray(replica.positions) ||
-    !isRecord(replica.workspace) ||
-    !isRecord(replica.workspace.state) ||
-    !Array.isArray(replica.workspace.state.resources) ||
-    !["ready", "partial", "stale", "pending-removal"].includes(
-      availability ?? "",
-    )
+    !validReplica(candidate.replica) ||
+    !validPendingProgress(candidate.pendingProgress, candidate.manifest) ||
+    !validAvailability(candidate.availability)
   ) {
     throw new Error("Offline replica record version is unsupported or corrupt");
   }
+}
+
+function validManifest(manifest: unknown) {
+  return (
+    isRecord(manifest) &&
+    manifest.version === 1 &&
+    typeof manifest.sourceId === "string" &&
+    typeof manifest.stateId === "string" &&
+    Array.isArray(manifest.resources) &&
+    isRecord(manifest.activeDerivative) &&
+    isRecord(manifest.serverRetention) &&
+    typeof manifest.replicaBytes === "number" &&
+    typeof manifest.referencedResourceBytes === "number" &&
+    typeof manifest.replicaSha256 === "string"
+  );
+}
+
+function validReplica(replica: unknown) {
+  return (
+    isRecord(replica) &&
+    Array.isArray(replica.annotations) &&
+    Array.isArray(replica.positions) &&
+    isRecord(replica.workspace) &&
+    isRecord(replica.workspace.state) &&
+    Array.isArray(replica.workspace.state.resources)
+  );
+}
+
+function validAvailability(availability: unknown) {
+  return ["ready", "partial", "stale", "pending-removal"].includes(
+    String(availability),
+  );
+}
+
+function validPendingProgress(pendingProgress: unknown, manifest: unknown) {
+  if (pendingProgress === undefined) return true;
+  if (!Array.isArray(pendingProgress) || !isRecord(manifest)) return false;
+  return pendingProgress.every((pending) => {
+    if (!isRecord(pending) || !isRecord(pending.position)) return false;
+    const position = pending.position;
+    return (
+      ["pending", "failed"].includes(String(pending.synchronization)) &&
+      (pending.message === undefined || typeof pending.message === "string") &&
+      position.sourceId === manifest.sourceId &&
+      position.stateId === manifest.stateId &&
+      typeof position.componentIdentity === "string" &&
+      typeof position.componentLabel === "string" &&
+      typeof position.scrollTop === "number" &&
+      typeof position.savedAt === "string"
+    );
+  });
 }
 
 function replicaMatchesTarget(

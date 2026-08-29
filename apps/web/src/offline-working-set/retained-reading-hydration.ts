@@ -9,18 +9,29 @@ import { type InquiryOutputs, inquiry } from "@/clients/inquiry";
 import { library } from "@/clients/library";
 import {
   historyPositionKey,
+  historyPositionSavedAt,
   removeReadingHistoryPosition,
   writeReadingHistoryPosition,
 } from "@/components/reading-workspace/reading-history-position";
 import type { RetainedReadingWorkspace } from "./offline-working-set";
 
 type ReadingWorkspaceData = InquiryOutputs["sources"]["readingWorkspace"];
+type RetainedReading = Extract<
+  RetainedReadingWorkspace,
+  { status: "available" }
+>;
+type SeededPosition = {
+  historyKey?: string;
+  queryKey?: QueryKey;
+  savedAt: string;
+};
 
 export type RetainedOpening =
   | {
       key: string;
       retainedAt: string;
       seededHistoryKeys: string[];
+      seededPositions: SeededPosition[];
       seededQueryKeys: QueryKey[];
       status: "ready";
       targetKey: string;
@@ -57,8 +68,7 @@ export function shouldHydrateRetained({
 }
 
 export function hydrateRetainedWorkspace({
-  priorSeededHistoryKeys,
-  priorSeededQueryKeys,
+  priorSeededPositions,
   queryClient,
   reading,
   retainedKey,
@@ -66,10 +76,9 @@ export function hydrateRetainedWorkspace({
   stateId,
   targetKey,
 }: {
-  priorSeededHistoryKeys: string[] | undefined;
-  priorSeededQueryKeys: QueryKey[] | undefined;
+  priorSeededPositions?: SeededPosition[];
   queryClient: QueryClient;
-  reading: Extract<RetainedReadingWorkspace, { status: "available" }>;
+  reading: RetainedReading;
   retainedKey: string;
   sourceId: string;
   stateId: string;
@@ -81,19 +90,20 @@ export function hydrateRetainedWorkspace({
   }> = [];
   const historyState = window.history.state;
   try {
-    const { seededHistoryKeys, seededQueryKeys } = installRetainedQueries({
-      priorSeededHistoryKeys,
-      priorSeededQueryKeys,
-      queryClient,
-      querySnapshots,
-      reading,
-      sourceId,
-      stateId,
-    });
+    const { seededHistoryKeys, seededPositions, seededQueryKeys } =
+      installRetainedQueries({
+        priorSeededPositions,
+        queryClient,
+        querySnapshots,
+        reading,
+        sourceId,
+        stateId,
+      });
     return {
       key: retainedKey,
       retainedAt: reading.retainedAt,
       seededHistoryKeys,
+      seededPositions,
       seededQueryKeys,
       status: "ready",
       targetKey,
@@ -145,61 +155,128 @@ export function reconcileRetainedQueries({
 }
 
 function installRetainedQueries({
-  priorSeededHistoryKeys,
-  priorSeededQueryKeys,
+  priorSeededPositions,
   queryClient,
   querySnapshots,
   reading,
   sourceId,
   stateId,
 }: {
-  priorSeededHistoryKeys: string[] | undefined;
-  priorSeededQueryKeys: QueryKey[] | undefined;
+  priorSeededPositions?: SeededPosition[];
   queryClient: QueryClient;
   querySnapshots: Array<{
     queryKey: QueryKey;
     state: QueryState<unknown, Error> | undefined;
   }>;
-  reading: Extract<RetainedReadingWorkspace, { status: "available" }>;
+  reading: RetainedReading;
   sourceId: string;
   stateId: string;
 }) {
-  for (const queryKey of priorSeededQueryKeys ?? []) {
-    snapshotQuery(queryClient, querySnapshots, queryKey);
-    queryClient.removeQueries({ exact: true, queryKey });
-  }
-  for (const historyKey of priorSeededHistoryKeys ?? []) {
-    removeReadingHistoryPosition(historyKey);
-  }
+  cleanupPriorSeededPositions(
+    priorSeededPositions,
+    queryClient,
+    querySnapshots,
+  );
   const annotationKey = library.annotations.list.queryOptions({
     input: { sourceId, stateId },
   }).queryKey;
   const seededHistoryKeys: string[] = [];
+  const seededPositions: SeededPosition[] = [];
   const seededQueryKeys: QueryKey[] = [annotationKey];
   snapshotQuery(queryClient, querySnapshots, annotationKey);
   queryClient.setQueryData(annotationKey, reading.annotations);
-  for (const position of reading.positions) {
-    const positionKey = inquiry.sources.resume.get.queryOptions({
-      input: {
-        sourceId,
-        stateId,
-        componentIdentity: position.componentIdentity,
-      },
-    }).queryKey;
-    seededQueryKeys.push(positionKey);
-    snapshotQuery(queryClient, querySnapshots, positionKey);
-    queryClient.setQueryData(positionKey, position);
-    if (position.semanticLocation) {
-      const historyKey = historyPositionKey(
-        sourceId,
-        stateId,
-        position.componentIdentity,
+  for (const position of reading.positions)
+    seedRetainedPosition({
+      position,
+      queryClient,
+      querySnapshots,
+      seededHistoryKeys,
+      seededPositions,
+      seededQueryKeys,
+      sourceId,
+      stateId,
+    });
+  return { seededHistoryKeys, seededPositions, seededQueryKeys };
+}
+
+function cleanupPriorSeededPositions(
+  seededPositions: SeededPosition[] | undefined,
+  queryClient: QueryClient,
+  querySnapshots: Array<{
+    queryKey: QueryKey;
+    state: QueryState<unknown, Error> | undefined;
+  }>,
+) {
+  for (const seeded of seededPositions ?? []) {
+    if (seeded.queryKey) {
+      snapshotQuery(queryClient, querySnapshots, seeded.queryKey);
+      const current = queryClient.getQueryData<{ savedAt?: string }>(
+        seeded.queryKey,
       );
-      seededHistoryKeys.push(historyKey);
-      writeReadingHistoryPosition(historyKey, position.semanticLocation);
+      if (current?.savedAt === seeded.savedAt)
+        queryClient.removeQueries({ exact: true, queryKey: seeded.queryKey });
     }
+    if (
+      seeded.historyKey &&
+      historyPositionSavedAt(seeded.historyKey) === seeded.savedAt
+    )
+      removeReadingHistoryPosition(seeded.historyKey);
   }
-  return { seededHistoryKeys, seededQueryKeys };
+}
+
+function seedRetainedPosition({
+  position,
+  queryClient,
+  querySnapshots,
+  seededHistoryKeys,
+  seededPositions,
+  seededQueryKeys,
+  sourceId,
+  stateId,
+}: {
+  position: RetainedReading["positions"][number];
+  queryClient: QueryClient;
+  querySnapshots: Array<{
+    queryKey: QueryKey;
+    state: QueryState<unknown, Error> | undefined;
+  }>;
+  seededHistoryKeys: string[];
+  seededPositions: SeededPosition[];
+  seededQueryKeys: QueryKey[];
+  sourceId: string;
+  stateId: string;
+}) {
+  const positionKey = inquiry.sources.resume.get.queryOptions({
+    input: { sourceId, stateId, componentIdentity: position.componentIdentity },
+  }).queryKey;
+  snapshotQuery(queryClient, querySnapshots, positionKey);
+  const current = queryClient.getQueryData<{ savedAt?: string }>(positionKey);
+  if (!(current?.savedAt && current.savedAt > position.savedAt)) {
+    seededQueryKeys.push(positionKey);
+    queryClient.setQueryData(positionKey, position);
+    seededPositions.push({ queryKey: positionKey, savedAt: position.savedAt });
+  }
+  if (!position.semanticLocation) return;
+  const historyKey = historyPositionKey(
+    sourceId,
+    stateId,
+    position.componentIdentity,
+  );
+  if (
+    !writeReadingHistoryPosition(
+      historyKey,
+      position.semanticLocation,
+      position.savedAt,
+    )
+  )
+    return;
+  seededHistoryKeys.push(historyKey);
+  const seeded = seededPositions.find(
+    (item) =>
+      item.savedAt === position.savedAt && item.queryKey === positionKey,
+  );
+  if (seeded) seeded.historyKey = historyKey;
+  else seededPositions.push({ historyKey, savedAt: position.savedAt });
 }
 
 function snapshotQuery(

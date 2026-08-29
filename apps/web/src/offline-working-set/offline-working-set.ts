@@ -1,9 +1,19 @@
-import type { InquiryOutputs } from "@/clients/inquiry";
+import type { InquiryInputs, InquiryOutputs } from "@/clients/inquiry";
 import type { AppShellCompatibility } from "./app-shell-compatibility";
 import { createBrowserOfflineWorkingSets } from "./offline-working-set-browser";
 
 type Snapshot = InquiryOutputs["sources"]["offlineManifest"];
 type Replica = Snapshot["replica"];
+type ReadingPosition = NonNullable<InquiryOutputs["sources"]["resume"]["get"]>;
+
+export type ReadingProgressInput = InquiryInputs["sources"]["resume"]["save"];
+export type ReadingProgressSaveResult =
+  | { status: "synchronized"; position: ReadingPosition }
+  | {
+      status: "pending";
+      position: ReadingPosition;
+      message: string;
+    };
 
 export interface OfflineWorkingSetTarget {
   sourceId: string;
@@ -56,6 +66,7 @@ export type OfflineWorkingSetInspection =
       replicaBytes: number;
       referencedResourceBytes: number;
       referencedResourceCount: number;
+      progressSynchronization: "synchronized" | "pending" | "failed";
     };
 
 export type OfflineWorkingSetInventoryEntry =
@@ -112,6 +123,9 @@ export interface OfflineWorkingSets {
   ): () => void;
   subscribeInventory(onChange: () => void): () => void;
   open(target: OfflineWorkingSetTarget): Promise<RetainedReadingWorkspace>;
+  saveProgress(input: ReadingProgressInput): Promise<ReadingProgressSaveResult>;
+  retryProgress(target: OfflineWorkingSetTarget): Promise<void>;
+  synchronizeProgress(): Promise<void>;
   retain(
     target: OfflineWorkingSetTarget,
     onProgress?: (completed: number, total: number) => void,

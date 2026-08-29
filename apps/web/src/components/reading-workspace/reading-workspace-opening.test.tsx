@@ -3,9 +3,13 @@ import { onlineManager } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 
 import { AppShellCompatibilityError } from "@/offline-working-set/app-shell-compatibility";
-import { historySemanticLocation } from "./reading-history-position";
+import {
+  historySemanticLocation,
+  writeReadingHistoryPosition,
+} from "./reading-history-position";
 import { sourceId, stateId } from "./reading-test-fixtures";
 import {
+  hydrateRetainedWorkspace,
   openingReads,
   queryWrapper,
   retainedPosition,
@@ -75,6 +79,85 @@ test("opens a retained Reading workspace while the browser is offline", async ()
       status: "ready",
       origin: "retained",
     }),
+  );
+});
+
+test("retained hydration preserves a newer locally recorded position", async () => {
+  const online = Promise.withResolvers<Workspace>();
+  const retained = retainedPosition(240);
+  const local = {
+    ...retainedPosition(640),
+    savedAt: "2026-08-27T12:00:00.000Z",
+  };
+  openingReads.online = () => online.promise;
+  openingReads.retained = async () =>
+    retainedRecord({ hash: "older-retained-position", positions: [retained] });
+  const client = testQueryClient();
+  const positionKey = [
+    "resume",
+    { sourceId, stateId, componentIdentity: "article" },
+  ];
+  client.setQueryData(positionKey, local);
+  if (!local.semanticLocation) throw new Error("Position fixture is semantic");
+  writeReadingHistoryPosition(
+    JSON.stringify([sourceId, stateId, "article"]),
+    local.semanticLocation,
+    local.savedAt,
+  );
+
+  renderHook(() => useReadingWorkspaceOpening({ sourceId, stateId }), {
+    wrapper: queryWrapper(client),
+  });
+
+  await waitFor(() =>
+    expect(client.getQueryData<typeof local>(positionKey)).toEqual(local),
+  );
+  expect(historySemanticLocation(sourceId, stateId, "article")).toEqual(
+    local.semanticLocation,
+  );
+});
+
+test("repeat retained hydration preserves progress written after the first hydration", () => {
+  const client = testQueryClient();
+  const positionKey = [
+    "resume",
+    { sourceId, stateId, componentIdentity: "article" },
+  ];
+  const reading = retainedRecord({
+    hash: "retained-position",
+    positions: [retainedPosition(240)],
+  }) as Parameters<typeof hydrateRetainedWorkspace>[0]["reading"];
+  hydrateRetainedWorkspace({
+    queryClient: client,
+    reading,
+    retainedKey: "first-retention",
+    sourceId,
+    stateId,
+    targetKey: JSON.stringify([sourceId, stateId]),
+  });
+  const local = {
+    ...retainedPosition(640),
+    savedAt: "2026-08-27T12:00:00.000Z",
+  };
+  client.setQueryData(positionKey, local);
+  writeReadingHistoryPosition(
+    JSON.stringify([sourceId, stateId, "article"]),
+    local.semanticLocation,
+    local.savedAt,
+  );
+
+  hydrateRetainedWorkspace({
+    queryClient: client,
+    reading,
+    retainedKey: "second-retention",
+    sourceId,
+    stateId,
+    targetKey: JSON.stringify([sourceId, stateId]),
+  });
+
+  expect(client.getQueryData<typeof local>(positionKey)).toEqual(local);
+  expect(historySemanticLocation(sourceId, stateId, "article")).toEqual(
+    local.semanticLocation,
   );
 });
 
@@ -245,7 +328,7 @@ test("rolls back failed retained hydration while online opening continues", asyn
   }
 });
 
-test("restores removed queries when replacement hydration fails", async () => {
+test("removes unchanged positions omitted by replacement hydration", async () => {
   const online = Promise.withResolvers<Workspace>();
   const initialAnnotations = [{ id: "initial-annotation" }];
   const initialPosition = retainedPosition(240);
@@ -270,31 +353,23 @@ test("restores removed queries when replacement hydration fails", async () => {
     expect(client.getQueryData<unknown>(positionKey)).toEqual(initialPosition),
   );
 
-  const replaceState = window.history.replaceState;
-  let rejectedWrite = false;
-  window.history.replaceState = function replacement() {
-    rejectedWrite = true;
-    throw new Error("History unavailable");
-  };
-  try {
-    await act(async () => {
-      client.setQueryData(
-        ["offline-working-set", sourceId, stateId],
-        retainedRecord({
-          annotations: [{ id: "replacement-annotation" }],
-          hash: "failed-replacement",
-          retainedAt: "2026-08-26T12:00:00.000Z",
-        }),
-      );
-      await Promise.resolve();
-    });
-
-    await waitFor(() => expect(rejectedWrite).toBe(true));
-    expect(client.getQueryData<unknown>(annotationKey)).toEqual(
-      initialAnnotations,
+  await act(async () => {
+    client.setQueryData(
+      ["offline-working-set", sourceId, stateId],
+      retainedRecord({
+        annotations: [{ id: "replacement-annotation" }],
+        hash: "replacement",
+        retainedAt: "2026-08-26T12:00:00.000Z",
+      }),
     );
-    expect(client.getQueryData<unknown>(positionKey)).toEqual(initialPosition);
-  } finally {
-    window.history.replaceState = replaceState;
-  }
+    await Promise.resolve();
+  });
+
+  await waitFor(() =>
+    expect(client.getQueryData<unknown>(annotationKey)).toEqual([
+      { id: "replacement-annotation" },
+    ]),
+  );
+  expect(client.getQueryData<unknown>(positionKey)).toBeUndefined();
+  expect(historySemanticLocation(sourceId, stateId, "article")).toBeUndefined();
 });

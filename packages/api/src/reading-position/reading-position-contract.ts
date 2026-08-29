@@ -69,6 +69,7 @@ export interface SaveReadingPositionInput {
   componentLabel: string;
   scrollTop: number;
   semanticLocation?: ReadingSemanticLocation;
+  savedAt?: string;
 }
 
 export interface ReadingPositionOperations {

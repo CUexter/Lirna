@@ -49,7 +49,7 @@ test.each([
   ).toBeTruthy();
   expect(view().getByText(/Read retained typed content/)).toBeTruthy();
   expect(
-    view().getByText(/Save reading progress offline: unsupported/),
+    view().getByText(/Save reading progress offline: supported/),
   ).toBeTruthy();
 });
 
@@ -240,7 +240,7 @@ function inspection(
       {
         activity: "save-reading-progress",
         label: "Save reading progress offline",
-        state: "unsupported",
+        state: "supported",
       },
     ],
     retainedAt: "2026-08-25T12:00:00.000Z",
@@ -248,6 +248,7 @@ function inspection(
     replicaBytes: 100,
     referencedResourceBytes: 250,
     referencedResourceCount: 2,
+    progressSynchronization: "synchronized",
     ...overrides,
   };
 }
@@ -261,6 +262,11 @@ function moduleFixture(
     inspect: async () => ({ status: "absent" }),
     subscribe: () => () => undefined,
     open: async () => ({ status: "absent" }),
+    saveProgress: async () => {
+      throw new Error("No progress fixture configured");
+    },
+    retryProgress: async () => undefined,
+    synchronizeProgress: async () => undefined,
     retain: async () => inspection(),
     requestRemoval: async () => inspection({ removal: "pending" }),
     restore: async () => inspection(),

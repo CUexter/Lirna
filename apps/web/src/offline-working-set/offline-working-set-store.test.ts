@@ -134,7 +134,7 @@ test("names supported activities and limitations independently", async () => {
         state: "supported",
       },
       { activity: "restore-retained-position", state: "supported" },
-      { activity: "save-reading-progress", state: "unsupported" },
+      { activity: "save-reading-progress", state: "supported" },
       { activity: "change-authored-records", state: "unsupported" },
       { activity: "launch-without-network", state: "supported" },
     ],
@@ -246,6 +246,152 @@ test("withholds readiness when application-shell compatibility is missing", asyn
       { activity: "change-authored-records", state: "unsupported" },
       { activity: "launch-without-network", state: "unsupported" },
     ],
+  });
+});
+
+test("persists offline movement across module restart and retries idempotently", async () => {
+  const records = new Map<string, unknown>();
+  let available = false;
+  let writes = 0;
+  const savePosition = async (
+    input: Parameters<
+      ReturnType<
+        typeof createMemoryOfflineWorkingSets
+      >["workingSets"]["saveProgress"]
+    >[0] & { savedAt?: string },
+  ) => {
+    writes += 1;
+    if (!available) throw new Error("Backend unavailable");
+    return {
+      ...input,
+      sourceTitle: "Synthetic Reading Source",
+      savedAt: input.savedAt ?? "2026-08-26T12:00:00.000Z",
+    };
+  };
+  const first = createMemoryOfflineWorkingSets({
+    fetchSnapshot: fixture,
+    records,
+    savePosition,
+  });
+  await first.workingSets.retain(target);
+
+  await expect(
+    first.workingSets.saveProgress({
+      ...target,
+      componentIdentity: "article",
+      componentLabel: "Article",
+      scrollTop: 640,
+    }),
+  ).resolves.toMatchObject({ status: "pending", position: { scrollTop: 640 } });
+  await expect(first.workingSets.inspect(target)).resolves.toMatchObject({
+    progressSynchronization: "failed",
+  });
+
+  const restarted = createMemoryOfflineWorkingSets({
+    fetchSnapshot: fixture,
+    records,
+    savePosition,
+  });
+  await expect(restarted.workingSets.open(target)).resolves.toMatchObject({
+    positions: [{ scrollTop: 640 }],
+  });
+  available = true;
+  await restarted.workingSets.retryProgress(target);
+  await restarted.workingSets.retryProgress(target);
+  await expect(restarted.workingSets.inspect(target)).resolves.toMatchObject({
+    progressSynchronization: "synchronized",
+  });
+  expect(writes).toBe(2);
+});
+
+test("keeps the later server position when reconnect reveals a conflict", async () => {
+  const serverPosition = {
+    sourceId: target.sourceId,
+    stateId: target.stateId,
+    sourceTitle: "Synthetic Reading Source",
+    componentIdentity: "article",
+    componentLabel: "Article",
+    scrollTop: 900,
+    savedAt: "2026-08-27T12:00:00.000Z",
+  };
+  const { workingSets } = createMemoryOfflineWorkingSets({
+    fetchSnapshot: fixture,
+    savePosition: async () => serverPosition,
+  });
+  await workingSets.retain(target);
+
+  await expect(
+    workingSets.saveProgress({
+      ...target,
+      componentIdentity: "article",
+      componentLabel: "Article",
+      scrollTop: 640,
+    }),
+  ).resolves.toEqual({ status: "synchronized", position: serverPosition });
+  await expect(workingSets.open(target)).resolves.toMatchObject({
+    positions: [{ scrollTop: 900, savedAt: serverPosition.savedAt }],
+  });
+});
+
+test("serializes overlapping progress saves without losing the newer write", async () => {
+  const firstSaveReached = Promise.withResolvers<void>();
+  const releaseFirstSave = Promise.withResolvers<void>();
+  let saves = 0;
+  const { workingSets } = createMemoryOfflineWorkingSets({
+    fetchSnapshot: fixture,
+    savePosition: async (position) => {
+      saves += 1;
+      if (saves === 1) {
+        firstSaveReached.resolve();
+        await releaseFirstSave.promise;
+      }
+      return {
+        ...position,
+        sourceTitle: "Synthetic Reading Source",
+        savedAt: position.savedAt ?? "2026-08-26T12:00:00.000Z",
+      };
+    },
+  });
+  await workingSets.retain(target);
+
+  const first = workingSets.saveProgress({
+    ...target,
+    componentIdentity: "article",
+    componentLabel: "Article",
+    scrollTop: 320,
+  });
+  await firstSaveReached.promise;
+  const second = workingSets.saveProgress({
+    ...target,
+    componentIdentity: "article",
+    componentLabel: "Article",
+    scrollTop: 640,
+  });
+  releaseFirstSave.resolve();
+  await Promise.all([first, second]);
+
+  await expect(workingSets.open(target)).resolves.toMatchObject({
+    positions: [{ scrollTop: 640 }],
+  });
+});
+
+test("retention refresh preserves newer synchronized progress", async () => {
+  const { workingSets } = createMemoryOfflineWorkingSets({
+    fetchSnapshot: fixture,
+    now: () => new Date("2026-08-27T12:00:00.000Z"),
+  });
+  await workingSets.retain(target);
+  await workingSets.saveProgress({
+    ...target,
+    componentIdentity: "article",
+    componentLabel: "Article",
+    scrollTop: 640,
+  });
+
+  await workingSets.retain(target);
+
+  await expect(workingSets.open(target)).resolves.toMatchObject({
+    positions: [{ scrollTop: 640, savedAt: "2026-08-27T12:00:00.000Z" }],
   });
 });
 

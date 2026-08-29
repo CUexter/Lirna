@@ -60,15 +60,10 @@ export function useReadingWorkspaceOpening({
   const [retainedOpening, setRetainedOpening] = useState<RetainedOpening>();
   const [reconciledRetainedKey, setReconciledRetainedKey] = useState<string>();
   const targetKey = JSON.stringify([sourceId, stateId]);
-  const priorSeededQueryKeys =
+  const priorSeededPositions =
     retainedOpening?.status === "ready" &&
     retainedOpening.targetKey === targetKey
-      ? retainedOpening.seededQueryKeys
-      : undefined;
-  const priorSeededHistoryKeys =
-    retainedOpening?.status === "ready" &&
-    retainedOpening.targetKey === targetKey
-      ? retainedOpening.seededHistoryKeys
+      ? retainedOpening.seededPositions
       : undefined;
   const retainedKey = retainedReading
     ? JSON.stringify([
@@ -93,8 +88,7 @@ export function useReadingWorkspaceOpening({
       return;
     setRetainedOpening(
       hydrateRetainedWorkspace({
-        priorSeededHistoryKeys,
-        priorSeededQueryKeys,
+        priorSeededPositions,
         queryClient,
         reading: retainedReading,
         retainedKey,
@@ -105,8 +99,7 @@ export function useReadingWorkspaceOpening({
     );
   }, [
     online.data,
-    priorSeededHistoryKeys,
-    priorSeededQueryKeys,
+    priorSeededPositions,
     queryClient,
     retainedReading,
     retainedKey,

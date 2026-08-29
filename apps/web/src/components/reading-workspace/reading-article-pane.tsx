@@ -74,7 +74,7 @@ export function ReadingArticlePane({
     parent?: Component;
     previous?: Component;
   };
-  resumeStatus: "saving" | "saved" | "error";
+  resumeStatus: "saving" | "saved" | "pending" | "error";
   source: ReadingDerivative["source"];
 }) {
   const {
@@ -169,19 +169,19 @@ function ReadingSyncStatus({
   status,
 }: {
   component: Component;
-  status: "saving" | "saved" | "error";
+  status: "saving" | "saved" | "pending" | "error";
 }) {
-  const message =
-    status === "saving"
-      ? "Syncing reading position..."
-      : status === "error"
-        ? "Reading position could not sync"
-        : `Reading position synced for ${component.label}`;
+  const message = {
+    saving: "Saving reading position...",
+    error: "Reading position could not be saved",
+    pending: "Reading position saved locally; synchronization will retry",
+    saved: `Reading position synchronized for ${component.label}`,
+  }[status];
   return (
     <p className="flex items-center gap-2 text-muted-foreground text-sm">
       <span
         aria-hidden="true"
-        className={`size-2 rounded-full ${status === "error" ? "bg-destructive" : "bg-emerald-500"}`}
+        className={`size-2 rounded-full ${status === "error" ? "bg-destructive" : status === "pending" ? "bg-amber-500" : "bg-emerald-500"}`}
       />
       {message}
     </p>

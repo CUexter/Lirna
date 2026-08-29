@@ -2,7 +2,10 @@ import {
   type AppShellCompatibility,
   persistedWorkingSetVersion,
 } from "./app-shell-compatibility";
-import type { OfflineWorkingSetTarget } from "./offline-working-set";
+import type {
+  OfflineWorkingSetTarget,
+  ReadingProgressInput,
+} from "./offline-working-set";
 import {
   createMemoryOfflineWorkingSetLifecycle,
   type OfflineWorkingSetLifecycle,
@@ -26,8 +29,16 @@ export function createMemoryOfflineWorkingSets(input: {
   records?: Map<string, unknown>;
   lifecycle?: OfflineWorkingSetLifecycle;
   sourceExists?: (sourceId: string) => Promise<boolean>;
+  savePosition?: (
+    input: ReadingProgressInput & { savedAt?: string },
+  ) => Promise<
+    NonNullable<
+      import("@/clients/inquiry").InquiryOutputs["sources"]["resume"]["get"]
+    >
+  >;
 }) {
   const records = input.records ?? new Map<string, unknown>();
+  const locks = new Map<string, Promise<void>>();
   return {
     records,
     workingSets: createOfflineWorkingSets({
@@ -39,6 +50,19 @@ export function createMemoryOfflineWorkingSets(input: {
           currentStateId: "20000000-0000-4000-8000-000000000000",
         })),
       now: input.now ?? (() => new Date("2026-08-26T12:00:00.000Z")),
+      runExclusive: (target, operation) =>
+        runMemoryExclusive(
+          locks,
+          `${target.sourceId}:${target.stateId}`,
+          operation,
+        ),
+      savePosition:
+        input.savePosition ??
+        (async (position) => ({
+          ...position,
+          sourceTitle: "Synthetic Reading Source",
+          savedAt: position.savedAt ?? "2026-08-26T12:00:00.000Z",
+        })),
       inspectAppShell:
         input.inspectAppShell ??
         (async (persistedVersion) =>
@@ -60,4 +84,22 @@ export function createMemoryOfflineWorkingSets(input: {
       subscribeToCurrentness: () => () => undefined,
     }),
   };
+}
+
+function runMemoryExclusive<T>(
+  locks: Map<string, Promise<void>>,
+  key: string,
+  operation: () => Promise<T>,
+) {
+  const prior = locks.get(key) ?? Promise.resolve();
+  const result = prior.then(operation, operation);
+  const settled = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  locks.set(key, settled);
+  void settled.finally(() => {
+    if (locks.get(key) === settled) locks.delete(key);
+  });
+  return result;
 }

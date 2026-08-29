@@ -58,6 +58,7 @@ export const sourceResumeRouter = {
           componentLabel: z.string().trim().min(1).max(2_000),
           scrollTop: z.number().int().nonnegative(),
           semanticLocation: readingSemanticLocationSchema.optional(),
+          savedAt: z.string().datetime().optional(),
         })
         .superRefine((input, context) => {
           const semantic = input.semanticLocation;

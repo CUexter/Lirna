@@ -2,11 +2,17 @@ import {
   type AppShellCompatibility,
   AppShellCompatibilityError,
 } from "./app-shell-compatibility";
+import {
+  createOfflineReadingProgress,
+  mergePendingProgress,
+  progressSynchronization,
+} from "./offline-reading-progress";
 import type {
   OfflineWorkingSetInspection,
   OfflineWorkingSetInventoryEntry,
   OfflineWorkingSets,
   OfflineWorkingSetTarget,
+  ReadingProgressInput,
   RetainedReadingWorkspace,
 } from "./offline-working-set";
 import { offlineActivityReadiness } from "./offline-working-set-activities";
@@ -42,6 +48,18 @@ interface OfflineWorkingSetDependencies {
     currentStateId?: string;
   }>;
   now(): Date;
+  runExclusive<T>(
+    target: OfflineWorkingSetTarget,
+    operation: () => Promise<T>,
+  ): Promise<T>;
+  savePosition(
+    input: ReadingProgressInput & { savedAt?: string },
+  ): Promise<
+    Extract<
+      RetainedReadingWorkspace,
+      { status: "available" }
+    >["positions"][number]
+  >;
   inspectAppShell(persistedVersion: number): Promise<AppShellCompatibility>;
   storage: OfflineWorkingSetStorage;
   lifecycle: OfflineWorkingSetLifecycle;
@@ -57,6 +75,8 @@ export function createOfflineWorkingSets({
   fetchCurrentness,
   inspectAppShell,
   now,
+  runExclusive,
+  savePosition,
   storage,
   lifecycle,
   sourceExists,
@@ -91,6 +111,16 @@ export function createOfflineWorkingSets({
     if (migrated && !(await persistRecord(key, record))) return undefined;
     return record;
   }
+
+  const progress = createOfflineReadingProgress({
+    entries: () => storage.entries(),
+    now,
+    persist: persistRecord,
+    publish: (target) => lifecycle.publish(target),
+    read,
+    runExclusive,
+    savePosition,
+  });
 
   async function inspect(target: OfflineWorkingSetTarget) {
     const stored = await storage.get(workingSetKey(target));
@@ -182,6 +212,7 @@ export function createOfflineWorkingSets({
       if (migrated && !(await persistRecord(key, record))) return absent();
       return reading(record);
     },
+    ...progress,
     async retain(target, onProgress = () => undefined) {
       const totalSteps = 2;
       onProgress(0, totalSteps);
@@ -189,7 +220,7 @@ export function createOfflineWorkingSets({
       validateTarget(snapshot, target);
       await validateSnapshot(snapshot);
       onProgress(1, totalSteps);
-      const record: OfflineWorkingSetRecord = {
+      let record: OfflineWorkingSetRecord = {
         ...snapshot,
         schemaVersion: 1,
         retainedAt: now().toISOString(),
@@ -198,7 +229,10 @@ export function createOfflineWorkingSets({
             ? "ready"
             : "partial",
       };
-      const retained = await persistRecord(workingSetKey(target), record);
+      const retained = await runExclusive(target, async () => {
+        record = await mergePendingProgress(record, await read(target));
+        return persistRecord(workingSetKey(target), record);
+      });
       if (!retained)
         throw new Error(
           "Offline retention is blocked while Source deletion is pending",
@@ -214,11 +248,15 @@ export function createOfflineWorkingSets({
       );
     },
     async requestRemoval(target) {
-      const record = await read(target);
-      if (!record) return absent();
-      const pending = { ...record, availability: "pending-removal" as const };
-      if (!(await persistRecord(workingSetKey(target), pending)))
-        return absent();
+      const pending = await runExclusive(target, async () => {
+        const record = await read(target);
+        if (!record) return undefined;
+        const next = { ...record, availability: "pending-removal" as const };
+        return (await persistRecord(workingSetKey(target), next))
+          ? next
+          : undefined;
+      });
+      if (!pending) return absent();
       lifecycle.publish(target);
       return inspection(
         pending,
@@ -227,18 +265,22 @@ export function createOfflineWorkingSets({
       );
     },
     async restore(target) {
-      const record = await read(target);
-      if (!record) return absent();
-      requirePendingRemoval(record, "restored");
-      const restored: OfflineWorkingSetRecord = {
-        ...record,
-        availability:
-          record.manifest.serverRetention.state === "ready"
-            ? "ready"
-            : "partial",
-      };
-      if (!(await persistRecord(workingSetKey(target), restored)))
-        return absent();
+      const restored = await runExclusive(target, async () => {
+        const record = await read(target);
+        if (!record) return undefined;
+        requirePendingRemoval(record, "restored");
+        const next: OfflineWorkingSetRecord = {
+          ...record,
+          availability:
+            record.manifest.serverRetention.state === "ready"
+              ? "ready"
+              : "partial",
+        };
+        return (await persistRecord(workingSetKey(target), next))
+          ? next
+          : undefined;
+      });
+      if (!restored) return absent();
       lifecycle.publish(target);
       return inspection(
         restored,
@@ -247,37 +289,51 @@ export function createOfflineWorkingSets({
       );
     },
     async confirmRemoval(target) {
-      const record = await read(target);
-      if (!record) return absent();
-      requirePendingRemoval(record, "removed");
-      await storage.delete(workingSetKey(target));
+      const removed = await runExclusive(target, async () => {
+        const record = await read(target);
+        if (!record) return false;
+        requirePendingRemoval(record, "removed");
+        await storage.delete(workingSetKey(target));
+        return true;
+      });
+      if (!removed) return absent();
       observedFreshness.delete(workingSetKey(target));
       lifecycle.publish(target);
       return absent();
     },
     async discardInventoryEntry(id) {
-      await storage.delete(id);
       const target = targetFromWorkingSetKey(id);
       if (target) {
+        await runExclusive(target, () => storage.delete(id));
         observedFreshness.delete(id);
         lifecycle.publish(target);
-      } else lifecycle.publish({});
+      } else {
+        await storage.delete(id);
+        lifecycle.publish({});
+      }
     },
     removeSource: sourceDeletion.removeSource,
     async reconcileSourceDeletion(sourceId, deleteSource) {
       return sourceDeletion.reconcile(sourceId, deleteSource);
     },
     async expireRetainedBefore(cutoff) {
-      const deleted = await storage.deleteMatching((id, stored) => {
-        if (!targetFromWorkingSetKey(id)) return false;
-        try {
-          const { record } = persistedRecord(stored);
-          return new Date(record.retainedAt) < cutoff;
-        } catch {
-          // Invalid records remain available for deliberate inventory recovery.
-          return false;
-        }
-      });
+      const deleted: string[] = [];
+      for (const [id] of await storage.entries()) {
+        const target = targetFromWorkingSetKey(id);
+        if (!target) continue;
+        await runExclusive(target, async () => {
+          const stored = await storage.get(id);
+          try {
+            if (stored === undefined) return;
+            const { record } = persistedRecord(stored);
+            if (new Date(record.retainedAt) >= cutoff) return;
+            await storage.delete(id);
+            deleted.push(id);
+          } catch {
+            // Invalid records remain available for deliberate inventory recovery.
+          }
+        });
+      }
       for (const id of deleted) {
         observedFreshness.delete(id);
         const target = targetFromWorkingSetKey(id);
@@ -396,12 +452,14 @@ function inspection(
       retainedReadiness,
       record.manifest.serverRetention.reasons,
       shellCompatibility,
+      progressSynchronization(record),
     ),
     retainedAt: record.retainedAt,
     synchronizedAt: record.manifest.synchronizedAt,
     replicaBytes: record.manifest.replicaBytes,
     referencedResourceBytes: record.manifest.referencedResourceBytes,
     referencedResourceCount: record.manifest.resources.length,
+    progressSynchronization: progressSynchronization(record),
   };
 }
 

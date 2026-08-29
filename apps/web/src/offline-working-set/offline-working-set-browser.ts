@@ -11,7 +11,7 @@ import { createOfflineWorkingSets } from "./offline-working-set-store";
 
 export function createBrowserOfflineWorkingSets() {
   const lifecycle = createBrowserOfflineWorkingSetLifecycle();
-  return createOfflineWorkingSets({
+  const workingSets = createOfflineWorkingSets({
     fetchSnapshot: (target) =>
       queryClient.fetchQuery(
         inquiry.sources.offlineManifest.queryOptions({
@@ -29,6 +29,16 @@ export function createBrowserOfflineWorkingSets() {
       };
     },
     now: () => new Date(),
+    runExclusive: (target, operation) =>
+      navigator.locks.request(
+        `lirna-offline-working-set:${target.sourceId}:${target.stateId}`,
+        operation,
+      ),
+    savePosition: (input) =>
+      queryClient
+        .getMutationCache()
+        .build(queryClient, inquiry.sources.resume.save.mutationOptions())
+        .execute(input),
     inspectAppShell: inspectBrowserAppShell,
     lifecycle,
     sourceExists: async (sourceId) => {
@@ -55,6 +65,12 @@ export function createBrowserOfflineWorkingSets() {
       };
     },
   });
+  window.addEventListener("online", () => {
+    void workingSets.synchronizeProgress();
+  });
+  if (navigator.onLine && "indexedDB" in window)
+    void workingSets.synchronizeProgress();
+  return workingSets;
 }
 
 function currentnessQuery(target: OfflineWorkingSetTarget) {

@@ -1,7 +1,7 @@
 import type { db } from "@lirna/db";
 import { readingPositions } from "@lirna/db/schema/reading-positions";
 import { sourceStates, sources } from "@lirna/db/schema/sources";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, lt } from "drizzle-orm";
 
 import type { ActiveReadingDerivativeOperations } from "../sep-admission/active-reading-derivative";
 import type { DatabaseExecutor } from "../sep-admission/sep-state-evidence";
@@ -81,6 +81,7 @@ export class DrizzleReadingPositionStore implements ReadingPositionOperations {
     if (!existing || !component) return undefined;
     if (input.semanticLocation && !semanticMatches(input, component.role))
       return undefined;
+    const savedAt = input.savedAt ? new Date(input.savedAt) : new Date();
 
     const [position] = await this.database
       .insert(readingPositions)
@@ -90,7 +91,7 @@ export class DrizzleReadingPositionStore implements ReadingPositionOperations {
         componentLabel: component.label,
         scrollTop: input.scrollTop,
         semanticLocation: input.semanticLocation ?? null,
-        savedAt: new Date(),
+        savedAt,
       })
       .onConflictDoUpdate({
         target: [
@@ -101,16 +102,17 @@ export class DrizzleReadingPositionStore implements ReadingPositionOperations {
           componentLabel: component.label,
           scrollTop: input.scrollTop,
           semanticLocation: input.semanticLocation ?? null,
-          savedAt: new Date(),
+          savedAt,
         },
+        setWhere: lt(readingPositions.savedAt, savedAt),
       })
       .returning();
-    return position
-      ? serialize(position, {
-          id: existing.sourceId,
-          title: existing.sourceTitle,
-        })
-      : undefined;
+    if (position)
+      return serialize(position, {
+        id: existing.sourceId,
+        title: existing.sourceTitle,
+      });
+    return this.get(input);
   }
 }
 

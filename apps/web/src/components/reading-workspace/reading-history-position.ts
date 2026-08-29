@@ -4,6 +4,7 @@ const legacyHistoryPositionsKey = "lirnaReadingPositions";
 const legacyHistoryNavigationPositionsKey = "lirnaReadingNavigationPositions";
 const legacyHistorySemanticPositionsKey = "lirnaReadingSemanticPositions";
 const historyLocationsKey = "lirnaReadingLocations";
+const historyLocationSavedAtKey = "lirnaReadingLocationSavedAt";
 
 export function historyPositionKey(
   sourceId: string,
@@ -46,24 +47,37 @@ export function historySemanticLocation(
     : undefined;
 }
 
+export function historyPositionSavedAt(key: string) {
+  const savedAt = objectState(historyState()[historyLocationSavedAtKey])[key];
+  return typeof savedAt === "string" ? savedAt : undefined;
+}
+
 export function writeReadingHistoryPosition(
   key: string,
   semanticLocation: ReadingSemanticLocation,
+  savedAt = new Date().toISOString(),
 ) {
   const state = historyState();
+  const savedPositions = objectState(state[historyLocationSavedAtKey]);
+  const currentSavedAt = savedPositions[key];
+  if (typeof currentSavedAt === "string" && currentSavedAt > savedAt)
+    return false;
   const locations = objectState(state[historyLocationsKey]);
   window.history.replaceState(
     {
       ...state,
       [historyLocationsKey]: { ...locations, [key]: semanticLocation },
+      [historyLocationSavedAtKey]: { ...savedPositions, [key]: savedAt },
     },
     "",
   );
+  return true;
 }
 
 export function removeReadingHistoryPosition(key: string) {
   const state = historyState();
   const locations = withoutKey(state[historyLocationsKey], key);
+  const savedPositions = withoutKey(state[historyLocationSavedAtKey], key);
   const legacyPositions = withoutKey(state[legacyHistoryPositionsKey], key);
   const legacySemanticPositions = withoutKey(
     state[legacyHistorySemanticPositionsKey],
@@ -75,6 +89,7 @@ export function removeReadingHistoryPosition(key: string) {
   );
   if (
     locations === state[historyLocationsKey] &&
+    savedPositions === state[historyLocationSavedAtKey] &&
     legacyPositions === state[legacyHistoryPositionsKey] &&
     legacySemanticPositions === state[legacyHistorySemanticPositionsKey] &&
     legacyNavigation === state[legacyHistoryNavigationPositionsKey]
@@ -84,6 +99,7 @@ export function removeReadingHistoryPosition(key: string) {
     {
       ...state,
       [historyLocationsKey]: locations,
+      [historyLocationSavedAtKey]: savedPositions,
       [legacyHistoryPositionsKey]: legacyPositions,
       [legacyHistorySemanticPositionsKey]: legacySemanticPositions,
       [legacyHistoryNavigationPositionsKey]: legacyNavigation,

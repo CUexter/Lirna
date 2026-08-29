@@ -75,6 +75,9 @@ await mock.module("@/offline-working-set/offline-working-set", () => ({
 export const { useReadingWorkspaceOpening } = await import(
   "@/offline-working-set/reading-workspace-opening"
 );
+export const { hydrateRetainedWorkspace } = await import(
+  "@/offline-working-set/retained-reading-hydration"
+);
 
 export function retainedRecord({
   annotations = [],

@@ -5,6 +5,7 @@ export function offlineActivityReadiness(
   readiness: "ready" | "partial",
   reasons: string[],
   shellCompatibility: AppShellCompatibility,
+  progressSynchronization: "synchronized" | "pending" | "failed",
 ): OfflineActivityReadiness[] {
   const limitation = reasons.join(" ") || undefined;
   return [
@@ -29,12 +30,18 @@ export function offlineActivityReadiness(
       label: "Restore retained reading positions",
       state: "supported",
     }),
-    {
+    requiringShell(shellCompatibility, {
       activity: "save-reading-progress",
       label: "Save reading progress offline",
-      state: "unsupported",
-      reason: "Offline progress is not durable or synchronized yet.",
-    },
+      state: "supported",
+      ...(progressSynchronization === "pending"
+        ? { reason: "Locally saved progress is waiting to synchronize." }
+        : progressSynchronization === "failed"
+          ? {
+              reason: "Locally saved progress is preserved and can be retried.",
+            }
+          : {}),
+    }),
     {
       activity: "change-authored-records",
       label: "Change Annotations or Citation selections offline",

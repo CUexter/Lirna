@@ -34,7 +34,9 @@ export function useReadingResume({
     sourceId,
     stateId,
   });
-  const [status, setStatus] = useState<"saving" | "saved" | "error">("saving");
+  const [status, setStatus] = useState<
+    "saving" | "saved" | "pending" | "error"
+  >("saving");
   const componentIdentity = component?.identity;
   const componentLabel = component?.label;
 
@@ -76,7 +78,8 @@ export function useReadingResume({
         },
         {
           onError: () => setStatus("error"),
-          onSuccess: () => setStatus("saved"),
+          onSuccess: (result) =>
+            setStatus(result.status === "synchronized" ? "saved" : "pending"),
         },
       );
     };

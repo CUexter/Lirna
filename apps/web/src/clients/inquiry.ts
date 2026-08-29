@@ -1,5 +1,5 @@
 import type { InquiryRouter } from "@lirna/api/client";
-import type { InferClientOutputs } from "@orpc/client";
+import type { InferClientInputs, InferClientOutputs } from "@orpc/client";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import type { RouterClient } from "@orpc/server";
@@ -20,3 +20,4 @@ const client = createORPCClient<RouterClient<InquiryRouter>>(link);
 export const inquiry = createTanstackQueryUtils(client);
 
 export type InquiryOutputs = InferClientOutputs<typeof client>;
+export type InquiryInputs = InferClientInputs<typeof client>;

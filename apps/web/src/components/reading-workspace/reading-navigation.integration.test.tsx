@@ -31,6 +31,19 @@ await mock.module("@/clients/inquiry", () => ({
   },
 }));
 
+await mock.module("@/offline-working-set/offline-working-set", () => ({
+  offlineWorkingSets: {
+    saveProgress: async (input: Record<string, unknown>) => ({
+      status: "synchronized",
+      position: {
+        ...input,
+        sourceTitle: "Synthetic Reading Source",
+        savedAt: "2026-08-29T12:00:00.000Z",
+      },
+    }),
+  },
+}));
+
 const { useReadingSceneNavigationObservations } = await import(
   "./navigation-observer"
 );

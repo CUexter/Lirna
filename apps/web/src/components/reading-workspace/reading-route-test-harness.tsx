@@ -50,6 +50,19 @@ await mock.module("@/offline-working-set/offline-working-set", () => ({
     requestRemoval: async () => ({ status: "absent" }),
     restore: async () => ({ status: "absent" }),
     retain: async () => ({ status: "absent" }),
+    saveProgress: async (input: Record<string, unknown>) => {
+      calls.resumeSave.push(input);
+      return {
+        status: "synchronized",
+        position: {
+          ...input,
+          sourceTitle: "Synthetic Reading Source",
+          savedAt: "2026-08-29T12:00:00.000Z",
+        },
+      };
+    },
+    retryProgress: async () => undefined,
+    synchronizeProgress: async () => undefined,
     subscribe: () => () => undefined,
   },
 }));

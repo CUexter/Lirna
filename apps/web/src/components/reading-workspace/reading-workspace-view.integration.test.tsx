@@ -36,7 +36,7 @@ test("renders Source-state scholarly apparatus", async () => {
   );
   await waitFor(() =>
     expect(
-      view().getByText("Reading position synced for Article"),
+      view().getByText("Reading position synchronized for Article"),
     ).toBeTruthy(),
   );
   expect(calls.annotations).toEqual([{ sourceId, stateId }]);
