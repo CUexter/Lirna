@@ -5,13 +5,13 @@ import { type InquiryOutputs, inquiry } from "@/clients/inquiry";
 import {
   offlineWorkingSets,
   type RetainedReadingWorkspace,
-} from "@/offline-working-set/offline-working-set";
+} from "./offline-working-set";
 import {
   hydrateRetainedWorkspace,
   type RetainedOpening,
   reconcileRetainedQueries,
   shouldHydrateRetained,
-} from "./reading-workspace-opening-hydration";
+} from "./retained-reading-hydration";
 
 type ReadingWorkspaceData = InquiryOutputs["sources"]["readingWorkspace"];
 

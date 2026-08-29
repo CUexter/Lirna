@@ -2,8 +2,8 @@ import { createFileRoute, useLocation } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
 import { z } from "zod";
 
-import { useReadingWorkspaceOpening } from "@/components/reading-workspace/reading-workspace-opening";
 import { ReadingWorkspace } from "@/components/reading-workspace/workspace";
+import { useReadingWorkspaceOpening } from "@/offline-working-set/reading-workspace-opening";
 
 const SourceInformation = lazy(() =>
   import("@/components/reading-workspace/source-information").then(

@@ -7,12 +7,12 @@ import {
 
 import { type InquiryOutputs, inquiry } from "@/clients/inquiry";
 import { library } from "@/clients/library";
-import type { RetainedReadingWorkspace } from "@/offline-working-set/offline-working-set";
 import {
   historyPositionKey,
   removeReadingHistoryPosition,
   writeReadingHistoryPosition,
-} from "./reading-history-position";
+} from "@/components/reading-workspace/reading-history-position";
+import type { RetainedReadingWorkspace } from "./offline-working-set";
 
 type ReadingWorkspaceData = InquiryOutputs["sources"]["readingWorkspace"];
 

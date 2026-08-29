@@ -96,6 +96,41 @@ test("retains and reads a verified working set with the backend unavailable", as
   ).toHaveAttribute("href", "https://example.com/epistemology");
 });
 
+test("returns to the online Reading workspace after retained fallback", async ({
+  page,
+}) => {
+  await page.goto(readingUrl);
+  await page
+    .getByRole("button", { name: "Retain for offline reading" })
+    .click();
+  await expect(
+    page.getByText("Ready for supported offline activities"),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const registration = await navigator.serviceWorker.ready;
+        return Boolean(registration.active);
+      }),
+    )
+    .toBe(true);
+  await page.route("**/orpc/**", (route) => route.abort("connectionfailed"));
+  await page.reload();
+  await expect(page.getByText("Visible typed paragraph.")).toBeVisible();
+
+  await page.unroute("**/orpc/**");
+  await page.route("**/orpc/sources/readingWorkspace*", async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.json.reading.source.title = "Online recovery title";
+    await route.fulfill({ response, json: body });
+  });
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Online recovery title" }),
+  ).toBeVisible();
+});
+
 test("makes removal recoverable until explicit confirmation", async ({
   page,
 }) => {
