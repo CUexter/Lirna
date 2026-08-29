@@ -2,7 +2,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { type InquiryOutputs, inquiry } from "@/clients/inquiry";
-import { readOfflineWorkingSet } from "@/offline-working-set/offline-working-set-store";
+import {
+  offlineWorkingSets,
+  type RetainedReadingWorkspace,
+} from "@/offline-working-set/offline-working-set";
 import {
   hydrateRetainedWorkspace,
   type RetainedOpening,
@@ -48,10 +51,10 @@ export function useReadingWorkspaceOpening({
   );
   const retained = useQuery({
     queryKey: ["offline-working-set", sourceId, stateId],
-    queryFn: async () =>
-      (await readOfflineWorkingSet(sourceId, stateId)) ?? null,
+    queryFn: () => offlineWorkingSets.open({ sourceId, stateId }),
     networkMode: "always",
   });
+  const retainedReading = availableRetainedReading(retained.data);
   const [retainedOpening, setRetainedOpening] = useState<RetainedOpening>();
   const [reconciledRetainedKey, setReconciledRetainedKey] = useState<string>();
   const targetKey = JSON.stringify([sourceId, stateId]);
@@ -65,12 +68,12 @@ export function useReadingWorkspaceOpening({
     retainedOpening.targetKey === targetKey
       ? retainedOpening.seededHistoryKeys
       : undefined;
-  const retainedKey = retained.data
+  const retainedKey = retainedReading
     ? JSON.stringify([
         sourceId,
         stateId,
-        retained.data.retainedAt,
-        retained.data.manifest.replicaSha256,
+        retainedReading.retainedAt,
+        retainedReading.revision,
       ])
     : undefined;
 
@@ -79,11 +82,11 @@ export function useReadingWorkspaceOpening({
       !shouldHydrateRetained({
         onlineWorkspace: online.data,
         opening: retainedOpening,
-        record: retained.data,
+        reading: retainedReading,
         retainedKey,
         targetKey,
       }) ||
-      !(retained.data && retainedKey)
+      !(retainedReading && retainedKey)
     )
       return;
     setRetainedOpening(
@@ -91,7 +94,7 @@ export function useReadingWorkspaceOpening({
         priorSeededHistoryKeys,
         priorSeededQueryKeys,
         queryClient,
-        record: retained.data,
+        reading: retainedReading,
         retainedKey,
         sourceId,
         stateId,
@@ -103,7 +106,7 @@ export function useReadingWorkspaceOpening({
     priorSeededHistoryKeys,
     priorSeededQueryKeys,
     queryClient,
-    retained.data,
+    retainedReading,
     retainedKey,
     retainedOpening,
     sourceId,
@@ -133,13 +136,19 @@ export function useReadingWorkspaceOpening({
     onlinePending: online.isPending,
     onlineWorkspace: online.data,
     reconciledRetainedKey,
-    retainedAt: retained.data?.retainedAt,
+    retainedAt: retainedReading?.retainedAt,
     retainedError: retained.error,
     retainedKey,
     retainedOpening,
     retainedPending: retained.isPending,
     targetKey,
   });
+}
+
+function availableRetainedReading(
+  reading: RetainedReadingWorkspace | undefined,
+) {
+  return reading?.status === "available" ? reading : undefined;
 }
 
 function selectOpening({

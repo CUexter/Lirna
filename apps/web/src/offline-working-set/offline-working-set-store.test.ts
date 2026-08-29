@@ -1,202 +1,142 @@
 import { expect, test } from "bun:test";
 
 import { readingWorkspaceFixture } from "@/components/reading-workspace/source-information-test-fixture";
-import {
-  confirmOfflineWorkingSetRemoval,
-  markOfflineWorkingSetStale,
-  type OfflineSnapshot,
-  type OfflineWorkingSetRecord,
-  type OfflineWorkingSetStorage,
-  readOfflineWorkingSet,
-  requestOfflineWorkingSetRemoval,
-  restoreOfflineWorkingSet,
-  retainOfflineWorkingSet,
-  validateSnapshot,
-} from "./offline-working-set-store";
+import type { OfflineWorkingSetTarget } from "./offline-working-set";
+import { createMemoryOfflineWorkingSets } from "./offline-working-set-test-support";
 
-test("validates the retained typed Reading replica locally", async () => {
-  const snapshot = await fixture();
-  await expect(validateSnapshot(snapshot)).resolves.toBeUndefined();
+const target: OfflineWorkingSetTarget = {
+  sourceId: "10000000-0000-4000-8000-000000000000",
+  stateId: "20000000-0000-4000-8000-000000000000",
+};
 
-  snapshot.replica.workspace.state.resources[0].sha256 = "f".repeat(64);
-  await expect(validateSnapshot(snapshot)).rejects.toThrow(
-    "typed Reading replica failed local SHA-256 validation",
-  );
-});
-
-test("does not claim to validate referenced Source-resource bodies locally", async () => {
-  const snapshot = await fixture();
-  snapshot.manifest.resources[0].byteLength += 1;
-  await expect(validateSnapshot(snapshot)).resolves.toBeUndefined();
-});
-
-test("persists stale and recoverable removal transitions without deleting the replica", async () => {
-  const records = new Map<string, OfflineWorkingSetRecord>();
-  const storage = memoryStorage(records);
+test("owns retention, currentness, and recoverable removal behind one interface", async () => {
   const progress: Array<[number, number]> = [];
-  const retained = await retainOfflineWorkingSet(
-    await fixture(),
-    (completed, total) => progress.push([completed, total]),
-    storage,
-  );
-  expect(progress.at(0)).toEqual([0, 2]);
-  expect(progress.at(-1)).toEqual([2, 2]);
-  await expect(
-    readOfflineWorkingSet(
-      retained.manifest.sourceId,
-      retained.manifest.stateId,
-      storage,
-    ),
-  ).resolves.toMatchObject({ availability: "ready" });
-
-  const stale = await markOfflineWorkingSetStale(retained, storage);
-  expect(stale.availability).toBe("stale");
-  const pending = await requestOfflineWorkingSetRemoval(stale, storage);
-  expect(pending.availability).toBe("pending-removal");
-  const restored = await restoreOfflineWorkingSet(pending, storage);
-  expect(restored.availability).toBe("ready");
-
-  await confirmOfflineWorkingSetRemoval(
-    restored.manifest.sourceId,
-    restored.manifest.stateId,
-    storage,
-  );
-  expect(records.size).toBe(0);
-});
-
-test("uses the IndexedDB adapter for the durable Client replica", async () => {
-  const original = globalThis.indexedDB;
-  const records = new Map<IDBValidKey, unknown>();
-  Object.defineProperty(globalThis, "indexedDB", {
-    configurable: true,
-    value: fakeIndexedDb(records),
+  const { workingSets } = createMemoryOfflineWorkingSets({
+    fetchSnapshot: fixture,
   });
-  try {
-    const retained = await retainOfflineWorkingSet(await fixture());
-    await expect(
-      readOfflineWorkingSet(
-        retained.manifest.sourceId,
-        retained.manifest.stateId,
-      ),
-    ).resolves.toMatchObject({ availability: "ready" });
-    await confirmOfflineWorkingSetRemoval(
-      retained.manifest.sourceId,
-      retained.manifest.stateId,
-    );
-    await expect(
-      readOfflineWorkingSet(
-        retained.manifest.sourceId,
-        retained.manifest.stateId,
-      ),
-    ).resolves.toBeUndefined();
-  } finally {
-    Object.defineProperty(globalThis, "indexedDB", {
-      configurable: true,
-      value: original,
-    });
-  }
-});
 
-test("rejects unsupported persisted replica versions", async () => {
-  const storage: OfflineWorkingSetStorage = {
-    async get() {
-      return { manifest: { version: 2 } };
-    },
-    async put() {},
-    async delete() {},
-  };
   await expect(
-    readOfflineWorkingSet("source", "state", storage),
-  ).rejects.toThrow("version is unsupported or corrupt");
-});
-
-test("rejects foreign replica content under a matching Source-state manifest", async () => {
-  const record: OfflineWorkingSetRecord = {
-    ...(await fixture()),
-    retainedAt: "2026-08-26T12:00:00.000Z",
+    workingSets.inspect(target, {
+      activationId: "40000000-0000-4000-8000-000000000000",
+      currentStateId: target.stateId,
+    }),
+  ).resolves.toEqual({ status: "absent" });
+  await expect(
+    workingSets.retain(target, (completed, total) =>
+      progress.push([completed, total]),
+    ),
+  ).resolves.toMatchObject({
+    status: "available",
     availability: "ready",
-  };
-  record.replica.workspace.state.sourceId = "foreign-source";
-  record.manifest.replicaSha256 = await hash(JSON.stringify(record.replica));
-  const { sourceId, stateId } = record.manifest;
-  const records = new Map<string, OfflineWorkingSetRecord>([
-    [`${sourceId}:${stateId}`, record],
+    replicaBytes: expect.any(Number),
+    referencedResourceBytes: 1200,
+    referencedResourceCount: 1,
+  });
+  expect(progress).toEqual([
+    [0, 2],
+    [1, 2],
+    [2, 2],
   ]);
 
   await expect(
-    readOfflineWorkingSet(sourceId, stateId, memoryStorage(records)),
-  ).rejects.toThrow("does not match the requested Source state");
+    workingSets.inspect(target, { activationId: "new-activation" }),
+  ).resolves.toMatchObject({ availability: "stale" });
+  await expect(workingSets.restore(target)).rejects.toThrow(
+    "must have removal requested before it can be restored",
+  );
+  await expect(workingSets.confirmRemoval(target)).rejects.toThrow(
+    "must have removal requested before it can be removed",
+  );
+  await expect(workingSets.requestRemoval(target)).resolves.toMatchObject({
+    availability: "pending-removal",
+  });
+  await expect(workingSets.open(target)).resolves.toMatchObject({
+    status: "available",
+    workspace: { source: { id: target.sourceId } },
+  });
+  await expect(workingSets.restore(target)).resolves.toMatchObject({
+    availability: "ready",
+  });
+  await expect(workingSets.restore(target)).rejects.toThrow(
+    "must have removal requested before it can be restored",
+  );
+  await expect(workingSets.confirmRemoval(target)).rejects.toThrow(
+    "must have removal requested before it can be removed",
+  );
+  await workingSets.requestRemoval(target);
+  await expect(workingSets.confirmRemoval(target)).resolves.toEqual({
+    status: "absent",
+  });
+  await expect(workingSets.open(target)).resolves.toEqual({ status: "absent" });
 });
 
-function fakeIndexedDb(records: Map<IDBValidKey, unknown>) {
-  const store = {
-    get(key: IDBValidKey) {
-      return fakeRequest(records.get(key));
-    },
-    put(value: unknown, key: IDBValidKey) {
-      records.set(key, value);
-      return fakeRequest(key);
-    },
-    delete(key: IDBValidKey) {
-      records.delete(key);
-      return fakeRequest(undefined);
-    },
-  } as IDBObjectStore;
-  const database = {
-    objectStoreNames: { contains: () => false },
-    createObjectStore: () => store,
-    transaction: () => {
-      const transaction = {
-        error: null,
-        objectStore: () => store,
-      } as unknown as IDBTransaction;
-      queueMicrotask(() =>
-        queueMicrotask(() => transaction.oncomplete?.({} as Event)),
-      );
-      return transaction;
-    },
-    close: () => undefined,
-  } as unknown as IDBDatabase;
-  return {
-    open() {
-      const request = { result: database } as IDBOpenDBRequest;
-      queueMicrotask(() => {
-        request.onupgradeneeded?.({} as IDBVersionChangeEvent);
-        request.onsuccess?.({} as Event);
-      });
-      return request;
-    },
-  } as unknown as IDBFactory;
-}
+test("validates a replacement before preserving it and leaves the prior replica usable", async () => {
+  let snapshot = await fixture();
+  const { workingSets } = createMemoryOfflineWorkingSets({
+    fetchSnapshot: async () => snapshot,
+  });
+  await workingSets.retain(target);
+  const prior = await workingSets.open(target);
 
-function fakeRequest<T>(value: T) {
-  const request = { result: value } as IDBRequest<T>;
-  queueMicrotask(() => request.onsuccess?.({} as Event));
-  return request;
-}
+  snapshot = structuredClone(snapshot);
+  snapshot.replica.workspace.reading.source.title = "Unverified replacement";
+  await expect(workingSets.retain(target)).rejects.toThrow(
+    "typed Reading replica failed local SHA-256 validation",
+  );
+  await expect(workingSets.open(target)).resolves.toEqual(prior);
+});
 
-function memoryStorage(
-  records: Map<string, OfflineWorkingSetRecord>,
-): OfflineWorkingSetStorage {
-  return {
-    async get(key) {
-      return records.get(key);
-    },
-    async put(key, record) {
-      records.set(key, record);
-    },
-    async delete(key) {
-      records.delete(key);
-    },
-  };
-}
+test("rejects a foreign replacement before changing the retained target", async () => {
+  let snapshot = await fixture();
+  const { workingSets } = createMemoryOfflineWorkingSets({
+    fetchSnapshot: async () => snapshot,
+  });
+  await workingSets.retain(target);
+  const prior = await workingSets.open(target);
 
-async function fixture(): Promise<OfflineSnapshot> {
+  snapshot = structuredClone(snapshot);
+  snapshot.replica.workspace.state.sourceId = "foreign-source";
+  snapshot.manifest.replicaSha256 = await hash(
+    JSON.stringify(snapshot.replica),
+  );
+  await expect(workingSets.retain(target)).rejects.toThrow(
+    "does not match the requested Source state",
+  );
+  await expect(workingSets.open(target)).resolves.toEqual(prior);
+});
+
+test("validates the typed replica without claiming local Source-resource bodies", async () => {
+  const snapshot = await fixture();
+  snapshot.manifest.resources[0].byteLength += 1;
+  const { workingSets } = createMemoryOfflineWorkingSets({
+    fetchSnapshot: async () => snapshot,
+  });
+
+  await expect(workingSets.retain(target)).resolves.toMatchObject({
+    status: "available",
+    referencedResourceBytes: 1200,
+  });
+});
+
+test("reports unsupported persisted records through the module interface", async () => {
+  const records = new Map<string, unknown>([
+    [`${target.sourceId}:${target.stateId}`, { manifest: { version: 2 } }],
+  ]);
+  const { workingSets } = createMemoryOfflineWorkingSets({
+    fetchSnapshot: fixture,
+    records,
+  });
+
+  await expect(workingSets.inspect(target)).rejects.toThrow(
+    "version is unsupported or corrupt",
+  );
+});
+
+async function fixture() {
   const workspace = readingWorkspaceFixture();
   if (!workspace.state) throw new Error("Fixture requires a first-class state");
-  const firstClassWorkspace = { ...workspace, state: workspace.state };
   const replica = {
-    workspace: firstClassWorkspace,
+    workspace: { ...workspace, state: workspace.state },
     annotations: [],
     positions: [],
   };
@@ -206,9 +146,9 @@ async function fixture(): Promise<OfflineSnapshot> {
     throw new Error("Fixture requires retention data");
   return {
     manifest: {
-      version: 1,
-      sourceId: firstClassWorkspace.source.id,
-      stateId: firstClassWorkspace.state.id,
+      version: 1 as const,
+      sourceId: target.sourceId,
+      stateId: target.stateId,
       synchronizedAt: "2026-08-25T12:00:00.000Z",
       activeDerivative: {
         id: activation.derivativeId,
@@ -228,9 +168,9 @@ async function fixture(): Promise<OfflineSnapshot> {
         .byteLength,
       referencedResourceBytes: resource.byteLength,
       replicaSha256: await hash(JSON.stringify(replica)),
-      serverRetention: { state: "ready", reasons: [] },
+      serverRetention: { state: "ready" as const, reasons: [] },
       clientAvailability: {
-        state: "unknown",
+        state: "unknown" as const,
         reason: "Client validation required",
       },
     },

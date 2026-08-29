@@ -1,47 +1,229 @@
 import type { InquiryOutputs } from "@/clients/inquiry";
+import { inquiry } from "@/clients/inquiry";
+import { queryClient } from "@/utils/query-client";
+import type {
+  OfflineWorkingSetCurrentness,
+  OfflineWorkingSetInspection,
+  OfflineWorkingSets,
+  OfflineWorkingSetTarget,
+  RetainedReadingWorkspace,
+} from "./offline-working-set";
+import {
+  indexedDbOfflineWorkingSetStorage,
+  type OfflineWorkingSetStorage,
+} from "./offline-working-set-storage";
 
 export type OfflineSnapshot = InquiryOutputs["sources"]["offlineManifest"];
 
-export interface OfflineWorkingSetRecord extends OfflineSnapshot {
+interface OfflineWorkingSetRecord extends OfflineSnapshot {
   retainedAt: string;
   availability: "ready" | "partial" | "stale" | "pending-removal";
-  lastError?: string;
 }
 
-export interface OfflineWorkingSetStorage {
-  get(key: string): Promise<unknown>;
-  put(key: string, record: OfflineWorkingSetRecord): Promise<void>;
-  delete(key: string): Promise<void>;
+interface OfflineWorkingSetDependencies {
+  fetchSnapshot(target: OfflineWorkingSetTarget): Promise<OfflineSnapshot>;
+  now(): Date;
+  storage: OfflineWorkingSetStorage;
 }
 
-const databaseName = "lirna-offline-working-sets";
-const storeName = "working-sets";
-
-function workingSetKey(sourceId: string, stateId: string) {
-  return `${sourceId}:${stateId}`;
+export function createBrowserOfflineWorkingSets() {
+  return createOfflineWorkingSets({
+    fetchSnapshot: (target) =>
+      queryClient.fetchQuery(
+        inquiry.sources.offlineManifest.queryOptions({
+          input: target,
+          staleTime: 0,
+        }),
+      ),
+    now: () => new Date(),
+    storage: indexedDbOfflineWorkingSetStorage,
+  });
 }
 
-export async function retainOfflineWorkingSet(
-  snapshot: OfflineSnapshot,
-  onProgress: (completed: number, total: number) => void = () => undefined,
-  storage: OfflineWorkingSetStorage = indexedDbStorage,
-) {
-  const totalSteps = 2;
-  onProgress(0, totalSteps);
-  await validateSnapshot(snapshot);
-  onProgress(1, totalSteps);
-  const record: OfflineWorkingSetRecord = {
-    ...snapshot,
-    retainedAt: new Date().toISOString(),
-    availability:
-      snapshot.manifest.serverRetention.state === "ready" ? "ready" : "partial",
+export function createOfflineWorkingSets({
+  fetchSnapshot,
+  now,
+  storage,
+}: OfflineWorkingSetDependencies): OfflineWorkingSets {
+  async function read(target: OfflineWorkingSetTarget) {
+    const stored = await storage.get(workingSetKey(target));
+    if (stored === undefined) return undefined;
+    const record = persistedRecord(stored);
+    validateTarget(record, target);
+    await validateSnapshot(record);
+    return record;
+  }
+
+  async function inspect(
+    target: OfflineWorkingSetTarget,
+    currentness?: OfflineWorkingSetCurrentness,
+  ) {
+    let record = await read(target);
+    if (!record) return absent();
+    if (
+      record.availability !== "pending-removal" &&
+      isStale(record, target, currentness)
+    ) {
+      record = { ...record, availability: "stale" };
+      await writeRecord(record, storage);
+    }
+    return inspection(record);
+  }
+
+  return {
+    inspect,
+    async open(target) {
+      const record = await read(target);
+      return record ? reading(record) : absent();
+    },
+    async retain(target, onProgress = () => undefined) {
+      const totalSteps = 2;
+      onProgress(0, totalSteps);
+      const snapshot = await fetchSnapshot(target);
+      validateTarget(snapshot, target);
+      await validateSnapshot(snapshot);
+      onProgress(1, totalSteps);
+      const record: OfflineWorkingSetRecord = {
+        ...snapshot,
+        retainedAt: now().toISOString(),
+        availability:
+          snapshot.manifest.serverRetention.state === "ready"
+            ? "ready"
+            : "partial",
+      };
+      await writeRecord(record, storage);
+      onProgress(totalSteps, totalSteps);
+      return inspection(record);
+    },
+    async requestRemoval(target) {
+      const record = await read(target);
+      if (!record) return absent();
+      const pending = { ...record, availability: "pending-removal" as const };
+      await writeRecord(pending, storage);
+      return inspection(pending);
+    },
+    async restore(target) {
+      const record = await read(target);
+      if (!record) return absent();
+      requirePendingRemoval(record, "restored");
+      const restored: OfflineWorkingSetRecord = {
+        ...record,
+        availability:
+          record.manifest.serverRetention.state === "ready"
+            ? "ready"
+            : "partial",
+      };
+      await writeRecord(restored, storage);
+      return inspection(restored);
+    },
+    async confirmRemoval(target) {
+      const record = await read(target);
+      if (!record) return absent();
+      requirePendingRemoval(record, "removed");
+      await storage.delete(workingSetKey(target));
+      return absent();
+    },
   };
-  await writeRecord(record, storage);
-  onProgress(totalSteps, totalSteps);
-  return record;
 }
 
-export async function validateSnapshot(snapshot: OfflineSnapshot) {
+function inspection(
+  record: OfflineWorkingSetRecord,
+): OfflineWorkingSetInspection {
+  return {
+    status: "available",
+    availability: record.availability,
+    retainedAt: record.retainedAt,
+    synchronizedAt: record.manifest.synchronizedAt,
+    replicaBytes: record.manifest.replicaBytes,
+    referencedResourceBytes: record.manifest.referencedResourceBytes,
+    referencedResourceCount: record.manifest.resources.length,
+    reasons: record.manifest.serverRetention.reasons,
+  };
+}
+
+function reading(record: OfflineWorkingSetRecord): RetainedReadingWorkspace {
+  return {
+    status: "available",
+    revision: record.manifest.replicaSha256,
+    retainedAt: record.retainedAt,
+    workspace: record.replica.workspace,
+    annotations: record.replica.annotations,
+    positions: record.replica.positions,
+  };
+}
+
+function requirePendingRemoval(
+  record: OfflineWorkingSetRecord,
+  transition: "removed" | "restored",
+) {
+  if (record.availability !== "pending-removal") {
+    throw new Error(
+      `Offline working set must have removal requested before it can be ${transition}`,
+    );
+  }
+}
+
+function absent() {
+  return { status: "absent" as const };
+}
+
+function isStale(
+  record: OfflineWorkingSetRecord,
+  target: OfflineWorkingSetTarget,
+  currentness?: OfflineWorkingSetCurrentness,
+) {
+  return Boolean(
+    (currentness?.activationId &&
+      record.manifest.activeDerivative.activationId !==
+        currentness.activationId) ||
+      (currentness?.currentStateId &&
+        currentness.currentStateId !== target.stateId),
+  );
+}
+
+function validateTarget(
+  snapshot: OfflineSnapshot,
+  target: OfflineWorkingSetTarget,
+) {
+  if (
+    snapshot.manifest.sourceId !== target.sourceId ||
+    snapshot.manifest.stateId !== target.stateId ||
+    !replicaMatchesTarget(snapshot, target)
+  ) {
+    throw new Error(
+      "Offline replica record does not match the requested Source state",
+    );
+  }
+}
+
+function replicaMatchesTarget(
+  snapshot: OfflineSnapshot,
+  target: OfflineWorkingSetTarget,
+) {
+  const { workspace, annotations, positions } = snapshot.replica;
+  return (
+    workspace.source.id === target.sourceId &&
+    workspace.state.id === target.stateId &&
+    workspace.state.sourceId === target.sourceId &&
+    workspace.reading.source.id === target.sourceId &&
+    workspace.reading.source.stateId === target.stateId &&
+    annotations.every(
+      (annotation) =>
+        annotation.sourceId === target.sourceId &&
+        annotation.sourceStateId === target.stateId,
+    ) &&
+    positions.every(
+      (position) =>
+        position.sourceId === target.sourceId &&
+        position.stateId === target.stateId &&
+        (!position.semanticLocation ||
+          (position.semanticLocation.source.sourceId === target.sourceId &&
+            position.semanticLocation.source.stateId === target.stateId)),
+    )
+  );
+}
+
+async function validateSnapshot(snapshot: OfflineSnapshot) {
   const replicaHash = await sha256(JSON.stringify(snapshot.replica));
   if (replicaHash !== snapshot.manifest.replicaSha256) {
     throw new Error(
@@ -50,94 +232,8 @@ export async function validateSnapshot(snapshot: OfflineSnapshot) {
   }
 }
 
-export async function readOfflineWorkingSet(
-  sourceId: string,
-  stateId: string,
-  storage: OfflineWorkingSetStorage = indexedDbStorage,
-) {
-  const stored = await storage.get(workingSetKey(sourceId, stateId));
-  if (stored === undefined) return undefined;
-  const record = persistedRecord(stored);
-  if (
-    record.manifest.sourceId !== sourceId ||
-    record.manifest.stateId !== stateId ||
-    !replicaMatchesTarget(record, sourceId, stateId)
-  ) {
-    throw new Error(
-      "Offline replica record does not match the requested Source state",
-    );
-  }
-  await validateSnapshot(record);
-  return record;
-}
-
-function replicaMatchesTarget(
-  record: OfflineWorkingSetRecord,
-  sourceId: string,
-  stateId: string,
-) {
-  const { workspace, annotations, positions } = record.replica;
-  return (
-    workspace.source.id === sourceId &&
-    workspace.state.id === stateId &&
-    workspace.state.sourceId === sourceId &&
-    workspace.reading.source.id === sourceId &&
-    workspace.reading.source.stateId === stateId &&
-    annotations.every(
-      (annotation) =>
-        annotation.sourceId === sourceId &&
-        annotation.sourceStateId === stateId,
-    ) &&
-    positions.every(
-      (position) =>
-        position.sourceId === sourceId &&
-        position.stateId === stateId &&
-        (!position.semanticLocation ||
-          (position.semanticLocation.source.sourceId === sourceId &&
-            position.semanticLocation.source.stateId === stateId)),
-    )
-  );
-}
-
-export async function markOfflineWorkingSetStale(
-  record: OfflineWorkingSetRecord,
-  storage: OfflineWorkingSetStorage = indexedDbStorage,
-) {
-  const stale = { ...record, availability: "stale" as const };
-  await writeRecord(stale, storage);
-  return stale;
-}
-
-export async function requestOfflineWorkingSetRemoval(
-  record: OfflineWorkingSetRecord,
-  storage: OfflineWorkingSetStorage = indexedDbStorage,
-) {
-  const pending = { ...record, availability: "pending-removal" as const };
-  await writeRecord(pending, storage);
-  return pending;
-}
-
-export async function restoreOfflineWorkingSet(
-  record: OfflineWorkingSetRecord,
-  storage: OfflineWorkingSetStorage = indexedDbStorage,
-) {
-  const restored = {
-    ...record,
-    availability:
-      record.manifest.serverRetention.state === "ready"
-        ? ("ready" as const)
-        : ("partial" as const),
-  };
-  await writeRecord(restored, storage);
-  return restored;
-}
-
-export async function confirmOfflineWorkingSetRemoval(
-  sourceId: string,
-  stateId: string,
-  storage: OfflineWorkingSetStorage = indexedDbStorage,
-) {
-  await storage.delete(workingSetKey(sourceId, stateId));
+function workingSetKey(target: OfflineWorkingSetTarget) {
+  return `${target.sourceId}:${target.stateId}`;
 }
 
 async function writeRecord(
@@ -145,46 +241,12 @@ async function writeRecord(
   storage: OfflineWorkingSetStorage,
 ) {
   await storage.put(
-    workingSetKey(record.manifest.sourceId, record.manifest.stateId),
+    workingSetKey({
+      sourceId: record.manifest.sourceId,
+      stateId: record.manifest.stateId,
+    }),
     record,
   );
-}
-
-const indexedDbStorage: OfflineWorkingSetStorage = {
-  get: (key) => request<unknown>("readonly", (store) => store.get(key)),
-  put: (key, record) =>
-    request("readwrite", (store) => store.put(record, key)).then(
-      () => undefined,
-    ),
-  delete: (key) => request("readwrite", (store) => store.delete(key)),
-};
-
-async function request<T>(
-  mode: IDBTransactionMode,
-  operation: (store: IDBObjectStore) => IDBRequest<T>,
-) {
-  const database = await openDatabase();
-  return new Promise<T>((resolve, reject) => {
-    const transaction = database.transaction(storeName, mode);
-    const result = operation(transaction.objectStore(storeName));
-    let value: T;
-    result.onsuccess = () => {
-      value = result.result;
-    };
-    const fail = () => {
-      database.close();
-      reject(
-        transaction.error ?? result.error ?? new Error("IndexedDB failed"),
-      );
-    };
-    result.onerror = fail;
-    transaction.onerror = fail;
-    transaction.onabort = fail;
-    transaction.oncomplete = () => {
-      database.close();
-      resolve(value);
-    };
-  });
 }
 
 function persistedRecord(value: unknown): OfflineWorkingSetRecord {
@@ -221,19 +283,6 @@ function persistedRecord(value: unknown): OfflineWorkingSetRecord {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object");
-}
-
-function openDatabase() {
-  return new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open(databaseName, 1);
-    request.onupgradeneeded = () => {
-      if (!request.result.objectStoreNames.contains(storeName))
-        request.result.createObjectStore(storeName);
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () =>
-      reject(request.error ?? new Error("Offline storage is unavailable"));
-  });
 }
 
 async function sha256(value: string) {

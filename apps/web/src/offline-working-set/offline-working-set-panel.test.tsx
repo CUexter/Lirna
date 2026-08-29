@@ -7,13 +7,14 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-
+import type {
+  OfflineWorkingSetInspection,
+  OfflineWorkingSets,
+} from "./offline-working-set";
 import {
-  type OfflineWorkingSetOperations,
   OfflineWorkingSetPanel,
   OfflineWorkingSetStatus,
 } from "./offline-working-set-panel";
-import type { OfflineWorkingSetRecord } from "./offline-working-set-store";
 
 afterEach(cleanup);
 
@@ -42,7 +43,7 @@ test.each([
     "Removal requested; replica remains usable until confirmed",
   ],
 ] as const)("explains the %s replica lifecycle", (availability, label) => {
-  render(<OfflineWorkingSetStatus record={record(availability)} />);
+  render(<OfflineWorkingSetStatus inspection={inspection(availability)} />);
   expect(view().getByText(label)).toBeTruthy();
   expect(view().getByText(/100 bytes stored replica/)).toBeTruthy();
   expect(
@@ -55,9 +56,10 @@ test.each([
 
 test("drives retain progress and completion through the public panel", async () => {
   let complete: (() => void) | undefined;
-  const retained = record("ready");
-  const operations = operationFixture({
-    retain: (_sourceId, _stateId, onProgress) => {
+  const retained = inspection("ready");
+  const workingSets = moduleFixture({
+    retain: (_target, onProgress) => {
+      if (!onProgress) throw new Error("Progress observer required");
       onProgress(1, 3);
       return new Promise((resolve) => {
         complete = () => {
@@ -69,9 +71,9 @@ test("drives retain progress and completion through the public panel", async () 
   });
   render(
     <OfflineWorkingSetPanel
-      operations={operations}
-      sourceId={retained.manifest.sourceId}
-      stateId={retained.manifest.stateId}
+      sourceId="source-id"
+      stateId="state-id"
+      workingSets={workingSets}
     />,
   );
   await waitFor(() => view().getByRole("button", { name: /Retain for/ }));
@@ -82,18 +84,18 @@ test("drives retain progress and completion through the public panel", async () 
 });
 
 test("reports persistence failures from lifecycle controls", async () => {
-  const retained = record("ready");
-  const operations = operationFixture({
-    read: async () => retained,
+  const retained = inspection("ready");
+  const workingSets = moduleFixture({
+    inspect: async () => retained,
     requestRemoval: async () => {
       throw new Error("Storage quota exceeded");
     },
   });
   render(
     <OfflineWorkingSetPanel
-      operations={operations}
-      sourceId={retained.manifest.sourceId}
-      stateId={retained.manifest.stateId}
+      sourceId="source-id"
+      stateId="state-id"
+      workingSets={workingSets}
     />,
   );
   await waitFor(() => view().getByRole("button", { name: /Remove retained/ }));
@@ -107,26 +109,27 @@ test("reports persistence failures from lifecycle controls", async () => {
 
 test("ignores an obsolete replica read after Source-state navigation", async () => {
   let finishOldRead: (() => void) | undefined;
-  const operations = operationFixture({
-    read: (sourceId) => {
-      if (sourceId === "new-source") return Promise.resolve(record("ready"));
+  const workingSets = moduleFixture({
+    inspect: ({ sourceId }) => {
+      if (sourceId === "new-source")
+        return Promise.resolve(inspection("ready"));
       return new Promise((resolve) => {
-        finishOldRead = () => resolve(record("stale"));
+        finishOldRead = () => resolve(inspection("stale"));
       });
     },
   });
   const rendered = render(
     <OfflineWorkingSetPanel
-      operations={operations}
       sourceId="old-source"
       stateId="old-state"
+      workingSets={workingSets}
     />,
   );
   rendered.rerender(
     <OfflineWorkingSetPanel
-      operations={operations}
       sourceId="new-source"
       stateId="new-state"
+      workingSets={workingSets}
     />,
   );
   await waitFor(() => view().getByText("Ready for offline reading"));
@@ -134,66 +137,34 @@ test("ignores an obsolete replica read after Source-state navigation", async () 
   expect(view().queryByText("Stale, last usable replica retained")).toBeNull();
 });
 
-function record(
-  availability: OfflineWorkingSetRecord["availability"],
-): OfflineWorkingSetRecord {
+function inspection(
+  availability: Extract<
+    OfflineWorkingSetInspection,
+    { status: "available" }
+  >["availability"],
+): OfflineWorkingSetInspection {
   return {
+    status: "available",
     availability,
     retainedAt: "2026-08-25T12:00:00.000Z",
-    manifest: {
-      version: 1,
-      sourceId: "10000000-0000-4000-8000-000000000000",
-      stateId: "20000000-0000-4000-8000-000000000000",
-      synchronizedAt: "2026-08-25T12:00:00.000Z",
-      activeDerivative: {
-        id: "30000000-0000-4000-8000-000000000000",
-        activationId: "40000000-0000-4000-8000-000000000000",
-        sha256: "a".repeat(64),
-        byteLength: 100,
-      },
-      resources: [
-        {
-          identity: "active:/",
-          role: "main",
-          byteLength: 100,
-          sha256: "c".repeat(64),
-        },
-        {
-          identity: "active:/supplement",
-          role: "component",
-          byteLength: 150,
-          sha256: "d".repeat(64),
-        },
-      ],
-      replicaBytes: 100,
-      referencedResourceBytes: 250,
-      replicaSha256: "b".repeat(64),
-      serverRetention: {
-        state: availability === "partial" ? "partial" : "ready",
-        reasons: availability === "partial" ? ["Supplement unavailable"] : [],
-      },
-      clientAvailability: {
-        state: "unknown",
-        reason: "Client validation required",
-      },
-    },
-    replica: {} as OfflineWorkingSetRecord["replica"],
+    synchronizedAt: "2026-08-25T12:00:00.000Z",
+    replicaBytes: 100,
+    referencedResourceBytes: 250,
+    referencedResourceCount: 2,
+    reasons: availability === "partial" ? ["Supplement unavailable"] : [],
   };
 }
 
-function operationFixture(
-  overrides: Partial<OfflineWorkingSetOperations>,
-): OfflineWorkingSetOperations {
+function moduleFixture(
+  overrides: Partial<OfflineWorkingSets>,
+): OfflineWorkingSets {
   return {
-    read: async () => undefined,
-    retain: async () => record("ready"),
-    markStale: async (value) => ({ ...value, availability: "stale" }),
-    requestRemoval: async (value) => ({
-      ...value,
-      availability: "pending-removal",
-    }),
-    restore: async (value) => ({ ...value, availability: "ready" }),
-    confirmRemoval: async () => undefined,
+    inspect: async () => ({ status: "absent" }),
+    open: async () => ({ status: "absent" }),
+    retain: async () => inspection("ready"),
+    requestRemoval: async () => inspection("pending-removal"),
+    restore: async () => inspection("ready"),
+    confirmRemoval: async () => ({ status: "absent" }),
     ...overrides,
   };
 }

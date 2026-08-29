@@ -68,23 +68,12 @@ test("inspects and returns from a publication mention in an Offline working set 
   };
   const retainedWorkspace = readingWorkspaceFixture();
   readingRouteState.retainedReplica = {
-    availability: "ready",
-    manifest: {
-      resources: [],
-      replicaBytes: 100,
-      referencedResourceBytes: 0,
-      synchronizedAt: "2026-08-25T12:00:00.000Z",
-      serverRetention: { state: "ready", reasons: [] },
-      activeDerivative: {
-        activationId:
-          retainedWorkspace.state.derivatives[0]?.currentActivation?.id,
-      },
-    },
-    replica: {
-      annotations: [],
-      positions: [],
-      workspace: retainedWorkspace,
-    },
+    status: "available",
+    revision: "retained-citation-resilience",
+    retainedAt: "2026-08-25T12:00:00.000Z",
+    annotations: [],
+    positions: [],
+    workspace: retainedWorkspace,
   };
   readingRouteState.getReading = async () => {
     throw new Error("Backend unavailable");

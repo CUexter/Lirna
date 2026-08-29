@@ -7,7 +7,7 @@ import {
 
 import { type InquiryOutputs, inquiry } from "@/clients/inquiry";
 import { library } from "@/clients/library";
-import type { OfflineWorkingSetRecord } from "@/offline-working-set/offline-working-set-store";
+import type { RetainedReadingWorkspace } from "@/offline-working-set/offline-working-set";
 import {
   historyPositionKey,
   removeReadingHistoryPosition,
@@ -37,20 +37,22 @@ export type RetainedOpening =
 export function shouldHydrateRetained({
   onlineWorkspace,
   opening,
-  record,
+  reading,
   retainedKey,
   targetKey,
 }: {
   onlineWorkspace: ReadingWorkspaceData | undefined;
   opening: RetainedOpening | undefined;
-  record: OfflineWorkingSetRecord | null | undefined;
+  reading:
+    | Extract<RetainedReadingWorkspace, { status: "available" }>
+    | undefined;
   retainedKey: string | undefined;
   targetKey: string;
 }) {
-  if (!(record && retainedKey) || onlineWorkspace) return false;
+  if (!(reading && retainedKey) || onlineWorkspace) return false;
   if (opening?.key === retainedKey) return false;
   return !(
-    opening?.targetKey === targetKey && opening.retainedAt >= record.retainedAt
+    opening?.targetKey === targetKey && opening.retainedAt >= reading.retainedAt
   );
 }
 
@@ -58,7 +60,7 @@ export function hydrateRetainedWorkspace({
   priorSeededHistoryKeys,
   priorSeededQueryKeys,
   queryClient,
-  record,
+  reading,
   retainedKey,
   sourceId,
   stateId,
@@ -67,7 +69,7 @@ export function hydrateRetainedWorkspace({
   priorSeededHistoryKeys: string[] | undefined;
   priorSeededQueryKeys: QueryKey[] | undefined;
   queryClient: QueryClient;
-  record: OfflineWorkingSetRecord;
+  reading: Extract<RetainedReadingWorkspace, { status: "available" }>;
   retainedKey: string;
   sourceId: string;
   stateId: string;
@@ -84,18 +86,18 @@ export function hydrateRetainedWorkspace({
       priorSeededQueryKeys,
       queryClient,
       querySnapshots,
-      record,
+      reading,
       sourceId,
       stateId,
     });
     return {
       key: retainedKey,
-      retainedAt: record.retainedAt,
+      retainedAt: reading.retainedAt,
       seededHistoryKeys,
       seededQueryKeys,
       status: "ready",
       targetKey,
-      workspace: record.replica.workspace,
+      workspace: reading.workspace,
     };
   } catch (error) {
     const rollbackError = rollbackHydration(
@@ -105,7 +107,7 @@ export function hydrateRetainedWorkspace({
     );
     return {
       key: retainedKey,
-      retainedAt: record.retainedAt,
+      retainedAt: reading.retainedAt,
       status: "failed",
       targetKey,
       message:
@@ -147,7 +149,7 @@ function installRetainedQueries({
   priorSeededQueryKeys,
   queryClient,
   querySnapshots,
-  record,
+  reading,
   sourceId,
   stateId,
 }: {
@@ -158,7 +160,7 @@ function installRetainedQueries({
     queryKey: QueryKey;
     state: QueryState<unknown, Error> | undefined;
   }>;
-  record: OfflineWorkingSetRecord;
+  reading: Extract<RetainedReadingWorkspace, { status: "available" }>;
   sourceId: string;
   stateId: string;
 }) {
@@ -175,8 +177,8 @@ function installRetainedQueries({
   const seededHistoryKeys: string[] = [];
   const seededQueryKeys: QueryKey[] = [annotationKey];
   snapshotQuery(queryClient, querySnapshots, annotationKey);
-  queryClient.setQueryData(annotationKey, record.replica.annotations);
-  for (const position of record.replica.positions) {
+  queryClient.setQueryData(annotationKey, reading.annotations);
+  for (const position of reading.positions) {
     const positionKey = inquiry.sources.resume.get.queryOptions({
       input: {
         sourceId,

@@ -42,13 +42,15 @@ export const readingPositionState = readingRouteState;
 export const bibliographyRouteState = readingRouteState;
 export const citationResolutionCalls = calls.citationResolutions;
 
-await mock.module("@/offline-working-set/offline-working-set-store", () => ({
-  readOfflineWorkingSet: async () => readingRouteState.retainedReplica,
-  confirmOfflineWorkingSetRemoval: async () => undefined,
-  markOfflineWorkingSetStale: async (record: unknown) => record,
-  requestOfflineWorkingSetRemoval: async (record: unknown) => record,
-  restoreOfflineWorkingSet: async (record: unknown) => record,
-  retainOfflineWorkingSet: async (record: unknown) => record,
+await mock.module("@/offline-working-set/offline-working-set", () => ({
+  offlineWorkingSets: {
+    confirmRemoval: async () => ({ status: "absent" }),
+    inspect: async () => ({ status: "absent" }),
+    open: async () => readingRouteState.retainedReplica ?? { status: "absent" },
+    requestRemoval: async () => ({ status: "absent" }),
+    restore: async () => ({ status: "absent" }),
+    retain: async () => ({ status: "absent" }),
+  },
 }));
 
 await mock.module("@/clients/inquiry", () => ({

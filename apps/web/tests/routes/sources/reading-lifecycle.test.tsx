@@ -49,23 +49,12 @@ test("falls back to a retained Reading workspace", async () => {
   resetActions();
   const retainedWorkspace = readingWorkspaceFixture();
   readingRouteState.retainedReplica = {
-    availability: "ready",
-    manifest: {
-      resources: [],
-      replicaBytes: 100,
-      referencedResourceBytes: 0,
-      synchronizedAt: "2026-08-25T12:00:00.000Z",
-      serverRetention: { state: "ready", reasons: [] },
-      activeDerivative: {
-        activationId:
-          retainedWorkspace.state?.derivatives[0]?.currentActivation?.id,
-      },
-    },
-    replica: {
-      workspace: retainedWorkspace,
-      annotations: [],
-      positions: [],
-    },
+    status: "available",
+    revision: "retained-reading-lifecycle",
+    retainedAt: "2026-08-25T12:00:00.000Z",
+    workspace: retainedWorkspace,
+    annotations: [],
+    positions: [],
   };
   readingRouteState.getReading = async () => {
     throw new Error("Backend unavailable");

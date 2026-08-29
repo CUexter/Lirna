@@ -59,15 +59,11 @@ await mock.module("@/clients/library", () => ({
   },
 }));
 
-await mock.module("@/offline-working-set/offline-working-set-store", () => ({
-  readOfflineWorkingSet: (
-    requestedSourceId: string,
-    requestedStateId: string,
-  ) =>
-    openingReads.retained({
-      sourceId: requestedSourceId,
-      stateId: requestedStateId,
-    }),
+await mock.module("@/offline-working-set/offline-working-set", () => ({
+  offlineWorkingSets: {
+    open: ({ sourceId, stateId }: Target) =>
+      openingReads.retained({ sourceId, stateId }),
+  },
 }));
 
 export const { useReadingWorkspaceOpening } = await import(
@@ -88,9 +84,12 @@ export function retainedRecord({
   workspace?: Workspace;
 }) {
   return {
+    status: "available" as const,
+    revision: hash,
     retainedAt,
-    manifest: { replicaSha256: hash },
-    replica: { annotations, positions, workspace },
+    annotations,
+    positions,
+    workspace,
   };
 }
 
