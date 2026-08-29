@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { type InquiryOutputs, inquiry } from "@/clients/inquiry";
+import { isAppShellCompatibilityError } from "./app-shell-compatibility";
 import {
   offlineWorkingSets,
   type RetainedReadingWorkspace,
@@ -33,6 +34,7 @@ export type ReadingWorkspaceOpening =
         | "not-found"
         | "unreachable"
         | "not-retained"
+        | "retained-incompatible"
         | "retained-invalid"
         | "retained-hydration-failed";
       message: string;
@@ -174,6 +176,13 @@ function selectOpening({
   retainedPending: boolean;
   targetKey: string;
 }): ReadingWorkspaceOpening {
+  if (retainedError && isAppShellCompatibilityError(retainedError)) {
+    return {
+      status: "unavailable",
+      reason: "retained-incompatible",
+      message: retainedError.message,
+    };
+  }
   const readyOpening = selectReadyOpening({
     onlineWorkspace,
     reconciledRetainedKey,

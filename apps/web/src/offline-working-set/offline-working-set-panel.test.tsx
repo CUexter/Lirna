@@ -73,6 +73,32 @@ test("reports local readability, freshness, and removal independently", () => {
   expect(view().getByText(/Locally available: readable/)).toBeTruthy();
 });
 
+test("explains incompatible shell data without claiming readiness", () => {
+  render(
+    <OfflineWorkingSetStatus
+      inspection={{
+        status: "incompatible",
+        localAvailability: "retained",
+        persistedVersion: 2,
+        shellCompatibility: {
+          status: "incompatible",
+          shellVersion: 1,
+          persistedVersion: 2,
+          reason:
+            "Application shell version 1 cannot read persisted Offline working-set version 2.",
+        },
+        message:
+          "Application shell version 1 cannot read persisted Offline working-set version 2. Retained data was preserved.",
+      }}
+    />,
+  );
+  expect(view().getByText("Offline reading unavailable")).toBeTruthy();
+  expect(view().getByText(/Retained data was preserved/)).toBeTruthy();
+  expect(
+    view().queryByText("Ready for supported offline activities"),
+  ).toBeNull();
+});
+
 test("drives retain progress and completion through the public panel", async () => {
   let complete: (() => void) | undefined;
   const retained = inspection();
@@ -190,12 +216,21 @@ function inspection(
   > = {},
 ): OfflineWorkingSetInspection {
   const readiness = overrides.readiness ?? "ready";
+  const retainedReadiness =
+    overrides.retainedReadiness ??
+    (readiness === "partial" ? "partial" : "ready");
   return {
     status: "available",
     localAvailability: "readable",
     freshness: "current",
     removal: "retained",
     readiness,
+    retainedReadiness,
+    shellCompatibility: {
+      status: "compatible",
+      shellVersion: 1,
+      persistedVersion: 1,
+    },
     activities: [
       {
         activity: "read-retained-content",

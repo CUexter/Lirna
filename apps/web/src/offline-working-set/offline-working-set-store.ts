@@ -1,4 +1,8 @@
 import type { InquiryOutputs } from "@/clients/inquiry";
+import {
+  type AppShellCompatibility,
+  AppShellCompatibilityError,
+} from "./app-shell-compatibility";
 import type {
   OfflineWorkingSetInspection,
   OfflineWorkingSets,
@@ -22,6 +26,7 @@ interface OfflineWorkingSetDependencies {
     currentStateId?: string;
   }>;
   now(): Date;
+  inspectAppShell(persistedVersion: number): Promise<AppShellCompatibility>;
   storage: OfflineWorkingSetStorage;
   subscribeToCurrentness(
     target: OfflineWorkingSetTarget,
@@ -32,6 +37,7 @@ interface OfflineWorkingSetDependencies {
 export function createOfflineWorkingSets({
   fetchSnapshot,
   fetchCurrentness,
+  inspectAppShell,
   now,
   storage,
   subscribeToCurrentness,
@@ -51,11 +57,29 @@ export function createOfflineWorkingSets({
   }
 
   async function inspect(target: OfflineWorkingSetTarget) {
-    const record = await read(target);
-    if (!record) return absent();
+    const stored = await storage.get(workingSetKey(target));
+    if (stored === undefined) return absent();
+    const version = persistedVersion(stored);
+    if (version === undefined)
+      throw new Error(
+        "Offline replica record is corrupt; retained data was preserved",
+      );
+    const shellCompatibility = await inspectAppShell(version);
+    if (shellCompatibility.status === "incompatible") {
+      return {
+        status: "incompatible" as const,
+        localAvailability: "retained" as const,
+        persistedVersion: version,
+        shellCompatibility,
+        message: `${shellCompatibility.reason} Retained data was preserved.`,
+      };
+    }
+    const record = persistedRecord(stored);
+    validateTarget(record, target);
+    await validateSnapshot(record);
     const observed = await freshness(record, target);
     observedFreshness.set(workingSetKey(target), observed);
-    return inspection(record, observed);
+    return inspection(record, observed, shellCompatibility);
   }
 
   async function freshness(
@@ -77,8 +101,16 @@ export function createOfflineWorkingSets({
     inspect,
     subscribe: subscribeToCurrentness,
     async open(target) {
-      const record = await read(target);
-      return record ? reading(record) : absent();
+      const stored = await storage.get(workingSetKey(target));
+      if (stored === undefined) return absent();
+      const version = persistedVersion(stored);
+      if (version === undefined)
+        throw new Error("Offline replica record is corrupt");
+      requireCompatibleShell(await inspectAppShell(version));
+      const record = persistedRecord(stored);
+      validateTarget(record, target);
+      await validateSnapshot(record);
+      return reading(record);
     },
     async retain(target, onProgress = () => undefined) {
       const totalSteps = 2;
@@ -99,7 +131,11 @@ export function createOfflineWorkingSets({
       onProgress(totalSteps, totalSteps);
       const observed = capturedFreshness(snapshot, target);
       observedFreshness.set(workingSetKey(target), observed);
-      return inspection(record, observed);
+      return inspection(
+        record,
+        observed,
+        await inspectAppShell(record.manifest.version),
+      );
     },
     async requestRemoval(target) {
       const record = await read(target);
@@ -109,6 +145,7 @@ export function createOfflineWorkingSets({
       return inspection(
         pending,
         observedFreshness.get(workingSetKey(target)) ?? "unknown",
+        await inspectAppShell(pending.manifest.version),
       );
     },
     async restore(target) {
@@ -126,6 +163,7 @@ export function createOfflineWorkingSets({
       return inspection(
         restored,
         observedFreshness.get(workingSetKey(target)) ?? "unknown",
+        await inspectAppShell(restored.manifest.version),
       );
     },
     async confirmRemoval(target) {
@@ -142,17 +180,25 @@ export function createOfflineWorkingSets({
 function inspection(
   record: OfflineWorkingSetRecord,
   freshness: "current" | "outdated" | "unknown",
+  shellCompatibility: AppShellCompatibility,
 ): OfflineWorkingSetInspection {
-  const readiness = record.manifest.serverRetention.state;
+  const retainedReadiness = record.manifest.serverRetention.state;
+  const readiness =
+    shellCompatibility.status === "compatible"
+      ? retainedReadiness
+      : "unavailable";
   return {
     status: "available",
     localAvailability: "readable",
     freshness,
     removal: record.availability === "pending-removal" ? "pending" : "retained",
     readiness,
+    retainedReadiness,
+    shellCompatibility,
     activities: offlineActivityReadiness(
-      readiness,
+      retainedReadiness,
       record.manifest.serverRetention.reasons,
+      shellCompatibility,
     ),
     retainedAt: record.retainedAt,
     synchronizedAt: record.manifest.synchronizedAt,
@@ -299,6 +345,20 @@ function persistedRecord(value: unknown): OfflineWorkingSetRecord {
     throw new Error("Offline replica record version is unsupported or corrupt");
   }
   return candidate as OfflineWorkingSetRecord;
+}
+
+function persistedVersion(value: unknown) {
+  if (!isRecord(value) || !isRecord(value.manifest)) return undefined;
+  return typeof value.manifest.version === "number"
+    ? value.manifest.version
+    : undefined;
+}
+
+function requireCompatibleShell(compatibility: AppShellCompatibility) {
+  if (compatibility.status === "compatible") return;
+  throw new AppShellCompatibilityError(
+    `${compatibility.reason} Retained data was preserved.`,
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

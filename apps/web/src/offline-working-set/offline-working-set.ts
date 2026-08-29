@@ -1,4 +1,5 @@
 import type { InquiryOutputs } from "@/clients/inquiry";
+import type { AppShellCompatibility } from "./app-shell-compatibility";
 import { createBrowserOfflineWorkingSets } from "./offline-working-set-browser";
 
 type Snapshot = InquiryOutputs["sources"]["offlineManifest"];
@@ -26,11 +27,23 @@ export type OfflineActivityReadiness = {
 export type OfflineWorkingSetInspection =
   | { status: "absent" }
   | {
+      status: "incompatible";
+      localAvailability: "retained";
+      persistedVersion: number;
+      shellCompatibility: Extract<
+        AppShellCompatibility,
+        { status: "incompatible" }
+      >;
+      message: string;
+    }
+  | {
       status: "available";
       localAvailability: "readable";
       freshness: "current" | "outdated" | "unknown";
       removal: "retained" | "pending";
-      readiness: "ready" | "partial";
+      readiness: "ready" | "partial" | "unavailable";
+      retainedReadiness: "ready" | "partial";
+      shellCompatibility: AppShellCompatibility;
       activities: OfflineActivityReadiness[];
       retainedAt: string;
       synchronizedAt: string;

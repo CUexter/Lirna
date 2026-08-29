@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { onlineManager } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 
+import { AppShellCompatibilityError } from "@/offline-working-set/app-shell-compatibility";
 import { historySemanticLocation } from "./reading-history-position";
 import { sourceId, stateId } from "./reading-test-fixtures";
 import {
@@ -73,6 +74,65 @@ test("opens a retained Reading workspace while the browser is offline", async ()
     expect(result.current).toMatchObject({
       status: "ready",
       origin: "retained",
+    }),
+  );
+});
+
+test("reports shell incompatibility while the online read is paused offline", async () => {
+  onlineManager.setOnline(false);
+  openingReads.retained = async () => {
+    throw new AppShellCompatibilityError(
+      "Application shell version 1 cannot read persisted Offline working-set version 2. Retained data was preserved.",
+    );
+  };
+  const client = testQueryClient();
+  const { result } = renderHook(
+    () => useReadingWorkspaceOpening({ sourceId, stateId }),
+    { wrapper: queryWrapper(client) },
+  );
+
+  await waitFor(() =>
+    expect(result.current).toEqual({
+      status: "unavailable",
+      reason: "retained-incompatible",
+      message:
+        "Application shell version 1 cannot read persisted Offline working-set version 2. Retained data was preserved.",
+    }),
+  );
+});
+
+test("withdraws retained readiness when shell compatibility is lost", async () => {
+  onlineManager.setOnline(false);
+  openingReads.retained = async () => retainedRecord({ hash: "compatible" });
+  const client = testQueryClient();
+  const { result } = renderHook(
+    () => useReadingWorkspaceOpening({ sourceId, stateId }),
+    { wrapper: queryWrapper(client) },
+  );
+  await waitFor(() =>
+    expect(result.current).toMatchObject({
+      status: "ready",
+      origin: "retained",
+    }),
+  );
+
+  openingReads.retained = async () => {
+    throw new AppShellCompatibilityError(
+      "The updated application shell is incompatible. Retained data was preserved.",
+    );
+  };
+  await act(async () =>
+    client.invalidateQueries({
+      queryKey: ["offline-working-set", sourceId, stateId],
+    }),
+  );
+
+  await waitFor(() =>
+    expect(result.current).toEqual({
+      status: "unavailable",
+      reason: "retained-incompatible",
+      message:
+        "The updated application shell is incompatible. Retained data was preserved.",
     }),
   );
 });

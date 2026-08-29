@@ -4,7 +4,8 @@ const sourceId = "10000000-0000-4000-8000-000000000000";
 const stateId = "20000000-0000-4000-8000-000000000000";
 const readingUrl = `/sources/${sourceId}/${stateId}`;
 
-test("retains and reads a verified working set with the backend unavailable", async ({
+test("launches and reads a verified working set with all network disabled", async ({
+  context,
   page,
 }) => {
   await page.goto(readingUrl);
@@ -22,7 +23,10 @@ test("retains and reads a verified working set with the backend unavailable", as
     page.getByText(/Save reading progress offline: unsupported/),
   ).toBeVisible();
   await expect(
-    page.getByText(/Application-shell availability is not verified/),
+    page.getByText(/Application shell 1 is compatible/),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/Launch the application without network access: supported/),
   ).toBeVisible();
   await expect(page.getByText(/stored replica/)).toBeVisible();
   await expect(
@@ -40,16 +44,64 @@ test("retains and reads a verified working set with the backend unavailable", as
       }),
     )
     .toBe(true);
+  await expect(
+    page.evaluate(async () => {
+      const registration = await navigator.serviceWorker.ready;
+      if (!registration.active) return undefined;
+      const channel = new MessageChannel();
+      const response = new Promise((resolve) => {
+        channel.port1.onmessage = (event) => resolve(event.data);
+      });
+      registration.active.postMessage(
+        {
+          type: "lirna:inspect-offline-compatibility",
+          persistedVersion: 2,
+        },
+        [channel.port2],
+      );
+      return response;
+    }),
+  ).resolves.toEqual({
+    type: "lirna:offline-shell-compatibility",
+    status: "incompatible",
+    shellVersion: 1,
+    persistedVersion: 2,
+    reason:
+      "Application shell version 1 cannot read persisted Offline working-set version 2.",
+  });
 
-  await page.route("**/orpc/**", (route) => route.abort("connectionfailed"));
+  await context.setOffline(true);
   await page.reload();
 
-  await expect(page.getByText(/Freshness: unknown/)).toBeVisible();
   await expect(
     page.getByText(/Backend unavailable.*verified replica/),
   ).toBeVisible();
   await expect(page.getByText("Visible typed paragraph.")).toBeVisible();
   await expect(page.getByAltText("Retained semantic diagram")).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        ({ sourceId, stateId }) =>
+          new Promise<boolean>((resolve, reject) => {
+            const request = indexedDB.open("lirna-offline-working-sets", 1);
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+              const database = request.result;
+              const transaction = database.transaction(
+                "working-sets",
+                "readonly",
+              );
+              const result = transaction
+                .objectStore("working-sets")
+                .get(`${sourceId}:${stateId}`);
+              result.onerror = () => reject(result.error);
+              result.onsuccess = () => resolve(result.result !== undefined);
+            };
+          }),
+        { sourceId, stateId },
+      ),
+    )
+    .toBe(true);
   await expect
     .poll(() =>
       page.evaluate(() => {
@@ -94,6 +146,57 @@ test("retains and reads a verified working set with the backend unavailable", as
   await expect(
     page.getByRole("link", { name: /Publisher page/ }),
   ).toHaveAttribute("href", "https://example.com/epistemology");
+
+  await context.setOffline(false);
+});
+
+test("preserves and diagnoses a retained version incompatible with the shell", async ({
+  context,
+  page,
+}) => {
+  await page.goto(readingUrl);
+  await page
+    .getByRole("button", { name: "Retain for offline reading" })
+    .click();
+  await expect(
+    page.getByText("Ready for supported offline activities"),
+  ).toBeVisible();
+  await page.evaluate(
+    ({ sourceId, stateId }) =>
+      new Promise<void>((resolve, reject) => {
+        const request = indexedDB.open("lirna-offline-working-sets", 1);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const database = request.result;
+          const transaction = database.transaction("working-sets", "readwrite");
+          const store = transaction.objectStore("working-sets");
+          const key = `${sourceId}:${stateId}`;
+          const read = store.get(key);
+          read.onerror = () => reject(read.error);
+          read.onsuccess = () => {
+            read.result.manifest.version = 2;
+            store.put(read.result, key);
+          };
+          transaction.onerror = () => reject(transaction.error);
+          transaction.oncomplete = () => resolve();
+        };
+      }),
+    { sourceId, stateId },
+  );
+
+  await context.setOffline(true);
+  await page.reload();
+
+  await expect(
+    page.getByRole("heading", { name: "Reading workspace unavailable" }),
+  ).toBeVisible({ timeout: 20_000 });
+  await expect(
+    page.getByRole("alert").filter({
+      hasText:
+        /Application shell version 1 cannot read persisted Offline working-set version 2.*Retained data was preserved/,
+    }),
+  ).toBeVisible();
+  await context.setOffline(false);
 });
 
 test("returns to the online Reading workspace after retained fallback", async ({
@@ -129,6 +232,7 @@ test("returns to the online Reading workspace after retained fallback", async ({
   await expect(
     page.getByRole("heading", { name: "Online recovery title" }),
   ).toBeVisible();
+  await page.unrouteAll({ behavior: "wait" });
 });
 
 test("makes removal recoverable until explicit confirmation", async ({

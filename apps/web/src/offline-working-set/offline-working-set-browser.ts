@@ -2,6 +2,7 @@ import { hashKey } from "@tanstack/react-query";
 
 import { inquiry } from "@/clients/inquiry";
 import { queryClient } from "@/utils/query-client";
+import { inspectBrowserAppShell } from "./app-shell-compatibility";
 import type { OfflineWorkingSetTarget } from "./offline-working-set";
 import { indexedDbOfflineWorkingSetStorage } from "./offline-working-set-storage";
 import { createOfflineWorkingSets } from "./offline-working-set-store";
@@ -25,6 +26,7 @@ export function createBrowserOfflineWorkingSets() {
       };
     },
     now: () => new Date(),
+    inspectAppShell: inspectBrowserAppShell,
     storage: indexedDbOfflineWorkingSetStorage,
     subscribeToCurrentness: (target, onChange) => {
       const queryHash = hashKey(currentnessQuery(target).queryKey);

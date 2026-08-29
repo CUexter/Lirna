@@ -70,9 +70,9 @@ export function OfflineWorkingSetPanel({
         Offline working set
       </h3>
       <p className="mt-1 text-muted-foreground text-sm">
-        A typed Reading replica is retained and locally integrity-checked on
-        this Client installation. Browser and service-worker caches do not count
-        as readiness.
+        Offline-reading readiness requires both a compatible application shell
+        and a locally integrity-checked typed Reading replica on this Client
+        installation.
       </p>
       <OfflineWorkingSetStatus
         error={error}
@@ -235,15 +235,24 @@ export function OfflineWorkingSetStatus({
     return (
       <p className="mt-2 text-sm">Not retained on this Client installation.</p>
     );
+  if (inspection.status === "incompatible")
+    return (
+      <div className="mt-2 text-sm" aria-live="polite">
+        <p className="font-medium">Offline reading unavailable</p>
+        <p>{inspection.message}</p>
+      </div>
+    );
   const byteSummary = `${formatBytes(inspection.replicaBytes)} stored replica · ${formatBytes(inspection.referencedResourceBytes)} declared for ${inspection.referencedResourceCount} referenced Source resources · synchronized ${new Date(inspection.synchronizedAt).toLocaleString()}`;
+  const readinessLabel = {
+    ready: "Ready for supported offline activities",
+    partial: "Partial capability for supported offline activities",
+    unavailable: "Offline reading unavailable; retained data preserved",
+  }[inspection.readiness];
   return (
     <div className="mt-2 text-sm" aria-live="polite">
-      <p className="font-medium">
-        {inspection.readiness === "ready"
-          ? "Ready for supported offline activities"
-          : "Partial capability for supported offline activities"}
-      </p>
+      <p className="font-medium">{readinessLabel}</p>
       <p>Locally available: readable on this Client installation.</p>
+      <p>{shellCompatibilityLabel(inspection.shellCompatibility)}</p>
       <p>Freshness: {freshnessLabel(inspection.freshness)}</p>
       <p>
         Removal:{" "}
@@ -262,6 +271,17 @@ export function OfflineWorkingSetStatus({
       </ul>
     </div>
   );
+}
+
+function shellCompatibilityLabel(
+  compatibility: Extract<
+    OfflineWorkingSetInspection,
+    { status: "available" }
+  >["shellCompatibility"],
+) {
+  if (compatibility.status === "compatible")
+    return `Application shell ${compatibility.shellVersion} is compatible with persisted working-set version ${compatibility.persistedVersion}.`;
+  return `Application shell unavailable: ${compatibility.reason}`;
 }
 
 function freshnessLabel(freshness: "current" | "outdated" | "unknown") {

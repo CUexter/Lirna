@@ -136,7 +136,7 @@ test("names supported activities and limitations independently", async () => {
       { activity: "restore-retained-position", state: "supported" },
       { activity: "save-reading-progress", state: "unsupported" },
       { activity: "change-authored-records", state: "unsupported" },
-      { activity: "launch-without-network", state: "unsupported" },
+      { activity: "launch-without-network", state: "supported" },
     ],
   });
 });
@@ -189,7 +189,7 @@ test("validates the typed replica without claiming local Source-resource bodies"
   });
 });
 
-test("reports unsupported persisted records through the module interface", async () => {
+test("reports incompatible persisted records without deleting them", async () => {
   const records = new Map<string, unknown>([
     [`${target.sourceId}:${target.stateId}`, { manifest: { version: 2 } }],
   ]);
@@ -198,9 +198,55 @@ test("reports unsupported persisted records through the module interface", async
     records,
   });
 
-  await expect(workingSets.inspect(target)).rejects.toThrow(
-    "version is unsupported or corrupt",
+  await expect(workingSets.inspect(target)).resolves.toEqual({
+    status: "incompatible",
+    localAvailability: "retained",
+    persistedVersion: 2,
+    shellCompatibility: {
+      status: "incompatible",
+      shellVersion: 1,
+      persistedVersion: 2,
+      reason:
+        "Application shell version 1 cannot read persisted Offline working-set version 2.",
+    },
+    message:
+      "Application shell version 1 cannot read persisted Offline working-set version 2. Retained data was preserved.",
+  });
+  await expect(workingSets.open(target)).rejects.toThrow(
+    "Application shell version 1 cannot read persisted Offline working-set version 2. Retained data was preserved.",
   );
+  expect(records.has(`${target.sourceId}:${target.stateId}`)).toBe(true);
+});
+
+test("withholds readiness when application-shell compatibility is missing", async () => {
+  const { workingSets } = createMemoryOfflineWorkingSets({
+    fetchSnapshot: fixture,
+    inspectAppShell: async (persistedVersion) => ({
+      status: "missing",
+      persistedVersion,
+      reason: "No active application-shell service worker was found.",
+    }),
+  });
+
+  await expect(workingSets.retain(target)).resolves.toMatchObject({
+    status: "available",
+    localAvailability: "readable",
+    readiness: "unavailable",
+    retainedReadiness: "ready",
+    shellCompatibility: { status: "missing", persistedVersion: 1 },
+    activities: [
+      { activity: "read-retained-content", state: "unsupported" },
+      { activity: "view-retained-annotations", state: "unsupported" },
+      {
+        activity: "view-retained-citation-selections",
+        state: "unsupported",
+      },
+      { activity: "restore-retained-position", state: "unsupported" },
+      { activity: "save-reading-progress", state: "unsupported" },
+      { activity: "change-authored-records", state: "unsupported" },
+      { activity: "launch-without-network", state: "unsupported" },
+    ],
+  });
 });
 
 async function fixture(): Promise<OfflineSnapshot> {

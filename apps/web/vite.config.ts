@@ -37,6 +37,9 @@ export default defineConfig({
     babel({ presets: [reactCompilerPreset()] }),
     VitePWA({
       registerType: "autoUpdate",
+      workbox: {
+        importScripts: ["offline-shell-compatibility.js"],
+      },
       manifest: {
         name: "Lirna",
         short_name: "Lirna",

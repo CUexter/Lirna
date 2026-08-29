@@ -1,3 +1,7 @@
+import {
+  type AppShellCompatibility,
+  persistedWorkingSetVersion,
+} from "./app-shell-compatibility";
 import type { OfflineWorkingSetTarget } from "./offline-working-set";
 import { createMemoryOfflineWorkingSetStorage } from "./offline-working-set-storage";
 import {
@@ -12,6 +16,9 @@ export function createMemoryOfflineWorkingSets(input: {
     currentStateId?: string;
   }>;
   now?: () => Date;
+  inspectAppShell?: (
+    persistedVersion: number,
+  ) => Promise<AppShellCompatibility>;
   records?: Map<string, unknown>;
 }) {
   const records = input.records ?? new Map<string, unknown>();
@@ -26,6 +33,21 @@ export function createMemoryOfflineWorkingSets(input: {
           currentStateId: "20000000-0000-4000-8000-000000000000",
         })),
       now: input.now ?? (() => new Date("2026-08-26T12:00:00.000Z")),
+      inspectAppShell:
+        input.inspectAppShell ??
+        (async (persistedVersion) =>
+          persistedVersion === persistedWorkingSetVersion
+            ? {
+                status: "compatible" as const,
+                shellVersion: persistedWorkingSetVersion,
+                persistedVersion,
+              }
+            : {
+                status: "incompatible" as const,
+                shellVersion: persistedWorkingSetVersion,
+                persistedVersion,
+                reason: `Application shell version ${persistedWorkingSetVersion} cannot read persisted Offline working-set version ${persistedVersion}.`,
+              }),
       storage: createMemoryOfflineWorkingSetStorage(records),
       subscribeToCurrentness: () => () => undefined,
     }),

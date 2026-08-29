@@ -1,32 +1,34 @@
+import type { AppShellCompatibility } from "./app-shell-compatibility";
 import type { OfflineActivityReadiness } from "./offline-working-set";
 
 export function offlineActivityReadiness(
   readiness: "ready" | "partial",
   reasons: string[],
+  shellCompatibility: AppShellCompatibility,
 ): OfflineActivityReadiness[] {
   const limitation = reasons.join(" ") || undefined;
   return [
-    {
+    requiringShell(shellCompatibility, {
       activity: "read-retained-content",
       label: "Read retained typed content",
       state: readiness === "ready" ? "supported" : "limited",
       ...(limitation ? { reason: limitation } : {}),
-    },
-    {
+    }),
+    requiringShell(shellCompatibility, {
       activity: "view-retained-annotations",
       label: "View retained Annotations",
       state: "supported",
-    },
-    {
+    }),
+    requiringShell(shellCompatibility, {
       activity: "view-retained-citation-selections",
       label: "View retained Citation selections",
       state: "supported",
-    },
-    {
+    }),
+    requiringShell(shellCompatibility, {
       activity: "restore-retained-position",
       label: "Restore retained reading positions",
       state: "supported",
-    },
+    }),
     {
       activity: "save-reading-progress",
       label: "Save reading progress offline",
@@ -39,12 +41,22 @@ export function offlineActivityReadiness(
       state: "unsupported",
       reason: "Authored changes require the backend and have no offline queue.",
     },
-    {
+    requiringShell(shellCompatibility, {
       activity: "launch-without-network",
       label: "Launch the application without network access",
-      state: "unsupported",
-      reason:
-        "Application-shell availability is not verified by this working set.",
-    },
+      state: "supported",
+    }),
   ];
+}
+
+function requiringShell(
+  shellCompatibility: AppShellCompatibility,
+  readiness: OfflineActivityReadiness,
+): OfflineActivityReadiness {
+  if (shellCompatibility.status === "compatible") return readiness;
+  return {
+    ...readiness,
+    state: "unsupported",
+    reason: shellCompatibility.reason,
+  };
 }
