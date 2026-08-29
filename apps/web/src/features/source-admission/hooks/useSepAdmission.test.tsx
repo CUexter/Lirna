@@ -44,7 +44,7 @@ await mock.module("@/clients/inquiry", () => ({
   },
 }));
 
-const { useSepAdmission } = await import("./useAdmission");
+const { useSepAdmission } = await import("./useSepAdmission");
 type Admission = ReturnType<typeof useSepAdmission>;
 let admission: Admission;
 

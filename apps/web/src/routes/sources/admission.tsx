@@ -12,7 +12,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeftIcon, SearchIcon } from "lucide-react";
 import { z } from "zod";
 import { SepAdmissionPreview } from "@/features/source-admission/components/Preview";
-import { useSepAdmission } from "@/features/source-admission/hooks/useAdmission";
+import { useSepAdmission } from "@/features/source-admission/hooks/useSepAdmission";
 import { ServerErrorMessage } from "@/infrastructure/server/components/ErrorMessage";
 
 export const Route = createFileRoute("/sources/admission")({
