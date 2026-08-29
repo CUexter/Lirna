@@ -20,7 +20,7 @@ test("launches and reads a verified working set with all network disabled", asyn
     page.getByText(/View retained Annotations: supported/),
   ).toBeVisible();
   await expect(
-    page.getByText(/Save reading progress offline: unsupported/),
+    page.getByText(/Save reading progress offline: supported/),
   ).toBeVisible();
   await expect(
     page.getByText(/Application shell 1 is compatible/),
