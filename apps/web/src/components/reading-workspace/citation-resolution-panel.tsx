@@ -5,16 +5,20 @@ import { useState } from "react";
 
 import type { LibraryOutputs } from "@/clients/library";
 import type { CitationResolution } from "../annotations/dom-utils";
-import {
-  CitationEvidenceAvailability,
-  type CitationEvidenceAvailabilityProps,
-} from "./citation-evidence-availability";
 
 type Evidence = LibraryOutputs["citationResolutions"]["evidence"][number];
 type Inference = LibraryOutputs["citationResolutions"]["infer"];
 
+interface UnavailableCitationResolutionPanelProps {
+  availability: "pending" | "unavailable";
+  mentionId: string;
+  message?: string;
+  onCancel: () => void;
+  onRetryEvidence?: () => void;
+}
+
 export type CitationResolutionPanelProps =
-  | (CitationEvidenceAvailabilityProps & {
+  | (UnavailableCitationResolutionPanelProps & {
       evidence?: never;
       onClear?: never;
       onInfer?: never;
@@ -40,11 +44,37 @@ export type CitationResolutionPanelProps =
     };
 
 export function CitationResolutionPanel(props: CitationResolutionPanelProps) {
+  const [consent, setConsent] = useState(false);
   if (props.availability !== "ready") {
-    return <CitationEvidenceAvailability {...props} />;
+    return (
+      <section className="mt-3 space-y-3 rounded-md border p-3" role="status">
+        <h3 className="font-serif text-lg">
+          Publication mention {props.mentionId}
+        </h3>
+        <p className="text-muted-foreground text-sm">
+          {props.availability === "pending"
+            ? "Loading current online bibliography evidence…"
+            : props.message}
+        </p>
+        <div className="flex gap-2">
+          {props.onRetryEvidence ? (
+            <Button onClick={props.onRetryEvidence} size="sm" type="button">
+              Retry evidence
+            </Button>
+          ) : null}
+          <Button
+            onClick={props.onCancel}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            Cancel
+          </Button>
+        </div>
+      </section>
+    );
   }
   const { current, evidence, failure, inference, pending } = props;
-  const [consent, setConsent] = useState(false);
   const suggested =
     inference?.status === "suggested"
       ? evidence.candidates.find(

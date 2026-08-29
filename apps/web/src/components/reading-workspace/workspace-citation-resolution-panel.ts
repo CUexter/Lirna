@@ -111,7 +111,7 @@ function resolutionPanel({
       availability: "unavailable",
       mentionId: active.mentionId,
       message:
-        "Current online evidence is unavailable in retained Reading. You can inspect the Citation and return without changing it.",
+        "Current online evidence is unavailable while this Reading workspace is using its Offline working set. You can inspect the publication mention and return without changing its resolution.",
       onCancel,
     };
   }
@@ -127,7 +127,7 @@ function resolutionPanel({
     mentionId: active.mentionId,
     message:
       evidenceError?.message ??
-      "Current online evidence is unavailable for this Citation mention.",
+      "Current online evidence is unavailable for this publication mention.",
     onCancel,
     onRetryEvidence: retryEvidence,
   };

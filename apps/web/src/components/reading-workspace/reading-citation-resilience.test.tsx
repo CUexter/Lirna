@@ -22,7 +22,7 @@ test("returns from Bibliography while current Citation evidence is pending", asy
 
   await openCitationBibliography(user);
   expect(
-    view().getByText("Loading current online Citation evidence…"),
+    view().getByText("Loading current online bibliography evidence…"),
   ).toBeTruthy();
 
   await returnFromArticleBibliography(user);
@@ -60,7 +60,7 @@ test("retries unavailable online evidence without closing Citation work", async 
   ).toBeTruthy();
 });
 
-test("inspects and returns from a Citation in retained Reading without writes", async () => {
+test("inspects and returns from a publication mention in an Offline working set without writes", async () => {
   let evidenceReads = 0;
   readingRouteState.getCitationEvidence = async () => {
     evidenceReads += 1;
@@ -94,7 +94,7 @@ test("inspects and returns from a Citation in retained Reading without writes", 
   await openCitationBibliography(user);
   expect(
     view().getByText(
-      /Current online evidence is unavailable in retained Reading/,
+      /Current online evidence is unavailable while this Reading workspace is using its Offline working set/,
     ),
   ).toBeTruthy();
   expect(
