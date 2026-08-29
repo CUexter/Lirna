@@ -4,7 +4,10 @@ import type { ReadingDerivative } from "./content";
 import type { ReadingNavigation } from "./reading-navigation";
 import { readingSceneOwnerFor } from "./reading-scene-topology";
 import { scrollToPendingFragment } from "./reading-target-navigation";
-import { type ReferenceIndex, referenceForAuthoredLink } from "./references";
+import {
+  type ReferenceIndex,
+  referenceForPublisherAuthoredLink,
+} from "./references";
 import type { WorkspaceSceneTransition } from "./workspace-scene-transitions";
 
 type Component = ReadingDerivative["components"][number];
@@ -107,7 +110,11 @@ function capturedAuthoredTransition({
   const sceneTarget = target.fragment
     ? `fragment:${target.fragment}`
     : "component";
-  const reference = referenceForAuthoredLink(referenceIndex, target, label);
+  const reference = referenceForPublisherAuthoredLink(
+    referenceIndex,
+    target,
+    label,
+  );
   if (
     reference &&
     readingSceneOwnerFor(target.component) !== "publisher-note"

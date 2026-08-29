@@ -5,8 +5,8 @@ import { queryClientWrapper } from "@/test-support/query-hook";
 import {
   citationResolutionLibraryStub,
   createCitationResolutionHarness,
-  type Movement,
   mentionEvidence,
+  type RequestTransition,
   resolution,
   resolveMutation,
 } from "./workspace-citation-resolution-test-support";
@@ -65,10 +65,10 @@ test("keeps active Citation work across scene changes and resets it for another 
 
 test("keeps active Citation work until cancellation movement commits", async () => {
   let commitCancellation: () => void = () => undefined;
-  const harness = createHarness({
-    cancel: (onCommit) => {
+  const harness = createHarness((transition, onCommit) => {
+    if (transition.kind === "article" && onCommit)
       commitCancellation = onCommit;
-    },
+    return true;
   });
   const { result } = renderHook(
     () => useWorkspaceCitationResolution(harness.props()),
@@ -246,18 +246,23 @@ test("does not let an older server projection reverse a newer clear", async () =
   expect(result.current.citationResolutions).toEqual([]);
 });
 
-test("routes article, publisher-note, manual, return, and cancel actions through one movement interface", async () => {
+test("routes article, publisher-note, manual, return, and cancel actions through scene transitions", async () => {
   const calls: string[] = [];
-  const harness = createHarness({
-    activatePassage: (activate) => {
+  const harness = createHarness((transition) => {
+    if (transition.kind === "passage") {
       calls.push("passage");
-      activate();
-    },
-    cancel: () => calls.push("cancel"),
-    moveToComponent: (identity) => calls.push(`component:${identity}`),
-    openBibliography: (entryId) => calls.push(`bibliography:${entryId}`),
-    returnToCitationTarget: (mentionId, componentIdentity) =>
-      calls.push(`citation:${componentIdentity}:${mentionId}`),
+      transition.activate();
+    }
+    if (transition.kind === "article") calls.push("cancel");
+    if (transition.kind === "component")
+      calls.push(`component:${transition.identity}`);
+    if (transition.kind === "bibliography")
+      calls.push(`bibliography:${transition.entryId}`);
+    if (transition.kind === "citation")
+      calls.push(
+        `citation:${transition.targetComponentIdentity}:${transition.mentionId}`,
+      );
+    return true;
   });
   const { result } = renderHook(
     () => useWorkspaceCitationResolution(harness.props()),
@@ -303,6 +308,6 @@ test("routes article, publisher-note, manual, return, and cancel actions through
   ]);
 });
 
-function createHarness(movementOverrides: Partial<Movement> = {}) {
-  return createCitationResolutionHarness(movementOverrides);
+function createHarness(requestTransition?: RequestTransition) {
+  return createCitationResolutionHarness(requestTransition);
 }

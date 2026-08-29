@@ -121,7 +121,8 @@ export function ReadingToolsPanel({
               topology={topology}
               publisherNotes={{
                 component: supplementary.publisherNotes,
-                onOpenAuthoredLink: supplementary.onOpenAuthoredLink,
+                onOpenPublisherAuthoredLink:
+                  supplementary.onOpenPublisherAuthoredLink,
                 onOpenCitation: supplementary.onOpenCitation,
               }}
               references={{

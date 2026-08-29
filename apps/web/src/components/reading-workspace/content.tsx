@@ -33,7 +33,7 @@ export const CitationActions = createContext<{
   open: (entryId: string | undefined, mentionId: string) => void;
 } | null>(null);
 
-export const AuthoredLinkActions = createContext<{
+export const PublisherAuthoredLinkActions = createContext<{
   open: (href: string, label: string) => boolean;
 } | null>(null);
 
@@ -226,13 +226,13 @@ function Inlines({
   values: ReadingDerivative["sections"][number]["title"];
 }) {
   const citationActions = useContext(CitationActions);
-  const authoredLinkActions = useContext(AuthoredLinkActions);
+  const publisherAuthoredLinkActions = useContext(PublisherAuthoredLinkActions);
   return (
     <>
       {values.map((value, index) => (
         <Inline
           citationActions={citationActions}
-          authoredLinkActions={authoredLinkActions}
+          publisherAuthoredLinkActions={publisherAuthoredLinkActions}
           key={`${value.kind}:${index}`}
           value={value}
         />
@@ -244,11 +244,13 @@ function Inlines({
 function Inline({
   value,
   citationActions,
-  authoredLinkActions,
+  publisherAuthoredLinkActions,
 }: {
   value: ReadingDerivative["sections"][number]["title"][number];
   citationActions: React.ContextType<typeof CitationActions>;
-  authoredLinkActions: React.ContextType<typeof AuthoredLinkActions>;
+  publisherAuthoredLinkActions: React.ContextType<
+    typeof PublisherAuthoredLinkActions
+  >;
 }) {
   if (value.kind === "text")
     return (
@@ -264,7 +266,7 @@ function Inline({
         className="underline decoration-muted-foreground underline-offset-4 hover:decoration-foreground"
         onClick={(event) => {
           if (
-            authoredLinkActions?.open(
+            publisherAuthoredLinkActions?.open(
               value.href,
               inlinePlainText(value.children),
             )

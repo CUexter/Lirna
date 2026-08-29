@@ -73,6 +73,11 @@ export type WorkspaceSceneTransition =
       targetDescription: string;
     };
 
+export type WorkspaceSceneTransitionRequest = (
+  transition: WorkspaceSceneTransition,
+  onCommit?: () => void,
+) => boolean;
+
 interface WorkspaceSceneTransitionDependencies {
   clearPendingTargets: (owner: "article" | "publisher-note") => void;
   componentIdentity: string;
@@ -111,10 +116,7 @@ type ResolvedWorkspaceTransition =
 export function createWorkspaceSceneTransitions(
   dependencies: WorkspaceSceneTransitionDependencies,
 ) {
-  const request = (
-    transition: WorkspaceSceneTransition,
-    onCommit?: () => void,
-  ) => {
+  const request: WorkspaceSceneTransitionRequest = (transition, onCommit) => {
     const resolved = resolveWorkspaceTransition(transition, dependencies);
     const unavailable = transitionUnavailable(resolved);
     if (unavailable) {

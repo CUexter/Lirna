@@ -93,7 +93,7 @@ export function SupplementaryTab({
   onComponentChange: (identity: string) => void;
   publisherNotes: {
     component?: ReadingComponent;
-    onOpenAuthoredLink: ReadingToolsPanelProps["supplementary"]["onOpenAuthoredLink"];
+    onOpenPublisherAuthoredLink: ReadingToolsPanelProps["supplementary"]["onOpenPublisherAuthoredLink"];
     onOpenCitation: ReadingToolsPanelProps["supplementary"]["onOpenCitation"];
   };
   references: {
@@ -128,7 +128,9 @@ export function SupplementaryTab({
         <PublisherNotes
           component={publisherNotes.component}
           onJumpReference={references.onJump}
-          onOpenAuthoredLink={publisherNotes.onOpenAuthoredLink}
+          onOpenPublisherAuthoredLink={
+            publisherNotes.onOpenPublisherAuthoredLink
+          }
           onOpenCitation={publisherNotes.onOpenCitation}
           onOpenReference={references.onOpen}
           referenceIndex={publisherNoteReferenceIndex}

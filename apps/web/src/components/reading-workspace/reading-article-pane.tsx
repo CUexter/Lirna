@@ -14,10 +14,10 @@ import { ReadingBreadcrumb } from "./breadcrumb";
 import { ReadingCaptureStatus } from "./capture-status";
 import { ReadingComponentNav } from "./component-nav";
 import {
-  AuthoredLinkActions,
   Blocks,
   CitationActions,
   Figure,
+  PublisherAuthoredLinkActions,
   placedFigureIds,
   type ReadingDerivative,
   ReadingSection,
@@ -56,7 +56,7 @@ export function ReadingArticlePane({
   component: Component;
   contentActions: {
     citationResolutions: CitationResolution[];
-    onOpenAuthoredLink: (href: string, label: string) => boolean;
+    onOpenPublisherAuthoredLink: (href: string, label: string) => boolean;
     onOpenCitation: (entryId: string | undefined, mentionId: string) => void;
     onOpenCitationResolution: (
       entryId: string,
@@ -87,7 +87,7 @@ export function ReadingArticlePane({
   } = annotations;
   const {
     citationResolutions,
-    onOpenAuthoredLink,
+    onOpenPublisherAuthoredLink,
     onOpenCitation,
     onOpenCitationResolution,
     onJumpReference,
@@ -126,11 +126,13 @@ export function ReadingArticlePane({
           open: onOpenReference,
         }}
       >
-        <AuthoredLinkActions.Provider value={{ open: onOpenAuthoredLink }}>
+        <PublisherAuthoredLinkActions.Provider
+          value={{ open: onOpenPublisherAuthoredLink }}
+        >
           <CitationActions.Provider value={{ open: onOpenCitation }}>
             <ReadingDocument articleRef={articleRef} component={component} />
           </CitationActions.Provider>
-        </AuthoredLinkActions.Provider>
+        </PublisherAuthoredLinkActions.Provider>
       </ReferenceActions.Provider>
       <ArticleAnnotations
         articleRef={articleRef}

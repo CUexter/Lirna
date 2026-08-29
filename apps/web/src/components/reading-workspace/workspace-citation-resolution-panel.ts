@@ -11,22 +11,22 @@ import type { CitationResolutionPanelProps } from "./citation-resolution-panel";
 
 export function useWorkspaceCitationResolutionPanel({
   active,
-  activeWorkId,
+  activeWorkSequence,
   cancel,
   citationResolutions,
   evidenceAccess,
   isCurrent,
-  nextWorkId,
+  nextWorkSequence,
   setActive,
   target,
 }: {
   active?: CitationResolutionWork;
-  activeWorkId: React.RefObject<number | undefined>;
+  activeWorkSequence: React.RefObject<number | undefined>;
   cancel: (onCommit: () => void) => void;
   citationResolutions: CitationResolution[];
   evidenceAccess: "online" | "retained";
   isCurrent: (work: CitationResolutionWork) => boolean;
-  nextWorkId: React.RefObject<number>;
+  nextWorkSequence: React.RefObject<number>;
   setActive: React.Dispatch<
     React.SetStateAction<CitationResolutionWork | undefined>
   >;
@@ -64,8 +64,8 @@ export function useWorkspaceCitationResolutionPanel({
     ? () =>
         cancel(() => {
           if (!isCurrent(active)) return;
-          nextWorkId.current += 1;
-          activeWorkId.current = undefined;
+          nextWorkSequence.current += 1;
+          activeWorkSequence.current = undefined;
           setActive(undefined);
           citationResolution.resetWork();
         })

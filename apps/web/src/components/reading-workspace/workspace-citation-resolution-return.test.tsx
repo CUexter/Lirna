@@ -20,9 +20,9 @@ afterEach(cleanup);
 
 test("does not retain a rejected cross-component passage return", async () => {
   const activations: string[] = [];
-  const harness = createCitationResolutionHarness({
-    activatePassage: () => activations.push("activate"),
-    moveToComponent: () => undefined,
+  const harness = createCitationResolutionHarness((transition) => {
+    if (transition.kind === "passage") activations.push("activate");
+    return true;
   });
   const supplement = requireSupplement(harness.reading.components);
   const { result, rerender } = renderHook(
@@ -40,11 +40,10 @@ test("does not retain a rejected cross-component passage return", async () => {
 test("does not install a delayed passage return after the target changes", async () => {
   const activations: string[] = [];
   let commitMovement: () => void = () => undefined;
-  const harness = createCitationResolutionHarness({
-    activatePassage: () => activations.push("activate"),
-    moveToComponent: (_identity, onCommit) => {
-      commitMovement = onCommit;
-    },
+  const harness = createCitationResolutionHarness((transition, onCommit) => {
+    if (transition.kind === "passage") activations.push("activate");
+    if (transition.kind === "component" && onCommit) commitMovement = onCommit;
+    return true;
   });
   const supplement = requireSupplement(harness.reading.components);
   const { result, rerender } = renderHook(

@@ -18,8 +18,8 @@ import {
 
 export interface CitationResolutionWork {
   componentIdentity: string;
-  id: number;
   mentionId: string;
+  sequence: number;
   target: CitationResolutionTarget;
 }
 

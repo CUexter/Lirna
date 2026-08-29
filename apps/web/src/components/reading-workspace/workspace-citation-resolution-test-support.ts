@@ -8,13 +8,14 @@ import {
 } from "@/test-support/query-hook";
 import type { CitationResolution } from "../annotations/dom-utils";
 import { createReadingNavigation } from "./reading-navigation";
+import { createReadingSceneTopology } from "./reading-scene-topology";
 import { readingFixture, sourceId, stateId } from "./reading-test-fixtures";
 import type { useWorkspaceCitationResolution } from "./workspace-citation-resolution";
 
 export const derivativeId = "40000000-0000-4000-8000-000000000000";
-export type Movement = Parameters<
+export type RequestTransition = Parameters<
   typeof useWorkspaceCitationResolution
->[0]["movement"];
+>[0]["requestTransition"];
 
 export function citationResolutionLibraryStub(
   readEvidence: () => Promise<unknown>,
@@ -61,20 +62,17 @@ export function citationResolutionLibraryStub(
 }
 
 export function createCitationResolutionHarness(
-  movementOverrides: Partial<Movement> = {},
+  requestTransition: RequestTransition = (transition, onCommit) => {
+    if (transition.kind === "passage") transition.activate();
+    onCommit?.();
+    return true;
+  },
 ) {
   const reading = readingFixture();
   const mainComponent = reading.components[0];
   if (!mainComponent) throw new Error("Article fixture is missing");
   const client = createTestQueryClient();
-  const movement: Movement = {
-    activatePassage: (activate) => activate(),
-    cancel: (onCommit) => onCommit(),
-    moveToComponent: () => undefined,
-    openBibliography: () => undefined,
-    returnToCitationTarget: () => undefined,
-    ...movementOverrides,
-  };
+  const topology = createReadingSceneTopology(reading);
   return {
     client,
     queryWrapper: queryClientWrapper(client),
@@ -88,7 +86,6 @@ export function createCitationResolutionHarness(
         view?: "article" | "bibliography";
       } = {},
     ) => ({
-      movement,
       reading: {
         citationResolutions: overrides.citationResolutions ?? [],
         components: reading.components,
@@ -99,9 +96,11 @@ export function createCitationResolutionHarness(
         component: overrides.component ?? mainComponent,
         navigation: createReadingNavigation(),
         selectedCitation: undefined,
+        topology,
         toolsScrollRef: createRef<HTMLDivElement>(),
         view: overrides.view ?? ("article" as const),
       },
+      requestTransition,
       target: {
         derivativeId: overrides.derivativeId ?? derivativeId,
         sourceId,

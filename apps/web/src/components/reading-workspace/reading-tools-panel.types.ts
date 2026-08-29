@@ -44,7 +44,7 @@ export interface ReadingToolsPanelProps {
   scrollContainerRef: RefObject<HTMLDivElement | null>;
   supplementary: {
     onJumpReference: (reference: ReadingReference) => void;
-    onOpenAuthoredLink: (
+    onOpenPublisherAuthoredLink: (
       from: ReadingComponent,
       href: string,
       label: string,

@@ -1,7 +1,7 @@
 import {
-  AuthoredLinkActions,
   Blocks,
   CitationActions,
+  PublisherAuthoredLinkActions,
   type ReadingDerivative,
   ReadingSection,
 } from "./content";
@@ -14,14 +14,14 @@ import {
 export function PublisherNotes({
   component,
   onJumpReference,
-  onOpenAuthoredLink,
+  onOpenPublisherAuthoredLink,
   onOpenCitation,
   onOpenReference,
   referenceIndex,
 }: {
   component: ReadingDerivative["components"][number];
   onJumpReference: (reference: ReadingReference) => void;
-  onOpenAuthoredLink: (
+  onOpenPublisherAuthoredLink: (
     from: ReadingDerivative["components"][number],
     href: string,
     label: string,
@@ -55,9 +55,10 @@ export function PublisherNotes({
               onOpenCitation(component, entryId, mentionId),
           }}
         >
-          <AuthoredLinkActions.Provider
+          <PublisherAuthoredLinkActions.Provider
             value={{
-              open: (href, label) => onOpenAuthoredLink(component, href, label),
+              open: (href, label) =>
+                onOpenPublisherAuthoredLink(component, href, label),
             }}
           >
             <article
@@ -70,7 +71,7 @@ export function PublisherNotes({
                 <ReadingSection key={section.id} section={section} />
               ))}
             </article>
-          </AuthoredLinkActions.Provider>
+          </PublisherAuthoredLinkActions.Provider>
         </CitationActions.Provider>
       </ReferenceActions.Provider>
     </section>

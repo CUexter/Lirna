@@ -102,7 +102,7 @@ export function referenceTarget(reference: ReadingReference) {
   return `reference:${reference.componentIdentity}:${reference.targetId}`;
 }
 
-export function referenceForAuthoredLink(
+export function referenceForPublisherAuthoredLink(
   currentIndex: ReferenceIndex,
   target: { component: Component; fragment?: string },
   label: string,

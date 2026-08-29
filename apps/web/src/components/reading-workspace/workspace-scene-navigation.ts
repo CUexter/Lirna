@@ -5,7 +5,6 @@ import {
   useExplicitFragmentNavigation,
   useSceneFragmentNavigation,
 } from "./reading-navigation-hooks";
-import { resolveReadingSceneDestination } from "./reading-scene-topology";
 import { createReferenceJumper } from "./reading-target-navigation";
 import type { ReadingToolTab } from "./reading-tools-panel";
 import { createReferenceIndex, type ReadingReference } from "./references";
@@ -175,17 +174,6 @@ export function useReadingWorkspaceViewProps({
     requestTransition: transitions.request,
     toolsScrollRef,
   });
-  const openCitation = (entryId: string | undefined, _mentionId: string) =>
-    transitions.request({ entryId, kind: "bibliography" });
-  const returnToCitationTarget = (
-    mentionId: string,
-    targetComponentIdentity: string,
-  ) =>
-    transitions.request({
-      kind: "citation",
-      mentionId,
-      targetComponentIdentity,
-    });
   const activeDerivative = state.derivatives.find(
     (derivative) => derivative.currentActivation,
   );
@@ -194,31 +182,6 @@ export function useReadingWorkspaceViewProps({
   }
   const citation = useWorkspaceCitationResolution({
     evidenceAccess,
-    movement: {
-      activatePassage: (activate) => {
-        const destination = resolveReadingSceneDestination(topology, {
-          sceneIdentity: component.identity,
-          target: "citation:resolved-passage",
-        });
-        if (destination.movement === "move") {
-          transitions.request({ activate, destination, kind: "passage" });
-        } else {
-          transitions.request({
-            kind: "unavailable",
-            reason: destination.reason,
-            targetDescription: "Citation resolution passage",
-          });
-        }
-      },
-      cancel: (onCommit) => transitions.request({ kind: "article" }, onCommit),
-      moveToComponent: (identity, onCommit) =>
-        transitions.request(
-          { identity, kind: "component", originOwner: "article" },
-          onCommit,
-        ),
-      openBibliography: (entryId) => openCitation(entryId, ""),
-      returnToCitationTarget,
-    },
     reading: {
       citationResolutions,
       components: reading.components,
@@ -229,9 +192,11 @@ export function useReadingWorkspaceViewProps({
       component,
       navigation,
       selectedCitation,
+      topology,
       toolsScrollRef,
       view,
     },
+    requestTransition: transitions.request,
     target: {
       derivativeId: activeDerivative.id,
       sourceId: source.id,
@@ -255,7 +220,7 @@ export function useReadingWorkspaceViewProps({
       component,
       contentActions: {
         citationResolutions: projectedCitationResolutions,
-        onOpenAuthoredLink: (href: string, label: string) =>
+        onOpenPublisherAuthoredLink: (href: string, label: string) =>
           authoredNavigation.open(component, href, label),
         onOpenCitation: citation.openCurrent,
         onOpenCitationResolution: citation.openManual,
@@ -301,7 +266,7 @@ export function useReadingWorkspaceViewProps({
       scrollContainerRef: toolsScrollRef,
       supplementary: {
         onJumpReference: jumpToReference,
-        onOpenAuthoredLink: authoredNavigation.open,
+        onOpenPublisherAuthoredLink: authoredNavigation.open,
         onOpenCitation: citation.openFrom,
         onOpenReference: openReference,
         publisherNotes: notes,

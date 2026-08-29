@@ -5,7 +5,7 @@ import {
   AutoReferencedText,
   createReferenceIndex,
   ReferenceActions,
-  referenceForAuthoredLink,
+  referenceForPublisherAuthoredLink,
 } from "./references";
 
 function articleFixture() {
@@ -64,7 +64,7 @@ test("resolves authored numbered labels through the reference index", () => {
   const article = articleFixture();
   const index = createReferenceIndex(article);
 
-  const reference = referenceForAuthoredLink(
+  const reference = referenceForPublisherAuthoredLink(
     index,
     { component: article, fragment: "unrelated-authored-target" },
     "(1)",
@@ -78,7 +78,7 @@ test("leaves authored section labels to anchor navigation", () => {
   const index = createReferenceIndex(article);
 
   expect(
-    referenceForAuthoredLink(
+    referenceForPublisherAuthoredLink(
       index,
       { component: article, fragment: "nested-claim" },
       "§2.1",
