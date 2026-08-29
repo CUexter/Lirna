@@ -26,12 +26,10 @@ export async function retainOfflineWorkingSet(
   onProgress: (completed: number, total: number) => void = () => undefined,
   storage: OfflineWorkingSetStorage = indexedDbStorage,
 ) {
-  const total = snapshot.manifest.resources.length + 1;
-  const persistedTotal = total + 1;
-  onProgress(0, persistedTotal);
-  await validateSnapshot(snapshot, (completed) =>
-    onProgress(completed, persistedTotal),
-  );
+  const totalSteps = 2;
+  onProgress(0, totalSteps);
+  await validateSnapshot(snapshot);
+  onProgress(1, totalSteps);
   const record: OfflineWorkingSetRecord = {
     ...snapshot,
     retainedAt: new Date().toISOString(),
@@ -39,37 +37,16 @@ export async function retainOfflineWorkingSet(
       snapshot.manifest.serverRetention.state === "ready" ? "ready" : "partial",
   };
   await writeRecord(record, storage);
-  onProgress(persistedTotal, persistedTotal);
+  onProgress(totalSteps, totalSteps);
   return record;
 }
 
-export async function validateSnapshot(
-  snapshot: OfflineSnapshot,
-  onProgress: (completed: number) => void = () => undefined,
-) {
-  const payloadHash = await sha256(JSON.stringify(snapshot.replica));
-  if (payloadHash !== snapshot.manifest.payloadSha256) {
-    throw new Error("Offline replica payload failed local SHA-256 validation");
-  }
-  onProgress(1);
-  const resources = new Map(
-    snapshot.replica.workspace.state.resources.map((resource) => [
-      resource.identity,
-      resource,
-    ]),
-  );
-  for (const [index, expected] of snapshot.manifest.resources.entries()) {
-    const resource = resources.get(expected.identity);
-    if (
-      !resource ||
-      resource.sha256 !== expected.sha256 ||
-      resource.byteLength !== expected.byteLength
-    ) {
-      throw new Error(
-        `Offline Source resource failed local integrity validation: ${expected.identity}`,
-      );
-    }
-    onProgress(index + 2);
+export async function validateSnapshot(snapshot: OfflineSnapshot) {
+  const replicaHash = await sha256(JSON.stringify(snapshot.replica));
+  if (replicaHash !== snapshot.manifest.replicaSha256) {
+    throw new Error(
+      "Offline typed Reading replica failed local SHA-256 validation",
+    );
   }
 }
 
@@ -224,7 +201,9 @@ function persistedRecord(value: unknown): OfflineWorkingSetRecord {
     !Array.isArray(manifest.resources) ||
     !isRecord(manifest.activeDerivative) ||
     !isRecord(manifest.serverRetention) ||
-    typeof manifest.payloadSha256 !== "string" ||
+    typeof manifest.replicaBytes !== "number" ||
+    typeof manifest.referencedResourceBytes !== "number" ||
+    typeof manifest.replicaSha256 !== "string" ||
     !isRecord(replica) ||
     !Array.isArray(replica.annotations) ||
     !Array.isArray(replica.positions) ||

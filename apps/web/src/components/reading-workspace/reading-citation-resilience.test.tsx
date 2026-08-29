@@ -71,7 +71,8 @@ test("inspects and returns from a publication mention in an Offline working set 
     availability: "ready",
     manifest: {
       resources: [],
-      totalBytes: 100,
+      replicaBytes: 100,
+      referencedResourceBytes: 0,
       synchronizedAt: "2026-08-25T12:00:00.000Z",
       serverRetention: { state: "ready", reasons: [] },
       activeDerivative: {

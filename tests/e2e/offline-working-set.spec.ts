@@ -12,6 +12,13 @@ test("retains and reads a verified working set with the backend unavailable", as
     .getByRole("button", { name: "Retain for offline reading" })
     .click();
   await expect(page.getByText("Ready for offline reading")).toBeVisible();
+  await expect(page.getByText(/stored replica/)).toBeVisible();
+  await expect(
+    page.getByText(/declared for .* referenced Source resources/),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/Source-resource bodies are not retained/),
+  ).toBeVisible();
 
   await expect
     .poll(() =>

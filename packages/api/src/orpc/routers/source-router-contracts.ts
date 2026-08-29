@@ -74,8 +74,9 @@ export const offlineWorkingSetSchema = z.object({
         sha256: z.string().regex(/^[0-9a-f]{64}$/),
       }),
     ),
-    totalBytes: z.number().int().nonnegative(),
-    payloadSha256: z.string().regex(/^[0-9a-f]{64}$/),
+    replicaBytes: z.number().int().nonnegative(),
+    referencedResourceBytes: z.number().int().nonnegative(),
+    replicaSha256: z.string().regex(/^[0-9a-f]{64}$/),
     serverRetention: z.object({
       state: z.enum(["ready", "partial"]),
       reasons: z.array(z.string()),

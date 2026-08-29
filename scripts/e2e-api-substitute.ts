@@ -1016,10 +1016,12 @@ function offlineWorkingSetFor(sessionId) {
         byteLength: Buffer.byteLength(JSON.stringify(reading)),
       },
       resources,
-      totalBytes:
-        Buffer.byteLength(serialized) +
-        resources.reduce((total, resource) => total + resource.byteLength, 0),
-      payloadSha256: hash(serialized),
+      replicaBytes: Buffer.byteLength(serialized),
+      referencedResourceBytes: resources.reduce(
+        (total, resource) => total + resource.byteLength,
+        0,
+      ),
+      replicaSha256: hash(serialized),
       serverRetention: partial
         ? { state: "partial", reasons: ["Supplement unavailable"] }
         : { state: "ready", reasons: [] },

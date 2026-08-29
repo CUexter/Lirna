@@ -48,9 +48,11 @@ export function createOfflineWorkingSetSnapshot(input: {
       (resource) => resource.identity === identity,
     );
     if (!retained)
-      reasons.push(`Required Source resource is missing: ${identity}`);
+      reasons.push(`Required Source-resource metadata is missing: ${identity}`);
     else if (retained.sha256 !== sha256)
-      reasons.push(`Required Source resource failed integrity: ${identity}`);
+      reasons.push(
+        `Source-resource hash declaration does not match Reading provenance: ${identity}`,
+      );
   }
   const replica = {
     workspace: input.workspace,
@@ -69,7 +71,6 @@ export function createOfflineWorkingSetSnapshot(input: {
     throw new Error(
       "Offline working set replica exceeds its captured byte bound",
     );
-  const totalBytes = replicaBytes + resourceBytes;
   const synchronizedAt = (input.synchronizedAt ?? new Date()).toISOString();
 
   return {
@@ -90,8 +91,9 @@ export function createOfflineWorkingSetSnapshot(input: {
         byteLength,
         sha256,
       })),
-      totalBytes,
-      payloadSha256: sha256(serialized),
+      replicaBytes,
+      referencedResourceBytes: resourceBytes,
+      replicaSha256: sha256(serialized),
       serverRetention: {
         state: reasons.length === 0 ? ("ready" as const) : ("partial" as const),
         reasons,
@@ -99,7 +101,7 @@ export function createOfflineWorkingSetSnapshot(input: {
       clientAvailability: {
         state: "unknown" as const,
         reason:
-          "This server manifest cannot claim availability until this Client installation validates its replica.",
+          "This server manifest cannot claim availability until this Client installation validates the typed Reading replica.",
       },
     },
     replica,

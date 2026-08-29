@@ -70,7 +70,7 @@ export function useReadingWorkspaceOpening({
         sourceId,
         stateId,
         retained.data.retainedAt,
-        retained.data.manifest.payloadSha256,
+        retained.data.manifest.replicaSha256,
       ])
     : undefined;
 

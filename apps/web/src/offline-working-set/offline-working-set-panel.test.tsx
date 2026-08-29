@@ -44,6 +44,13 @@ test.each([
 ] as const)("explains the %s replica lifecycle", (availability, label) => {
   render(<OfflineWorkingSetStatus record={record(availability)} />);
   expect(view().getByText(label)).toBeTruthy();
+  expect(view().getByText(/100 bytes stored replica/)).toBeTruthy();
+  expect(
+    view().getByText(/250 bytes declared for 2 referenced Source resources/),
+  ).toBeTruthy();
+  expect(
+    view().getByText(/Source-resource bodies are not retained/),
+  ).toBeTruthy();
 });
 
 test("drives retain progress and completion through the public panel", async () => {
@@ -144,9 +151,23 @@ function record(
         sha256: "a".repeat(64),
         byteLength: 100,
       },
-      resources: [],
-      totalBytes: 100,
-      payloadSha256: "b".repeat(64),
+      resources: [
+        {
+          identity: "active:/",
+          role: "main",
+          byteLength: 100,
+          sha256: "c".repeat(64),
+        },
+        {
+          identity: "active:/supplement",
+          role: "component",
+          byteLength: 150,
+          sha256: "d".repeat(64),
+        },
+      ],
+      replicaBytes: 100,
+      referencedResourceBytes: 250,
+      replicaSha256: "b".repeat(64),
       serverRetention: {
         state: availability === "partial" ? "partial" : "ready",
         reasons: availability === "partial" ? ["Supplement unavailable"] : [],

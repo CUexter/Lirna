@@ -14,22 +14,20 @@ import {
   validateSnapshot,
 } from "./offline-working-set-store";
 
-test("validates the replica payload and each retained Source resource locally", async () => {
+test("validates the retained typed Reading replica locally", async () => {
   const snapshot = await fixture();
   await expect(validateSnapshot(snapshot)).resolves.toBeUndefined();
 
   snapshot.replica.workspace.state.resources[0].sha256 = "f".repeat(64);
   await expect(validateSnapshot(snapshot)).rejects.toThrow(
-    "payload failed local SHA-256 validation",
+    "typed Reading replica failed local SHA-256 validation",
   );
 });
 
-test("rejects resource metadata that disagrees with a valid replica payload", async () => {
+test("does not claim to validate referenced Source-resource bodies locally", async () => {
   const snapshot = await fixture();
   snapshot.manifest.resources[0].byteLength += 1;
-  await expect(validateSnapshot(snapshot)).rejects.toThrow(
-    "Source resource failed local integrity validation",
-  );
+  await expect(validateSnapshot(snapshot)).resolves.toBeUndefined();
 });
 
 test("persists stale and recoverable removal transitions without deleting the replica", async () => {
@@ -41,8 +39,8 @@ test("persists stale and recoverable removal transitions without deleting the re
     (completed, total) => progress.push([completed, total]),
     storage,
   );
-  expect(progress.at(0)).toEqual([0, 3]);
-  expect(progress.at(-1)).toEqual([3, 3]);
+  expect(progress.at(0)).toEqual([0, 2]);
+  expect(progress.at(-1)).toEqual([2, 2]);
   await expect(
     readOfflineWorkingSet(
       retained.manifest.sourceId,
@@ -119,7 +117,7 @@ test("rejects foreign replica content under a matching Source-state manifest", a
     availability: "ready",
   };
   record.replica.workspace.state.sourceId = "foreign-source";
-  record.manifest.payloadSha256 = await hash(JSON.stringify(record.replica));
+  record.manifest.replicaSha256 = await hash(JSON.stringify(record.replica));
   const { sourceId, stateId } = record.manifest;
   const records = new Map<string, OfflineWorkingSetRecord>([
     [`${sourceId}:${stateId}`, record],
@@ -226,8 +224,10 @@ async function fixture(): Promise<OfflineSnapshot> {
           sha256: resource.sha256,
         },
       ],
-      totalBytes: 100,
-      payloadSha256: await hash(JSON.stringify(replica)),
+      replicaBytes: new TextEncoder().encode(JSON.stringify(replica))
+        .byteLength,
+      referencedResourceBytes: resource.byteLength,
+      replicaSha256: await hash(JSON.stringify(replica)),
       serverRetention: { state: "ready", reasons: [] },
       clientAvailability: {
         state: "unknown",

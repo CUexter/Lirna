@@ -120,8 +120,9 @@ export function OfflineWorkingSetPanel({
         Offline working set
       </h3>
       <p className="mt-1 text-muted-foreground text-sm">
-        Explicitly retained and integrity-checked on this Client installation.
-        Browser and service-worker caches do not count as readiness.
+        A typed Reading replica is retained and locally integrity-checked on
+        this Client installation. Browser and service-worker caches do not count
+        as readiness.
       </p>
       <OfflineWorkingSetStatus
         error={error}
@@ -266,14 +267,12 @@ export function OfflineWorkingSetStatus({
     "pending-removal":
       "Removal requested; replica remains usable until confirmed",
   };
+  const byteSummary = `${formatBytes(record.manifest.replicaBytes)} stored replica · ${formatBytes(record.manifest.referencedResourceBytes)} declared for ${record.manifest.resources.length} referenced Source resources · synchronized ${new Date(record.manifest.synchronizedAt).toLocaleString()}`;
   return (
     <div className="mt-2 text-sm" aria-live="polite">
       <p className="font-medium">{labels[record.availability]}</p>
-      <p>
-        {record.manifest.resources.length} Source resources ·{" "}
-        {formatBytes(record.manifest.totalBytes)} · synchronized{" "}
-        {new Date(record.manifest.synchronizedAt).toLocaleString()}
-      </p>
+      <p>{byteSummary}</p>
+      <p>Source-resource bodies are not retained or locally hashed.</p>
       {record.manifest.serverRetention.reasons.map((reason) => (
         <p key={reason}>{reason}</p>
       ))}
@@ -288,9 +287,5 @@ function message(error: unknown) {
 }
 
 function formatBytes(value: number) {
-  return new Intl.NumberFormat(undefined, {
-    style: "unit",
-    unit: "byte",
-    unitDisplay: "short",
-  }).format(value);
+  return `${new Intl.NumberFormat().format(value)} bytes`;
 }

@@ -13299,12 +13299,17 @@
                             "additionalProperties": false
                           }
                         },
-                        "totalBytes": {
+                        "replicaBytes": {
                           "type": "integer",
                           "minimum": 0,
                           "maximum": 9007199254740991
                         },
-                        "payloadSha256": {
+                        "referencedResourceBytes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "replicaSha256": {
                           "type": "string",
                           "pattern": "^[0-9a-f]{64}$"
                         },
@@ -13356,8 +13361,9 @@
                         "synchronizedAt",
                         "activeDerivative",
                         "resources",
-                        "totalBytes",
-                        "payloadSha256",
+                        "replicaBytes",
+                        "referencedResourceBytes",
+                        "replicaSha256",
                         "serverRetention",
                         "clientAvailability"
                       ],

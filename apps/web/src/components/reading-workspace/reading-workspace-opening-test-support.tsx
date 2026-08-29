@@ -89,7 +89,7 @@ export function retainedRecord({
 }) {
   return {
     retainedAt,
-    manifest: { payloadSha256: hash },
+    manifest: { replicaSha256: hash },
     replica: { annotations, positions, workspace },
   };
 }

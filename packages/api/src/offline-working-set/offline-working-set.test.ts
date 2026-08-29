@@ -30,8 +30,12 @@ describe("Offline working set snapshot", () => {
         },
       ],
     });
-    expect(snapshot.manifest.payloadSha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(snapshot.manifest.replicaSha256).toMatch(/^[0-9a-f]{64}$/);
     expect(snapshot.manifest.activeDerivative.sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(snapshot.manifest.replicaBytes).toBe(
+      Buffer.byteLength(JSON.stringify(snapshot.replica)),
+    );
+    expect(snapshot.manifest.referencedResourceBytes).toBe(100);
   });
 
   test("reports partial server retention without discarding the usable Derivative", () => {
@@ -45,7 +49,7 @@ describe("Offline working set snapshot", () => {
 
     expect(snapshot.manifest.serverRetention).toEqual({
       state: "partial",
-      reasons: ["Required Source resource is missing: active:/"],
+      reasons: ["Required Source-resource metadata is missing: active:/"],
     });
     expect(snapshot.replica.workspace.reading.mainComponent.identity).toBe(
       "active:/",
