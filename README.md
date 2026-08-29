@@ -269,7 +269,7 @@ lirna/
 - `bun run build`: Build all applications
 - `bun run dev:web`: Start only the web application
 - `bun run dev:server`: Start only the server
-- `bun run check-types`: Check TypeScript types across all apps
+- `bun run typecheck`: Check TypeScript types across all apps
 - `bun run test:e2e`: Run the deterministic Playwright browser suite locally
 - `bun run test:e2e:ci`: Run the Playwright suite with CI retries and diagnostics
 - `bun run test:db`: Verify migrations and database behavior in disposable PostgreSQL

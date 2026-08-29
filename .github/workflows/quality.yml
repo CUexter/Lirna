@@ -115,7 +115,7 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Check workspace types
-        run: bun run check-types
+        run: bun run typecheck
 
   build:
     name: Production builds

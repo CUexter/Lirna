@@ -100,7 +100,7 @@ Select verification proportional to the change. The normal local starting point
 is:
 
 ```bash
-bun run check-types
+bun run typecheck
 bun run quality
 ```
 

@@ -30,7 +30,7 @@ NODE
 grep -Fq 'bun install --frozen-lockfile' "$workflow"
 grep -Fq 'npm install --global fallow@3.17.0' "$workflow"
 grep -Fq 'run: bun run quality:ci' "$workflow"
-grep -Fq 'run: bun run check-types' "$workflow"
+grep -Fq 'run: bun run typecheck' "$workflow"
 grep -Fq 'run: bun run build' "$workflow"
 grep -Fq 'run: bun run test:e2e:ci' "$workflow"
 grep -Fq 'bunx playwright install --with-deps firefox' "$workflow"
