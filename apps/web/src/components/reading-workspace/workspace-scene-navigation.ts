@@ -241,6 +241,7 @@ export function useReadingWorkspaceViewProps({
       stateId: source.stateId,
     },
   });
+  const projectedCitationResolutions = citation.citationResolutions;
   return {
     articlePaneProps: {
       annotations: {
@@ -256,7 +257,7 @@ export function useReadingWorkspaceViewProps({
       capture: reading.capture,
       component,
       contentActions: {
-        citationResolutions,
+        citationResolutions: projectedCitationResolutions,
         onOpenAuthoredLink: createCurrentAuthoredLinkHandler(
           component,
           openAuthoredLink,
@@ -280,7 +281,7 @@ export function useReadingWorkspaceViewProps({
     readingToolsProps: {
       bibliography: {
         citationScrollRequest,
-        citationResolutions,
+        citationResolutions: projectedCitationResolutions,
         resolution: citation.resolution,
         mainComponentIdentity: reading.mainComponent.identity,
         navigation,

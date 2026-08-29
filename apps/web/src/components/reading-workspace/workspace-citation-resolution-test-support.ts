@@ -27,14 +27,12 @@ export function citationResolutionLibraryStub(
     confidence: null,
     reasoning: "Provider unavailable",
   }),
+  clearResolution: () => (input: unknown) => Promise<unknown> = () =>
+    async () =>
+      true,
 ) {
   return {
     library: {
-      sources: {
-        readingWorkspace: {
-          key: ({ input }: { input: unknown }) => ["reading-workspace", input],
-        },
-      },
       citationResolutions: {
         evidence: {
           queryOptions: ({ input }: { input: unknown }) => ({
@@ -48,7 +46,9 @@ export function citationResolutionLibraryStub(
           }),
         },
         clear: {
-          mutationOptions: () => ({ mutationFn: async () => true }),
+          mutationOptions: () => ({
+            mutationFn: (input: unknown) => clearResolution()(input),
+          }),
         },
         infer: {
           mutationOptions: () => ({
@@ -67,7 +67,6 @@ export function createCitationResolutionHarness(
   const mainComponent = reading.components[0];
   if (!mainComponent) throw new Error("Article fixture is missing");
   const client = createTestQueryClient();
-  const workspaceKey = ["reading-workspace", { sourceId, stateId }];
   const movement: Movement = {
     activatePassage: (activate) => activate(),
     cancel: (onCommit) => onCommit(),
@@ -80,9 +79,9 @@ export function createCitationResolutionHarness(
     client,
     queryWrapper: queryClientWrapper(client),
     reading,
-    workspaceKey,
     props: (
       overrides: {
+        citationResolutions?: CitationResolution[];
         component?: (typeof reading.components)[number];
         derivativeId?: string;
         evidenceAccess?: "online" | "retained";
@@ -91,7 +90,7 @@ export function createCitationResolutionHarness(
     ) => ({
       movement,
       reading: {
-        citationResolutions: [],
+        citationResolutions: overrides.citationResolutions ?? [],
         components: reading.components,
         mainComponentIdentity: reading.mainComponent.identity,
       },

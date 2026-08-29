@@ -2,7 +2,6 @@ import { afterEach, expect, mock, test } from "bun:test";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 
 import { queryClientWrapper } from "@/test-support/query-hook";
-import { readingWorkspaceFixture } from "./source-information-test-fixture";
 import {
   citationResolutionLibraryStub,
   createCitationResolutionHarness,
@@ -17,11 +16,14 @@ const evidence = [
   mentionEvidence("citation-two"),
 ];
 let createResolution = async (_input: unknown): Promise<unknown> => undefined;
+let clearResolution = async (_input: unknown): Promise<unknown> => true;
 
 await mock.module("@/clients/library", () =>
   citationResolutionLibraryStub(
     async () => evidence,
     () => createResolution,
+    undefined,
+    () => clearResolution,
   ),
 );
 
@@ -32,6 +34,7 @@ const { useWorkspaceCitationResolution } = await import(
 afterEach(() => {
   cleanup();
   createResolution = async () => undefined;
+  clearResolution = async () => true;
 });
 
 test("keeps active Citation work across scene changes and resets it for another target", async () => {
@@ -81,11 +84,10 @@ test("keeps active Citation work until cancellation movement commits", async () 
   expect(result.current.resolution).toBeUndefined();
 });
 
-test("ignores mutation completion for an obsolete mention", async () => {
+test("publishes a confirmed selection after another mention opens", async () => {
   const completion = Promise.withResolvers<unknown>();
   createResolution = () => completion.promise;
   const harness = createHarness();
-  harness.client.setQueryData(harness.workspaceKey, readingWorkspaceFixture());
   const { result } = renderHook(
     () => useWorkspaceCitationResolution(harness.props()),
     { wrapper: queryClientWrapper(harness.client) },
@@ -99,19 +101,16 @@ test("ignores mutation completion for an obsolete mention", async () => {
 
   await resolveMutation(completion, resolution("citation-one"));
 
-  expect(
-    harness.client.getQueryData<{ citationResolutions: unknown[] }>(
-      harness.workspaceKey,
-    )?.citationResolutions,
-  ).toEqual([]);
+  expect(result.current.citationResolutions).toEqual([
+    resolution("citation-one"),
+  ]);
   expect(result.current.resolution?.evidence?.mentionId).toBe("citation-two");
 });
 
-test("ignores mutation completion after cancellation commits", async () => {
+test("publishes a confirmed selection after cancellation commits", async () => {
   const completion = Promise.withResolvers<unknown>();
   createResolution = () => completion.promise;
   const harness = createHarness();
-  harness.client.setQueryData(harness.workspaceKey, readingWorkspaceFixture());
   const { result } = renderHook(
     () => useWorkspaceCitationResolution(harness.props()),
     { wrapper: queryClientWrapper(harness.client) },
@@ -125,18 +124,15 @@ test("ignores mutation completion after cancellation commits", async () => {
 
   await resolveMutation(completion, resolution("citation-one"));
 
-  expect(
-    harness.client.getQueryData<{ citationResolutions: unknown[] }>(
-      harness.workspaceKey,
-    )?.citationResolutions,
-  ).toEqual([]);
+  expect(result.current.citationResolutions).toEqual([
+    resolution("citation-one"),
+  ]);
 });
 
 test("ignores a completion projected from another Derivative", async () => {
   const completion = Promise.withResolvers<unknown>();
   createResolution = () => completion.promise;
   const harness = createHarness();
-  harness.client.setQueryData(harness.workspaceKey, readingWorkspaceFixture());
   const { result } = renderHook(
     () => useWorkspaceCitationResolution(harness.props()),
     { wrapper: queryClientWrapper(harness.client) },
@@ -152,11 +148,102 @@ test("ignores a completion projected from another Derivative", async () => {
     derivativeId: "obsolete-derivative",
   });
 
+  expect(result.current.citationResolutions).toEqual([]);
+});
+
+test("publishes clearing only after the write is confirmed", async () => {
+  const completion = Promise.withResolvers<unknown>();
+  clearResolution = () => completion.promise;
+  const confirmed = resolution("citation-one");
+  const harness = createHarness();
+  const { result } = renderHook(
+    () =>
+      useWorkspaceCitationResolution(
+        harness.props({ citationResolutions: [confirmed] }),
+      ),
+    { wrapper: queryClientWrapper(harness.client) },
+  );
+  await harness.waitForEvidence(evidence);
+  act(() => result.current.openCurrent("entry-one", "citation-one"));
+
+  act(() => result.current.resolution?.onClear?.());
+  expect(result.current.citationResolutions).toEqual([confirmed]);
+
+  await resolveMutation(completion, true);
+  expect(result.current.citationResolutions).toEqual([]);
+});
+
+test("allows only one decision per mention while independent mentions proceed", async () => {
+  const completions = {
+    "citation-one": Promise.withResolvers<unknown>(),
+    "citation-two": Promise.withResolvers<unknown>(),
+  };
+  let calls = 0;
+  createResolution = (input) => {
+    calls += 1;
+    const mentionId = (input as { mentionId: keyof typeof completions })
+      .mentionId;
+    return completions[mentionId].promise;
+  };
+  const harness = createHarness();
+  const { result } = renderHook(
+    () => useWorkspaceCitationResolution(harness.props()),
+    { wrapper: queryClientWrapper(harness.client) },
+  );
+  await harness.waitForEvidence(evidence);
+
+  act(() => result.current.openCurrent("entry-one", "citation-one"));
+  act(() => {
+    result.current.resolution?.onSelect?.(evidence[0]?.candidates[0] as never);
+    result.current.resolution?.onSelect?.(evidence[0]?.candidates[0] as never);
+  });
+  act(() => result.current.openCurrent("entry-two", "citation-two"));
+  act(() =>
+    result.current.resolution?.onSelect?.(evidence[1]?.candidates[0] as never),
+  );
+
+  await waitFor(() => expect(calls).toBe(2));
+  await resolveMutation(
+    completions["citation-one"],
+    resolution("citation-one"),
+  );
+  await resolveMutation(
+    completions["citation-two"],
+    resolution("citation-two"),
+  );
   expect(
-    harness.client.getQueryData<{ citationResolutions: unknown[] }>(
-      harness.workspaceKey,
-    )?.citationResolutions,
-  ).toEqual([]);
+    result.current.citationResolutions.map((item) => item.mentionId).sort(),
+  ).toEqual(["citation-one", "citation-two"]);
+});
+
+test("does not let an older server projection reverse a newer clear", async () => {
+  const selected = resolution("citation-one");
+  createResolution = async () => selected;
+  const harness = createHarness();
+  const { result, rerender } = renderHook(
+    (props) => useWorkspaceCitationResolution(props),
+    {
+      initialProps: harness.props(),
+      wrapper: queryClientWrapper(harness.client),
+    },
+  );
+  await harness.waitForEvidence(evidence);
+  act(() => result.current.openCurrent("entry-one", "citation-one"));
+  act(() =>
+    result.current.resolution?.onSelect?.(evidence[0]?.candidates[0] as never),
+  );
+  await waitFor(() =>
+    expect(result.current.citationResolutions).toEqual([selected]),
+  );
+  act(() => result.current.resolution?.onClear?.());
+  await waitFor(() => expect(result.current.citationResolutions).toEqual([]));
+
+  rerender(harness.props({ citationResolutions: [] }));
+  expect(result.current.citationResolutions).toEqual([]);
+
+  rerender(harness.props({ citationResolutions: [selected] }));
+
+  expect(result.current.citationResolutions).toEqual([]);
 });
 
 test("routes article, publisher-note, manual, return, and cancel actions through one movement interface", async () => {

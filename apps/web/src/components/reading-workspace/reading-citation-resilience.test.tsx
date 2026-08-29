@@ -162,7 +162,7 @@ test("keeps a failed selection available for retry", async () => {
   });
   await user.click(select);
   expect((await view().findByRole("alert")).textContent).toContain(
-    "The confirmed Citation resolution is unchanged",
+    "The latest confirmed Citation resolution change remains visible",
   );
   expect(citationResolutionCalls).toHaveLength(1);
 

@@ -172,6 +172,25 @@ test("labels a correction and clears it explicitly", async () => {
   expect(onClear).toHaveBeenCalledTimes(1);
 });
 
+test("offers an explicit retry when projection synchronization fails", async () => {
+  const user = userEvent.setup();
+  const onRetryReconciliation = mock();
+  renderPanel({
+    failure: "Reading projection refresh failed",
+    onRetryReconciliation,
+  });
+
+  expect(within(document.body).getByRole("alert").textContent).toContain(
+    "latest confirmed Citation resolution change remains visible",
+  );
+  await user.click(
+    within(document.body).getByRole("button", {
+      name: "Retry synchronization",
+    }),
+  );
+  expect(onRetryReconciliation).toHaveBeenCalledTimes(1);
+});
+
 function renderPanel(overrides: Partial<Parameters<typeof panel>[0]> = {}) {
   return render(panel(overrides));
 }

@@ -18,6 +18,7 @@ export type CitationResolutionPanelProps =
       evidence?: never;
       onClear?: never;
       onInfer?: never;
+      onRetryReconciliation?: never;
       onSelect?: never;
     })
   | {
@@ -30,6 +31,7 @@ export type CitationResolutionPanelProps =
       onCancel: () => void;
       onClear: () => void;
       onInfer: () => void;
+      onRetryReconciliation?: () => void;
       onRetryEvidence?: never;
       onSelect: (
         candidate: Evidence["candidates"][number],
@@ -88,10 +90,22 @@ export function CitationResolutionPanel(props: CitationResolutionPanelProps) {
         pending={pending.infer}
       />
       {failure ? (
-        <p className="text-destructive text-sm" role="alert">
-          {failure} The confirmed Citation resolution is unchanged. Retry or
-          cancel this work.
-        </p>
+        <div className="space-y-2" role="alert">
+          <p className="text-destructive text-sm">
+            {failure} The latest confirmed Citation resolution change remains
+            visible.
+          </p>
+          {props.onRetryReconciliation ? (
+            <Button
+              onClick={props.onRetryReconciliation}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              Retry synchronization
+            </Button>
+          ) : null}
+        </div>
       ) : null}
       <InferenceResult
         inference={inference}

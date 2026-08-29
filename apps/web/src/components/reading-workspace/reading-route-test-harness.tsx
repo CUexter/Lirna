@@ -100,11 +100,6 @@ await mock.module("@/clients/inquiry", () => ({
 
 await mock.module("@/clients/library", () => ({
   library: {
-    sources: {
-      readingWorkspace: {
-        key: ({ input }: { input: unknown }) => ["reading-workspace", input],
-      },
-    },
     citationResolutions: {
       evidence: {
         queryOptions: ({ input }: { input: unknown }) => ({

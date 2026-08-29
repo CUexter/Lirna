@@ -2,7 +2,6 @@ import { afterEach, expect, mock, test } from "bun:test";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 
 import { queryClientWrapper } from "@/test-support/query-hook";
-import { readingWorkspaceFixture } from "./source-information-test-fixture";
 import {
   citationResolutionLibraryStub,
   createCitationResolutionHarness,
@@ -152,8 +151,6 @@ test("preserves confirmed projection and active work when a selection fails", as
     throw new Error("Selection could not be saved");
   };
   const harness = createCitationResolutionHarness();
-  const workspace = readingWorkspaceFixture();
-  harness.client.setQueryData(harness.workspaceKey, workspace);
   const { result } = renderHook(
     () => useWorkspaceCitationResolution(harness.props()),
     { wrapper: queryClientWrapper(harness.client) },
@@ -170,21 +167,53 @@ test("preserves confirmed projection and active work when a selection fails", as
       failure: "Selection could not be saved",
     }),
   );
-  expect(
-    harness.client.getQueryData<typeof workspace>(harness.workspaceKey),
-  ).toEqual(workspace);
+  expect(result.current.citationResolutions).toEqual([]);
 
   createResolution = async () => resolution("citation-one");
   act(() =>
     result.current.resolution?.onSelect?.(evidence[0]?.candidates[0] as never),
   );
   await waitFor(() =>
-    expect(
-      harness.client.getQueryData<{ citationResolutions: unknown[] }>(
-        harness.workspaceKey,
-      )?.citationResolutions,
-    ).toHaveLength(1),
+    expect(result.current.citationResolutions).toHaveLength(1),
   );
+});
+
+test("retains a confirmed consequence and permits reconciliation retry", async () => {
+  createResolution = async () => resolution("citation-one");
+  const harness = createCitationResolutionHarness();
+  const invalidate = harness.client.invalidateQueries.bind(harness.client);
+  harness.client.invalidateQueries = async () => {
+    throw new Error("Reading projection refresh failed");
+  };
+  const { result } = renderHook(
+    () => useWorkspaceCitationResolution(harness.props()),
+    { wrapper: queryClientWrapper(harness.client) },
+  );
+  await harness.waitForEvidence(evidence);
+  act(() => result.current.openCurrent("entry-one", "citation-one"));
+
+  act(() =>
+    result.current.resolution?.onSelect?.(evidence[0]?.candidates[0] as never),
+  );
+  await waitFor(() =>
+    expect(result.current.resolution).toMatchObject({
+      failure: "Reading projection refresh failed",
+    }),
+  );
+  expect(result.current.citationResolutions).toHaveLength(1);
+
+  act(() => result.current.resolution?.onCancel());
+  act(() => result.current.openCurrent("entry-one", "citation-one"));
+  expect(result.current.resolution).toMatchObject({
+    failure: "Reading projection refresh failed",
+  });
+
+  harness.client.invalidateQueries = invalidate;
+  act(() => result.current.resolution?.onRetryReconciliation?.());
+  await waitFor(() =>
+    expect(result.current.resolution).toMatchObject({ failure: undefined }),
+  );
+  expect(result.current.citationResolutions).toHaveLength(1);
 });
 
 test("clears an obsolete authored-action failure when another action succeeds", async () => {
@@ -193,7 +222,6 @@ test("clears an obsolete authored-action failure when another action succeeds", 
   };
   createResolution = async () => resolution("citation-one");
   const harness = createCitationResolutionHarness();
-  harness.client.setQueryData(harness.workspaceKey, readingWorkspaceFixture());
   const { result } = renderHook(
     () => useWorkspaceCitationResolution(harness.props()),
     { wrapper: queryClientWrapper(harness.client) },
@@ -217,11 +245,70 @@ test("clears an obsolete authored-action failure when another action succeeds", 
       failure: undefined,
     }),
   );
-  expect(
-    harness.client.getQueryData<{ citationResolutions: unknown[] }>(
-      harness.workspaceKey,
-    )?.citationResolutions,
-  ).toHaveLength(1);
+  expect(result.current.citationResolutions).toHaveLength(1);
+});
+
+test("does not report a write failure after the target changes", async () => {
+  const completion = Promise.withResolvers<unknown>();
+  createResolution = () => completion.promise;
+  const harness = createCitationResolutionHarness();
+  const { result, rerender } = renderHook(
+    (props) => useWorkspaceCitationResolution(props),
+    {
+      initialProps: harness.props(),
+      wrapper: queryClientWrapper(harness.client),
+    },
+  );
+  await harness.waitForEvidence(evidence);
+  act(() => result.current.openCurrent("entry-one", "citation-one"));
+  act(() =>
+    result.current.resolution?.onSelect?.(evidence[0]?.candidates[0] as never),
+  );
+
+  readEvidence = async () =>
+    evidence.map((item) => ({ ...item, derivativeId: "another-derivative" }));
+  rerender(harness.props({ derivativeId: "another-derivative" }));
+  await waitFor(() => expect(result.current.resolution).toBeUndefined());
+  act(() => result.current.openCurrent("entry-one", "citation-one"));
+  await waitFor(() =>
+    expect(result.current.resolution).toMatchObject({ availability: "ready" }),
+  );
+  await act(async () => {
+    completion.reject(new Error("Obsolete write failed"));
+    await completion.promise.catch(() => undefined);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
+  await waitFor(() =>
+    expect(result.current.resolution).toMatchObject({ failure: undefined }),
+  );
+});
+
+test("does not retain an inference result when work reopens", async () => {
+  inferResolution = async () => ({
+    status: "unavailable",
+    candidateId: null,
+    confidence: null,
+    reasoning: "No safe suggestion",
+  });
+  const harness = createCitationResolutionHarness();
+  const { result } = renderHook(
+    () => useWorkspaceCitationResolution(harness.props()),
+    { wrapper: queryClientWrapper(harness.client) },
+  );
+  await harness.waitForEvidence(evidence);
+  act(() => result.current.openCurrent("entry-one", "citation-one"));
+  act(() => result.current.resolution?.onInfer?.());
+  await waitFor(() =>
+    expect(result.current.resolution).toMatchObject({
+      inference: { reasoning: "No safe suggestion" },
+    }),
+  );
+
+  act(() => result.current.resolution?.onCancel());
+  act(() => result.current.openCurrent("entry-one", "citation-one"));
+
+  expect(result.current.resolution).toMatchObject({ inference: undefined });
 });
 
 function citationEvidenceKey(

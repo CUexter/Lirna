@@ -2,18 +2,18 @@ import { useQuery } from "@tanstack/react-query";
 
 import { library } from "@/clients/library";
 import type { CitationResolution } from "../annotations/dom-utils";
-import type { CitationResolutionPanelProps } from "./citation-resolution-panel";
 import {
   type CitationResolutionTarget,
   type CitationResolutionWork,
-  useCitationResolutionWrites,
-} from "./citation-resolution-writes";
+  useCitationResolutionModule,
+} from "./citation-resolution-module";
+import type { CitationResolutionPanelProps } from "./citation-resolution-panel";
 
 export function useWorkspaceCitationResolutionPanel({
   active,
   activeWorkId,
   cancel,
-  current,
+  citationResolutions,
   evidenceAccess,
   isCurrent,
   nextWorkId,
@@ -23,7 +23,7 @@ export function useWorkspaceCitationResolutionPanel({
   active?: CitationResolutionWork;
   activeWorkId: React.RefObject<number | undefined>;
   cancel: (onCommit: () => void) => void;
-  current?: CitationResolution;
+  citationResolutions: CitationResolution[];
   evidenceAccess: "online" | "retained";
   isCurrent: (work: CitationResolutionWork) => boolean;
   nextWorkId: React.RefObject<number>;
@@ -53,9 +53,9 @@ export function useWorkspaceCitationResolutionPanel({
     evidenceAccess === "online" &&
     !evidenceQuery.error &&
     !evidenceQuery.isFetching;
-  const writes = useCitationResolutionWrites({
+  const citationResolution = useCitationResolutionModule({
     active,
-    current,
+    citationResolutions,
     evidence: evidenceIsCurrent ? evidence : undefined,
     isCurrent,
     target,
@@ -67,11 +67,12 @@ export function useWorkspaceCitationResolutionPanel({
           nextWorkId.current += 1;
           activeWorkId.current = undefined;
           setActive(undefined);
-          writes.reset();
+          citationResolution.resetWork();
         })
     : undefined;
 
   return {
+    citationResolutions: citationResolution.citationResolutions,
     panel: resolutionPanel({
       active,
       evidenceAccess,
@@ -79,9 +80,9 @@ export function useWorkspaceCitationResolutionPanel({
       evidencePending: evidenceQuery.isFetching,
       onCancel,
       retryEvidence: () => void evidenceQuery.refetch(),
-      writes,
+      citationResolution,
     }),
-    reset: writes.reset,
+    resetWork: citationResolution.resetWork,
   };
 }
 
@@ -92,7 +93,7 @@ function resolutionPanel({
   evidencePending,
   onCancel,
   retryEvidence,
-  writes,
+  citationResolution,
 }: {
   active?: CitationResolutionWork;
   evidenceAccess: "online" | "retained";
@@ -100,10 +101,11 @@ function resolutionPanel({
   evidencePending: boolean;
   onCancel?: () => void;
   retryEvidence: () => void;
-  writes: ReturnType<typeof useCitationResolutionWrites>;
+  citationResolution: ReturnType<typeof useCitationResolutionModule>;
 }): CitationResolutionPanelProps | undefined {
   if (!(active && onCancel)) return undefined;
-  if (writes.panel) return { ...writes.panel, onCancel };
+  if (citationResolution.panel)
+    return { ...citationResolution.panel, onCancel };
   if (evidenceAccess === "retained") {
     return {
       availability: "unavailable",
