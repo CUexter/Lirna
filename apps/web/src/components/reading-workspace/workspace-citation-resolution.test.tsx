@@ -84,7 +84,7 @@ test("keeps active Citation work until cancellation movement commits", async () 
   expect(result.current.resolution).toBeUndefined();
 });
 
-test("publishes a confirmed selection after another mention opens", async () => {
+test("does not publish a confirmed selection after another mention opens", async () => {
   const completion = Promise.withResolvers<unknown>();
   createResolution = () => completion.promise;
   const harness = createHarness();
@@ -101,13 +101,11 @@ test("publishes a confirmed selection after another mention opens", async () => 
 
   await resolveMutation(completion, resolution("citation-one"));
 
-  expect(result.current.citationResolutions).toEqual([
-    resolution("citation-one"),
-  ]);
+  expect(result.current.citationResolutions).toEqual([]);
   expect(result.current.resolution?.evidence?.mentionId).toBe("citation-two");
 });
 
-test("publishes a confirmed selection after cancellation commits", async () => {
+test("does not publish a confirmed selection after cancellation commits", async () => {
   const completion = Promise.withResolvers<unknown>();
   createResolution = () => completion.promise;
   const harness = createHarness();
@@ -124,9 +122,7 @@ test("publishes a confirmed selection after cancellation commits", async () => {
 
   await resolveMutation(completion, resolution("citation-one"));
 
-  expect(result.current.citationResolutions).toEqual([
-    resolution("citation-one"),
-  ]);
+  expect(result.current.citationResolutions).toEqual([]);
 });
 
 test("ignores a completion projected from another Derivative", async () => {
@@ -153,15 +149,17 @@ test("ignores a completion projected from another Derivative", async () => {
 
 test("publishes clearing only after the write is confirmed", async () => {
   const completion = Promise.withResolvers<unknown>();
+  const reconciliation = Promise.withResolvers<void>();
   clearResolution = () => completion.promise;
   const confirmed = resolution("citation-one");
   const harness = createHarness();
-  const { result } = renderHook(
-    () =>
-      useWorkspaceCitationResolution(
-        harness.props({ citationResolutions: [confirmed] }),
-      ),
-    { wrapper: queryClientWrapper(harness.client) },
+  harness.client.invalidateQueries = () => reconciliation.promise;
+  const { result, rerender } = renderHook(
+    (props) => useWorkspaceCitationResolution(props),
+    {
+      initialProps: harness.props({ citationResolutions: [confirmed] }),
+      wrapper: queryClientWrapper(harness.client),
+    },
   );
   await harness.waitForEvidence(evidence);
   act(() => result.current.openCurrent("entry-one", "citation-one"));
@@ -171,9 +169,16 @@ test("publishes clearing only after the write is confirmed", async () => {
 
   await resolveMutation(completion, true);
   expect(result.current.citationResolutions).toEqual([]);
+
+  rerender(harness.props({ citationResolutions: [] }));
+  await act(async () => {
+    reconciliation.resolve();
+    await reconciliation.promise;
+  });
+  expect(result.current.citationResolutions).toEqual([]);
 });
 
-test("allows only one decision per mention while independent mentions proceed", async () => {
+test("allows one decision per mention while superseding obsolete work", async () => {
   const completions = {
     "citation-one": Promise.withResolvers<unknown>(),
     "citation-two": Promise.withResolvers<unknown>(),
@@ -186,6 +191,7 @@ test("allows only one decision per mention while independent mentions proceed", 
     return completions[mentionId].promise;
   };
   const harness = createHarness();
+  harness.client.invalidateQueries = () => new Promise<void>(() => undefined);
   const { result } = renderHook(
     () => useWorkspaceCitationResolution(harness.props()),
     { wrapper: queryClientWrapper(harness.client) },
@@ -213,13 +219,15 @@ test("allows only one decision per mention while independent mentions proceed", 
   );
   expect(
     result.current.citationResolutions.map((item) => item.mentionId).sort(),
-  ).toEqual(["citation-one", "citation-two"]);
+  ).toEqual(["citation-two"]);
 });
 
 test("does not let an older server projection reverse a newer clear", async () => {
   const selected = resolution("citation-one");
+  const reconciliation = Promise.withResolvers<void>();
   createResolution = async () => selected;
   const harness = createHarness();
+  harness.client.invalidateQueries = () => reconciliation.promise;
   const { result, rerender } = renderHook(
     (props) => useWorkspaceCitationResolution(props),
     {
@@ -238,12 +246,55 @@ test("does not let an older server projection reverse a newer clear", async () =
   act(() => result.current.resolution?.onClear?.());
   await waitFor(() => expect(result.current.citationResolutions).toEqual([]));
 
-  rerender(harness.props({ citationResolutions: [] }));
-  expect(result.current.citationResolutions).toEqual([]);
-
   rerender(harness.props({ citationResolutions: [selected] }));
-
   expect(result.current.citationResolutions).toEqual([]);
+
+  rerender(harness.props({ citationResolutions: [] }));
+  await act(async () => {
+    reconciliation.resolve();
+    await reconciliation.promise;
+  });
+  expect(result.current.citationResolutions).toEqual([]);
+});
+
+test("retires a local consequence after the server projection reconciles", async () => {
+  const selected = resolution("citation-one");
+  const newerSelection = {
+    ...selected,
+    id: "60000000-0000-4000-8000-000000000000",
+    bibliographyEntryId: "entry-newer",
+  };
+  const reconciliation = Promise.withResolvers<void>();
+  createResolution = async () => selected;
+  const harness = createHarness();
+  harness.client.invalidateQueries = () => reconciliation.promise;
+  const { result, rerender } = renderHook(
+    (props) => useWorkspaceCitationResolution(props),
+    {
+      initialProps: harness.props(),
+      wrapper: queryClientWrapper(harness.client),
+    },
+  );
+  await harness.waitForEvidence(evidence);
+  act(() => result.current.openCurrent("entry-one", "citation-one"));
+  act(() =>
+    result.current.resolution?.onSelect?.(evidence[0]?.candidates[0] as never),
+  );
+  await waitFor(() =>
+    expect(result.current.citationResolutions).toEqual([selected]),
+  );
+
+  rerender(harness.props({ citationResolutions: [newerSelection] }));
+  expect(result.current.citationResolutions).toEqual([selected]);
+
+  await act(async () => {
+    reconciliation.resolve();
+    await reconciliation.promise;
+  });
+
+  await waitFor(() =>
+    expect(result.current.citationResolutions).toEqual([newerSelection]),
+  );
 });
 
 test("routes article, publisher-note, manual, return, and cancel actions through scene transitions", async () => {

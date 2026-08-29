@@ -92,7 +92,16 @@ export function useCitationResolutionModule({
         { exact: true, queryKey: projection.queryKey },
         { throwOnError: true },
       );
-      if (consequenceSequences.current.get(key) === sequence) clearFailure(key);
+      if (consequenceSequences.current.get(key) === sequence) {
+        consequenceSequences.current.delete(key);
+        setConsequences((state) =>
+          state.filter(
+            (consequence) =>
+              consequence.key !== key || consequence.sequence !== sequence,
+          ),
+        );
+        clearFailure(key);
+      }
     } catch (error) {
       if (
         sameCitationResolutionTarget(currentTarget.current, target) &&

@@ -151,6 +151,7 @@ test("preserves confirmed projection and active work when a selection fails", as
     throw new Error("Selection could not be saved");
   };
   const harness = createCitationResolutionHarness();
+  harness.client.invalidateQueries = () => new Promise<void>(() => undefined);
   const { result } = renderHook(
     () => useWorkspaceCitationResolution(harness.props()),
     { wrapper: queryClientWrapper(harness.client) },
@@ -185,9 +186,12 @@ test("retains a confirmed consequence and permits reconciliation retry", async (
   harness.client.invalidateQueries = async () => {
     throw new Error("Reading projection refresh failed");
   };
-  const { result } = renderHook(
-    () => useWorkspaceCitationResolution(harness.props()),
-    { wrapper: queryClientWrapper(harness.client) },
+  const { result, rerender } = renderHook(
+    (props) => useWorkspaceCitationResolution(props),
+    {
+      initialProps: harness.props(),
+      wrapper: queryClientWrapper(harness.client),
+    },
   );
   await harness.waitForEvidence(evidence);
   act(() => result.current.openCurrent("entry-one", "citation-one"));
@@ -209,6 +213,9 @@ test("retains a confirmed consequence and permits reconciliation retry", async (
   });
 
   harness.client.invalidateQueries = invalidate;
+  rerender(
+    harness.props({ citationResolutions: [resolution("citation-one")] }),
+  );
   act(() => result.current.resolution?.onRetryReconciliation?.());
   await waitFor(() =>
     expect(result.current.resolution).toMatchObject({ failure: undefined }),
@@ -222,6 +229,7 @@ test("clears an obsolete authored-action failure when another action succeeds", 
   };
   createResolution = async () => resolution("citation-one");
   const harness = createCitationResolutionHarness();
+  harness.client.invalidateQueries = () => new Promise<void>(() => undefined);
   const { result } = renderHook(
     () => useWorkspaceCitationResolution(harness.props()),
     { wrapper: queryClientWrapper(harness.client) },

@@ -120,7 +120,9 @@ export function useCitationResolutionActions({
       if (!decision) return;
       void clearResolution
         .mutateAsync(decisionInput(work))
-        .then(() => publish(work, decision.token))
+        .then(() => {
+          if (isCurrent(work)) publish(work, decision.token);
+        })
         .catch((error: Error) =>
           reportDecisionFailure(work, decision.key, decision.token, error),
         )
@@ -175,7 +177,7 @@ export function useCitationResolutionActions({
             : {}),
         })
         .then((resolution) => {
-          if (resolutionBelongsToWork(resolution, work)) {
+          if (isCurrent(work) && resolutionBelongsToWork(resolution, work)) {
             publish(work, decision.token, resolution);
           }
         })
