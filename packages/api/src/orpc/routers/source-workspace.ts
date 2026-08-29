@@ -1,5 +1,5 @@
 import { openapi } from "@orpc/openapi";
-import { createOfflineWorkingSetSnapshot } from "../../offline-working-set/offline-working-set";
+import { ORPCError } from "@orpc/server";
 import { publicProcedure } from "../init";
 import {
   notFoundError,
@@ -35,7 +35,7 @@ export const sourceWorkspaceProcedures = {
   offlineManifest: publicProcedure
     .input(sourceStateInput)
     .output(offlineWorkingSetSchema)
-    .errors(notFoundError)
+    .errors({ ...notFoundError, FORBIDDEN: {} })
     .meta(
       openapi({
         method: "GET",
@@ -46,30 +46,18 @@ export const sourceWorkspaceProcedures = {
       }),
     )
     .handler(async ({ context, input }) => {
-      const workspace = await context.readingWorkspaces.read(
+      const result = await context.offlineWorkingSets.capture(
         input.sourceId,
         input.stateId,
       );
-      if (!workspace) throw notFound("SEP Reading Derivative is unavailable");
-      const annotations = await context.annotations.list(
-        input.sourceId,
-        input.stateId,
-      );
-      const positions = (
-        await Promise.all(
-          workspace.reading.components.map((component) =>
-            context.readingPositions.get({
-              sourceId: input.sourceId,
-              stateId: input.stateId,
-              componentIdentity: component.identity,
-            }),
-          ),
-        )
-      ).filter((position) => position !== undefined);
-      return createOfflineWorkingSetSnapshot({
-        workspace,
-        annotations,
-        positions,
-      });
+      if (result.status === "unavailable") {
+        throw notFound("SEP Reading Derivative is unavailable");
+      }
+      if (result.status === "policy-ineligible") {
+        throw new ORPCError("FORBIDDEN", {
+          message: `Source handling policy does not permit Offline working-set retention: ${result.reasons.join(", ")}`,
+        });
+      }
+      return result.snapshot;
     }),
 };

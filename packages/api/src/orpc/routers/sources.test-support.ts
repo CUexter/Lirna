@@ -4,7 +4,6 @@ import type {
   ReadingPositionOperations,
   ReadingPositionRecord,
 } from "../../reading-position/reading-position-contract";
-import type { ReadingWorkspaceOperations } from "../../reading-workspace/reading-workspace";
 import type { SepAdmittedStateOperations } from "../../sep-admission/sep-admitted-state";
 import { createTestContext } from "../application-test-support";
 import {
@@ -34,20 +33,13 @@ export function sourcesContext(
   return createTestContext({
     admittedSourceStates,
     readingPositions,
-    readingWorkspaces: readingWorkspacesStub(),
+    readingWorkspaces: {
+      async read() {
+        return undefined;
+      },
+    },
     ...adapters,
   });
-}
-
-export function readingWorkspacesStub(
-  overrides: Partial<ReadingWorkspaceOperations> = {},
-): ReadingWorkspaceOperations {
-  return {
-    async read() {
-      return undefined;
-    },
-    ...overrides,
-  };
 }
 
 export function readingPositionsStub(

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { call } from "@orpc/server";
+import { createOfflineWorkingSetSnapshot } from "../../offline-working-set/offline-working-set";
 import {
   admittedSourceStatesStub,
   readingFixture,
@@ -12,7 +13,6 @@ import {
   citationResolution,
   invoke,
   readingPositionsStub,
-  readingWorkspacesStub,
   sourcesContext,
 } from "./sources.test-support";
 
@@ -177,7 +177,7 @@ describe("Sources oRPC router", () => {
     });
   });
 
-  test("Offline working set uses the Reading workspace projection", async () => {
+  test("Offline working set delegates one capture operation", async () => {
     const reading = readingFixture();
     const activation = {
       id: "50000000-0000-4000-8000-000000000000",
@@ -220,6 +220,12 @@ describe("Sources oRPC router", () => {
       source: sourceFixture(),
       citationResolutions: [],
     };
+    const snapshot = createOfflineWorkingSetSnapshot({
+      workspace,
+      annotations: [],
+      positions: [],
+    });
+    let captured: { sourceId: string; stateId: string } | undefined;
     await expect(
       call(
         sourcesRouter.offlineManifest,
@@ -229,30 +235,49 @@ describe("Sources oRPC router", () => {
             admittedSourceStatesStub(),
             readingPositionsStub(),
             {
-              annotations: {
-                async list() {
-                  return [];
-                },
-                async create() {
-                  return undefined;
-                },
-                async update() {
-                  return undefined;
-                },
-                async delete() {
-                  return false;
+              offlineWorkingSets: {
+                async capture(capturedSourceId, capturedStateId) {
+                  captured = {
+                    sourceId: capturedSourceId,
+                    stateId: capturedStateId,
+                  };
+                  return { status: "captured", snapshot };
                 },
               },
-              readingWorkspaces: readingWorkspacesStub({
-                async read() {
-                  return workspace;
-                },
-              }),
             },
           ),
         },
       ),
-    ).resolves.toMatchObject({ replica: { workspace } });
+    ).resolves.toEqual(snapshot);
+    expect(captured).toEqual({ sourceId, stateId });
+  });
+
+  test("Offline working set exposes policy refusal as forbidden", async () => {
+    await expect(
+      call(
+        sourcesRouter.offlineManifest,
+        { sourceId, stateId },
+        {
+          context: sourcesContext(
+            admittedSourceStatesStub(),
+            readingPositionsStub(),
+            {
+              offlineWorkingSets: {
+                async capture() {
+                  return {
+                    status: "policy-ineligible",
+                    reasons: ["rights-reference-only"],
+                  };
+                },
+              },
+            },
+          ),
+        },
+      ),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: expect.stringContaining("rights-reference-only"),
+    });
   });
 });
 

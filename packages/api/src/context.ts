@@ -5,6 +5,7 @@ import type {
 } from "./citation-resolutions/citation-resolution-contract";
 import type { DerivativeUpdateOperations } from "./derivative-updates/derivative-update-contract";
 import type { RequestObservation } from "./observation";
+import type { OfflineWorkingSetOperations } from "./offline-working-set/offline-working-set-capture";
 import type { ReadingPositionOperations } from "./reading-position/reading-position-contract";
 import type { ReadingWorkspaceOperations } from "./reading-workspace/reading-workspace";
 import type { ResearchAssistantOperations } from "./research-assistant/research-assistant";
@@ -23,6 +24,7 @@ export interface Application {
   researchAssistant?: ResearchAssistantOperations;
   derivativeUpdates: DerivativeUpdateOperations;
   activeReadingDerivatives: ActiveReadingDerivativeOperations;
+  offlineWorkingSets: OfflineWorkingSetOperations;
 }
 
 export type CreateContextOptions = {

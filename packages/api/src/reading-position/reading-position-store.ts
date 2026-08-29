@@ -1,9 +1,10 @@
 import type { db } from "@lirna/db";
 import { readingPositions } from "@lirna/db/schema/reading-positions";
 import { sourceStates, sources } from "@lirna/db/schema/sources";
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 
 import type { ActiveReadingDerivativeOperations } from "../sep-admission/active-reading-derivative";
+import type { DatabaseExecutor } from "../sep-admission/sep-state-evidence";
 import type {
   ReadingPositionOperations,
   ReadingPositionRecord,
@@ -13,6 +14,24 @@ import {
   readingSemanticLocationSchema,
   semanticLocationMatchesPosition,
 } from "./reading-position-contract";
+
+export async function readReadingPositionsInSnapshot(
+  database: DatabaseExecutor,
+  sourceId: string,
+  stateId: string,
+): Promise<ReadingPositionRecord[]> {
+  const rows = await database
+    .select({ position: readingPositions, source: sources })
+    .from(readingPositions)
+    .innerJoin(
+      sourceStates,
+      eq(sourceStates.id, readingPositions.sourceStateId),
+    )
+    .innerJoin(sources, eq(sources.id, sourceStates.sourceId))
+    .where(and(eq(sources.id, sourceId), eq(sourceStates.id, stateId)))
+    .orderBy(asc(readingPositions.componentIdentity));
+  return rows.map(({ position, source }) => serialize(position, source));
+}
 
 export class DrizzleReadingPositionStore implements ReadingPositionOperations {
   constructor(

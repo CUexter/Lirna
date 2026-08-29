@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   decideCitationInference,
+  decideOfflineRetention,
   mostRestrictiveSensitivity,
   rightsBases,
   rightsBasisSchema,
@@ -90,6 +91,27 @@ describe("Source handling policy", () => {
       decideCitationInference(policy, "restricted-cloud").allowed,
     ).toBeTrue();
     expect(decideCitationInference(policy, "local").allowed).toBeTrue();
+  });
+
+  test("permits local Offline working-set retention only for retainable rights", () => {
+    expect(
+      decideOfflineRetention({
+        rightsBasis: "owned",
+        sensitivityLevel: "local-only",
+      }),
+    ).toEqual({ allowed: true, reason: "eligible" });
+    expect(
+      decideOfflineRetention({
+        rightsBasis: "reference-only",
+        sensitivityLevel: "ordinary-cloud",
+      }),
+    ).toEqual({ allowed: false, reasons: ["rights-reference-only"] });
+    expect(
+      decideOfflineRetention({
+        rightsBasis: "inaccessible",
+        sensitivityLevel: "restricted-cloud",
+      }),
+    ).toEqual({ allowed: false, reasons: ["content-inaccessible"] });
   });
 
   test("combines inputs at their most restrictive sensitivity level", () => {

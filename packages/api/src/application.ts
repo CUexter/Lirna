@@ -10,6 +10,7 @@ import { DrizzleCitationResolutionStore } from "./citation-resolutions/citation-
 import type { Application } from "./context";
 import type { DerivativeUpdateOperations } from "./derivative-updates/derivative-update-contract";
 import { DrizzleDerivativeUpdateStore } from "./derivative-updates/derivative-update-store";
+import { createOfflineWorkingSetCapture } from "./offline-working-set/offline-working-set-capture";
 import type { ReadingPositionOperations } from "./reading-position/reading-position-contract";
 import { DrizzleReadingPositionStore } from "./reading-position/reading-position-store";
 import type { ReadingWorkspaceOperations } from "./reading-workspace/reading-workspace";
@@ -36,6 +37,7 @@ export type ApplicationAdapters = {
   researchAssistant?: ResearchAssistantOperations | null;
   derivativeUpdates?: DerivativeUpdateOperations;
   activeReadingDerivatives?: ActiveReadingDerivativeOperations;
+  offlineWorkingSets?: Application["offlineWorkingSets"];
 };
 
 export function createApplication(
@@ -73,6 +75,8 @@ export function createApplication(
     derivativeUpdates:
       adapters.derivativeUpdates ?? new DrizzleDerivativeUpdateStore(db),
     activeReadingDerivatives,
+    offlineWorkingSets:
+      adapters.offlineWorkingSets ?? createOfflineWorkingSetCapture(db),
     ...(researchAssistant ? { researchAssistant } : {}),
   };
 }

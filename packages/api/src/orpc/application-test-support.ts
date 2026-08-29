@@ -108,6 +108,11 @@ export function createTestApplication(
         return unexpected();
       },
     },
+    offlineWorkingSets: {
+      async capture() {
+        return unexpected();
+      },
+    },
     ...adapters,
   };
 }

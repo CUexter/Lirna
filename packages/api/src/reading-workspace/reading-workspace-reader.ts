@@ -3,8 +3,31 @@ import type { db } from "@lirna/db";
 import { readCitationResolutionsInSnapshot } from "../citation-resolutions/citation-resolution-reader";
 import { readActiveReadingDerivativeInSnapshot } from "../sep-admission/active-reading-derivative-store";
 import { readSepLibrarySourceInSnapshot } from "../sep-admission/sep-admitted-state-reader";
+import type { SepReadingContract } from "../sep-admission/sep-reading-contract";
+import type { DatabaseExecutor } from "../sep-admission/sep-state-evidence";
 import { readSepAdmittedState } from "../sep-admission/sep-state-projection";
-import type { ReadingWorkspaceOperations } from "./reading-workspace";
+import type {
+  ReadingWorkspaceOperations,
+  ReadingWorkspaceProjection,
+} from "./reading-workspace";
+
+export async function readReadingWorkspaceInSnapshot(
+  database: DatabaseExecutor,
+  sourceId: string,
+  stateId: string,
+  reading: SepReadingContract,
+): Promise<ReadingWorkspaceProjection | undefined> {
+  const state = await readSepAdmittedState(database, sourceId, stateId);
+  const source = await readSepLibrarySourceInSnapshot(database, sourceId);
+  const citationResolutions = await readCitationResolutionsInSnapshot(
+    database,
+    sourceId,
+    stateId,
+  );
+  return state && source
+    ? { reading, state, source, citationResolutions }
+    : undefined;
+}
 
 export function createReadingWorkspaceReader(
   database: typeof db,
@@ -20,21 +43,12 @@ export function createReadingWorkspaceReader(
           });
           if (active.status !== "active") return undefined;
           await onSnapshotEstablished?.();
-          const state = await readSepAdmittedState(tx, sourceId, stateId);
-          const source = await readSepLibrarySourceInSnapshot(tx, sourceId);
-          const citationResolutions = await readCitationResolutionsInSnapshot(
+          return readReadingWorkspaceInSnapshot(
             tx,
             sourceId,
             stateId,
+            active.value.reading,
           );
-          return state && source
-            ? {
-                reading: active.value.reading,
-                state,
-                source,
-                citationResolutions,
-              }
-            : undefined;
         },
         { isolationLevel: "repeatable read", accessMode: "read only" },
       ),

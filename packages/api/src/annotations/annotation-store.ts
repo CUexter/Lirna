@@ -5,6 +5,7 @@ import { sourceStates } from "@lirna/db/schema/sources";
 import { and, asc, eq } from "drizzle-orm";
 import { validateAuthoredTarget } from "../authored-targets/authored-target";
 import type { ActiveReadingDerivativeOperations } from "../sep-admission/active-reading-derivative";
+import type { DatabaseExecutor } from "../sep-admission/sep-state-evidence";
 import type {
   AnnotationColor,
   AnnotationKind,
@@ -15,6 +16,25 @@ import type {
 } from "./annotation-contract";
 import { validateAnnotationBody } from "./annotation-contract";
 
+export async function readAnnotationsInSnapshot(
+  database: DatabaseExecutor,
+  sourceId: string,
+  stateId: string,
+): Promise<AnnotationRecord[]> {
+  const rows = await database
+    .select({ annotation: annotations })
+    .from(annotations)
+    .innerJoin(sourceStates, eq(sourceStates.id, annotations.sourceStateId))
+    .where(
+      and(eq(sourceStates.id, stateId), eq(sourceStates.sourceId, sourceId)),
+    )
+    .orderBy(
+      asc(annotations.componentIdentity),
+      asc(annotations.normalizedStartOffset),
+    );
+  return rows.map(({ annotation }) => serializeAnnotation(annotation));
+}
+
 export class DrizzleAnnotationStore implements AnnotationOperations {
   constructor(
     private readonly database: typeof db,
@@ -22,18 +42,7 @@ export class DrizzleAnnotationStore implements AnnotationOperations {
   ) {}
 
   async list(sourceId: string, stateId: string): Promise<AnnotationRecord[]> {
-    const rows = await this.database
-      .select({ annotation: annotations })
-      .from(annotations)
-      .innerJoin(sourceStates, eq(sourceStates.id, annotations.sourceStateId))
-      .where(
-        and(eq(sourceStates.id, stateId), eq(sourceStates.sourceId, sourceId)),
-      )
-      .orderBy(
-        asc(annotations.componentIdentity),
-        asc(annotations.normalizedStartOffset),
-      );
-    return rows.map(({ annotation }) => serializeAnnotation(annotation));
+    return readAnnotationsInSnapshot(this.database, sourceId, stateId);
   }
 
   async create(

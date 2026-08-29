@@ -27,6 +27,32 @@ export type SensitivityLevel = z.infer<typeof sensitivityLevelSchema>;
 
 export type SourceHandlingPolicy = z.infer<typeof sourceHandlingPolicySchema>;
 
+export type OfflineRetentionDecision =
+  | { allowed: true; reason: "eligible" }
+  | {
+      allowed: false;
+      reasons: ContentAccessDenialReason[];
+    };
+
+type ContentAccessDenialReason =
+  | "content-inaccessible"
+  | "rights-reference-only";
+
+export function decideOfflineRetention(
+  policy: SourceHandlingPolicy,
+): OfflineRetentionDecision {
+  const denial = contentAccessDenialReason(policy.rightsBasis);
+  if (denial) return { allowed: false, reasons: [denial] };
+  return { allowed: true, reason: "eligible" };
+}
+
+function contentAccessDenialReason(
+  rightsBasis: RightsBasis,
+): ContentAccessDenialReason | undefined {
+  if (rightsBasis === "inaccessible") return "content-inaccessible";
+  if (rightsBasis === "reference-only") return "rights-reference-only";
+}
+
 export const processingEndpointClasses = [
   "ordinary-cloud",
   "restricted-cloud",
@@ -95,11 +121,8 @@ export function decideCitationInference(
     endpointClass,
   };
   const reasons: ProcessingDenialReason[] = [];
-  if (policy.rightsBasis === "inaccessible") {
-    reasons.push("content-inaccessible");
-  } else if (policy.rightsBasis === "reference-only") {
-    reasons.push("rights-reference-only");
-  }
+  const contentAccessDenial = contentAccessDenialReason(policy.rightsBasis);
+  if (contentAccessDenial) reasons.push(contentAccessDenial);
 
   if (
     endpointClassRank[request.endpointClass] <
