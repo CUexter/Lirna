@@ -5,6 +5,7 @@ import { useState } from "react";
 import { library } from "@/clients/library";
 
 import { LibraryPage } from "@/components/sources-library/library-page";
+import { offlineWorkingSets } from "@/offline-working-set/offline-working-set";
 
 export const Route = createFileRoute("/sources/")({
   component: RouteComponent,
@@ -12,7 +13,16 @@ export const Route = createFileRoute("/sources/")({
 
 function RouteComponent() {
   const sources = useQuery(library.sources.list.queryOptions({ input: {} }));
-  const deleteSource = useMutation(library.sources.delete.mutationOptions());
+  const deletion = library.sources.delete.mutationOptions();
+  const deleteSource = useMutation({
+    ...deletion,
+    mutationFn: (input, context) =>
+      offlineWorkingSets.reconcileSourceDeletion(input.sourceId, () => {
+        if (!deletion.mutationFn)
+          throw new Error("Source deletion operation is unavailable");
+        return deletion.mutationFn(input, context);
+      }),
+  });
   const [deletedSourceIds, setDeletedSourceIds] = useState<Set<string>>(
     () => new Set(),
   );

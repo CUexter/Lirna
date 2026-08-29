@@ -235,7 +235,10 @@ export function OfflineWorkingSetStatus({
     return (
       <p className="mt-2 text-sm">Not retained on this Client installation.</p>
     );
-  if (inspection.status === "incompatible")
+  if (
+    inspection.status === "incompatible" ||
+    inspection.status === "unsupported"
+  )
     return (
       <div className="mt-2 text-sm" aria-live="polite">
         <p className="font-medium">Offline reading unavailable</p>

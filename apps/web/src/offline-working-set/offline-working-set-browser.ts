@@ -1,13 +1,16 @@
 import { hashKey } from "@tanstack/react-query";
 
 import { inquiry } from "@/clients/inquiry";
+import { library } from "@/clients/library";
 import { queryClient } from "@/utils/query-client";
 import { inspectBrowserAppShell } from "./app-shell-compatibility";
 import type { OfflineWorkingSetTarget } from "./offline-working-set";
+import { createBrowserOfflineWorkingSetLifecycle } from "./offline-working-set-lifecycle";
 import { indexedDbOfflineWorkingSetStorage } from "./offline-working-set-storage";
 import { createOfflineWorkingSets } from "./offline-working-set-store";
 
 export function createBrowserOfflineWorkingSets() {
+  const lifecycle = createBrowserOfflineWorkingSetLifecycle();
   return createOfflineWorkingSets({
     fetchSnapshot: (target) =>
       queryClient.fetchQuery(
@@ -27,6 +30,13 @@ export function createBrowserOfflineWorkingSets() {
     },
     now: () => new Date(),
     inspectAppShell: inspectBrowserAppShell,
+    lifecycle,
+    sourceExists: async (sourceId) => {
+      const sources = await queryClient.fetchQuery(
+        library.sources.list.queryOptions({ input: {}, staleTime: 0 }),
+      );
+      return sources.some((source) => source.id === sourceId);
+    },
     storage: indexedDbOfflineWorkingSetStorage,
     subscribeToCurrentness: (target, onChange) => {
       const queryHash = hashKey(currentnessQuery(target).queryKey);

@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import { OfflineWorkingSetInventory } from "@/offline-working-set/offline-working-set-inventory";
+
 import { EmptyLibrary } from "./empty";
 import { LibraryHeader } from "./header";
 import { LibraryOverview } from "./overview";
@@ -74,6 +76,7 @@ export function LibraryPage({
             />
           </>
         ) : null}
+        <OfflineWorkingSetInventory />
       </div>
     </main>
   );

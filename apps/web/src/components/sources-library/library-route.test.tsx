@@ -8,7 +8,9 @@ const sourceId = "20000000-0000-4000-8000-000000000000";
 const stateId = "30000000-0000-4000-8000-000000000000";
 let getSources: () => Promise<unknown> = async () => [];
 let deleteSource: (input: unknown) => Promise<unknown> = async () => true;
+let removeRetainedSource: (sourceId: string) => Promise<number> = async () => 0;
 let deletedInput: unknown;
+let removedRetainedSourceId: string | undefined;
 
 await mock.module("@/clients/library", () => ({
   library: {
@@ -26,13 +28,30 @@ await mock.module("@/clients/library", () => ({
   },
 }));
 
+await mock.module("@/offline-working-set/offline-working-set", () => ({
+  offlineWorkingSets: {
+    inventory: async () => [],
+    subscribeInventory: () => () => undefined,
+    discardInventoryEntry: async () => undefined,
+    reconcileSourceDeletion: async <T,>(
+      id: string,
+      deleteAuthoritativeSource: () => Promise<T>,
+    ) => {
+      await removeRetainedSource(id);
+      return deleteAuthoritativeSource();
+    },
+  },
+}));
+
 const { Route } = await import("@/routes/sources/index");
 
 afterEach(() => {
   cleanup();
   getSources = async () => [];
   deleteSource = async () => true;
+  removeRetainedSource = async () => 0;
   deletedInput = undefined;
+  removedRetainedSourceId = undefined;
 });
 
 function view() {
@@ -129,6 +148,10 @@ test("deletes a Source after confirmation", async () => {
     getSources = async () => [];
     return true;
   };
+  removeRetainedSource = async (id) => {
+    removedRetainedSourceId = id;
+    return 2;
+  };
   await renderLibrary();
   await waitFor(() => view().getByText("Synthetic SEP entry"));
 
@@ -157,6 +180,7 @@ test("deletes a Source after confirmation", async () => {
       .click();
   });
   await waitFor(() => expect(deletedInput).toEqual({ sourceId }));
+  await waitFor(() => expect(removedRetainedSourceId).toBe(sourceId));
   await waitFor(() =>
     expect(view().queryByText("Synthetic SEP entry")).toBeNull(),
   );

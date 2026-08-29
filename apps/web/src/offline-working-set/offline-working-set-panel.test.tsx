@@ -256,6 +256,8 @@ function moduleFixture(
   overrides: Partial<OfflineWorkingSets>,
 ): OfflineWorkingSets {
   return {
+    inventory: async () => [],
+    subscribeInventory: () => () => undefined,
     inspect: async () => ({ status: "absent" }),
     subscribe: () => () => undefined,
     open: async () => ({ status: "absent" }),
@@ -263,6 +265,10 @@ function moduleFixture(
     requestRemoval: async () => inspection({ removal: "pending" }),
     restore: async () => inspection(),
     confirmRemoval: async () => ({ status: "absent" }),
+    discardInventoryEntry: async () => undefined,
+    removeSource: async () => 0,
+    reconcileSourceDeletion: async (_sourceId, deleteSource) => deleteSource(),
+    expireRetainedBefore: async () => 0,
     ...overrides,
   };
 }

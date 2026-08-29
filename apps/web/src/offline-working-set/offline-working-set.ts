@@ -27,6 +27,12 @@ export type OfflineActivityReadiness = {
 export type OfflineWorkingSetInspection =
   | { status: "absent" }
   | {
+      status: "unsupported";
+      localAvailability: "retained";
+      schemaVersion: number;
+      message: string;
+    }
+  | {
       status: "incompatible";
       localAvailability: "retained";
       persistedVersion: number;
@@ -52,6 +58,38 @@ export type OfflineWorkingSetInspection =
       referencedResourceCount: number;
     };
 
+export type OfflineWorkingSetInventoryEntry =
+  | {
+      id: string;
+      target?: OfflineWorkingSetTarget;
+      status: "corrupt";
+      message: string;
+    }
+  | {
+      id: string;
+      target: OfflineWorkingSetTarget;
+      status: "unsupported";
+      inspection: Extract<
+        OfflineWorkingSetInspection,
+        { status: "unsupported" }
+      >;
+    }
+  | {
+      id: string;
+      target: OfflineWorkingSetTarget;
+      status: "incompatible";
+      inspection: Extract<
+        OfflineWorkingSetInspection,
+        { status: "incompatible" }
+      >;
+    }
+  | {
+      id: string;
+      target: OfflineWorkingSetTarget;
+      status: "available";
+      inspection: Extract<OfflineWorkingSetInspection, { status: "available" }>;
+    };
+
 export type RetainedReadingWorkspace =
   | { status: "absent" }
   | {
@@ -64,6 +102,7 @@ export type RetainedReadingWorkspace =
     };
 
 export interface OfflineWorkingSets {
+  inventory(): Promise<OfflineWorkingSetInventoryEntry[]>;
   inspect(
     target: OfflineWorkingSetTarget,
   ): Promise<OfflineWorkingSetInspection>;
@@ -71,6 +110,7 @@ export interface OfflineWorkingSets {
     target: OfflineWorkingSetTarget,
     onCurrentnessMayHaveChanged: () => void,
   ): () => void;
+  subscribeInventory(onChange: () => void): () => void;
   open(target: OfflineWorkingSetTarget): Promise<RetainedReadingWorkspace>;
   retain(
     target: OfflineWorkingSetTarget,
@@ -85,6 +125,13 @@ export interface OfflineWorkingSets {
   confirmRemoval(
     target: OfflineWorkingSetTarget,
   ): Promise<OfflineWorkingSetInspection>;
+  discardInventoryEntry(id: string): Promise<void>;
+  removeSource(sourceId: string): Promise<number>;
+  reconcileSourceDeletion<T>(
+    sourceId: string,
+    deleteSource: () => Promise<T>,
+  ): Promise<T>;
+  expireRetainedBefore(cutoff: Date): Promise<number>;
 }
 
 export const offlineWorkingSets: OfflineWorkingSets =
