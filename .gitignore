@@ -55,6 +55,7 @@ coverage
 playwright-report
 test-results
 reports/mutation
+reports/
 .stryker-tmp
 
 # Misc
