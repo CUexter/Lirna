@@ -153,12 +153,18 @@ function scenePresentation(component: SourceComponent): {
   presentationRegion: ReadingScenePresentationRegion;
   scrollOwner: ReadingSceneScrollOwner;
 } {
-  return component.role === "notes"
+  return readingSceneOwnerFor(component) === "publisher-note"
     ? {
         presentationRegion: "reading-tools:supplementary",
         scrollOwner: "publisher-note",
       }
     : { presentationRegion: "article", scrollOwner: "article" };
+}
+
+export function readingSceneOwnerFor(
+  component: ReadingDerivative["components"][number],
+): ReadingSceneScrollOwner {
+  return component.role === "notes" ? "publisher-note" : "article";
 }
 
 function hasOnlyPrintableCharacters(value: string) {

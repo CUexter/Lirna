@@ -1,15 +1,189 @@
 import type { RefObject } from "react";
 
 import type { ReadingDerivative } from "./content";
-import type { ReadingNavigationCause } from "./navigation-observations";
 import type { ReadingNavigation } from "./reading-navigation";
-import {
-  type ReadingSceneTopology,
-  resolveReadingSceneDestination,
-} from "./reading-scene-topology";
-import { type ReadingReference, referenceTarget } from "./references";
+import { readingSceneOwnerFor } from "./reading-scene-topology";
+import { scrollToPendingFragment } from "./reading-target-navigation";
+import { type ReferenceIndex, referenceForAuthoredLink } from "./references";
+import type { WorkspaceSceneTransition } from "./workspace-scene-transitions";
+
+type Component = ReadingDerivative["components"][number];
+
+export interface PublisherAuthoredLink {
+  href: string;
+  label: string;
+}
+
+export function createWorkspaceAuthoredNavigation({
+  articleRef,
+  component,
+  navigation,
+  notesIdentity,
+  onLeaveReadingWorkspace,
+  reading,
+  referenceIndex,
+  requestTransition,
+  toolsScrollRef,
+}: {
+  articleRef: RefObject<HTMLElement | null>;
+  component: ReadingDerivative["components"][number];
+  navigation: ReadingNavigation;
+  notesIdentity: string | undefined;
+  onLeaveReadingWorkspace: (link: PublisherAuthoredLink) => void;
+  reading: ReadingDerivative;
+  referenceIndex: ReferenceIndex;
+  requestTransition: (transition: WorkspaceSceneTransition) => boolean;
+  toolsScrollRef: RefObject<HTMLElement | null>;
+}) {
+  return {
+    open(
+      from: ReadingDerivative["components"][number],
+      href: string,
+      label: string,
+    ) {
+      const resolution = resolvePublisherAuthoredLink(reading, from, href);
+      if (resolution.kind === "ambiguous") {
+        return requestTransition({
+          kind: "unavailable",
+          reason: "target-unavailable",
+          targetDescription: label,
+        });
+      }
+      if (resolution.kind === "captured") {
+        return requestTransition(
+          capturedAuthoredTransition({
+            articleRef,
+            component,
+            from,
+            label,
+            navigation,
+            notesIdentity,
+            referenceIndex,
+            target: resolution.target,
+            toolsScrollRef,
+          }),
+        );
+      }
+      if (resolution.kind === "external") {
+        onLeaveReadingWorkspace({ href: resolution.href, label });
+        return true;
+      }
+      return false;
+    },
+  };
+}
+
+function capturedAuthoredTransition({
+  articleRef,
+  component,
+  from,
+  label,
+  navigation,
+  notesIdentity,
+  referenceIndex,
+  target,
+  toolsScrollRef,
+}: {
+  articleRef: RefObject<HTMLElement | null>;
+  component: Component;
+  from: Component;
+  label: string;
+  navigation: ReadingNavigation;
+  notesIdentity: string | undefined;
+  referenceIndex: ReferenceIndex;
+  target: { component: Component; fragment?: string };
+  toolsScrollRef: RefObject<HTMLElement | null>;
+}): WorkspaceSceneTransition {
+  if (
+    target.fragment &&
+    !componentHasFragment(target.component, target.fragment)
+  ) {
+    return {
+      kind: "unavailable",
+      reason: "target-unavailable",
+      targetDescription: `${target.component.label} passage ${target.fragment}`,
+    };
+  }
+  const sceneTarget = target.fragment
+    ? `fragment:${target.fragment}`
+    : "component";
+  const reference = referenceForAuthoredLink(referenceIndex, target, label);
+  if (
+    reference &&
+    readingSceneOwnerFor(target.component) !== "publisher-note"
+  ) {
+    return { kind: "reference", reference };
+  }
+  if (target.component.identity === component.identity) {
+    return {
+      activate: () => {
+        if (!target.fragment) return;
+        scrollToPendingFragment(
+          { current: target.fragment },
+          {
+            cause: "pending-fragment",
+            highlight: true,
+            navigation,
+            target: `scene:${target.component.identity}:${sceneTarget}`,
+            targetRoot: articleRef,
+          },
+        );
+      },
+      ...(target.fragment ? { fragment: target.fragment } : {}),
+      kind: "authored-passage",
+      sceneIdentity: target.component.identity,
+      targetDescription: target.fragment
+        ? `${target.component.label} passage ${target.fragment}`
+        : target.component.label,
+    };
+  }
+  if (
+    target.fragment &&
+    readingSceneOwnerFor(target.component) === "publisher-note" &&
+    target.component.identity === notesIdentity
+  ) {
+    return {
+      activate: () =>
+        scrollToPendingFragment(
+          { current: target.fragment },
+          {
+            cause: "pending-fragment",
+            container: toolsScrollRef,
+            highlight: true,
+            navigation,
+            target: `scene:${target.component.identity}:${sceneTarget}`,
+            targetRoot: toolsScrollRef,
+          },
+        ),
+      fragment: target.fragment,
+      kind: "authored-passage",
+      sceneIdentity: target.component.identity,
+      targetDescription: `${target.component.label} passage ${target.fragment}`,
+    };
+  }
+  return {
+    cause:
+      readingSceneOwnerFor(target.component) === "publisher-note"
+        ? "publisher-note-navigation"
+        : "component-transition",
+    ...(target.fragment ? { fragment: target.fragment } : {}),
+    kind: "authored-scene",
+    originOwner: readingSceneOwnerFor(from),
+    sceneIdentity: target.component.identity,
+    targetDescription: target.component.label,
+  };
+}
 
 export function authoredTarget(
+  reading: ReadingDerivative,
+  from: ReadingDerivative["components"][number],
+  href: string,
+) {
+  const resolution = resolvePublisherAuthoredLink(reading, from, href);
+  return resolution.kind === "captured" ? resolution.target : undefined;
+}
+
+function resolvePublisherAuthoredLink(
   reading: ReadingDerivative,
   from: ReadingDerivative["components"][number],
   href: string,
@@ -22,12 +196,15 @@ export function authoredTarget(
           comparableComponentUrl(value) === comparableComponentUrl(url),
       ),
     );
-    const component = components.length === 1 ? components[0] : undefined;
-    return component
-      ? { component, fragment: fragmentFromUrl(url) }
-      : undefined;
+    if (components.length > 1) return { kind: "ambiguous" } as const;
+    const component = components[0];
+    if (!component) return { href: url.href, kind: "external" } as const;
+    return {
+      kind: "captured",
+      target: { component, fragment: fragmentFromUrl(url) },
+    } as const;
   } catch {
-    return undefined;
+    return { kind: "malformed" } as const;
   }
 }
 
@@ -82,128 +259,6 @@ export function componentHasFragment(
   visitBlocks(component.introductoryBlocks);
   visitSections(component.sections);
   return ids.has(fragment);
-}
-
-export function scrollToPendingFragment(
-  ref: RefObject<string | undefined>,
-  {
-    cause,
-    container,
-    highlight = false,
-    navigation,
-    target,
-    targetRoot,
-  }: {
-    container?: RefObject<HTMLElement | null>;
-    cause?: ReadingNavigationCause;
-    highlight?: boolean;
-    navigation?: ReadingNavigation;
-    target?: string;
-    targetRoot?: RefObject<HTMLElement | null>;
-  } = {},
-) {
-  requestAnimationFrame(() => {
-    const fragment = ref.current;
-    if (!fragment) return;
-    const targetElement = targetRoot?.current
-      ? [...targetRoot.current.querySelectorAll<HTMLElement>("[id]")].find(
-          (element) => element.id === fragment,
-        )
-      : document.getElementById(fragment);
-    if (!targetElement) return;
-    if (navigation && cause && target) {
-      const moved = navigation
-        .request({
-          cause,
-          owner: container ? "publisher-note" : "article",
-          target,
-        })
-        .commit({
-          kind: "target",
-          scrollContainer: container?.current,
-          target: targetElement,
-        });
-      if (moved && highlight) highlightTarget(targetElement);
-    }
-    ref.current = undefined;
-  });
-}
-
-export function highlightTarget(target: HTMLElement) {
-  const visibleTarget = target.hasChildNodes()
-    ? target
-    : (target.parentElement ?? target);
-  visibleTarget.classList.remove("authored-target-highlight");
-  // Restart the animation when the same authored link is followed repeatedly.
-  void visibleTarget.offsetWidth;
-  visibleTarget.classList.add("authored-target-highlight");
-  visibleTarget.addEventListener(
-    "animationend",
-    () => visibleTarget.classList.remove("authored-target-highlight"),
-    { once: true },
-  );
-}
-
-export function createReferenceJumper({
-  articleRef,
-  componentIdentity,
-  navigation,
-  notesIdentity,
-  onUnavailable,
-  onPublisherNoteActivate,
-  topology,
-  toolsScrollRef,
-}: {
-  articleRef: RefObject<HTMLElement | null>;
-  componentIdentity: string;
-  navigation: ReadingNavigation;
-  notesIdentity?: string;
-  onUnavailable?: (target: string) => void;
-  onPublisherNoteActivate?: () => void;
-  topology: ReadingSceneTopology;
-  toolsScrollRef: RefObject<HTMLElement | null>;
-}) {
-  return (reference: ReadingReference) => {
-    const destination = resolveReadingSceneDestination(topology, {
-      sceneIdentity: reference.componentIdentity,
-      target: referenceTarget(reference),
-    });
-    if (destination.movement === "none") {
-      onUnavailable?.(reference.title);
-      return;
-    }
-    const isPublisherNote = destination.owner === "publisher-note";
-    if (isPublisherNote && reference.componentIdentity !== notesIdentity)
-      return;
-    const root = isPublisherNote ? toolsScrollRef.current : articleRef.current;
-    if (
-      !root ||
-      (!isPublisherNote && reference.componentIdentity !== componentIdentity)
-    )
-      return;
-    const target = [...root.querySelectorAll<HTMLElement>("[id]")].find(
-      (element) => element.id === reference.targetId,
-    );
-    if (!target) {
-      onUnavailable?.(reference.title);
-      return;
-    }
-    if (isPublisherNote) onPublisherNoteActivate?.();
-    const targetIdentity = destination.target;
-    const handle = navigation.request({
-      cause: "reference-target",
-      owner: destination.owner,
-      target: targetIdentity,
-    });
-    if (
-      handle.commit({
-        kind: "target",
-        scrollContainer: isPublisherNote ? toolsScrollRef.current : undefined,
-        target,
-      })
-    )
-      highlightTarget(target);
-  };
 }
 
 function comparableComponentUrl(value: string | URL) {

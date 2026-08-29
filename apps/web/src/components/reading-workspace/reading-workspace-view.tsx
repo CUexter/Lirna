@@ -56,7 +56,8 @@ export function ReadingWorkspaceView({
         </div>
       </header>
       {transitionFeedback.unavailable ||
-      transitionFeedback.annotationDiscard.open ? (
+      transitionFeedback.annotationDiscard.open ||
+      transitionFeedback.workspaceLeave.open ? (
         <Suspense fallback={null}>
           <WorkspaceTransitionFeedback {...transitionFeedback} />
         </Suspense>

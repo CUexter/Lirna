@@ -10,18 +10,20 @@ export function ReadingWorkspace({
   selectedComponent,
   view,
   selectedCitation,
-  onComponentChange,
-  onFragmentChange,
-  onViewChange,
+  navigation,
   model,
 }: {
   initialFragment?: string;
   selectedComponent?: string;
   view: "article" | "bibliography";
   selectedCitation?: string;
-  onComponentChange: (identity: string) => void;
-  onFragmentChange: (fragment: string) => void;
-  onViewChange: (view: "article" | "bibliography", citation?: string) => void;
+  navigation: Pick<
+    ReadingWorkspaceViewInput,
+    | "onComponentChange"
+    | "onFragmentChange"
+    | "onViewChange"
+    | "onWorkspaceLeave"
+  >;
   model: ReadingWorkspaceViewInput["model"];
 }) {
   const { reading } = model;
@@ -33,16 +35,17 @@ export function ReadingWorkspace({
       <ComponentUnavailable
         componentIdentity={selectedComponent}
         mainComponentIdentity={reading.mainComponent.identity}
-        onComponentChange={onComponentChange}
+        onComponentChange={navigation.onComponentChange}
       />
     );
   }
   return (
     <AvailableReadingWorkspace
       initialFragment={initialFragment}
-      onComponentChange={onComponentChange}
-      onFragmentChange={onFragmentChange}
-      onViewChange={onViewChange}
+      onComponentChange={navigation.onComponentChange}
+      onFragmentChange={navigation.onFragmentChange}
+      onWorkspaceLeave={navigation.onWorkspaceLeave}
+      onViewChange={navigation.onViewChange}
       selectedCitation={selectedCitation}
       tree={{
         component,

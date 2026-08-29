@@ -21,12 +21,19 @@ export interface WorkspaceTransitionFeedbackProps {
     onConfirm: () => void;
     open: boolean;
   };
+  workspaceLeave: {
+    link?: { href: string; label: string };
+    onCancel: () => void;
+    onConfirm: () => void;
+    open: boolean;
+  };
   unavailable?: { reason: string; target: string };
 }
 
 export function WorkspaceTransitionFeedback({
   annotationDiscard,
   unavailable,
+  workspaceLeave,
 }: WorkspaceTransitionFeedbackProps) {
   return (
     <>
@@ -60,6 +67,28 @@ export function WorkspaceTransitionFeedback({
             <AlertDialogCancel>Stay</AlertDialogCancel>
             <AlertDialogAction onClick={annotationDiscard.onConfirm}>
               Leave
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog
+        onOpenChange={(open) => {
+          if (!open) workspaceLeave.onCancel();
+        }}
+        open={workspaceLeave.open}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave the Reading workspace?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {workspaceLeave.link?.label || "This link"} opens a publication
+              that is not captured in this Source state. Continue to the link?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Stay</AlertDialogCancel>
+            <AlertDialogAction onClick={workspaceLeave.onConfirm}>
+              Continue to link
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

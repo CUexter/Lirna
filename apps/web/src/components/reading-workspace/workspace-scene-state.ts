@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 
+import type { PublisherAuthoredLink } from "./authored-navigation";
 import { useReadingNavigationScope } from "./reading-navigation-hooks";
 import type { ReadingToolTab } from "./reading-tools-panel";
 import type { ReadingReference } from "./references";
@@ -37,6 +38,8 @@ export function useWorkspaceSceneState(
   >();
   const [transitionUnavailable, setTransitionUnavailable] =
     useState<WorkspaceTransitionUnavailable>();
+  const [pendingWorkspaceLeave, setPendingWorkspaceLeave] =
+    useState<PublisherAuthoredLink>();
   const cancelDiscard = () => setPendingAnnotationDiscard(undefined);
   const confirmDiscard = () => {
     const transition = pendingAnnotationDiscard;
@@ -57,6 +60,12 @@ export function useWorkspaceSceneState(
   };
   const requestDiscard = (transition: () => void) => {
     setPendingAnnotationDiscard(() => transition);
+  };
+  const cancelWorkspaceLeave = () => setPendingWorkspaceLeave(undefined);
+  const confirmWorkspaceLeave = () => {
+    const link = pendingWorkspaceLeave;
+    setPendingWorkspaceLeave(undefined);
+    return link;
   };
   return {
     articleRef,
@@ -83,6 +92,12 @@ export function useWorkspaceSceneState(
       hasUnsavedChanges,
       reportUnsavedChanges,
       requestDiscard,
+    },
+    workspaceLeave: {
+      cancel: cancelWorkspaceLeave,
+      confirm: confirmWorkspaceLeave,
+      pending: pendingWorkspaceLeave,
+      request: setPendingWorkspaceLeave,
     },
     toolsScrollRef,
   };

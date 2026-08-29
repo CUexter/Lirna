@@ -238,6 +238,40 @@ test("replaces an older pending passage for the same scroll owner", () => {
   expect(pending).toBeUndefined();
 });
 
+test("resolves publisher-authored scene movement before queuing its passage", () => {
+  const calls: string[] = [];
+  let pending: PendingSceneFragment | undefined;
+  const { topology, transitions } = createTransitionHarness({
+    onComponentChange: (identity) => calls.push(`select:${identity}`),
+    setPendingSceneFragment: (next) => {
+      pending = next;
+    },
+  });
+  const target = topology.scenes.find(
+    (scene) =>
+      scene.presentationRegion === "article" &&
+      scene.identity !== topology.mainSceneIdentity,
+  );
+  if (!target) throw new Error("Article Source component fixture is missing");
+
+  transitions.request({
+    cause: "component-transition",
+    fragment: "new-passage",
+    kind: "authored-scene",
+    originOwner: "article",
+    sceneIdentity: target.identity,
+    targetDescription: target.identity,
+  });
+
+  expect(pending).toEqual({
+    fragment: "new-passage",
+    owner: "article",
+    sceneIdentity: target.identity,
+    target: `scene:${target.identity}:fragment:new-passage`,
+  });
+  expect(calls).toEqual([`select:${target.identity}`]);
+});
+
 test("queues a specific Citation before selecting its Source component", () => {
   const calls: string[] = [];
   const { topology, transitions } = createTransitionHarness({
@@ -296,7 +330,6 @@ test("saves before activating a named passage through its browser adapter", () =
   if (destination.movement === "none") {
     throw new Error("Named passage fixture is missing");
   }
-
   transitions.request({
     activate: () => calls.push("activate"),
     destination,
@@ -309,6 +342,43 @@ test("saves before activating a named passage through its browser adapter", () =
     "clear:article",
     "activate",
   ]);
+});
+
+test("resolves a publisher-authored passage before activating it", () => {
+  const calls: string[] = [];
+  const { topology, transitions } = createTransitionHarness({
+    clearPendingTargets: (owner) => calls.push(`clear:${owner}`),
+  });
+
+  transitions.request({
+    activate: () => calls.push("activate"),
+    fragment: "notation",
+    kind: "authored-passage",
+    sceneIdentity: topology.mainSceneIdentity,
+    targetDescription: "Notation",
+  });
+
+  expect(calls).toEqual(["clear:article", "activate"]);
+});
+
+test("guards leaving the Reading workspace when an Annotation is unsaved", () => {
+  const calls: string[] = [];
+  let continueTransition: () => void = () => undefined;
+  const { transitions } = createTransitionHarness({
+    hasUnsavedAnnotation: () => true,
+    onAnnotationDiscardRequired: (continueAfterConfirmation) => {
+      calls.push("confirm");
+      continueTransition = continueAfterConfirmation;
+    },
+  });
+
+  transitions.request({ kind: "workspace-leave" }, () =>
+    calls.push("leave-workspace"),
+  );
+  expect(calls).toEqual(["confirm"]);
+
+  continueTransition();
+  expect(calls).toEqual(["confirm", "leave-workspace"]);
 });
 
 test("opens a Reference through the transition seam", () => {

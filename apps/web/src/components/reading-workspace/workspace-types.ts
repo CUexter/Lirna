@@ -11,6 +11,7 @@ export type ReadingWorkspaceViewInput = {
   initialFragment?: string;
   onComponentChange: (identity: string) => void;
   onFragmentChange: (fragment: string) => void;
+  onWorkspaceLeave: (href: string) => void;
   onViewChange: (view: ReadingView, citation?: string) => void;
   selectedCitation?: string;
   tree: {

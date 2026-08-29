@@ -7,10 +7,7 @@ import { LocateFixedIcon } from "lucide-react";
 import { createContext, type ReactNode, useContext } from "react";
 
 import type { ReadingDerivative } from "./content";
-import {
-  type ReadingSceneTopology,
-  resolveReadingSceneDestination,
-} from "./reading-scene-topology";
+import { readingSceneOwnerFor } from "./reading-scene-topology";
 
 type Component = ReadingDerivative["components"][number];
 type Block = Component["introductoryBlocks"][number];
@@ -109,7 +106,6 @@ export function referenceForAuthoredLink(
   currentIndex: ReferenceIndex,
   target: { component: Component; fragment?: string },
   label: string,
-  topology: ReadingSceneTopology,
 ) {
   const { component: targetComponent, fragment: targetId } = target;
   if (!targetId) return undefined;
@@ -117,14 +113,7 @@ export function referenceForAuthoredLink(
   if (/^\(\d+\)$/.test(normalizedLabel))
     return currentIndex.byLabel.get(normalizedLabel);
   if (/^§\d+(?:\.\d+){0,2}$/.test(normalizedLabel)) return undefined;
-  const destination = resolveReadingSceneDestination(topology, {
-    sceneIdentity: targetComponent.identity,
-    target: `reference:${targetId}`,
-  });
-  if (
-    destination.movement === "move" &&
-    destination.owner === "publisher-note"
-  ) {
+  if (readingSceneOwnerFor(targetComponent) === "publisher-note") {
     const reference =
       createReferenceIndex(targetComponent).byTargetId.get(targetId);
     return reference

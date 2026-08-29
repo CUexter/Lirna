@@ -6,12 +6,12 @@ import {
   useRef,
 } from "react";
 
-import { scrollToPendingFragment } from "./authored-navigation";
 import {
   createReadingNavigation,
   type ReadingNavigation,
   type ReadingNavigationHandle,
 } from "./reading-navigation";
+import { scrollToPendingFragment } from "./reading-target-navigation";
 
 interface ActiveFragment {
   componentIdentity: string;

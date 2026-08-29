@@ -26,6 +26,24 @@ export type WorkspaceSceneTransition =
         ReadingNavigationCause,
         "component-transition" | "publisher-note-navigation"
       >;
+      fragment?: string;
+      kind: "authored-scene";
+      originOwner: "article" | "publisher-note";
+      sceneIdentity: string;
+      targetDescription: string;
+    }
+  | {
+      activate: () => void;
+      fragment?: string;
+      kind: "authored-passage";
+      sceneIdentity: string;
+      targetDescription: string;
+    }
+  | {
+      cause: Extract<
+        ReadingNavigationCause,
+        "component-transition" | "publisher-note-navigation"
+      >;
       destination: ReadingSceneDestinationResult;
       kind: "scene";
       originOwner: "article" | "publisher-note";
@@ -47,6 +65,7 @@ export type WorkspaceSceneTransition =
       destination: Extract<ReadingSceneDestinationResult, { movement: "move" }>;
       kind: "passage";
     }
+  | { kind: "workspace-leave" }
   | { kind: "tool"; tab: ReadingToolTab }
   | {
       kind: "unavailable";
@@ -82,7 +101,10 @@ interface WorkspaceSceneTransitionDependencies {
 type ResolvedWorkspaceTransition =
   | Exclude<
       WorkspaceSceneTransition,
-      { kind: "citation" } | { kind: "component" }
+      | { kind: "authored-scene" }
+      | { kind: "authored-passage" }
+      | { kind: "citation" }
+      | { kind: "component" }
     >
   | { kind: "current-citation"; mentionId: string; owner: "article" };
 
@@ -120,24 +142,93 @@ function resolveWorkspaceTransition(
   transition: WorkspaceSceneTransition,
   dependencies: WorkspaceSceneTransitionDependencies,
 ): ResolvedWorkspaceTransition {
+  if (transition.kind === "authored-scene") {
+    return resolveAuthoredSceneTransition(transition, dependencies);
+  }
+  if (transition.kind === "authored-passage") {
+    return resolveAuthoredPassageTransition(transition, dependencies);
+  }
   if (transition.kind === "component") {
-    const destination = resolveReadingSceneDestination(dependencies.topology, {
-      sceneIdentity: transition.identity,
-      target: "component",
-    });
-    return {
-      cause:
-        destination.movement === "move" &&
-        destination.scene.presentationRegion === "reading-tools:supplementary"
-          ? "publisher-note-navigation"
-          : "component-transition",
-      destination,
-      kind: "scene",
-      originOwner: transition.originOwner,
-      targetDescription: transition.identity,
-    };
+    return resolveComponentTransition(transition, dependencies);
   }
   if (transition.kind !== "citation") return transition;
+  return resolveCitationTransition(transition, dependencies);
+}
+
+function resolveAuthoredSceneTransition(
+  transition: Extract<WorkspaceSceneTransition, { kind: "authored-scene" }>,
+  dependencies: WorkspaceSceneTransitionDependencies,
+): ResolvedWorkspaceTransition {
+  const destination = resolveReadingSceneDestination(dependencies.topology, {
+    sceneIdentity: transition.sceneIdentity,
+    target: transition.fragment
+      ? `fragment:${transition.fragment}`
+      : "component",
+  });
+  return {
+    cause: transition.cause,
+    destination,
+    kind: "scene",
+    originOwner: transition.originOwner,
+    ...(transition.fragment && destination.movement === "move"
+      ? {
+          pendingFragment: {
+            fragment: transition.fragment,
+            owner: destination.owner,
+            sceneIdentity: destination.scene.componentIdentity,
+            target: destination.target,
+          },
+        }
+      : {}),
+    targetDescription: transition.targetDescription,
+  };
+}
+
+function resolveAuthoredPassageTransition(
+  transition: Extract<WorkspaceSceneTransition, { kind: "authored-passage" }>,
+  dependencies: WorkspaceSceneTransitionDependencies,
+): ResolvedWorkspaceTransition {
+  const destination = resolveReadingSceneDestination(dependencies.topology, {
+    sceneIdentity: transition.sceneIdentity,
+    target: transition.fragment
+      ? `fragment:${transition.fragment}`
+      : "component",
+  });
+  if (destination.movement === "none") {
+    return {
+      kind: "unavailable",
+      reason: destination.reason,
+      targetDescription: transition.targetDescription,
+    };
+  }
+  return { activate: transition.activate, destination, kind: "passage" };
+}
+
+function resolveComponentTransition(
+  transition: Extract<WorkspaceSceneTransition, { kind: "component" }>,
+  dependencies: WorkspaceSceneTransitionDependencies,
+): ResolvedWorkspaceTransition {
+  const destination = resolveReadingSceneDestination(dependencies.topology, {
+    sceneIdentity: transition.identity,
+    target: "component",
+  });
+  return {
+    cause:
+      destination.movement === "move" &&
+      destination.scene.presentationRegion === "reading-tools:supplementary"
+        ? "publisher-note-navigation"
+        : "component-transition",
+    destination,
+    kind: "scene",
+    originOwner: transition.originOwner,
+    targetDescription: transition.identity,
+  };
+}
+
+function resolveCitationTransition(
+  transition: Extract<WorkspaceSceneTransition, { kind: "citation" }>,
+  dependencies: WorkspaceSceneTransitionDependencies,
+): ResolvedWorkspaceTransition {
   const destination = resolveReadingSceneDestination(dependencies.topology, {
     sceneIdentity: transition.targetComponentIdentity,
     target: `citation:${transition.mentionId}`,
@@ -192,6 +283,7 @@ function transitionUnavailable(transition: ResolvedWorkspaceTransition) {
 function leavesAnnotation(transition: ResolvedWorkspaceTransition) {
   return (
     transition.kind === "article" ||
+    transition.kind === "workspace-leave" ||
     transition.kind === "bibliography" ||
     (transition.kind === "tool" && transition.tab === "bibliography") ||
     (transition.kind === "scene" &&

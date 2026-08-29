@@ -71,35 +71,35 @@ function RouteComponent() {
         selectedComponent={component}
         view={view ?? "article"}
         selectedCitation={citation}
-        onFragmentChange={(fragment) =>
-          navigate({
-            search: {
-              component,
-            },
-            hash: fragment,
-            hashScrollIntoView: false,
-            resetScroll: false,
-          })
-        }
-        onComponentChange={(identity) =>
-          navigate({
-            search: {
-              component: identity,
-            },
-            hash: "",
-            resetScroll: false,
-          })
-        }
-        onViewChange={(nextView, nextCitation) =>
-          navigate({
-            search: {
-              component,
-              ...(nextView === "bibliography" ? { view: nextView } : {}),
-              ...(nextCitation ? { citation: nextCitation } : {}),
-            },
-            resetScroll: false,
-          })
-        }
+        navigation={{
+          onComponentChange: (identity) =>
+            navigate({
+              search: {
+                component: identity,
+              },
+              hash: "",
+              resetScroll: false,
+            }),
+          onFragmentChange: (fragment) =>
+            navigate({
+              search: {
+                component,
+              },
+              hash: fragment,
+              hashScrollIntoView: false,
+              resetScroll: false,
+            }),
+          onViewChange: (nextView, nextCitation) =>
+            navigate({
+              search: {
+                component,
+                ...(nextView === "bibliography" ? { view: nextView } : {}),
+                ...(nextCitation ? { citation: nextCitation } : {}),
+              },
+              resetScroll: false,
+            }),
+          onWorkspaceLeave: (href) => window.location.assign(href),
+        }}
       />
       <Suspense fallback={null}>
         <SourceInformation workspace={opening.workspace} />

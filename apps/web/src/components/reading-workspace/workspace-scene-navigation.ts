@@ -1,4 +1,4 @@
-import { createReferenceJumper } from "./authored-navigation";
+import { createWorkspaceAuthoredNavigation } from "./authored-navigation";
 import { useReadingSceneNavigationObservations } from "./navigation-observer";
 import { useReadingLocationSession } from "./reading-location-session";
 import {
@@ -6,15 +6,13 @@ import {
   useSceneFragmentNavigation,
 } from "./reading-navigation-hooks";
 import { resolveReadingSceneDestination } from "./reading-scene-topology";
+import { createReferenceJumper } from "./reading-target-navigation";
 import type { ReadingToolTab } from "./reading-tools-panel";
 import { createReferenceIndex, type ReadingReference } from "./references";
-import { createWorkspaceAuthoredSceneNavigator } from "./workspace-authored-scene-navigation";
 import { useWorkspaceCitationResolution } from "./workspace-citation-resolution";
 import {
   activeReadingToolTab,
-  createAuthoredLinkHandler,
   createClearEditingAnnotationHandler,
-  createCurrentAuthoredLinkHandler,
   selectedCitationForView,
 } from "./workspace-controller";
 import { resolvePublisherNotes } from "./workspace-scene-actions";
@@ -27,6 +25,7 @@ export function useReadingWorkspaceViewProps({
   initialFragment,
   onComponentChange,
   onFragmentChange,
+  onWorkspaceLeave,
   onViewChange,
   selectedCitation,
   tree,
@@ -60,6 +59,7 @@ export function useReadingWorkspaceViewProps({
     setTransitionUnavailable,
     toolsScrollRef,
     transitionUnavailable,
+    workspaceLeave,
   } = useWorkspaceSceneState(view, initialNotesIdentity);
   useReadingSceneNavigationObservations({
     componentIdentity: component.identity,
@@ -161,22 +161,19 @@ export function useReadingWorkspaceViewProps({
     });
   const openReference = (reference: ReadingReference) =>
     transitions.request({ kind: "reference", reference });
-  const navigateAuthoredScene = createWorkspaceAuthoredSceneNavigator({
+  const authoredNavigation = createWorkspaceAuthoredNavigation({
     articleRef,
     component,
     navigation,
     notesIdentity,
-    requestTransition: transitions.request,
-    toolsScrollRef,
-    topology,
-  });
-  const openAuthoredLink = createAuthoredLinkHandler({
-    navigateScene: navigateAuthoredScene,
-    onUnavailable: reportUnavailable,
-    openReference,
+    onLeaveReadingWorkspace: (link) => {
+      setTransitionUnavailable(undefined);
+      workspaceLeave.request(link);
+    },
     reading,
     referenceIndex,
-    topology,
+    requestTransition: transitions.request,
+    toolsScrollRef,
   });
   const openCitation = (entryId: string | undefined, _mentionId: string) =>
     transitions.request({ entryId, kind: "bibliography" });
@@ -258,10 +255,8 @@ export function useReadingWorkspaceViewProps({
       component,
       contentActions: {
         citationResolutions: projectedCitationResolutions,
-        onOpenAuthoredLink: createCurrentAuthoredLinkHandler(
-          component,
-          openAuthoredLink,
-        ),
+        onOpenAuthoredLink: (href: string, label: string) =>
+          authoredNavigation.open(component, href, label),
         onOpenCitation: citation.openCurrent,
         onOpenCitationResolution: citation.openManual,
         onJumpReference: jumpToReference,
@@ -306,7 +301,7 @@ export function useReadingWorkspaceViewProps({
       scrollContainerRef: toolsScrollRef,
       supplementary: {
         onJumpReference: jumpToReference,
-        onOpenAuthoredLink: openAuthoredLink,
+        onOpenAuthoredLink: authoredNavigation.open,
         onOpenCitation: citation.openFrom,
         onOpenReference: openReference,
         publisherNotes: notes,
@@ -324,6 +319,18 @@ export function useReadingWorkspaceViewProps({
         onCancel: annotationTransition.cancelDiscard,
         onConfirm: annotationTransition.confirmDiscard,
         open: Boolean(pendingAnnotationDiscard),
+      },
+      workspaceLeave: {
+        link: workspaceLeave.pending,
+        onCancel: workspaceLeave.cancel,
+        onConfirm: () => {
+          const link = workspaceLeave.confirm();
+          if (!link) return;
+          transitions.request({ kind: "workspace-leave" }, () =>
+            onWorkspaceLeave(link.href),
+          );
+        },
+        open: Boolean(workspaceLeave.pending),
       },
       unavailable: transitionUnavailable,
     },

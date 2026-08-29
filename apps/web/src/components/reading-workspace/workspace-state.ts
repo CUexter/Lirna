@@ -1,6 +1,4 @@
 import { type RefObject, useLayoutEffect } from "react";
-
-import { highlightTarget } from "./authored-navigation";
 import type { ReadingDerivative } from "./content";
 import {
   historyPositionKey,
@@ -9,6 +7,7 @@ import {
 import type { ReadingNavigation } from "./reading-navigation";
 import type { ReadingSceneTopology } from "./reading-scene-topology";
 import { createReadingSemanticLocation } from "./reading-semantic-location";
+import { highlightTarget } from "./reading-target-navigation";
 
 export function useComponentTree(
   reading: ReadingDerivative,
