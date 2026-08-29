@@ -45,6 +45,10 @@ _Avoid_: latest version, file version
 The Lirna surface for reading one Source state, using its scholarly apparatus, and working with its Annotations. Publication content is primary; Source-state inspection and maintenance remain available without becoming part of the reading flow.
 _Avoid_: reader, Source inspector
 
+**Authored navigation**:
+The Reading workspace interpretation of a link authored in a Source component, determining whether it addresses captured Source content, a Reference, or an unavailable destination while preserving external and uncaptured links for the browser.
+_Avoid_: link handler, navigation callback
+
 **Source-state bundle**:
 The bounded collection of captured resources that together preserve one observed Source state, including subordinate material required to interpret it. Every resource retains its own identity and provenance within the bundle.
 _Avoid_: crawl, download folder
@@ -72,6 +76,10 @@ _Avoid_: Reference, cited Source
 **Footnote**:
 A publisher-authored note and its anchored references within one Source-state bundle. A Footnote is scholarly apparatus of the captured publication, not a Lirna Citation or Annotation.
 _Avoid_: Citation, Annotation
+
+**Publisher-authored link**:
+A link encoded in a Source component's publication content rather than movement created by Lirna. Its destination may be inside or outside the captured Source-state bundle; following it does not by itself admit the destination as a Source.
+_Avoid_: authored link, navigation link
 
 **Citation resolution**:
 Nathan's durable selection linking one publication mention in a Source state to one Bibliography entry after deterministic or optional inference-assisted candidate discovery.
