@@ -1,107 +1,80 @@
-# Behavior Tests And Coverage
+# Behavior tests and coverage
 
-Issue #100 establishes the repository-wide Bun behavior-test commands:
+## Test surfaces
+
+Tests should exercise behavior through the same public seam used by callers.
+Prefer a focused test beside the module that owns the behavior. Use broader
+integration or browser tests when the behavior exists only through composition
+across modules.
+
+Frontend route definitions and their support code live under
+`apps/web/src/routes/`. Keep test harnesses, fixtures, and scenario modules
+beside the owning module or under `apps/web/tests/routes` when route composition
+is the public test surface.
+
+Use synthetic fixtures. Tests must not depend on Vault content or other personal
+material.
+
+## Commands
+
+Run the full Bun behavior suite:
 
 ```bash
 bun test
+```
+
+Run focused frontend behavior tests:
+
+```bash
+bun run test:web
+```
+
+Run behavior tests with the coverage ratchet:
+
+```bash
 bun run test:coverage
 ```
 
-Tests run in isolated Bun workers and exercise public application seams. The
-initial regression slice calls the exported Hono app through `app.fetch`, using
-the real tRPC adapter for both a successful health check and an unauthorized
-protected procedure. Tests use synthetic environment values and do not require
-Vault content or a running database.
+The root scripts and test configuration are authoritative for runtime flags,
+preloads, and test selection. Frontend unit-test environment decisions are
+recorded in [ADR 0007](adr/0007-frontend-unit-tests-with-happy-dom.md).
 
-Frontend unit tests run under the same Bun runner with `happy-dom` registered
-globally via the `happydom.ts` preload and `@testing-library/react` for render
-assertions. `--preload ./happydom.ts` is attached to `bun test`, `bun run
-test:coverage`, and `bun run test:web`; the preload registers DOM globals,
-restores the native `fetch` family (happy-dom's fetch breaks backend tests that
-stub `fetch` against a localhost server), and stubs `ResizeObserver`,
-`IntersectionObserver`, and `matchMedia`. `bun run test:web` targets
-`apps/web` and `packages/ui` for a fast browser-test loop. Co-located
-`.test.ts`/`.test.tsx` files beside the module that owns the tested behavior are
-the convention. The file-based `apps/web/src/routes` tree contains route
-definitions and non-test route support only: tests, fixtures, harnesses, and
-scenario modules do not live there. Focused behavior tests belong beside their
-owning hook or component; the few tests whose public seam is route composition
-belong under `apps/web/tests/routes`.
+## Coverage ratchet
 
-Bun LCOV covers JavaScript and TypeScript source under `apps/*/src` and
-`packages/*/src`, including browser modules under `apps/web/src`. shadcn
-primitives under `packages/ui/src/components/` are LCOV-eligible, but remain
-reviewed hash-pinned exceptions in the
-[live coverage baseline](../config/coverage-baseline.json); an edit
-still fails the ratchet until the primitive gains coverage or its reviewed hash
-is explicitly updated. Project-authored code under `packages/ui/src/lib/` and
-`apps/web/src/` remains subject to ordinary promotion. Browser E2E flows run in
-the Playwright quality job in addition to the Bun LCOV layer: the required
-aggregate `quality` job requires both the Bun/LCOV and browser-E2E jobs to pass.
-Test files, generated files, fixtures, and files inside configuration directories
-are excluded by `scripts/check-coverage.ts`; a source file whose name contains
-`config` is still eligible unless another exclusion applies. Generated route
-source therefore remains outside the absent inventory through the existing
-`.gen.` rule. The reviewed baseline currently contains exactly 26 absent-source
-entries: 22 shadcn primitives, the type-only API client export, application
-bootstrap, root-router composition, and the documentation application
-configuration entry. New or changed non-excluded source fails unless its exact
-content hash is explicitly reviewed in the baseline. Run `bun run
-coverage:baseline` only to accept a deliberate legacy exception. `bun run
-coverage:promote` preserves aggregate floors, leaves shadcn exceptions in place,
-and validates unrelated absent sources before writing. To promote an explicit
-set without accepting unrelated stale exclusions, run `node
-scripts/check-coverage.ts --promote-covered-source=<source>` once per source.
-Scoped promotion preserves aggregate floors, rejects ineligible or uncovered
-requests, and treats an already-promoted covered source as an idempotent no-op.
-`bun run test:coverage` also fails if either coverage ratio decreases.
+Eligible application source must be covered or listed as a reviewed,
+content-hashed exception in
+[`config/coverage-baseline.json`](../config/coverage-baseline.json). Editing a
+baselined file invalidates its exception, preventing the baseline from becoming
+a permanent exclusion.
 
-`bun run quality:ci` runs the coverage command after Biome check mode and the
-configured quality checks. It writes coverage and bundle-build artifacts, and
-the Quality workflow enforces the ratchet.
+Use baseline commands only after reviewing why ordinary coverage is unsuitable:
 
-## Mutation Testing
+```bash
+bun run coverage:baseline
+bun run coverage:promote
+```
 
-Mutation testing checks whether tests detect small behavioral changes, rather
-than only whether they execute a line. Lirna uses the official Stryker core as
-a Node-hosted mutation orchestrator and the unofficial Bun runner to execute the
-canonical Bun tests. Node does not provide a second application runtime or a
-parallel test suite: Bun remains the authority that kills or preserves every
-mutant.
+Promotion removes covered exceptions while preserving aggregate coverage floors.
+For an explicitly reviewed source, use the scoped promotion option exposed by
+`scripts/check-coverage.ts` rather than accepting unrelated baseline changes.
 
-Run application mutation testing with:
+Coverage proves execution, not correctness. Review assertions, negative cases,
+and failure behavior even when the ratchet passes.
+
+## Mutation testing
+
+Mutation testing checks whether assertions detect behavioral changes. Run the
+application campaign with:
 
 ```bash
 bun run test:mutation
 ```
 
-The application campaign mutates production TypeScript in every workspace:
+The root scripts and Stryker configuration are authoritative for campaign
+partitioning, source selection, and focused test lists. A surviving mutant is a
+review prompt, not permission to weaken production behavior. Add a canonical Bun
+assertion when the mutant exposes missing behavioral evidence; document why an
+equivalent mutant cannot change observable behavior.
 
-| Campaign | Mutated source | Bun test scope |
-| --- | --- | --- |
-| Application | `apps/*/src` and `packages/*/src` production modules | Explicit `*.test` and `*.spec` files under `apps/` and `packages/` |
-
-Test files, fixtures, test support, and generated files are excluded from the
-mutation set. Repository tooling under `scripts/` is not mutation-tested.
-
-The unofficial `@hughescr/stryker-bun-runner` supplies per-test coverage, so a
-mutant normally reruns only the Bun tests that covered it. Each shard has an
-explicit, related test-file list, which excludes `scripts/` tests and prevents
-the runner's eager source imports from sharing unrelated UI test state. The
-annotation shard disables coverage analysis because its asynchronous DOM tests
-are incompatible with eager source imports; it reruns its focused tests for every
-mutant instead. A local Bun patch prevents the runner from performing those
-unnecessary imports when coverage analysis is off. The application source is
-split into eight non-overlapping shards. `bun run test:mutation` runs those
-shards in parallel locally; each `test:mutation:<shard>` script runs one shard
-directly.
-
-The Quality workflow uses the same shard names as a job matrix. Each shard has
-its own report and temporary directory, allowing GitHub Actions runners to
-execute them concurrently without artifact collisions.
-
-Successful mutation execution is required by the Quality workflow; runner
-errors and failing initial tests fail the job. There is no repository-wide score
-threshold until all eight shards have reviewed baselines. Surviving mutants should
-be reviewed individually and covered with canonical Bun assertions rather than
-addressed by weakening product code.
+Mutation testing supplements the behavior suite and coverage ratchet. It does not
+replace integration, browser, migration, security, or human interaction checks.

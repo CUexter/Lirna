@@ -1,12 +1,12 @@
 # SEP production gate
 
-Issue #123 makes the controlled first-class SEP journey a release gate. The
-gate uses only synthetic prose and minimal structural fragments. It does not
-read Vault content or retain material from the optional live check.
+The SEP production gate verifies the controlled first-class journey using
+synthetic publication fragments. It must not read Vault content or retain
+material fetched by the optional live check.
 
 ## Commands
 
-Each layer can fail independently:
+Run one concern while diagnosing a failure:
 
 ```bash
 bun run test:sep:backend
@@ -15,84 +15,52 @@ bun run test:sep:database
 bun run test:sep:browser
 ```
 
-Run the complete production gate with:
+Run the complete release gate with:
 
 ```bash
 bun run test:sep:production
 ```
 
-`Quality / quality` requires the `Production SEP journey` job in addition to
-the general static, type, build, database, and browser jobs. The production
-browser command builds `apps/web` and serves the built output rather than the
-Vite development server. The independent backend command provisions a
-disposable PostgreSQL database when `POSTGRES_ADMIN_URL` is unset and runs the
-complete capture-to-activation journey as well as its focused unit proofs.
+The root scripts, test files, and workflow are authoritative for the exact suites
+and orchestration. A passing gate provides evidence only for the controlled
+journey encoded there; it does not prove arbitrary publication compatibility.
 
 ## Controlled evidence
 
-The backend gate sends requests only through the controlled SEP transport. It
-captures a main entry, publisher citation information, publisher-authored Notes,
-a transitively discovered Supplement, a figure description, and a semantic
-asset. It proves visible bounds, redirect rejection, exact preview-to-admission
-hashes with no second fetch, immutable PostgreSQL evidence, inert hostile
-markup, typed Derivative generation, explicit activation, and rollback. No
-inference operation or model is configured or called in that evidence path.
+Fixtures use bounded synthetic prose and structural fragments. The journey should
+cross the same public seams used for capture, Admission, immutable Source-state
+evidence, typed Derivative generation and activation, the Reading workspace,
+authored records, and Offline working sets.
 
-The structural corpus represents current and historical authored hierarchy,
-legacy anchors, tagged statements, exact TeX, figures, semantic and layout
-tables, Notes-based publisher Footnotes, Bibliography ambiguity, malformed
-markup diagnostics, and capture of an archive URL into archive-aware identity.
-The fragments are synthetic;
-they contain no article body or personal material.
-
-The browser gate runs in desktop and mobile Firefox projects. It covers the
-Admission preview and exact selection, typed Reading workspace, Notes and
-Supplement navigation, semantic assets, Annotation draft and semantic resume,
-manual Citation resolution without inference, Source update inspection,
-Derivative activation and rollback, explicit Offline working-set retention,
-and verified reading after the backend is blocked. It also checks keyboard
-focus, landmarks, accessible names, serious and critical axe rules including
-contrast, reduced-motion preference, and understandable loading, degraded, and
-backend-unavailable states.
+Keep backend, frontend, database, and production-build browser evidence separable
+so failures identify the responsible seam. Extend the gate when a release
+invariant can only be proven through the complete journey; keep focused behavior
+in the owning module's tests.
 
 ## Performance budgets
 
-`config/sep-production-budgets.json` records the controlled baseline and the
-CI-failing upper bounds. Measurements use retained response bytes and elapsed
-wall time at the public seams. They are deliberately conservative because
-shared CI hosts are noisy, while still rejecting hangs, payload explosions,
+[`config/sep-production-budgets.json`](../config/sep-production-budgets.json) is
+the single source of truth for controlled baselines and failing limits. Tests
+measure at public seams and compare directly with that configuration.
+
+Budget changes require a measured controlled run and a reason tied to user or
+resource behavior. Do not copy numeric baselines into prose. A generous CI limit
+absorbs shared-host noise; it must still reject hangs, payload explosions,
 unbounded assets, and order-of-magnitude regressions.
-
-| Measure | Controlled baseline | CI budget | Rationale |
-| --- | ---: | ---: | --- |
-| Bounded capture | 20 ms | 2,000 ms | Controlled in-memory origin; leaves substantial CI scheduling headroom. |
-| Admission and initial Derivative | 33 ms | 1,000 ms | Includes transactional persistence and typed derivation. |
-| Reading API payload | 27,686 bytes | 1,000,000 bytes | Prevents accidental evidence-body or unbounded manifest delivery. |
-| Initial production workspace load | 341 ms | 5,000 ms | Desktop/mobile maximum; includes API substitute latency, rendering, notation, and semantic asset. |
-| Source-component transition | 111 ms | 2,000 ms | Desktop/mobile maximum; must remain an interactive local transition. |
-| Largest retained semantic asset | 43 bytes | 250,000 bytes | Measured from the controlled backend capture; the browser replica is checked separately against the same budget. |
-| Verified offline start | 219 ms | 5,000 ms | Desktop/mobile maximum; includes failed backend request, integrity validation, and IndexedDB replica load. |
-
-The general web bundle budgets remain separately enforced by
-`bun run quality:bundle`. Production SEP budgets do not replace capture's
-domain limits of 64 components, 256 assets, 50 MB per resource, and 250 MB per
-standard Source-state bundle.
 
 ## Optional live check
 
-The live check is deliberately excluded from deterministic CI. Run it only by
-explicit opt-in:
+The live check detects publication-structure drift and is deliberately excluded
+from deterministic CI. Run it only by explicit opt-in:
 
 ```bash
 SEP_LIVE_CHECK=1 bun run test:sep:live
 ```
 
-`SEP_LIVE_ENTRY_URL` may select another canonical active entry. The command is
-restricted to HTTPS `plato.stanford.edu`, follows at most three revalidated
-redirects, reads at most 2 MB per response, performs only the entry and
-citation-information observations with at least one second between every HTTP
-request (including redirects), and returns booleans, actual request counts, and
-byte counts. It has no database or Admission store and
-never admits, writes, or preserves response content. Failure means either SEP
-publication structure changed or the controlled fixture expectations need
-review; it is not a deterministic release failure.
+Use `SEP_LIVE_ENTRY_URL` only for an approved canonical entry on the supported
+publication host. The executable check owns URL restrictions, redirect and byte
+bounds, pacing, and the non-retention guarantee. Review those safeguards before
+changing its target or scope.
+
+Live-check failure means the publication structure or controlled expectations
+need review. It is diagnostic evidence, not a deterministic release failure.

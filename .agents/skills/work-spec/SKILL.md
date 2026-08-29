@@ -21,6 +21,10 @@ tracker, and acceptance proof agree.
 Read unresolved tickets' `## Model routing` blocks. If no executable tickets,
 load `to-tickets`; approve and publish first.
 
+Model choice disputed or newly unavailable: consult
+[`ref/openai-codex-model-research.md`](ref/openai-codex-model-research.md), then
+verify mutable availability and pricing before routing.
+
 **Done:** Full graph known. Old work classified. Missing fact named as blocker.
 
 ## 2. Claim Main Tab

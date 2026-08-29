@@ -1,268 +1,117 @@
-# Code quality standard and automation report
-
-Status: current repository state as of 2026-08-19.
-
-This document defines the quality expected of Lirna code and records which parts
-of that standard the repository currently enforces. A rule is called automated
-only when an active pre-commit hook or GitHub Actions workflow runs it. A command
-that a developer may run is listed as manual until automation invokes it.
-
-Pre-commit hooks can be bypassed. GitHub workflow success is a merge requirement
-only when repository branch protection requires the corresponding check; that
-setting is outside this repository.
-
-## Standard
+# Code quality standard
 
 Every change must be correct for its stated behavior, preserve Lirna's domain
-language, and leave the code easier to understand or no harder to understand.
-Passing an automated check is necessary where one exists, but it is not evidence
-that the change is correct, secure, accessible, or well designed.
+language, and leave the code no harder to understand. Passing an automated check
+is necessary where one exists, but it is not evidence that a change is correct,
+secure, accessible, or well designed.
 
-Mechanical checks provide repeatable evidence for the narrow rules they encode.
-Human review remains responsible for judgment about behavior, domain meaning,
-privacy, accessibility, migrations, dependencies, and performance.
+Executable configuration, scripts, and workflows are authoritative for current
+automation and thresholds. This document defines the standard those mechanisms
+support.
 
-### Correctness and tests
+## Correctness and tests
 
-- Behavior must match the issue, acceptance criteria, or documented decision.
+- Behavior must match the issue, acceptance criteria, or accepted decision.
 - Tests must exercise behavior through the same public seam used by callers.
 - A bug fix must include a regression test when a stable test seam exists.
-- Tests must cover important success, failure, authorization, and boundary cases.
-- Tests must be deterministic and must not depend on personal Vault content.
-- Type errors, build errors, and failing tests are release blockers.
+- Important success, failure, authorization, and edge cases require evidence.
+- Tests must be deterministic and independent of personal Vault content.
+- Type, build, migration, and test failures block release when relevant.
 
-### Readability and maintainability
+## Readability and modules
 
-- Names must describe intent in the vocabulary defined by `CONTEXT.md`.
-- Modules should expose a small interface and hide substantial cohesive behavior.
-  Do not split code into pass-through files merely to satisfy a line limit.
-- Keep control flow direct. Extract policy or domain behavior when doing so gives
-  it an honest name and a stable seam, not solely to lower a metric.
-- Avoid new duplication. When duplication is intentional, the review must state
-  what coupling would make a shared abstraction worse.
-- Public interfaces must be smaller than the behavior they hide. React component
-  APIs should prefer composition over a growing set of unrelated props.
-- Comments should explain constraints, decisions, or non-obvious reasoning rather
-  than restating the code.
-- Code, tests, types, and executable configuration are authoritative for current
-  behavior. Reference documentation must not become a parallel implementation
-  description.
+- Names use the vocabulary defined by `CONTEXT.md`.
+- Modules expose a small interface and hide substantial cohesive behavior.
+- Control flow stays direct. Extract policy or domain behavior when the new seam
+  creates leverage and locality, not solely to lower a metric.
+- New duplication requires an explicit reason why shared implementation would
+  create harmful coupling.
+- Comments explain constraints or non-obvious reasoning rather than restating
+  implementation.
+- Code, tests, types, and executable configuration remain authoritative for
+  current behavior.
 
-### Architecture and domain integrity
+See [Module standards](module-standards.md) for the review vocabulary.
 
-- Workspace packages must not bypass their public exports or create dependency
-  cycles.
-- Browser code must not import server-only implementation, credentials, or
+## Architecture and domain integrity
+
+- Workspace packages use their public exports and preserve allowed dependency
+  directions.
+- Browser code cannot import server-owned implementation, credentials, or
   privileged environment values.
-- Domain terms must follow `CONTEXT.md`. A new durable domain concept or changed
-  lifecycle requires updating `CONTEXT.md` or recording an ADR.
-- Changes must not copy private Vault notes, journals, source documents, or other
-  personal material into the repository.
-- Persisted data, public APIs, authentication behavior, and deployment contracts
-  require explicit migration and compatibility reasoning.
+- A new durable domain concept or lifecycle change updates `CONTEXT.md` or an
+  ADR.
+- Repository content never includes private Vault notes, journals, source
+  documents, or other personal material.
+- Persisted data, public interfaces, authentication behavior, and deployment
+  contracts require explicit migration and compatibility reasoning.
 
-### Security, privacy, and dependencies
+## Security, privacy, and dependencies
 
-- Validate untrusted input at trust boundaries and authorize every protected
-  operation on the server.
-- Do not log secrets, credentials, private content, or unnecessary personal data.
-- Use parameterized database operations, safe process invocation, contained file
-  paths, secure cryptography, and escaped rendering.
-- Apply the Source handling policy and Sensitivity level from `CONTEXT.md` before
-  content leaves Nathan-controlled infrastructure.
-- New dependencies require a concrete capability need, review of maintenance and
-  provenance, an exact lockfile result, and consideration of a smaller existing
-  dependency or local implementation.
-- Security scanner suppressions must be narrow, adjacent to the finding when the
-  tool supports it, and explain why the data flow is safe.
+- Validate untrusted input at trust seams and authorize protected operations on
+  the server.
+- Logs exclude secrets, credentials, private content, and unnecessary personal
+  data.
+- Database operations, process invocation, file paths, cryptography, and rendered
+  content use safe mechanisms appropriate to their threat model.
+- Apply Source handling policy and Sensitivity level before content leaves
+  Nathan-controlled infrastructure.
+- New dependencies require a concrete capability need, verified provenance and
+  maintenance, an exact lockfile result, and comparison with existing options.
+- Scanner suppressions stay narrow and explain why the relevant flow is safe.
 
-### Frontend quality
+## Frontend quality
 
-- Interactive behavior must work with keyboard input and expose correct semantic
-  roles, names, labels, focus behavior, and error feedback.
-- Changed user flows must be checked at desktop and mobile widths.
-- Loading, empty, error, offline, and retry states must be considered where the
-  flow can encounter them.
-- Performance-sensitive changes must avoid unnecessary network waterfalls,
-  unbounded rendering, and avoidable client bundle growth.
+- Interactive behavior supports keyboard input and exposes correct semantics,
+  names, labels, focus behavior, and error feedback.
+- Changed flows are checked at desktop and mobile widths.
+- Loading, empty, error, offline, and retry states are considered when reachable.
+- Performance-sensitive changes avoid network waterfalls, unbounded rendering,
+  and avoidable bundle growth.
 
-### Review and documentation
+## Documentation
 
-- Review must consider behavior, failure modes, data ownership, security,
-  accessibility, operability, and whether tests prove the intended contract.
-- Operational, architectural, or domain decisions that future work must preserve
-  belong in `docs/`, `docs/adr/`, or `CONTEXT.md`, not only in commit messages.
-- Documentation must have one role: reference material reflects current behavior
-  and changes with it; decision material records rationale, alternatives, and
-  consequences. Follow
-  [`ADR 0009`](adr/0009-code-authority-and-documentation-roles.md).
-- Prefer generated or mechanically checked reference facts. Remove prose that
-  merely restates self-explanatory code, and treat manually maintained
-  current-state inventories as staleness risks.
-- Generated files and scanner fixtures must be clearly scoped so they do not
-  weaken checks for first-party source.
+- Reference documentation explains public seams or operating steps that code
+  cannot present directly.
+- Decision documentation records durable rationale, alternatives, and
+  consequences.
+- Current implementation inventories belong in executable configuration or
+  generated output, not manually maintained prose.
+- Follow [ADR 0009](adr/0009-code-authority-and-documentation-roles.md).
 
-## Automation report
+## Human review
 
-### Automated before commit
+Mechanical checks prove only the rules they encode. Review remains responsible
+for:
 
-The active hook is `.husky/pre-commit`.
-
-| Concern | Enforcement | Scope and threshold |
-| --- | --- | --- |
-| Staged secrets | `bun run secrets:staged` | Gitleaks scans the staged diff. `.gitleaksignore` supplies allowed fingerprints. |
-| Dependency lockfile consistency | `bun run dependency:check` | Staged direct-dependency changes must resolve to an exact version and integrity entry in `bun.lock`; catches hallucinated or never-installed versions before commit. |
-| Formatting | lint-staged runs `biome format --write` | Staged JavaScript, TypeScript, JSX, TSX, JSON, and JSONC files; two-space indentation and double-quoted JavaScript. |
-| Fallow health | `bun run quality:fallow` (`fallow health`) | `apps/` and `packages/`; cognitive complexity maximum 15 and cyclomatic maximum 20 per function, health score baselined against `.fallow/baselines/health.json`. Replaces the former Biome `noExcessiveCognitiveComplexity` rule. |
-| Function parameters | `bun run quality` | `apps/` and `packages/`; maximum 4. |
-| File size | `bun run quality` | `apps/` and `packages/`; maximum 300 non-blank lines through Biome. |
-| React component props | `bun run quality:props` | TSX under `apps/` and `packages/`; maximum 8 statically countable explicit props. |
-| Fallow duplication | `bun run quality:fallow` (`fallow dupes`) | Production TypeScript and TSX under `apps/` and `packages/`; strict mode baselined against `.fallow/baselines/dupes.json`. Test files are excluded. The only reviewed production exception is the shared resource-column shape in `sources.ts` and `sep-admission.ts`: Source-state resources are durable evidence while preview resources are temporary admission evidence, so a shared persistence abstraction would incorrectly couple different lifecycles and migrations. |
-| Fallow dead code and architecture rules | `bun run quality:fallow` (`fallow dead-code`) | `apps/`, `packages/`, and scripts. Error-level rules always fail: circular dependencies, boundary violations (zone rules in `.fallowrc.json`), unlisted dependencies, unresolved imports, and duplicate exports. Warn-level rules are regression-baselined against `.fallow/baselines/dead-code.json`: unused files, exports, types, and dependencies. Replaces the former cycle detection, forbidden-edge, and undeclared-export checks in `check-architecture.ts`. |
-| Documentation quality | `bun run quality:docs` | First-party Markdown links, root/workspace Bun commands, and code-form repository paths. |
-| Behavior tests and coverage | `bun run test:coverage` and `bun run test:e2e:ci` | Bun tests provide focused behavior evidence through public seams, including LCOV for eligible web source; Playwright owns browser integration, responsive behavior, accessibility automation, bootstrap, root-router composition, and complete journeys. The 22 shadcn primitives remain LCOV-eligible hash-pinned reviewed exceptions; all other absent eligible source must have an unchanged baseline hash. |
-
-These checks do not run the build, TypeScript compiler, full Biome rule set,
-Semgrep, Trivy, unit tests, integration tests, or E2E tests.
-
-### Automated in GitHub Actions
-
-All current workflows run on pushes and pull requests. Trivy and Nix also run
-weekly.
-
-The `Quality` workflow exposes one stable aggregate job named `quality` (check
-name: `Quality / quality`). The
-aggregate waits for dependency installation, static checks, workspace type
-checks, and production builds, and is the required status to configure for the
-main branch. The implementation jobs may run in parallel without changing the
-required status name.
-
-| Workflow | Blocking behavior | Scope |
-| --- | --- | --- |
-| Gitleaks | Fails on detected secrets | Full fetched Git history through the repository-owned `.gitleaks.toml`; local staged and outgoing-range scans use the same configuration. |
-| Dependency lockfile verification | Fails when a changed direct dependency does not resolve to an exact version and integrity entry in `bun.lock` | `bun run dependency:check` in the active Husky pre-commit hook, the range check in Quality CI against the push base, and `bun run maintenance:test` fixtures in Quality CI. |
-| Dependency confidence scoring | Warns without failing when a changed direct dependency scores below `minimumScore` in `config/dependency-score-policy.json` | `scripts/score-dependencies.ts` in Quality CI scores registry-verified archive integrity, lifecycle scripts, native build files, provenance, OSV (advisory), downloads, repository activity, and similar names; per-dependency decision records are retired. |
-| Semgrep blocking scan | Fails on findings or scanner errors | Repository-owned command injection, SQL injection, unsafe process spawn, path traversal, insecure cryptography, and XSS rules for JavaScript and TypeScript. |
-| Semgrep reporting scan | Reports findings but does not fail for a finding | Dynamic code execution and disabled TLS verification. Scanner or configuration errors still fail. |
-| Semgrep policy test | Fails when expected fixture findings, safe behavior, or workflow wiring regress | Local Semgrep rules and fixtures. |
-| Trivy configuration scan | Fails on high or critical findings | Deployable configuration, excluding `node_modules`, prototypes, and legacy code. |
-| Trivy dependency scan | Fails on fixed high or critical vulnerabilities | Bun and Cargo lockfile dependencies, including development dependencies; unfixed vulnerabilities are ignored. |
-| Trivy image scan | Fails on fixed high or critical vulnerabilities | Freshly built server and web images; both OS and library packages. |
-| Trivy policy test | Fails when thresholds, exclusions, scanner failure propagation, pinning, or workflow wiring regress | Trivy wrapper and workflow policy. |
-| Architecture policy | `bun run quality:architecture` and `bun run quality:fallow` | Route placement, owned UI primitives, and browser/server import boundary (`check-architecture.ts`); workspace dependency cycles, forbidden zone edges, undeclared exports, and cross-workspace imports (`.fallowrc.json` boundary rules enforced by `fallow dead-code`). |
-| Documentation quality | `bun run quality:docs` | First-party Markdown links, root/workspace Bun commands, and code-form repository paths. Focused fixtures prove stale references fail. |
-| Quality gate policy test | Fails when the read-only commands, frozen install, architecture policy, or aggregate workflow wiring regress | `scripts/test-quality-gate.sh` in the `Quality` workflow. |
-| Web bundle budget | `bun run quality:bundle` | Builds `apps/web`, writes `apps/web/dist/bundle-size.json`, and enforces the reviewed aggregate raw-byte budgets in `config/web-bundle-budget.json`. |
-| PostgreSQL integration | `bun run test:db` | Applies every committed migration to an empty isolated database, compares the result to the TypeScript schema, checks migration history drift, and exercises success and constraint behavior through the exported database seam used by callers. |
-| General quality gate | Fails on formatting/linting, configured size/props checks, Fallow health/duplication/dead-code, behavior tests, coverage ratchet, PostgreSQL migration/repository integration, workspace type errors, or production build errors | `.github/workflows/quality.yml`; aggregate status: `Quality / quality`. |
-| Production SEP journey | Fails on the controlled backend, frontend, PostgreSQL, production-build browser, accessibility, offline, and measured performance contracts | `bun run test:sep:production`; budgets and live-check boundary are documented in [`docs/sep-production-gate.md`](sep-production-gate.md). The optional live SEP check is never deterministic CI. |
-
-The Quality workflow does not run Nix flake checks. Trivy owns
-dependency vulnerability scanning; dependency confidence scoring treats OSV
-data as one advisory input, so its non-blocking warnings never duplicate or
-override Trivy's blocking vulnerability decisions.
-
-### Maintenance policy inventory
-
-The maintenance cleanup intentionally leaves one enforcement path per concern:
-
-| Disposition | Scripts | Reason |
-| --- | --- | --- |
-| Retained | `scripts/verify-dependency-assessments.ts`, `scripts/secret-scan.sh` | These are the active dependency lockfile and Gitleaks enforcement entry points used by hooks and CI. |
-| Replaced | `test-dependency-verification.sh`, `test-secret-scanning.sh` | Their safe, violation, and tool-error contracts are consolidated in `scripts/test-maintenance-policy.sh`. |
-| Replaced | `check-ui-primitives.mjs` | UI ownership is now one rule within the broader `scripts/check-architecture.ts` policy. |
-| Replaced | `check-duplication.mjs` | Duplication detection is now `fallow dupes` (strict mode, baselined against `.fallow/baselines/dupes.json`). |
-| Replaced | `check-architecture.ts` cycle, edge, and export checks | Workspace dependency cycles, forbidden edges, undeclared exports, and cross-workspace relative imports are now Fallow's `circular-dependencies`, `boundary-violation`, `unlisted-dependencies`, `unresolved-imports`, and `duplicate-exports` rules in `.fallowrc.json`. `check-architecture.ts` retains route placement, native-control ownership, and the browser/server import boundary. |
-| Replaced | Biome `noExcessiveCognitiveComplexity` | Cognitive complexity (maximum 15) is now `fallow health` (`.fallowrc.json` `maxCognitive: 15`). |
-| Deleted | `assess-dependency.mjs`, `dependency-assessment-policy.mjs`, `dependency-decisions.mjs`, `run-dependency-scripts.mjs` | These former `scripts/` entries implemented an npm-era installer and per-dependency decision records that duplicated package-manager behavior. Registry-signal confidence scoring now lives in `scripts/dependency-score-policy.ts` and `scripts/score-dependencies.ts` as a warn-only CI gate. |
-
-### Available but manual
-
-| Command or configuration | What it provides | Current status |
-| --- | --- | --- |
-| `bun run check-types` | Workspace TypeScript checks; the web task also builds the frontend | Automated in the Quality workflow; available locally. Only workspaces declaring `check-types` participate directly. |
-| `bun run build` | Builds workspaces that declare a build task | Automated in the Quality workflow; available locally. |
-| `bun run check` | Runs the full configured Biome formatter, linter, and assist checks without modifying files | Automated in the Quality workflow; read-only locally. |
-| `bun run check:fix` | Applies configured Biome formatting, lint, and assist fixes | Manual and mutating. |
-| `bun run quality:ci` | Runs Biome in check mode, Fallow health/duplication/dead-code, architecture policy, the bundle budget, documentation checks, and coverage-tested behavior; bundle and coverage artifacts are written locally | Automated in the Quality workflow. |
-| `bun run test:mutation` | Runs focused Stryker campaigns through canonical Bun tests; see `docs/testing-and-coverage.md` | Manual and non-blocking while target runtimes and survivor-review practices stabilize. |
-
-| `bun run check:semgrep` | Runs the blocking Semgrep rules | Automated in CI, but optional locally and absent from pre-commit. |
-| `bun run report:semgrep` | Runs non-blocking Semgrep rules | Automated in CI, but optional locally and absent from pre-commit. |
-| `Nix flake checks` | Evaluates the flake on pull requests with classified Nix output impact; builds the server package, desktop package, NixOS module closure, and NixOS VM integration test after merge | `.github/workflows/nix.yml` uses pinned Nix installation and cache actions. Changes to inputs declared in `config/nix-output-paths.json` trigger whole-flake evaluation without realizing closures. Pushes to `main`, the weekly schedule, and manual runs perform the classified package and VM builds. |
-| `playwright.config.ts` | Starts the deterministic API substitute and web app, then runs Firefox desktop/mobile shell and API-status journeys with serious/critical axe assertions; CI retains traces, screenshots, and HTML reports | Automated in the `Quality` workflow through `bun run test:e2e:ci`. Browser automation proves the encoded journey and automated accessibility rules only; keyboard exploration, visual design, screen-reader behavior, and other human interaction review remain manual. |
-
-## Human review responsibilities
-
-The following standards require human review today:
-
-- behavioral correctness and completeness against the originating requirement;
-- test adequacy, including negative cases and regression strength;
-- domain language, lifecycle consistency, and ADR requirements;
-- module depth, cohesion, interface quality, and abstraction judgment;
-- package boundary integrity and dependency-cycle prevention beyond the executable architecture policy;
-- authorization design, privacy classification, data minimization, and threat
-  modeling beyond the narrow scanner rules;
+- behavioral completeness and regression strength;
+- domain language and lifecycle consistency;
+- module depth, cohesion, interface quality, and seam placement;
+- authorization, privacy classification, data minimization, and threat modeling;
 - accessibility, responsive behavior, visual quality, and complete UI states;
-- runtime performance, database query behavior, concurrency,
-  transaction boundaries, and operational failure handling;
-- API compatibility, persisted-data migrations, rollback safety, and deployment
-  readiness;
-- dependency necessity, maintainer trust, provenance, and license suitability;
+- runtime performance, query behavior, concurrency, and operational failure;
+- compatibility, migration, rollback, and deployment safety;
+- dependency necessity, trust, provenance, and licensing;
 - documentation accuracy.
 
-## Known enforcement gaps
+## Verification
 
-These are current repository gaps, not approved exceptions to the standard.
-
-1. The general CI quality workflow does not run Nix flake checks; the separate
-   Nix workflow owns that platform-specific verification.
-2. The Bun behavior suite currently covers focused public seams; broader domain
-   unit and integration coverage remains a future responsibility. The live
-   reviewed inventory is maintained in
-   [`config/coverage-baseline.json`](../config/coverage-baseline.json), rather
-   than copied aggregate totals. The reviewed inventory is limited to generated
-   or type-only seams and application bootstrap/configuration files that emit no
-   behavior eligible for Bun LCOV.
-3. Bun behavior tests and Playwright browser journeys are complementary. Bun
-   proves focused behavior and eligible LCOV; Playwright proves browser
-   integration, responsive behavior, accessibility automation, bootstrap, root
-   router composition, and complete Admission, Reading, and Annotation
-   journeys. Browser journeys do not replace human interaction review or
-   broader accessibility evaluation.
-4. The architecture policy does not replace human review of package boundary
-   design, dependency necessity, or domain-level server/browser contracts.
-5. The Nix workflow classifies changes by affected output to keep pull-request
-   feedback bounded. Classified pull requests evaluate the whole flake without
-   realizing package or VM closures;
-   full builds run after merge on `main`, weekly, and
-   manually. `config/nix-output-paths.json` is shared by Nix source filtering and
-   CI classification, so a new package input is declared once. The workflow is
-   separate from the fast quality and security gates.
-6. Pre-commit quality checks run across `apps/` and `packages/`, but local hooks
-    can be bypassed and CI does not repeat them.
-7. Playwright and axe-core automate serious and critical checks for the encoded
-   journeys, but no automated check proves complete accessibility, public API
-   compatibility, rollback migration safety, or runtime and user-perceived
-   performance. Bundle-size budgets are automated, but do not replace review.
-
-## Required verification until gaps close
-
-The author of a change is responsible for selecting checks proportional to the
-change. At minimum, application changes should run:
+Select verification proportional to the change. The normal local starting point
+is:
 
 ```bash
 bun run check-types
 bun run quality
 ```
 
-Also run the relevant build, security scan, integration suite, and E2E suite when
-the change can affect those concerns. `bun run quality:ci` is the aggregate local
-quality and coverage command; database, browser, Nix, and security verification
-remain separate because they require specialized services or tools. The change
-description must state which of those checks ran, what was exercised manually,
-and which checks could not be run.
+Run relevant builds, database tests, browser journeys, security scans, or Nix
+checks when the change can affect those concerns. Use the aggregate local quality
+command when broad application behavior changed:
 
-The reviewer must not infer coverage from a green security workflow. Review the
-manual standards above and treat each known enforcement gap as an explicit
-review responsibility.
+```bash
+bun run quality:ci
+```
+
+The change description states what ran, what was checked manually, and what could
+not run. A green workflow never substitutes for review of concerns outside that
+workflow's executable scope.
