@@ -5,7 +5,7 @@ for desktop and mobile. See [`CONTEXT.md`](./CONTEXT.md) for the domain language
 and [`docs/adr/`](./docs/adr) for architectural decisions.
 
 The project uses [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack),
-a modern TypeScript stack combining React, TanStack Router, Hono, tRPC, and more.
+a modern TypeScript stack combining React, TanStack Router, Hono, oRPC, and more.
 
 ## Features
 
@@ -14,7 +14,7 @@ a modern TypeScript stack combining React, TanStack Router, Hono, tRPC, and more
 - **Tailwind CSS** - Utility-first CSS for rapid UI development
 - **Shared UI package** - shadcn/ui primitives in `packages/ui`
 - **Hono** - Lightweight, performant server framework
-- **tRPC** - End-to-end type-safe APIs
+- **oRPC** - End-to-end type-safe APIs
 - **Bun** - Runtime and package manager
 - **Drizzle** - TypeScript-first ORM
 - **PostgreSQL** - Database engine
@@ -249,7 +249,7 @@ lirna/
 ├── apps/
 │   ├── web/         # React and TanStack Router frontend
 │   ├── docs/        # Astro Starlight documentation site
-│   └── server/      # Hono and tRPC backend API
+│   └── server/      # Hono and oRPC backend API
 └── packages/
     ├── ui/          # Shared shadcn/ui components and styles
     ├── api/         # API layer and business logic
