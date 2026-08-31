@@ -24,6 +24,7 @@ export function ReadingAnnotations({
   resting,
   editAnnotationId,
   onEditAnnotationHandled,
+  onAskSelection,
   onLinkBibliography,
   onOpenCitationResolution,
   onUnsavedChange,
@@ -43,6 +44,7 @@ export function ReadingAnnotations({
   };
   editAnnotationId?: string;
   onEditAnnotationHandled?: () => void;
+  onAskSelection?: (selection: SelectionDraft) => void;
   onLinkBibliography?: (selection: SelectionDraft) => void;
   onOpenCitationResolution?: (
     entryId: string,
@@ -137,6 +139,7 @@ export function ReadingAnnotations({
     articleRef,
     navigateToAnnotation,
     notes,
+    onAskSelection,
     onLinkBibliography: bibliographyLinkAction(
       onLinkBibliography,
       selectedForBibliography,

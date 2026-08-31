@@ -22,6 +22,14 @@ test("asks about trusted content from the admitted Source state", async () => {
       stateId,
       componentIdentity: "active:/",
       question: "What is the central claim?",
+      selection: {
+        offsetBasis: "normalized-derivative-text-v1",
+        normalizedStartOffset: 0,
+        normalizedEndOffset: 9,
+        exactText: "Synthetic",
+        prefix: "",
+        suffix: " reading text.",
+      },
     },
     {
       context: context({
@@ -38,7 +46,40 @@ test("asks about trusted content from the admitted Source state", async () => {
     question: "What is the central claim?",
     sourceTitle: "Test entry",
     componentLabel: "Main entry",
+    selectedText: "Synthetic",
     sourceText: "Synthetic reading text.",
+  });
+});
+
+test("rejects selected evidence that does not match the admitted Source state", async () => {
+  const request = call(
+    sourcesRouter.assistant.ask,
+    {
+      sourceId,
+      stateId,
+      componentIdentity: "active:/",
+      question: "What does this passage claim?",
+      selection: {
+        offsetBasis: "normalized-derivative-text-v1" as const,
+        normalizedStartOffset: 0,
+        normalizedEndOffset: 9,
+        exactText: "Different",
+        prefix: "",
+        suffix: " reading text.",
+      },
+    },
+    {
+      context: context({
+        async answer() {
+          return { answer: "This must not be called." };
+        },
+      }),
+    },
+  );
+
+  await expect(request).rejects.toMatchObject({
+    code: "BAD_REQUEST",
+    message: "Selected Source-state evidence no longer matches",
   });
 });
 

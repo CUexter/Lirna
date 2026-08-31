@@ -5,6 +5,7 @@ export interface ResearchAssistantInput {
   question: string;
   sourceTitle: string;
   componentLabel: string;
+  selectedText?: string;
   sourceText: string;
 }
 
@@ -29,6 +30,14 @@ export function createResearchAssistant(
         prompt: [
           `Source: ${input.sourceTitle}`,
           `Component: ${input.componentLabel}`,
+          ...(input.selectedText
+            ? [
+                "",
+                "<selected-source-state-evidence>",
+                input.selectedText,
+                "</selected-source-state-evidence>",
+              ]
+            : []),
           "",
           "<source-state-evidence>",
           input.sourceText.slice(0, 100_000),

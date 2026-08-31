@@ -1,6 +1,11 @@
 import { openapi } from "@orpc/openapi";
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
+import {
+  authoredTargetInputSchema,
+  InvalidAuthoredTargetError,
+  validateAuthoredTarget,
+} from "../../authored-targets/authored-target";
 import { publicProcedure } from "../init";
 import { notFoundError, sourceStateInput } from "./source-router-contracts";
 import { notFound, requireReading } from "./source-router-support";
@@ -11,6 +16,7 @@ export const sourceAssistantRouter = {
       sourceStateInput.extend({
         componentIdentity: z.string().trim().min(1).max(2_000),
         question: z.string().trim().min(1).max(4_000),
+        selection: authoredTargetInputSchema.optional(),
       }),
     )
     .output(z.object({ answer: z.string().min(1) }))
@@ -35,11 +41,29 @@ export const sourceAssistantRouter = {
           message: "Research assistant is not configured",
         });
       }
+      const selectedText = validatedSelectionText(component, input.selection);
       return context.researchAssistant.answer({
         question: input.question,
         sourceTitle: reading.source.title,
         componentLabel: component.label,
+        ...(selectedText ? { selectedText } : {}),
         sourceText: component.plainText,
       });
     }),
 };
+
+function validatedSelectionText(
+  component: Parameters<typeof validateAuthoredTarget>[0],
+  selection: z.infer<typeof authoredTargetInputSchema> | undefined,
+) {
+  if (!selection) return undefined;
+  try {
+    validateAuthoredTarget(component, selection);
+  } catch (error) {
+    if (!(error instanceof InvalidAuthoredTargetError)) throw error;
+    throw new ORPCError("BAD_REQUEST", {
+      message: "Selected Source-state evidence no longer matches",
+    });
+  }
+  return selection.exactText;
+}

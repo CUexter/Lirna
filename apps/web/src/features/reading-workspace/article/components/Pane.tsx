@@ -1,3 +1,4 @@
+import { lazy, Suspense, useState } from "react";
 import { ReadingAnnotations } from "../../annotations/components/Surface";
 import type {
   CitationResolution,
@@ -14,7 +15,6 @@ import {
   type ReferenceIndex,
 } from "../../bibliography/components/References";
 import type { ReadingNavigation } from "../../navigation/model";
-import { ReadingResearchAssistant } from "../../tools/components/ResearchAssistant";
 import { ReadingBreadcrumb } from "./Breadcrumb";
 import { ReadingCaptureStatus } from "./CaptureStatus";
 import { ReadingComponentNav } from "./ComponentNav";
@@ -30,6 +30,12 @@ import {
 import { ReadingSourceHeader } from "./SourceHeader";
 
 type Component = ReadingDerivative["components"][number];
+
+const ReadingResearchAssistant = lazy(() =>
+  import("../../tools/components/ResearchAssistant").then((module) => ({
+    default: module.ReadingResearchAssistant,
+  })),
+);
 
 export function ReadingArticlePane({
   annotations,
@@ -75,6 +81,12 @@ export function ReadingArticlePane({
   resumeStatus: "saving" | "saved" | "pending" | "error";
   source: ReadingDerivative["source"];
 }) {
+  const [assistantContext, setAssistantContext] = useState<{
+    componentIdentity: string;
+    selection?: SelectionDraft;
+  }>();
+  const assistantOpen =
+    assistantContext?.componentIdentity === component.identity;
   const {
     editingId,
     navigation: annotationNavigation,
@@ -136,6 +148,12 @@ export function ReadingArticlePane({
         articleRef={articleRef}
         key={component.identity}
         navigation={annotationNavigation}
+        onAskSelection={(selection) => {
+          setAssistantContext({
+            componentIdentity: component.identity,
+            selection,
+          });
+        }}
         onLinkBibliography={onLinkBibliography}
         onOpenCitationResolution={onOpenCitationResolution}
         readingView={view}
@@ -146,13 +164,23 @@ export function ReadingArticlePane({
           onUnsavedChange,
         }}
       />
-      <ReadingResearchAssistant
-        componentIdentity={component.identity}
-        componentLabel={component.label}
-        sourceId={source.id}
-        stateId={source.stateId}
-        sourceTitle={source.title}
-      />
+      <Suspense fallback={null}>
+        <ReadingResearchAssistant
+          onClose={() => setAssistantContext(undefined)}
+          onOpenSource={() =>
+            setAssistantContext({ componentIdentity: component.identity })
+          }
+          open={assistantOpen}
+          reading={{
+            componentIdentity: component.identity,
+            componentLabel: component.label,
+            sourceId: source.id,
+            sourceTitle: source.title,
+            stateId: source.stateId,
+          }}
+          selection={assistantOpen ? assistantContext.selection : undefined}
+        />
+      </Suspense>
       <ReadingComponentNav
         next={next}
         onSelect={onComponentChange}
@@ -215,6 +243,7 @@ function ReadingDocument({
 function ArticleAnnotations({
   articleRef,
   navigation,
+  onAskSelection,
   onLinkBibliography,
   onOpenCitationResolution,
   reading: { citationResolutions, component, source },
@@ -223,6 +252,7 @@ function ArticleAnnotations({
 }: {
   articleRef: React.RefObject<HTMLElement | null>;
   navigation: ReadingNavigation;
+  onAskSelection: (selection: SelectionDraft) => void;
   onLinkBibliography?: (selection: SelectionDraft) => void;
   onOpenCitationResolution: (
     entryId: string,
@@ -255,6 +285,7 @@ function ArticleAnnotations({
       navigateToAnnotation={navigateToAnnotation}
       key={component.identity}
       onEditAnnotationHandled={transition.onEditAnnotationHandled}
+      onAskSelection={onAskSelection}
       onLinkBibliography={onLinkBibliography}
       onOpenCitationResolution={onOpenCitationResolution}
       onUnsavedChange={transition.onUnsavedChange}

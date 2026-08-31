@@ -4,7 +4,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@lirna/ui/components/popover";
-import { LinkIcon, PaletteIcon, StickyNoteIcon } from "lucide-react";
+import {
+  LinkIcon,
+  MessageCircleQuestionIcon,
+  PaletteIcon,
+  StickyNoteIcon,
+} from "lucide-react";
 import type { CSSProperties, RefObject } from "react";
 
 import {
@@ -24,6 +29,7 @@ interface AnnotationSelectionMenuProps {
   };
   pending: boolean;
   onClose: () => void;
+  onAskSelection?: () => void;
   onLinkBibliography?: () => void;
   onOpenPanel: () => void;
 }
@@ -34,6 +40,7 @@ export function AnnotationSelectionMenu({
   colorPicker,
   pending,
   onClose,
+  onAskSelection,
   onLinkBibliography,
   onOpenPanel,
 }: AnnotationSelectionMenuProps) {
@@ -100,6 +107,18 @@ export function AnnotationSelectionMenu({
       >
         <StickyNoteIcon />
       </Button>
+      {onAskSelection ? (
+        <Button
+          aria-label="Ask about selection"
+          disabled={pending}
+          onClick={onAskSelection}
+          size="icon-sm"
+          type="button"
+          variant="ghost"
+        >
+          <MessageCircleQuestionIcon />
+        </Button>
+      ) : null}
       {onLinkBibliography ? (
         <Button
           aria-label="Link to bibliography"

@@ -1,6 +1,6 @@
 import { afterEach, expect, mock, test } from "bun:test";
 import { createRootRoute, createRoute } from "@tanstack/react-router";
-import { cleanup, waitFor, within } from "@testing-library/react";
+import { act, cleanup, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderRoute } from "@/test-support/renderRoute";
 import { sourceId, stateId } from "../test-support/fixtures";
@@ -120,6 +120,21 @@ async function renderReading() {
   );
 }
 
+async function selectPassage() {
+  const passage = await waitFor(() =>
+    view().getByText("A synthetic Source state passage."),
+  );
+  const range = document.createRange();
+  range.setStart(passage.firstChild as Text, 2);
+  range.setEnd(passage.firstChild as Text, 11);
+  await act(async () => {
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    document.dispatchEvent(new Event("selectionchange"));
+  });
+}
+
 afterEach(() => {
   assistantInput = undefined;
   cleanup();
@@ -130,7 +145,9 @@ test("opens a Source-grounded assistant beside the reading workspace", async () 
   await renderReading();
   await waitFor(() => view().getByText("A synthetic Source state passage."));
 
-  const askTab = view().getByRole("button", { name: "Ask this Source" });
+  const askTab = await waitFor(() =>
+    view().getByRole("button", { name: "Ask this Source" }),
+  );
   expect(askTab.getAttribute("aria-expanded")).toBe("false");
   expect(
     view().queryByRole("complementary", { name: "Research assistant" }),
@@ -151,19 +168,27 @@ test("opens a Source-grounded assistant beside the reading workspace", async () 
     }).disabled,
   ).toBe(true);
   expect(within(assistant).getByText(/Synthetic Reading Source/)).toBeTruthy();
+  expect(document.activeElement).toBe(
+    within(assistant).getByRole("textbox", { name: "Question" }),
+  );
 
   await user.click(view().getByRole("button", { name: "Close assistant" }));
   expect(
     view().queryByRole("complementary", { name: "Research assistant" }),
   ).toBeNull();
   expect(askTab.getAttribute("aria-expanded")).toBe("false");
+  await waitFor(() => expect(document.activeElement).toBe(askTab));
 });
 
 test("sends a question through the server and shows the answer", async () => {
   const user = userEvent.setup();
   await renderReading();
   await waitFor(() => view().getByText("A synthetic Source state passage."));
-  await user.click(view().getByRole("button", { name: "Ask this Source" }));
+  await user.click(
+    await waitFor(() =>
+      view().getByRole("button", { name: "Ask this Source" }),
+    ),
+  );
 
   await user.type(
     view().getByRole("textbox", { name: "Question" }),
@@ -180,4 +205,87 @@ test("sends a question through the server and shows the answer", async () => {
     componentIdentity: "article",
     question: "What claim does this Source make?",
   });
+});
+
+test("opens the assistant from selected text and sends its exact anchor", async () => {
+  const user = userEvent.setup();
+  await renderReading();
+  await selectPassage();
+
+  await user.click(view().getByRole("button", { name: "Ask about selection" }));
+
+  const assistant = await waitFor(() =>
+    view().getByRole("complementary", {
+      name: "Research assistant",
+    }),
+  );
+  expect(within(assistant).getByText("synthetic")).toBeTruthy();
+  expect(document.activeElement).toBe(
+    within(assistant).getByRole("textbox", { name: "Question" }),
+  );
+  await user.type(
+    within(assistant).getByRole("textbox", { name: "Question" }),
+    "What does this passage claim?",
+  );
+  await user.click(
+    within(assistant).getByRole("button", { name: "Send question" }),
+  );
+
+  await waitFor(() =>
+    within(assistant).getByText("The Source presents a synthetic claim."),
+  );
+  expect(assistantInput).toEqual({
+    sourceId,
+    stateId,
+    componentIdentity: "article",
+    question: "What does this passage claim?",
+    selection: {
+      offsetBasis: "normalized-derivative-text-v1",
+      normalizedStartOffset: 2,
+      normalizedEndOffset: 11,
+      exactText: "synthetic",
+      prefix: "A ",
+      suffix: expect.stringContaining(" Source state passage."),
+    },
+  });
+});
+
+test("closes selected evidence when the reading component changes", async () => {
+  const user = userEvent.setup();
+  await renderReading();
+  await selectPassage();
+  await user.click(view().getByRole("button", { name: "Ask about selection" }));
+  await waitFor(() =>
+    view().getByRole("complementary", { name: "Research assistant" }),
+  );
+
+  await user.click(view().getByRole("tab", { name: "Supplementary" }));
+  await user.click(view().getByRole("button", { name: "Supplement one" }));
+
+  await waitFor(() =>
+    expect(
+      view().queryByRole("complementary", { name: "Research assistant" }),
+    ).toBeNull(),
+  );
+});
+
+test("focuses the composer when selected evidence replaces Source scope", async () => {
+  const user = userEvent.setup();
+  await renderReading();
+  await user.click(
+    await waitFor(() =>
+      view().getByRole("button", { name: "Ask this Source" }),
+    ),
+  );
+  await selectPassage();
+
+  await user.click(view().getByRole("button", { name: "Ask about selection" }));
+
+  const assistant = view().getByRole("complementary", {
+    name: "Research assistant",
+  });
+  expect(within(assistant).getByText("synthetic")).toBeTruthy();
+  expect(document.activeElement).toBe(
+    within(assistant).getByRole("textbox", { name: "Question" }),
+  );
 });

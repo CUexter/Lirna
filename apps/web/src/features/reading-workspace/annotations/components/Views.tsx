@@ -7,6 +7,7 @@ import {
   annotationStyleContent,
   colors,
   rangeFromAnchor,
+  type SelectionDraft,
 } from "../domUtils";
 import type { AnnotationActions } from "../hooks/useActions";
 import type { AnnotationQueries } from "../hooks/useQueries";
@@ -22,6 +23,7 @@ interface AnnotationView {
   articleRef: RefObject<HTMLElement | null>;
   navigateToAnnotation: (annotation: Annotation) => void;
   notes: Annotation[];
+  onAskSelection?: (selection: SelectionDraft) => void;
   onLinkBibliography?: () => void;
   plainText: string;
   queries: AnnotationQueries;
@@ -117,7 +119,8 @@ export function AnnotationRestingView({ view }: { view: AnnotationView }) {
 export function AnnotationSelectionView({ view }: { view: AnnotationView }) {
   const { actions, queries, selection } = view;
   const { menuRef, state } = selection;
-  if (!state.position) return null;
+  const selected = state.selection;
+  if (!state.position || !selected) return null;
   return (
     <>
       <style>{annotationStyleContent(state.color)}</style>
@@ -130,6 +133,14 @@ export function AnnotationSelectionView({ view }: { view: AnnotationView }) {
           open: state.colorPickerOpen,
         }}
         menuRef={menuRef}
+        onAskSelection={
+          view.onAskSelection
+            ? () => {
+                view.onAskSelection?.(selected);
+                actions.closeMenu();
+              }
+            : undefined
+        }
         onClose={actions.closeMenu}
         onLinkBibliography={view.onLinkBibliography}
         onOpenPanel={actions.openPanel}

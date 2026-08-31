@@ -20146,6 +20146,51 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 4000
+                  },
+                  "selection": {
+                    "type": "object",
+                    "properties": {
+                      "publisherAnchor": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "offsetBasis": {
+                        "type": "string",
+                        "const": "normalized-derivative-text-v1"
+                      },
+                      "normalizedStartOffset": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "normalizedEndOffset": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "exactText": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 20000
+                      },
+                      "prefix": {
+                        "type": "string",
+                        "maxLength": 32
+                      },
+                      "suffix": {
+                        "type": "string",
+                        "maxLength": 32
+                      }
+                    },
+                    "required": [
+                      "offsetBasis",
+                      "normalizedStartOffset",
+                      "normalizedEndOffset",
+                      "exactText",
+                      "prefix",
+                      "suffix"
+                    ]
                   }
                 },
                 "required": [
