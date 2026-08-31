@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
+import type { UIMessageChunk } from "ai";
 import type { Context } from "../../context";
 import type { ResearchAssistantOperations } from "../../research-assistant/research-assistant";
 import { createTestContext } from "../application-test-support";
@@ -11,7 +12,7 @@ import {
 } from "./sep-admission.test-fixtures";
 import { sourcesRouter } from "./sources";
 
-test("asks about trusted content from the admitted Source state", async () => {
+test("asks about exact evidence with a rendered-only publisher anchor", async () => {
   let received:
     | Parameters<ResearchAssistantOperations["answer"]>[0]
     | undefined;
@@ -23,6 +24,7 @@ test("asks about trusted content from the admitted Source state", async () => {
       componentIdentity: "active:/",
       question: "What is the central claim?",
       selection: {
+        publisherAnchor: "rendered-only-anchor",
         offsetBasis: "normalized-derivative-text-v1",
         normalizedStartOffset: 0,
         normalizedEndOffset: 9,
@@ -33,15 +35,21 @@ test("asks about trusted content from the admitted Source state", async () => {
     },
     {
       context: context({
-        async answer(input) {
+        answer(input) {
           received = input;
-          return { answer: "A provisional answer." };
+          return assistantStream("A **provisional** answer.");
         },
       }),
     },
   );
 
-  expect(result).toEqual({ answer: "A provisional answer." });
+  const chunks: UIMessageChunk[] = [];
+  for await (const chunk of result) chunks.push(chunk);
+  expect(chunks).toContainEqual({
+    type: "text-delta",
+    id: "assistant-text",
+    delta: "A **provisional** answer.",
+  });
   expect(received).toMatchObject({
     question: "What is the central claim?",
     sourceTitle: "Test entry",
@@ -70,8 +78,8 @@ test("rejects selected evidence that does not match the admitted Source state", 
     },
     {
       context: context({
-        async answer() {
-          return { answer: "This must not be called." };
+        answer() {
+          return assistantStream("This must not be called.");
         },
       }),
     },
@@ -95,5 +103,22 @@ function context(researchAssistant: ResearchAssistantOperations): Context {
       },
     }),
     researchAssistant,
+  });
+}
+
+function assistantStream(text: string): ReadableStream<UIMessageChunk> {
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue({ type: "start", messageId: "assistant-message" });
+      controller.enqueue({ type: "text-start", id: "assistant-text" });
+      controller.enqueue({
+        type: "text-delta",
+        id: "assistant-text",
+        delta: text,
+      });
+      controller.enqueue({ type: "text-end", id: "assistant-text" });
+      controller.enqueue({ type: "finish", finishReason: "stop" });
+      controller.close();
+    },
   });
 }

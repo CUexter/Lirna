@@ -1,5 +1,5 @@
 import { openapi } from "@orpc/openapi";
-import { ORPCError } from "@orpc/server";
+import { ORPCError, streamToAsyncIteratorObject } from "@orpc/server";
 import { z } from "zod";
 import {
   authoredTargetInputSchema,
@@ -19,7 +19,6 @@ export const sourceAssistantRouter = {
         selection: authoredTargetInputSchema.optional(),
       }),
     )
-    .output(z.object({ answer: z.string().min(1) }))
     .errors(notFoundError)
     .meta(
       openapi({
@@ -42,13 +41,15 @@ export const sourceAssistantRouter = {
         });
       }
       const selectedText = validatedSelectionText(component, input.selection);
-      return context.researchAssistant.answer({
-        question: input.question,
-        sourceTitle: reading.source.title,
-        componentLabel: component.label,
-        ...(selectedText ? { selectedText } : {}),
-        sourceText: component.plainText,
-      });
+      return streamToAsyncIteratorObject(
+        context.researchAssistant.answer({
+          question: input.question,
+          sourceTitle: reading.source.title,
+          componentLabel: component.label,
+          ...(selectedText ? { selectedText } : {}),
+          sourceText: component.plainText,
+        }),
+      );
     }),
 };
 
@@ -58,7 +59,10 @@ function validatedSelectionText(
 ) {
   if (!selection) return undefined;
   try {
-    validateAuthoredTarget(component, selection);
+    validateAuthoredTarget(component, {
+      ...selection,
+      publisherAnchor: undefined,
+    });
   } catch (error) {
     if (!(error instanceof InvalidAuthoredTargetError)) throw error;
     throw new ORPCError("BAD_REQUEST", {

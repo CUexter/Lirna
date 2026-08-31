@@ -20206,23 +20206,7 @@
         "responses": {
           "200": {
             "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "answer": {
-                      "type": "string",
-                      "minLength": 1
-                    }
-                  },
-                  "required": [
-                    "answer"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
+            "content": {}
           },
           "404": {
             "description": "404",

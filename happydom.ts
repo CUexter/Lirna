@@ -12,6 +12,9 @@ const nativeResponse = globalThis.Response;
 const nativeHeaders = globalThis.Headers;
 const nativeFormData = globalThis.FormData;
 const nativeBlob = globalThis.Blob;
+const nativeReadableStream = globalThis.ReadableStream;
+const nativeTransformStream = globalThis.TransformStream;
+const nativeWritableStream = globalThis.WritableStream;
 
 GlobalRegistrator.register();
 
@@ -21,6 +24,9 @@ globalThis.Response = nativeResponse;
 globalThis.Headers = nativeHeaders;
 globalThis.FormData = nativeFormData;
 globalThis.Blob = nativeBlob;
+globalThis.ReadableStream = nativeReadableStream;
+globalThis.TransformStream = nativeTransformStream;
+globalThis.WritableStream = nativeWritableStream;
 
 class ResizeObserverMock {
   observe() {}

@@ -11,6 +11,39 @@ import {
 } from "../test-support/sourceInformation";
 
 let assistantInput: unknown;
+let pauseAssistantStream = false;
+let releaseAssistantStream: (() => void) | undefined;
+
+async function* assistantStream(input: unknown) {
+  assistantInput = input;
+  yield { type: "start", messageId: "assistant-message" };
+  yield { type: "text-start", id: "assistant-text" };
+  yield {
+    type: "text-delta",
+    id: "assistant-text",
+    delta: "The **Source**",
+  };
+  if (pauseAssistantStream) {
+    await new Promise<void>((resolve) => {
+      releaseAssistantStream = resolve;
+    });
+  }
+  yield {
+    type: "text-delta",
+    id: "assistant-text",
+    delta: " presents a synthetic claim.",
+  };
+  yield { type: "text-end", id: "assistant-text" };
+  yield { type: "finish", finishReason: "stop" };
+}
+
+await mock.module("@/clients/inquiryClient", () => ({
+  inquiryClient: {
+    sources: {
+      assistant: { ask: async (input: unknown) => assistantStream(input) },
+    },
+  },
+}));
 
 await mock.module("@/clients/inquiry", () => ({
   inquiry: {
@@ -136,7 +169,10 @@ async function selectPassage() {
 }
 
 afterEach(() => {
+  releaseAssistantStream?.();
   assistantInput = undefined;
+  pauseAssistantStream = false;
+  releaseAssistantStream = undefined;
   cleanup();
 });
 
@@ -180,8 +216,9 @@ test("opens a Source-grounded assistant beside the reading workspace", async () 
   await waitFor(() => expect(document.activeElement).toBe(askTab));
 });
 
-test("sends a question through the server and shows the answer", async () => {
+test("streams a Markdown answer through the server", async () => {
   const user = userEvent.setup();
+  pauseAssistantStream = true;
   await renderReading();
   await waitFor(() => view().getByText("A synthetic Source state passage."));
   await user.click(
@@ -192,12 +229,26 @@ test("sends a question through the server and shows the answer", async () => {
 
   await user.type(
     view().getByRole("textbox", { name: "Question" }),
-    "What claim does this Source make?",
+    "What claim does this Source make?{Enter}",
   );
-  await user.click(view().getByRole("button", { name: "Send question" }));
 
+  const source = await waitFor(() => view().getByText("Source"));
+  expect(source.tagName).toBe("STRONG");
+  expect(
+    view().queryByText((_, element) =>
+      element?.tagName === "P"
+        ? element.textContent === "The Source presents a synthetic claim."
+        : false,
+    ),
+  ).toBeNull();
+
+  releaseAssistantStream?.();
   await waitFor(() =>
-    view().getByText("The Source presents a synthetic claim."),
+    view().getByText((_, element) =>
+      element?.tagName === "P"
+        ? element.textContent === "The Source presents a synthetic claim."
+        : false,
+    ),
   );
   expect(assistantInput).toEqual({
     sourceId,
@@ -232,7 +283,11 @@ test("opens the assistant from selected text and sends its exact anchor", async 
   );
 
   await waitFor(() =>
-    within(assistant).getByText("The Source presents a synthetic claim."),
+    within(assistant).getByText((_, element) =>
+      element?.tagName === "P"
+        ? element.textContent === "The Source presents a synthetic claim."
+        : false,
+    ),
   );
   expect(assistantInput).toEqual({
     sourceId,

@@ -16,7 +16,6 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from "@lirna/ui/components/message-scroller";
-import { useMutation } from "@tanstack/react-query";
 import { MessageCircleQuestionIcon, SendIcon, XIcon } from "lucide-react";
 import {
   type FormEvent,
@@ -26,13 +25,14 @@ import {
   useState,
 } from "react";
 
-import { inquiry } from "@/clients/inquiry";
 import type { SelectionDraft } from "../../annotations/domUtils";
+import { streamResearchAssistantAnswer } from "../researchAssistantTransport";
+import { AssistantMarkdown } from "./AssistantMarkdown";
 
-interface ChatMessage {
+interface AssistantMessage {
   id: string;
-  role: "user" | "assistant";
-  content: string;
+  role: "assistant" | "user";
+  text: string;
 }
 
 export function ReadingResearchAssistant({
@@ -61,15 +61,18 @@ export function ReadingResearchAssistant({
   selection?: SelectionDraft;
 }) {
   const [question, setQuestion] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [error, setError] = useState<string>();
+  const [pending, setPending] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const questionRef = useRef<HTMLTextAreaElement>(null);
-  const ask = useMutation(inquiry.sources.assistant.ask.mutationOptions());
+  const requestRef = useRef<AbortController>(null);
 
   useEffect(() => {
     if (open) questionRef.current?.focus({ preventScroll: Boolean(selection) });
   }, [open, selection]);
+
+  useEffect(() => () => requestRef.current?.abort(), []);
 
   function close() {
     onClose();
@@ -79,31 +82,43 @@ export function ReadingResearchAssistant({
   async function submitQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextQuestion = question.trim();
-    if (!nextQuestion || ask.isPending) return;
+    if (!nextQuestion || pending) return;
+    const assistantId = crypto.randomUUID();
+    const request = new AbortController();
+    requestRef.current = request;
     setQuestion("");
     setError(undefined);
+    setPending(true);
     setMessages((current) => [
       ...current,
-      { id: crypto.randomUUID(), role: "user", content: nextQuestion },
+      { id: crypto.randomUUID(), role: "user", text: nextQuestion },
+      { id: assistantId, role: "assistant", text: "" },
     ]);
     try {
-      const result = await ask.mutateAsync({
+      for await (const delta of streamResearchAssistantAnswer({
         componentIdentity,
         question: nextQuestion,
-        ...(selection ? { selection } : {}),
+        selection,
+        signal: request.signal,
         sourceId,
         stateId,
-      });
-      setMessages((current) => [
-        ...current,
-        { id: crypto.randomUUID(), role: "assistant", content: result.answer },
-      ]);
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "The research assistant could not answer.",
-      );
+      })) {
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === assistantId
+              ? { ...message, text: message.text + delta }
+              : message,
+          ),
+        );
+      }
+    } catch (reason) {
+      if (!request.signal.aborted) {
+        setError(
+          reason instanceof Error ? reason.message : "The answer failed",
+        );
+      }
+    } finally {
+      if (!request.signal.aborted) setPending(false);
     }
   }
 
@@ -156,13 +171,13 @@ export function ReadingResearchAssistant({
           <AssistantTranscript
             error={error}
             messages={messages}
-            pending={ask.isPending}
+            pending={pending}
             selection={selection}
           />
           <QuestionComposer
             onQuestionChange={setQuestion}
             onSubmit={submitQuestion}
-            pending={ask.isPending}
+            pending={pending}
             question={question}
             questionRef={questionRef}
             selection={selection}
@@ -180,7 +195,7 @@ function AssistantTranscript({
   selection,
 }: {
   error?: string;
-  messages: ChatMessage[];
+  messages: AssistantMessage[];
   pending: boolean;
   selection?: SelectionDraft;
 }) {
@@ -215,7 +230,13 @@ function AssistantTranscript({
                       align={message.role === "user" ? "end" : "start"}
                       variant={message.role === "user" ? "default" : "outline"}
                     >
-                      <BubbleContent>{message.content}</BubbleContent>
+                      <BubbleContent>
+                        {message.role === "assistant" ? (
+                          <AssistantMarkdown>{message.text}</AssistantMarkdown>
+                        ) : (
+                          <span>{message.text}</span>
+                        )}
+                      </BubbleContent>
                     </Bubble>
                   </MessageContent>
                 </Message>
@@ -267,6 +288,17 @@ function QuestionComposer({
         <InputGroupTextarea
           id="reading-research-question"
           onChange={(event) => onQuestionChange(event.currentTarget.value)}
+          onKeyDown={(event) => {
+            if (
+              event.key !== "Enter" ||
+              event.shiftKey ||
+              event.nativeEvent.isComposing
+            ) {
+              return;
+            }
+            event.preventDefault();
+            event.currentTarget.form?.requestSubmit();
+          }}
           placeholder={
             selection
               ? "Ask about the selected passage…"
