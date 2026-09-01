@@ -15,6 +15,7 @@
     "desktop:build": "tauri build"
   },
   "dependencies": {
+    "@ai-sdk/react": "^4.0.90",
     "@lirna/api": "workspace:*",
     "@lirna/env": "workspace:*",
     "@lirna/ui": "workspace:*",
@@ -25,6 +26,7 @@
     "@tanstack/react-form": "^1.33.2",
     "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-router": "^1.170.18",
+    "ai": "^7.0.87",
     "dotenv": "catalog:",
     "katex": "^0.18.4",
     "lucide-react": "catalog:",
@@ -39,6 +41,7 @@
     "@babel/core": "^7.29.7",
     "@lirna/config": "workspace:*",
     "@rolldown/plugin-babel": "^0.2.3",
+    "@shadcn/helpers": "^0.2.0",
     "@tanstack/react-query-devtools": "^5.101.4",
     "@tanstack/react-router-devtools": "^1.167.0",
     "@tanstack/router-plugin": "^1.168.23",

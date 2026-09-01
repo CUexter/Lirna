@@ -23,6 +23,14 @@ test("asks about exact evidence with a rendered-only publisher anchor", async ()
       stateId,
       componentIdentity: "active:/",
       question: "What is the central claim?",
+      attachments: [
+        {
+          dataUrl: "data:text/plain;base64,dGVtcG9yYXJ5IGV2aWRlbmNl",
+          filename: "evidence.txt",
+          mediaType: "text/plain",
+          size: 18,
+        },
+      ],
       selection: {
         publisherAnchor: "rendered-only-anchor",
         offsetBasis: "normalized-derivative-text-v1",
@@ -56,6 +64,77 @@ test("asks about exact evidence with a rendered-only publisher anchor", async ()
     componentLabel: "Main entry",
     selectedText: "Synthetic",
     sourceText: "Synthetic reading text.",
+    attachments: [
+      {
+        data: new URL("data:text/plain;base64,dGVtcG9yYXJ5IGV2aWRlbmNl"),
+        filename: "evidence.txt",
+        mediaType: "text/plain",
+      },
+    ],
+  });
+});
+
+test("rejects temporary evidence that does not match its media type", async () => {
+  const request = call(
+    sourcesRouter.assistant.ask,
+    {
+      sourceId,
+      stateId,
+      componentIdentity: "active:/",
+      question: "What does this file add?",
+      attachments: [
+        {
+          dataUrl: "data:application/pdf;base64,dGVtcG9yYXJ5IGV2aWRlbmNl",
+          filename: "evidence.txt",
+          mediaType: "text/plain" as const,
+          size: 18,
+        },
+      ],
+    },
+    {
+      context: context({
+        answer() {
+          return assistantStream("This must not be called.");
+        },
+      }),
+    },
+  );
+
+  await expect(request).rejects.toMatchObject({
+    code: "BAD_REQUEST",
+    message: "Attachment evidence.txt does not match its media type",
+  });
+});
+
+test("rejects temporary evidence with false size metadata", async () => {
+  const request = call(
+    sourcesRouter.assistant.ask,
+    {
+      sourceId,
+      stateId,
+      componentIdentity: "active:/",
+      question: "What does this file add?",
+      attachments: [
+        {
+          dataUrl: "data:text/plain;base64,dGVtcG9yYXJ5IGV2aWRlbmNl",
+          filename: "evidence.txt",
+          mediaType: "text/plain" as const,
+          size: 1,
+        },
+      ],
+    },
+    {
+      context: context({
+        answer() {
+          return assistantStream("This must not be called.");
+        },
+      }),
+    },
+  );
+
+  await expect(request).rejects.toMatchObject({
+    code: "BAD_REQUEST",
+    message: "Attachment evidence.txt has invalid size metadata",
   });
 });
 

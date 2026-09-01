@@ -1,4 +1,3 @@
-import { lazy, Suspense, useState } from "react";
 import { ReadingAnnotations } from "../../annotations/components/Surface";
 import type {
   CitationResolution,
@@ -31,12 +30,6 @@ import { ReadingSourceHeader } from "./SourceHeader";
 
 type Component = ReadingDerivative["components"][number];
 
-const ReadingResearchAssistant = lazy(() =>
-  import("../../tools/components/ResearchAssistant").then((module) => ({
-    default: module.ReadingResearchAssistant,
-  })),
-);
-
 export function ReadingArticlePane({
   annotations,
   articleRef,
@@ -60,6 +53,7 @@ export function ReadingArticlePane({
   component: Component;
   contentActions: {
     citationResolutions: CitationResolution[];
+    onAskSelection?: (selection: SelectionDraft) => void;
     onOpenPublisherAuthoredLink: (href: string, label: string) => boolean;
     onOpenCitation: (entryId: string | undefined, mentionId: string) => void;
     onOpenCitationResolution: (
@@ -81,12 +75,6 @@ export function ReadingArticlePane({
   resumeStatus: "saving" | "saved" | "pending" | "error";
   source: ReadingDerivative["source"];
 }) {
-  const [assistantContext, setAssistantContext] = useState<{
-    componentIdentity: string;
-    selection?: SelectionDraft;
-  }>();
-  const assistantOpen =
-    assistantContext?.componentIdentity === component.identity;
   const {
     editingId,
     navigation: annotationNavigation,
@@ -97,6 +85,7 @@ export function ReadingArticlePane({
   } = annotations;
   const {
     citationResolutions,
+    onAskSelection,
     onOpenPublisherAuthoredLink,
     onOpenCitation,
     onOpenCitationResolution,
@@ -104,6 +93,7 @@ export function ReadingArticlePane({
     onOpenReference,
     referenceIndex,
   } = contentActions;
+  const askSelection = onAskSelection ?? (() => undefined);
   const { mainComponentIdentity, next, onComponentChange, parent, previous } =
     navigation;
   useCitationResolutionHighlights({
@@ -113,7 +103,7 @@ export function ReadingArticlePane({
     resolutions: citationResolutions,
   });
   return (
-    <div className="flex min-w-0 flex-col gap-8 lg:col-start-1 lg:row-start-1">
+    <div className="@7xl/reading:col-start-1 @7xl/reading:row-start-1 flex min-w-0 flex-col gap-8">
       <style>{citationResolutionStyleContent}</style>
       <ReadingSourceHeader
         capture={capture}
@@ -148,12 +138,7 @@ export function ReadingArticlePane({
         articleRef={articleRef}
         key={component.identity}
         navigation={annotationNavigation}
-        onAskSelection={(selection) => {
-          setAssistantContext({
-            componentIdentity: component.identity,
-            selection,
-          });
-        }}
+        onAskSelection={askSelection}
         onLinkBibliography={onLinkBibliography}
         onOpenCitationResolution={onOpenCitationResolution}
         readingView={view}
@@ -164,23 +149,6 @@ export function ReadingArticlePane({
           onUnsavedChange,
         }}
       />
-      <Suspense fallback={null}>
-        <ReadingResearchAssistant
-          onClose={() => setAssistantContext(undefined)}
-          onOpenSource={() =>
-            setAssistantContext({ componentIdentity: component.identity })
-          }
-          open={assistantOpen}
-          reading={{
-            componentIdentity: component.identity,
-            componentLabel: component.label,
-            sourceId: source.id,
-            sourceTitle: source.title,
-            stateId: source.stateId,
-          }}
-          selection={assistantOpen ? assistantContext.selection : undefined}
-        />
-      </Suspense>
       <ReadingComponentNav
         next={next}
         onSelect={onComponentChange}

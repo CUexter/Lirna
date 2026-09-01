@@ -185,6 +185,7 @@ test("opens a Source-grounded assistant beside the reading workspace", async () 
     view().getByRole("button", { name: "Ask this Source" }),
   );
   expect(askTab.getAttribute("aria-expanded")).toBe("false");
+  expect(view().getByRole("main").classList.contains("grid-cols-1")).toBe(true);
   expect(
     view().queryByRole("complementary", { name: "Research assistant" }),
   ).toBeNull();
@@ -195,6 +196,22 @@ test("opens a Source-grounded assistant beside the reading workspace", async () 
   const assistant = view().getByRole("complementary", {
     name: "Research assistant",
   });
+  expect(assistant.classList.contains("fixed")).toBe(false);
+  expect(askTab.classList.contains("fixed")).toBe(false);
+  expect(view().getByRole("main").lastElementChild?.contains(assistant)).toBe(
+    true,
+  );
+  expect(assistant.parentElement?.classList.contains("h-screen")).toBe(true);
+  expect(
+    view()
+      .getByRole("main")
+      .classList.contains(
+        "grid-cols-[minmax(0,1fr)_clamp(24rem,calc(100vw-96rem),40vw)]",
+      ),
+  ).toBe(true);
+  expect(
+    view().getByRole("complementary", { name: "Reading tools" }),
+  ).toBeTruthy();
   expect(
     within(assistant).getByRole("textbox", { name: "Question" }),
   ).toBeTruthy();
@@ -213,6 +230,9 @@ test("opens a Source-grounded assistant beside the reading workspace", async () 
     view().queryByRole("complementary", { name: "Research assistant" }),
   ).toBeNull();
   expect(askTab.getAttribute("aria-expanded")).toBe("false");
+  expect(
+    view().getByRole("complementary", { name: "Reading tools" }),
+  ).toBeTruthy();
   await waitFor(() => expect(document.activeElement).toBe(askTab));
 });
 
@@ -233,7 +253,7 @@ test("streams a Markdown answer through the server", async () => {
   );
 
   const source = await waitFor(() => view().getByText("Source"));
-  expect(source.tagName).toBe("STRONG");
+  expect(source.closest(".size-full")).toBeTruthy();
   expect(
     view().queryByText((_, element) =>
       element?.tagName === "P"

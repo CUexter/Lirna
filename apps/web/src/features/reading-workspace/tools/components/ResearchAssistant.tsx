@@ -1,12 +1,16 @@
+import { useChat } from "@ai-sdk/react";
+import { MessageResponse } from "@lirna/ui/components/ai-elements/message";
+import { Shimmer } from "@lirna/ui/components/ai-elements/shimmer";
 import { Bubble, BubbleContent } from "@lirna/ui/components/bubble";
 import { Button } from "@lirna/ui/components/button";
 import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupTextarea,
-} from "@lirna/ui/components/input-group";
-import { Marker, MarkerContent } from "@lirna/ui/components/marker";
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@lirna/ui/components/empty";
+import { Marker, MarkerContent, MarkerIcon } from "@lirna/ui/components/marker";
 import { Message, MessageContent } from "@lirna/ui/components/message";
 import {
   MessageScroller,
@@ -16,7 +20,9 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from "@lirna/ui/components/message-scroller";
-import { MessageCircleQuestionIcon, SendIcon, XIcon } from "lucide-react";
+import { Spinner } from "@lirna/ui/components/spinner";
+import type { ChatTransport } from "ai";
+import { MessageCircleDashedIcon, XIcon } from "lucide-react";
 import {
   type FormEvent,
   type RefObject,
@@ -26,18 +32,18 @@ import {
 } from "react";
 
 import type { SelectionDraft } from "../../annotations/domUtils";
-import { streamResearchAssistantAnswer } from "../researchAssistantTransport";
-import { AssistantMarkdown } from "./AssistantMarkdown";
-
-interface AssistantMessage {
-  id: string;
-  role: "assistant" | "user";
-  text: string;
-}
+import {
+  createResearchAssistantTransport,
+  type ResearchAssistantMessage,
+  type TemporaryEvidenceAttachment,
+} from "../researchAssistantTransport";
+import {
+  MessageAttachments,
+  QuestionComposer,
+} from "./ResearchAssistantComposer";
 
 export function ReadingResearchAssistant({
   onClose,
-  onOpenSource,
   open,
   reading: {
     componentIdentity,
@@ -47,9 +53,10 @@ export function ReadingResearchAssistant({
     stateId,
   },
   selection,
+  transport,
+  triggerRef,
 }: {
   onClose: () => void;
-  onOpenSource: () => void;
   open: boolean;
   reading: {
     componentIdentity: string;
@@ -59,122 +66,115 @@ export function ReadingResearchAssistant({
     stateId: string;
   };
   selection?: SelectionDraft;
+  transport?: ChatTransport<ResearchAssistantMessage>;
+  triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
   const [question, setQuestion] = useState("");
-  const [messages, setMessages] = useState<AssistantMessage[]>([]);
-  const [error, setError] = useState<string>();
-  const [pending, setPending] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [attachments, setAttachments] = useState<TemporaryEvidenceAttachment[]>(
+    [],
+  );
+  const [composerError, setComposerError] = useState<string>();
   const questionRef = useRef<HTMLTextAreaElement>(null);
-  const requestRef = useRef<AbortController>(null);
+  const { clearError, error, messages, sendMessage, status, stop } =
+    useChat<ResearchAssistantMessage>({
+      transport:
+        transport ??
+        createResearchAssistantTransport({
+          componentIdentity,
+          selection,
+          sourceId,
+          stateId,
+        }),
+    });
+  const pending = status === "submitted" || status === "streaming";
 
   useEffect(() => {
     if (open) questionRef.current?.focus({ preventScroll: Boolean(selection) });
   }, [open, selection]);
 
-  useEffect(() => () => requestRef.current?.abort(), []);
+  useEffect(
+    () => () => {
+      void stop();
+    },
+    [stop],
+  );
 
   function close() {
+    void stop();
     onClose();
     requestAnimationFrame(() => triggerRef.current?.focus());
   }
 
-  async function submitQuestion(event: FormEvent<HTMLFormElement>) {
+  function submitQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextQuestion = question.trim();
     if (!nextQuestion || pending) return;
-    const assistantId = crypto.randomUUID();
-    const request = new AbortController();
-    requestRef.current = request;
+    const submittedAttachments = attachments;
     setQuestion("");
-    setError(undefined);
-    setPending(true);
-    setMessages((current) => [
-      ...current,
-      { id: crypto.randomUUID(), role: "user", text: nextQuestion },
-      { id: assistantId, role: "assistant", text: "" },
-    ]);
-    try {
-      for await (const delta of streamResearchAssistantAnswer({
-        componentIdentity,
-        question: nextQuestion,
-        selection,
-        signal: request.signal,
-        sourceId,
-        stateId,
-      })) {
-        setMessages((current) =>
-          current.map((message) =>
-            message.id === assistantId
-              ? { ...message, text: message.text + delta }
-              : message,
-          ),
-        );
-      }
-    } catch (reason) {
-      if (!request.signal.aborted) {
-        setError(
-          reason instanceof Error ? reason.message : "The answer failed",
-        );
-      }
-    } finally {
-      if (!request.signal.aborted) setPending(false);
-    }
+    setComposerError(undefined);
+    clearError();
+    setAttachments([]);
+    void sendMessage({
+      role: "user",
+      parts: [
+        { type: "text", text: nextQuestion },
+        ...submittedAttachments.map(({ dataUrl, filename, mediaType }) => ({
+          type: "file" as const,
+          filename,
+          mediaType,
+          url: dataUrl,
+        })),
+      ],
+      ...(submittedAttachments.length
+        ? { metadata: { attachments: submittedAttachments } }
+        : {}),
+    });
   }
 
-  return (
-    <>
-      <Button
-        aria-controls="reading-research-assistant"
-        aria-expanded={open}
-        aria-label="Ask this Source"
-        className={`fixed top-1/2 z-[60] h-auto -translate-y-1/2 gap-2 px-2 py-3 shadow-lg transition-[right] [writing-mode:vertical-rl] ${
-          open ? "right-[min(24rem,calc(100vw-2rem))]" : "right-0"
-        }`}
-        onClick={open ? close : onOpenSource}
-        ref={triggerRef}
-        type="button"
-        variant="secondary"
-      >
-        <MessageCircleQuestionIcon />
-        Ask
-      </Button>
-      {open ? (
-        <aside
-          aria-label="Research assistant"
-          className="fixed top-0 right-0 z-50 flex h-full w-96 max-w-[calc(100vw-2rem)] flex-col border-l bg-popover text-popover-foreground shadow-lg"
-          id="reading-research-assistant"
-          onKeyDown={(event) => {
-            if (event.key === "Escape") close();
-          }}
-        >
-          <header className="flex items-start gap-3 border-b px-4 py-3">
-            <div className="min-w-0 flex-1">
-              <h2 className="font-semibold font-serif text-lg">
-                Research assistant
-              </h2>
-              <p className="truncate text-muted-foreground text-xs">
-                {sourceTitle} · {componentLabel}
-              </p>
-            </div>
-            <Button
-              aria-label="Close assistant"
-              onClick={close}
-              size="icon-sm"
-              type="button"
-              variant="ghost"
-            >
-              <XIcon />
-            </Button>
-          </header>
-
+  return open ? (
+    <aside
+      aria-label="Research assistant"
+      className="h-[calc(100vh-1rem)] w-full"
+      id="reading-research-assistant"
+      onKeyDown={(event) => {
+        if (event.key === "Escape") close();
+      }}
+    >
+      <div className="flex h-full flex-col overflow-hidden bg-popover text-popover-foreground">
+        <header className="flex items-start gap-3 border-b px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <h2 className="font-semibold font-serif text-lg">
+              Research assistant
+            </h2>
+            <p className="truncate text-muted-foreground text-xs">
+              {sourceTitle} · {componentLabel}
+            </p>
+          </div>
+          <Button
+            aria-label="Close assistant"
+            onClick={close}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          >
+            <XIcon />
+          </Button>
+        </header>
+        <div className="min-h-0 flex-1 overflow-hidden">
           <AssistantTranscript
-            error={error}
+            error={composerError ?? error?.message}
             messages={messages}
             pending={pending}
             selection={selection}
           />
+        </div>
+        <div className="border-t p-4">
           <QuestionComposer
+            attachment={{
+              attachments,
+              onAttachmentsChange: setAttachments,
+              onError: setComposerError,
+            }}
             onQuestionChange={setQuestion}
             onSubmit={submitQuestion}
             pending={pending}
@@ -182,10 +182,10 @@ export function ReadingResearchAssistant({
             questionRef={questionRef}
             selection={selection}
           />
-        </aside>
-      ) : null}
-    </>
-  );
+        </div>
+      </div>
+    </aside>
+  ) : null;
 }
 
 function AssistantTranscript({
@@ -195,10 +195,27 @@ function AssistantTranscript({
   selection,
 }: {
   error?: string;
-  messages: AssistantMessage[];
+  messages: ResearchAssistantMessage[];
   pending: boolean;
   selection?: SelectionDraft;
 }) {
+  const lastMessage = messages.at(-1);
+  if (messages.length === 0 && !selection && !error) {
+    return (
+      <Empty className="h-full">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <MessageCircleDashedIcon />
+          </EmptyMedia>
+          <EmptyTitle>Ask this Source</EmptyTitle>
+          <EmptyDescription>
+            Explore the captured Source-state evidence. Answers remain
+            provisional and never become a Draft or Owned note automatically.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
+  }
   return (
     <MessageScrollerProvider>
       <MessageScroller aria-busy={pending}>
@@ -222,31 +239,49 @@ function AssistantTranscript({
                 </blockquote>
               </MessageScrollerItem>
             ) : null}
-            {messages.map((message) => (
-              <MessageScrollerItem key={message.id} scrollAnchor>
-                <Message align={message.role === "user" ? "end" : "start"}>
-                  <MessageContent>
-                    <Bubble
-                      align={message.role === "user" ? "end" : "start"}
-                      variant={message.role === "user" ? "default" : "outline"}
-                    >
-                      <BubbleContent>
-                        {message.role === "assistant" ? (
-                          <AssistantMarkdown>{message.text}</AssistantMarkdown>
-                        ) : (
-                          <span>{message.text}</span>
-                        )}
-                      </BubbleContent>
-                    </Bubble>
-                  </MessageContent>
-                </Message>
-              </MessageScrollerItem>
-            ))}
-            {pending ? (
-              <MessageScrollerItem scrollAnchor>
-                <Marker>
-                  <MarkerContent>Reading this Source state…</MarkerContent>
-                </Marker>
+            {messages.map((message) => {
+              const text = message.parts
+                .filter((part) => part.type === "text")
+                .map((part) => part.text)
+                .join("");
+              const waiting =
+                message.id === lastMessage?.id &&
+                message.role === "assistant" &&
+                pending &&
+                !text;
+              if (message.role === "assistant" && !text && !waiting)
+                return null;
+              return (
+                <MessageScrollerItem
+                  key={message.id}
+                  scrollAnchor={message.role === "user"}
+                >
+                  {waiting ? (
+                    <AssistantWaiting />
+                  ) : message.role === "assistant" ? (
+                    <MessageResponse>{text}</MessageResponse>
+                  ) : (
+                    <Message align="end">
+                      <MessageContent>
+                        {message.metadata?.attachments?.length ? (
+                          <MessageAttachments
+                            attachments={message.metadata.attachments}
+                          />
+                        ) : null}
+                        <Bubble align="end" variant="default">
+                          <BubbleContent className="rounded-2xl px-3 py-2 text-sm">
+                            {text}
+                          </BubbleContent>
+                        </Bubble>
+                      </MessageContent>
+                    </Message>
+                  )}
+                </MessageScrollerItem>
+              );
+            })}
+            {pending && lastMessage?.role === "user" ? (
+              <MessageScrollerItem>
+                <AssistantWaiting />
               </MessageScrollerItem>
             ) : null}
             {error ? (
@@ -264,63 +299,17 @@ function AssistantTranscript({
   );
 }
 
-function QuestionComposer({
-  onQuestionChange,
-  onSubmit,
-  pending,
-  question,
-  questionRef,
-  selection,
-}: {
-  onQuestionChange: (question: string) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  pending: boolean;
-  question: string;
-  questionRef: RefObject<HTMLTextAreaElement | null>;
-  selection?: SelectionDraft;
-}) {
+function AssistantWaiting() {
   return (
-    <form className="border-t p-4" onSubmit={onSubmit}>
-      <label className="sr-only" htmlFor="reading-research-question">
-        Question
-      </label>
-      <InputGroup>
-        <InputGroupTextarea
-          id="reading-research-question"
-          onChange={(event) => onQuestionChange(event.currentTarget.value)}
-          onKeyDown={(event) => {
-            if (
-              event.key !== "Enter" ||
-              event.shiftKey ||
-              event.nativeEvent.isComposing
-            ) {
-              return;
-            }
-            event.preventDefault();
-            event.currentTarget.form?.requestSubmit();
-          }}
-          placeholder={
-            selection
-              ? "Ask about the selected passage…"
-              : "Ask a question about this Source…"
-          }
-          rows={3}
-          ref={questionRef}
-          value={question}
-        />
-        <InputGroupAddon align="block-end" className="justify-between">
-          <span>Answers remain temporary and provisional.</span>
-          <InputGroupButton
-            aria-label="Send question"
-            disabled={!question.trim() || pending}
-            size="icon-sm"
-            type="submit"
-            variant="default"
-          >
-            <SendIcon />
-          </InputGroupButton>
-        </InputGroupAddon>
-      </InputGroup>
-    </form>
+    <Marker role="status">
+      <MarkerIcon>
+        <Spinner />
+      </MarkerIcon>
+      <MarkerContent>
+        <Shimmer as="span" duration={1.5}>
+          Reading this Source state…
+        </Shimmer>
+      </MarkerContent>
+    </Marker>
   );
 }

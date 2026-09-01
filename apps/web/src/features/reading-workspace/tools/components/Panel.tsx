@@ -41,7 +41,7 @@ export function ReadingToolsPanel({
   return (
     <aside
       aria-label="Reading tools"
-      className="flex h-[70svh] flex-col overflow-hidden rounded-md border bg-background/95 shadow-lg backdrop-blur lg:h-[calc(100vh-2rem)]"
+      className="flex @7xl/reading:h-[calc(100vh-2rem)] h-[70svh] flex-col overflow-hidden rounded-md border bg-background/95 shadow-lg backdrop-blur"
     >
       <header className="flex items-center justify-between border-b px-4 py-3">
         <div>

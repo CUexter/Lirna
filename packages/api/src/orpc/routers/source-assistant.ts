@@ -10,10 +10,33 @@ import { publicProcedure } from "../init";
 import { notFoundError, sourceStateInput } from "./source-router-contracts";
 import { notFound, requireReading } from "./source-router-support";
 
+const attachmentMediaTypes = [
+  "application/json",
+  "application/pdf",
+  "image/gif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "text/csv",
+  "text/markdown",
+  "text/plain",
+] as const;
+const temporaryAttachmentInput = z.object({
+  dataUrl: z.string().max(7_000_000),
+  filename: z.string().trim().min(1).max(255),
+  mediaType: z.enum(attachmentMediaTypes),
+  size: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(5 * 1024 * 1024),
+});
+
 export const sourceAssistantRouter = {
   ask: publicProcedure
     .input(
       sourceStateInput.extend({
+        attachments: z.array(temporaryAttachmentInput).max(3).optional(),
         componentIdentity: z.string().trim().min(1).max(2_000),
         question: z.string().trim().min(1).max(4_000),
         selection: authoredTargetInputSchema.optional(),
@@ -43,6 +66,9 @@ export const sourceAssistantRouter = {
       const selectedText = validatedSelectionText(component, input.selection);
       return streamToAsyncIteratorObject(
         context.researchAssistant.answer({
+          ...(input.attachments?.length
+            ? { attachments: input.attachments.map(temporaryAttachment) }
+            : {}),
           question: input.question,
           sourceTitle: reading.source.title,
           componentLabel: component.label,
@@ -52,6 +78,35 @@ export const sourceAssistantRouter = {
       );
     }),
 };
+
+function temporaryAttachment(
+  attachment: z.infer<typeof temporaryAttachmentInput>,
+) {
+  const prefix = `data:${attachment.mediaType};base64,`;
+  if (!attachment.dataUrl.startsWith(prefix)) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: `Attachment ${attachment.filename} does not match its media type`,
+    });
+  }
+  const encoded = attachment.dataUrl.slice(prefix.length);
+  const padding = encoded.endsWith("==") ? 2 : encoded.endsWith("=") ? 1 : 0;
+  const validBase64 =
+    encoded.length % 4 === 0 &&
+    /^(?:[A-Za-z\d+/]{4})*(?:[A-Za-z\d+/]{2}==|[A-Za-z\d+/]{3}=)?$/.test(
+      encoded,
+    );
+  const decodedSize = (encoded.length / 4) * 3 - padding;
+  if (!validBase64 || decodedSize !== attachment.size) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: `Attachment ${attachment.filename} has invalid size metadata`,
+    });
+  }
+  return {
+    data: new URL(attachment.dataUrl),
+    filename: attachment.filename,
+    mediaType: attachment.mediaType,
+  };
+}
 
 function validatedSelectionText(
   component: Parameters<typeof validateAuthoredTarget>[0],
