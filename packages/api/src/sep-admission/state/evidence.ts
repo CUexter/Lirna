@@ -7,6 +7,48 @@ export type DatabaseExecutor =
   | Parameters<Parameters<(typeof db)["transaction"]>[0]>[0]
   | typeof db;
 
+export async function lockSourceState(
+  database: DatabaseExecutor,
+  input: { sourceId: string; stateId: string },
+) {
+  return sourceStateExists(database, input, true);
+}
+
+export async function sourceStateExists(
+  database: DatabaseExecutor,
+  input: { sourceId: string; stateId: string },
+  lock = false,
+) {
+  const query = database
+    .select({ id: sourceStates.id })
+    .from(sourceStates)
+    .where(
+      and(
+        eq(sourceStates.id, input.stateId),
+        eq(sourceStates.sourceId, input.sourceId),
+      ),
+    );
+  const [state] = lock ? await query.for("update") : await query;
+  return Boolean(state);
+}
+
+type PostgresErrorDetails = { code?: unknown; constraint?: unknown };
+
+export function postgresErrorChainMatches(
+  error: unknown,
+  predicate: (details: PostgresErrorDetails) => boolean,
+) {
+  let current = error;
+  const seen = new Set<object>();
+  while (typeof current === "object" && current !== null) {
+    if (seen.has(current)) return false;
+    seen.add(current);
+    if (predicate(current)) return true;
+    current = "cause" in current ? current.cause : undefined;
+  }
+  return false;
+}
+
 export async function readSepStateEvidence(
   database: DatabaseExecutor,
   sourceId: string,

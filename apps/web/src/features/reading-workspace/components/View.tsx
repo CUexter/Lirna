@@ -1,13 +1,13 @@
-import { buttonVariants } from "@lirna/ui/components/button";
-import { Button } from "@lirna/ui/components/button";
+import { Button, buttonVariants } from "@lirna/ui/components/button";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeftIcon, MessageCircleQuestionIcon } from "lucide-react";
 import { lazy, type MouseEvent, Suspense, useRef, useState } from "react";
-
-import { ReadingArticlePane } from "../article/components/Pane";
 import type { SelectionDraft } from "../annotations/domUtils";
+import { useResearchSelectionNavigation } from "../annotations/hooks/useNavigation";
+import { ReadingArticlePane } from "../article/components/Pane";
 import type { WorkspaceTransitionFeedbackProps } from "../navigation/components/TransitionFeedback";
 import { ReadingToolsPanel } from "../tools/components/Panel";
+import type { ResearchPassageReference } from "../tools/researchAssistantTransport";
 
 const WorkspaceTransitionFeedback = lazy(() =>
   import("../navigation/components/TransitionFeedback").then((module) => ({
@@ -41,8 +41,23 @@ export function ReadingWorkspaceView({
   }>();
   const assistantTriggerRef = useRef<HTMLButtonElement>(null);
   const { component, source } = articlePaneProps;
-  const assistantOpen =
-    assistantContext?.componentIdentity === component.identity;
+  const passageForAssistantSelection = useResearchSelectionNavigation({
+    activeComponentIdentity: component.identity,
+    articleRef: articlePaneProps.articleRef,
+    navigation: articlePaneProps.annotations.navigation,
+    onComponentChange: readingToolsProps.navigation.onComponentChange,
+  });
+  const passageForReference = (reference: ResearchPassageReference) => {
+    const targetComponent = readingToolsProps.components.find(
+      (candidate) => candidate.identity === reference.componentIdentity,
+    );
+    return passageForAssistantSelection({
+      componentIdentity: reference.componentIdentity,
+      plainText: targetComponent?.plainText ?? "",
+      selection: reference.selection,
+    });
+  };
+  const assistantOpen = Boolean(assistantContext);
 
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: delegated anchor clicks retain native keyboard activation.
@@ -139,14 +154,27 @@ export function ReadingWorkspaceView({
           <ReadingResearchAssistant
             onClose={() => setAssistantContext(undefined)}
             open={assistantOpen}
+            passageForReference={passageForReference}
+            passageForSelection={(selection) =>
+              passageForAssistantSelection({
+                componentIdentity: component.identity,
+                plainText: component.plainText,
+                selection,
+              })
+            }
             reading={{
               componentIdentity: component.identity,
               componentLabel: component.label,
+              plainText: component.plainText,
               sourceId: source.id,
               sourceTitle: source.title,
               stateId: source.stateId,
             }}
-            selection={assistantOpen ? assistantContext.selection : undefined}
+            selection={
+              assistantContext?.componentIdentity === component.identity
+                ? assistantContext.selection
+                : undefined
+            }
             triggerRef={assistantTriggerRef}
           />
         </Suspense>

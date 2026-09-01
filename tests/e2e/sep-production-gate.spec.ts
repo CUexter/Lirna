@@ -1,4 +1,3 @@
-// biome-ignore lint/style/noExcessiveLinesPerFile: The production gate keeps its single end-to-end journey and shared measurements together.
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 
@@ -157,7 +156,7 @@ test("completes the production SEP journey within accessibility and performance 
     "/sources/10000000-0000-4000-8000-000000000000/20000000-0000-4000-8000-000000000000",
   );
   await expect(
-    page.getByText("Reading position synced for Article"),
+    page.getByText("Reading position synchronized for Article"),
   ).toBeVisible();
 
   await page
@@ -188,7 +187,7 @@ test("completes the production SEP journey within accessibility and performance 
     kind: "note",
   });
   await expect(
-    page.getByText("Reading position synced for Article"),
+    page.getByText("Reading position synchronized for Article"),
   ).toBeVisible();
   const resumeSaved = page.waitForRequest(
     (request) =>
@@ -286,11 +285,14 @@ test("completes the production SEP journey within accessibility and performance 
     .click();
   await expect(versions.getByText(/Current version: 40000000/)).toBeVisible();
 
+  await page.evaluate(() => navigator.serviceWorker.ready);
   const retainButton = page.getByRole("button", {
     name: "Retain for offline reading",
   });
   await activateWithKeyboard(page, retainButton);
-  await expect(page.getByText("Ready for offline reading")).toBeVisible();
+  await expect(
+    page.getByText("Ready for supported offline activities"),
+  ).toBeVisible();
   await page.route("**/orpc/**", (route) => route.abort("connectionfailed"));
   const offlineStarted = performance.now();
   await page.reload();

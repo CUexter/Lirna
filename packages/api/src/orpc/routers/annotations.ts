@@ -3,6 +3,7 @@ import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
 import {
+  type AnnotationRecord,
   annotationColors,
   annotationKinds,
   InvalidAnnotationError,
@@ -89,21 +90,9 @@ export const annotationsRouter = {
         tags: ["Annotations"],
       }),
     )
-    .handler(async ({ context, input }) => {
-      try {
-        const annotation = await context.annotations.create(input);
-        if (!annotation) throw notFound();
-        return annotation;
-      } catch (error) {
-        if (
-          error instanceof InvalidAuthoredTargetError ||
-          error instanceof InvalidAnnotationError
-        ) {
-          throw new ORPCError("BAD_REQUEST", { message: error.message });
-        }
-        throw error;
-      }
-    }),
+    .handler(({ context, input }) =>
+      requireAnnotation(() => context.annotations.create(input)),
+    ),
 
   update: publicProcedure
     .input(z.object({ id: z.string().uuid(), color, kind, body }))
@@ -118,21 +107,9 @@ export const annotationsRouter = {
         tags: ["Annotations"],
       }),
     )
-    .handler(async ({ context, input }) => {
-      try {
-        const annotation = await context.annotations.update(input);
-        if (!annotation) throw notFound();
-        return annotation;
-      } catch (error) {
-        if (
-          error instanceof InvalidAuthoredTargetError ||
-          error instanceof InvalidAnnotationError
-        ) {
-          throw new ORPCError("BAD_REQUEST", { message: error.message });
-        }
-        throw error;
-      }
-    }),
+    .handler(({ context, input }) =>
+      requireAnnotation(() => context.annotations.update(input)),
+    ),
 
   delete: publicProcedure
     .input(z.object({ id: z.string().uuid() }))
@@ -158,4 +135,22 @@ function notFound() {
   return new ORPCError("NOT_FOUND", {
     message: "Annotation or Source state is unavailable",
   });
+}
+
+async function requireAnnotation(
+  operation: () => Promise<AnnotationRecord | undefined>,
+) {
+  try {
+    const annotation = await operation();
+    if (!annotation) throw notFound();
+    return annotation;
+  } catch (error) {
+    if (
+      error instanceof InvalidAuthoredTargetError ||
+      error instanceof InvalidAnnotationError
+    ) {
+      throw new ORPCError("BAD_REQUEST", { message: error.message });
+    }
+    throw error;
+  }
 }

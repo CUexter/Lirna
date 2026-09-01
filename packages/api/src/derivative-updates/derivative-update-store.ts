@@ -1,7 +1,7 @@
 import type { db } from "@lirna/db";
-import { sourceStateDerivatives, sourceStates } from "@lirna/db/schema/sources";
-import { and, eq } from "drizzle-orm";
+import { sourceStateDerivatives } from "@lirna/db/schema/sources";
 import { readSepReadingDerivative } from "../sep-admission/reading/contract";
+import { lockSourceState } from "../sep-admission/state/evidence";
 import { compareReadingDerivatives } from "./derivative-analysis";
 import { buildCandidateFromEvidence } from "./derivative-candidate-builder";
 import type { DerivativeUpdateOperations } from "./derivative-update-contract";
@@ -25,17 +25,8 @@ export class DrizzleDerivativeUpdateStore
 
   async generate(input: { sourceId: string; stateId: string }) {
     return this.database.transaction(async (tx) => {
-      const [lockedState] = await tx
-        .select({ id: sourceStates.id })
-        .from(sourceStates)
-        .where(
-          and(
-            eq(sourceStates.id, input.stateId),
-            eq(sourceStates.sourceId, input.sourceId),
-          ),
-        )
-        .for("update");
-      return lockedState ? this.generateLocked(tx, input) : undefined;
+      const locked = await lockSourceState(tx, input);
+      return locked ? this.generateLocked(tx, input) : undefined;
     });
   }
 

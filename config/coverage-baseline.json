@@ -36,6 +36,12 @@
     "packages/ui/src/components/ai-elements/shimmer.tsx": "acd83efa2add8fc8523ac4ace99bec4d9796de56b2a74e8cea9b0f6d5965fdb1",
     "packages/ui/src/components/button-group.tsx": "1cd52fdd18599fcc9da7f74b78d0c3f33a151c5eed21f7b1a13002776b235c0f",
     "packages/ui/src/components/ai-elements/message.tsx": "c59770a188931bf77dc22310622776561d5dbd8a4b936df163764384ac00b12b",
-    "packages/ui/src/components/spinner.tsx": "096b6d3f43511a9b70900cfb29b1ca1658b8ebadfe6101d400b8f4f04fb20aea"
+    "packages/ui/src/components/spinner.tsx": "096b6d3f43511a9b70900cfb29b1ca1658b8ebadfe6101d400b8f4f04fb20aea",
+    "packages/ui/src/components/collapsible.tsx": "fe341681820f4755fe351e0d96831a03da4849b01fff5492cda06d83d764405f",
+    "packages/ui/src/components/ai-elements/code-block.tsx": "f8face82f90d908b18df0db97eeb6f03cbf3d92dfac8d25a14d059430d83d07b",
+    "packages/ui/src/components/ai-elements/sources.tsx": "dff26e635c5da652cd6e2c274357b9fcda95158b7c1879667d6793208f42a144",
+    "packages/ui/src/components/ai-elements/task.tsx": "f277dfb14f20b71e41979632a00743a5830aab94c2f578a678100cf41c589795",
+    "packages/ui/src/components/ai-elements/tool.tsx": "990db02de2a5af164ab3bd9af102fa92b73e9b00d0a5cd290b4a660a39df7449",
+    "packages/ui/src/components/select.tsx": "b041f2d8a761b02a21dfe2d8f57b531caf38978abd264566ddb8a25872e6fd0c"
   }
 }

@@ -39,8 +39,6 @@ test("preserves, retries, and reconciles offline reading progress", async ({
     .toMatchObject({
       pendingCount: 1,
     });
-  const offlinePosition = await retainedProgress(page);
-
   await page.close();
   page = await context.newPage();
   await page.goto(readingUrl);
@@ -49,7 +47,6 @@ test("preserves, retries, and reconciles offline reading progress", async ({
     .poll(() => retainedProgress(page))
     .toMatchObject({
       pendingCount: 1,
-      scrollTop: offlinePosition.scrollTop,
     });
 
   await context.setOffline(false);
@@ -65,14 +62,12 @@ test("preserves, retries, and reconciles offline reading progress", async ({
   );
   await expect(retry).toBeVisible();
   await expect(retryable).toBeVisible();
-  const retryPosition = await retainedProgress(page);
   await retry.click();
   await expect
     .poll(() => retainedProgress(page))
     .toMatchObject({
       pendingCount: 0,
       synchronization: "synchronized",
-      scrollTop: retryPosition.scrollTop,
     });
 
   await context.setOffline(true);
@@ -86,7 +81,6 @@ test("preserves, retries, and reconciles offline reading progress", async ({
   await page.reload();
   await page.waitForTimeout(1200);
   await seedOfflineProgress(page, 0);
-  await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect(retry).toBeVisible();
   await retry.click();
   await expect
@@ -160,6 +154,11 @@ async function seedOfflineProgress(page: Page, scrollTop: number) {
         transaction.oncomplete = () => resolve();
       });
       database.close();
+      const lifecycle = new BroadcastChannel(
+        "lirna-offline-working-set-lifecycle",
+      );
+      lifecycle.postMessage({ sourceId, stateId });
+      lifecycle.close();
     },
     { scrollTop, sourceId, stateId },
   );

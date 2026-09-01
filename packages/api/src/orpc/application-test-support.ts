@@ -92,6 +92,20 @@ export function createTestApplication(
         return unexpected();
       },
     },
+    researchThreads: {
+      async create() {
+        return unexpected();
+      },
+      async list() {
+        return unexpected();
+      },
+      async get() {
+        return unexpected();
+      },
+      async append() {
+        return unexpected();
+      },
+    },
     derivativeUpdates: {
       async generate() {
         return unexpected();

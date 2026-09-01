@@ -100,6 +100,19 @@ export function useCitationResolutionActions({
       reportFailure(key, error);
     }
   };
+  const settleDecision = <T>(
+    work: CitationResolutionWork,
+    decision: { key: CitationResolutionKey; token: number },
+    operation: Promise<T>,
+    onSuccess: (result: T) => void,
+  ) => {
+    void operation
+      .then(onSuccess)
+      .catch((error: Error) =>
+        reportDecisionFailure(work, decision.key, decision.token, error),
+      )
+      .finally(() => finishDecision(decision.key, decision.token));
+  };
 
   return {
     inferenceFor: (key: CitationResolutionKey) => inferences[key],
@@ -118,15 +131,14 @@ export function useCitationResolutionActions({
       if (!isCurrent(work)) return;
       const decision = beginDecision(work, "clear");
       if (!decision) return;
-      void clearResolution
-        .mutateAsync(decisionInput(work))
-        .then(() => {
+      settleDecision(
+        work,
+        decision,
+        clearResolution.mutateAsync(decisionInput(work)),
+        () => {
           if (isCurrent(work)) publish(work, decision.token);
-        })
-        .catch((error: Error) =>
-          reportDecisionFailure(work, decision.key, decision.token, error),
-        )
-        .finally(() => finishDecision(decision.key, decision.token));
+        },
+      );
     },
     infer: (work: CitationResolutionWork) => {
       if (!isCurrent(work)) return;
@@ -162,8 +174,10 @@ export function useCitationResolutionActions({
       if (!isCurrent(work)) return;
       const decision = beginDecision(work, "select");
       if (!decision) return;
-      void createResolution
-        .mutateAsync({
+      settleDecision(
+        work,
+        decision,
+        createResolution.mutateAsync({
           ...decisionInput(work),
           bibliographyComponentIdentity:
             candidate.bibliographyComponentIdentity,
@@ -175,16 +189,13 @@ export function useCitationResolutionActions({
                 reasoning: selectedInference.reasoning,
               }
             : {}),
-        })
-        .then((resolution) => {
+        }),
+        (resolution) => {
           if (isCurrent(work) && resolutionBelongsToWork(resolution, work)) {
             publish(work, decision.token, resolution);
           }
-        })
-        .catch((error: Error) =>
-          reportDecisionFailure(work, decision.key, decision.token, error),
-        )
-        .finally(() => finishDecision(decision.key, decision.token));
+        },
+      );
     },
   };
 

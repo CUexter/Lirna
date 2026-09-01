@@ -3,6 +3,7 @@ import { call } from "@orpc/server";
 import type { UIMessageChunk } from "ai";
 import type { Context } from "../../context";
 import type { ResearchAssistantOperations } from "../../research-assistant/research-assistant";
+import type { ResearchThreadOperations } from "../../research-assistant/research-thread-contract";
 import { createTestContext } from "../application-test-support";
 import {
   admittedSourceStatesStub,
@@ -12,7 +13,47 @@ import {
 } from "./sep-admission.test-fixtures";
 import { sourcesRouter } from "./sources";
 
+test("creates a resumable Research thread for the active component", async () => {
+  const testContext = context({
+    async answer() {
+      return assistantStream("Unused");
+    },
+  });
+  let created: Parameters<ResearchThreadOperations["create"]>[0] | undefined;
+  testContext.researchThreads.create = async (input) => {
+    created = input;
+    return {
+      id: "30000000-0000-4000-8000-000000000000",
+      ...input,
+      createdAt: "2026-09-01T12:00:00.000Z",
+      updatedAt: "2026-09-01T12:00:00.000Z",
+      messages: [],
+    };
+  };
+
+  const thread = await call(
+    sourcesRouter.assistant.create,
+    {
+      sourceId,
+      stateId,
+      componentIdentity: "active:/",
+      question: "How does the central argument work?",
+    },
+    { context: testContext },
+  );
+
+  expect(thread.title).toBe("How does the central argument work?");
+  expect(created).toEqual({
+    sourceId,
+    stateId,
+    componentIdentity: "active:/",
+    componentLabel: "Main entry",
+    title: "How does the central argument work?",
+  });
+});
+
 test("asks about exact evidence with a rendered-only publisher anchor", async () => {
+  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
   let received:
     | Parameters<ResearchAssistantOperations["answer"]>[0]
     | undefined;
@@ -23,6 +64,7 @@ test("asks about exact evidence with a rendered-only publisher anchor", async ()
       stateId,
       componentIdentity: "active:/",
       question: "What is the central claim?",
+      threadId: "30000000-0000-4000-8000-000000000000",
       attachments: [
         {
           dataUrl: "data:text/plain;base64,dGVtcG9yYXJ5IGV2aWRlbmNl",
@@ -42,12 +84,26 @@ test("asks about exact evidence with a rendered-only publisher anchor", async ()
       },
     },
     {
-      context: context({
-        answer(input) {
-          received = input;
-          return assistantStream("A **provisional** answer.");
+      context: context(
+        {
+          async answer(input) {
+            received = input;
+            return assistantStream("A **provisional** answer.", {
+              componentIdentity: "active:/",
+              componentLabel: "Main entry",
+              selection: {
+                offsetBasis: "normalized-derivative-text-v1",
+                normalizedStartOffset: 0,
+                normalizedEndOffset: 9,
+                exactText: "Synthetic",
+                prefix: "",
+                suffix: " reading text.",
+              },
+            });
+          },
         },
-      }),
+        appended,
+      ),
     },
   );
 
@@ -72,6 +128,33 @@ test("asks about exact evidence with a rendered-only publisher anchor", async ()
       },
     ],
   });
+  expect(appended).toEqual([
+    {
+      threadId: "30000000-0000-4000-8000-000000000000",
+      role: "user",
+      content: "What is the central claim?",
+      selectedText: "Synthetic",
+    },
+    {
+      threadId: "30000000-0000-4000-8000-000000000000",
+      role: "assistant",
+      content: "A **provisional** answer.",
+      references: [
+        {
+          componentIdentity: "active:/",
+          componentLabel: "Main entry",
+          selection: {
+            offsetBasis: "normalized-derivative-text-v1",
+            normalizedStartOffset: 0,
+            normalizedEndOffset: 9,
+            exactText: "Synthetic",
+            prefix: "",
+            suffix: " reading text.",
+          },
+        },
+      ],
+    },
+  ]);
 });
 
 test("rejects temporary evidence that does not match its media type", async () => {
@@ -82,6 +165,7 @@ test("rejects temporary evidence that does not match its media type", async () =
       stateId,
       componentIdentity: "active:/",
       question: "What does this file add?",
+      threadId: "30000000-0000-4000-8000-000000000000",
       attachments: [
         {
           dataUrl: "data:application/pdf;base64,dGVtcG9yYXJ5IGV2aWRlbmNl",
@@ -93,7 +177,7 @@ test("rejects temporary evidence that does not match its media type", async () =
     },
     {
       context: context({
-        answer() {
+        async answer() {
           return assistantStream("This must not be called.");
         },
       }),
@@ -114,6 +198,7 @@ test("rejects temporary evidence with false size metadata", async () => {
       stateId,
       componentIdentity: "active:/",
       question: "What does this file add?",
+      threadId: "30000000-0000-4000-8000-000000000000",
       attachments: [
         {
           dataUrl: "data:text/plain;base64,dGVtcG9yYXJ5IGV2aWRlbmNl",
@@ -125,7 +210,7 @@ test("rejects temporary evidence with false size metadata", async () => {
     },
     {
       context: context({
-        answer() {
+        async answer() {
           return assistantStream("This must not be called.");
         },
       }),
@@ -146,6 +231,7 @@ test("rejects selected evidence that does not match the admitted Source state", 
       stateId,
       componentIdentity: "active:/",
       question: "What does this passage claim?",
+      threadId: "30000000-0000-4000-8000-000000000000",
       selection: {
         offsetBasis: "normalized-derivative-text-v1" as const,
         normalizedStartOffset: 0,
@@ -157,7 +243,7 @@ test("rejects selected evidence that does not match the admitted Source state", 
     },
     {
       context: context({
-        answer() {
+        async answer() {
           return assistantStream("This must not be called.");
         },
       }),
@@ -170,25 +256,210 @@ test("rejects selected evidence that does not match the admitted Source state", 
   });
 });
 
-function context(researchAssistant: ResearchAssistantOperations): Context {
-  return createTestContext({
-    admittedSourceStates: admittedSourceStatesStub({
-      async getReading() {
-        const reading = readingFixture();
-        const component = reading.components[0];
-        if (!component) throw new Error("Fixture needs a reading component");
-        component.plainText = "Synthetic reading text.";
-        return reading;
-      },
-    }),
-    researchAssistant,
+test("observes a late assistant stream failure and returns a useful error", async () => {
+  const observations: Record<string, unknown>[] = [];
+  const result = await call(
+    sourcesRouter.assistant.ask,
+    {
+      sourceId,
+      stateId,
+      componentIdentity: "active:/",
+      question: "What is the central claim?",
+      threadId: "30000000-0000-4000-8000-000000000000",
+    },
+    {
+      context: context(
+        {
+          async answer() {
+            return new ReadableStream({
+              pull(controller) {
+                controller.error(new Error("Provider stream disconnected"));
+              },
+            });
+          },
+        },
+        undefined,
+        {
+          debugErrors: true,
+          observation: {
+            requestId: "req-stream-failure",
+            emit(_level, record) {
+              observations.push(record);
+            },
+            fail() {},
+          },
+        },
+      ),
+    },
+  );
+
+  const chunks: UIMessageChunk[] = [];
+  for await (const chunk of result) chunks.push(chunk);
+
+  expect(chunks).toEqual([
+    {
+      type: "error",
+      errorText:
+        "Research assistant response failed: Provider stream disconnected Error reference: req-stream-failure.",
+    },
+  ]);
+  expect(observations).toHaveLength(1);
+  expect(observations[0]).toMatchObject({
+    event: "research_assistant.stream_failed",
+    operation: "sources.assistant.ask",
+    outcome: "failure",
+    err: { message: "Provider stream disconnected" },
   });
+});
+
+test("does not fail when the completed assistant stream is cancelled", async () => {
+  const observations: Record<string, unknown>[] = [];
+  const persistenceStarted = Promise.withResolvers<void>();
+  const releasePersistence = Promise.withResolvers<void>();
+  const testContext = context(
+    {
+      async answer() {
+        return new ReadableStream({
+          start(controller) {
+            controller.enqueue({
+              type: "text-delta",
+              id: "assistant-text",
+              delta: "Completed answer",
+            });
+            controller.enqueue({ type: "finish", finishReason: "stop" });
+            controller.close();
+          },
+        });
+      },
+    },
+    undefined,
+    {
+      observation: {
+        requestId: "req-stream-cancelled",
+        emit(_level, record) {
+          observations.push(record);
+        },
+        fail() {},
+      },
+    },
+  );
+  testContext.researchThreads.append = async (input) => {
+    if (input.role === "assistant") {
+      persistenceStarted.resolve();
+      await releasePersistence.promise;
+    }
+    return {
+      id: crypto.randomUUID(),
+      role: input.role,
+      content: input.content,
+      createdAt: "2026-09-01T12:00:00.000Z",
+    };
+  };
+  const result = await call(
+    sourcesRouter.assistant.ask,
+    {
+      sourceId,
+      stateId,
+      componentIdentity: "active:/",
+      question: "What is the central claim?",
+      threadId: "30000000-0000-4000-8000-000000000000",
+    },
+    { context: testContext },
+  );
+
+  expect(await result.next()).toMatchObject({
+    value: { type: "text-delta" },
+  });
+  expect(await result.next()).toMatchObject({
+    value: { type: "finish" },
+  });
+  await persistenceStarted.promise;
+  const cancellation = result.return?.();
+  releasePersistence.resolve();
+  await cancellation;
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  expect(observations).toEqual([]);
+});
+
+function context(
+  researchAssistant: ResearchAssistantOperations,
+  appended?: Array<Parameters<ResearchThreadOperations["append"]>[0]>,
+  options: Parameters<typeof createTestContext>[1] = {},
+): Context {
+  return createTestContext(
+    {
+      admittedSourceStates: admittedSourceStatesStub({
+        async getReading() {
+          const reading = readingFixture();
+          const component = reading.components[0];
+          if (!component) throw new Error("Fixture needs a reading component");
+          component.plainText = "Synthetic reading text.";
+          return reading;
+        },
+      }),
+      researchAssistant,
+      researchThreads: {
+        async create() {
+          throw new Error("Unexpected Research thread creation");
+        },
+        async list() {
+          return [];
+        },
+        async get() {
+          return {
+            id: "30000000-0000-4000-8000-000000000000",
+            sourceId,
+            stateId,
+            componentIdentity: "active:/",
+            componentLabel: "Main entry",
+            title: "Existing inquiry",
+            createdAt: "2026-09-01T12:00:00.000Z",
+            updatedAt: "2026-09-01T12:00:00.000Z",
+            messages: [],
+          };
+        },
+        async append(input) {
+          appended?.push(input);
+          return {
+            id: crypto.randomUUID(),
+            role: input.role,
+            content: input.content,
+            ...(input.selectedText ? { selectedText: input.selectedText } : {}),
+            createdAt: "2026-09-01T12:00:00.000Z",
+          };
+        },
+      },
+    },
+    options,
+  );
 }
 
-function assistantStream(text: string): ReadableStream<UIMessageChunk> {
+function assistantStream(
+  text: string,
+  reference?: {
+    componentIdentity: string;
+    componentLabel: string;
+    selection: {
+      offsetBasis: "normalized-derivative-text-v1";
+      normalizedStartOffset: number;
+      normalizedEndOffset: number;
+      exactText: string;
+      prefix: string;
+      suffix: string;
+    };
+  },
+): ReadableStream<UIMessageChunk> {
   return new ReadableStream({
     start(controller) {
       controller.enqueue({ type: "start", messageId: "assistant-message" });
+      if (reference) {
+        controller.enqueue({
+          type: "tool-output-available",
+          toolCallId: "reference-call",
+          output: { kind: "source-passage-reference", ...reference },
+        });
+      }
       controller.enqueue({ type: "text-start", id: "assistant-text" });
       controller.enqueue({
         type: "text-delta",

@@ -1,5 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": ["scripts/check-web-bundle.ts", "scripts/classify-nix-changes.ts"],
+  "ignoreDependencies": ["@hughescr/stryker-bun-runner"],
   "ignorePatterns": [
     "**/routeTree.gen.ts",
     "**/dist/**",

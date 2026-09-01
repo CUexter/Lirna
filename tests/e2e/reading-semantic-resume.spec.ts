@@ -34,7 +34,7 @@ test("restores both reading owners semantically across layout changes with obser
   await page.goto(`/sources/${sourceId}/${stateId}`);
   await expect(page.getByText("Visible typed paragraph.")).toBeVisible();
   await expect(
-    page.getByText("Reading position synced for Article"),
+    page.getByText("Reading position synchronized for Article"),
   ).toBeVisible();
   await installArticleLayout(page, 480, 18);
   await retainArticlePosition(page, 700);

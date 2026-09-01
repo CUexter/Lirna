@@ -195,6 +195,7 @@ const admissionResult = {
       publisher: preview.publisher,
       publicationHistory: preview.publicationHistory,
       admittedAt: "2026-08-18T12:00:00.000Z",
+      derivatives: [],
       resources: preview.resources
         .filter((resource) => resource.observationKey === "submitted")
         .map((resource) => ({
@@ -218,6 +219,7 @@ const admissionResult = {
       publisher: preview.publisher,
       publicationHistory: preview.publicationHistory,
       admittedAt: "2026-08-18T12:00:00.000Z",
+      derivatives: [],
       resources: preview.resources
         .filter((resource) => resource.observationKey === "recommended-archive")
         .map((resource) => ({

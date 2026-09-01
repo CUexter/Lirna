@@ -43,7 +43,10 @@ test("uses scoped targets for repeated citations and ambiguous local identifiers
     .click();
   await page.getByText("Citation context", { exact: true }).nth(1).click();
   await setToolsPosition(page, 180);
-  await page.getByRole("button", { name: "Show in article" }).last().click();
+  await page
+    .getByRole("button", { name: "Show in article" })
+    .last()
+    .evaluate((element) => element.click());
   await expect.poll(() => toolsPosition(page)).toBe(180);
   expect(
     await page.evaluate(

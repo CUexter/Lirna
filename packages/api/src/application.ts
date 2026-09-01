@@ -19,6 +19,8 @@ import {
   createOpenRouterResearchAssistant,
   type ResearchAssistantOperations,
 } from "./research-assistant/research-assistant";
+import type { ResearchThreadOperations } from "./research-assistant/research-thread-contract";
+import { DrizzleResearchThreadStore } from "./research-assistant/research-thread-store";
 import type { SepAdmissionOperations } from "./sep-admission/admission/operations";
 import { createDrizzleSepAdmissionOperations } from "./sep-admission/admission/store";
 import type { ActiveReadingDerivativeOperations } from "./sep-admission/state/active-reading-derivative";
@@ -35,6 +37,7 @@ export type ApplicationAdapters = {
   readingPositions?: ReadingPositionOperations;
   readingWorkspaces?: ReadingWorkspaceOperations;
   researchAssistant?: ResearchAssistantOperations | null;
+  researchThreads?: ResearchThreadOperations;
   derivativeUpdates?: DerivativeUpdateOperations;
   activeReadingDerivatives?: ActiveReadingDerivativeOperations;
   offlineWorkingSets?: Application["offlineWorkingSets"];
@@ -72,6 +75,8 @@ export function createApplication(
       new DrizzleReadingPositionStore(db, activeReadingDerivatives),
     readingWorkspaces:
       adapters.readingWorkspaces ?? createReadingWorkspaceReader(db),
+    researchThreads:
+      adapters.researchThreads ?? new DrizzleResearchThreadStore(db),
     derivativeUpdates:
       adapters.derivativeUpdates ?? new DrizzleDerivativeUpdateStore(db),
     activeReadingDerivatives,

@@ -29,6 +29,7 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "shadcn": "^4.16.0",
+    "shiki": "^4.4.3",
     "sonner": "catalog:",
     "streamdown": "^2.6.0",
     "tailwind-merge": "^3.6.0",

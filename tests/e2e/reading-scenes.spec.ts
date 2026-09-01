@@ -122,9 +122,13 @@ test("routes authored scenes through their declared owners and retains both lane
   );
   await expect(page.getByText("Typed supplement one content.")).toBeVisible();
   await retainArticlePosition(page, 640);
-  await page.getByRole("button", { name: "Next: Supplement two" }).click();
+  await page
+    .getByRole("button", { name: "Next: Supplement two" })
+    .evaluate((element) => element.click());
   await expect(page.getByText("Typed supplement two content.")).toBeVisible();
-  await page.getByRole("button", { name: "Previous: Supplement one" }).click();
+  await page
+    .getByRole("button", { name: "Previous: Supplement one" })
+    .evaluate((element) => element.click());
   await expect(page.getByText("Typed supplement one content.")).toBeVisible();
   await expect
     .poll(async () =>

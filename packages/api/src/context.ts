@@ -9,6 +9,7 @@ import type { OfflineWorkingSetOperations } from "./offline-working-set/offline-
 import type { ReadingPositionOperations } from "./reading-position/reading-position-contract";
 import type { ReadingWorkspaceOperations } from "./reading-workspace/reading-workspace";
 import type { ResearchAssistantOperations } from "./research-assistant/research-assistant";
+import type { ResearchThreadOperations } from "./research-assistant/research-thread-contract";
 import type { SepAdmissionOperations } from "./sep-admission/admission/operations";
 import type { ActiveReadingDerivativeOperations } from "./sep-admission/state/active-reading-derivative";
 import type { SepAdmittedStateOperations } from "./sep-admission/state/admitted-state";
@@ -22,6 +23,7 @@ export interface Application {
   readingPositions: ReadingPositionOperations;
   readingWorkspaces: ReadingWorkspaceOperations;
   researchAssistant?: ResearchAssistantOperations;
+  researchThreads: ResearchThreadOperations;
   derivativeUpdates: DerivativeUpdateOperations;
   activeReadingDerivatives: ActiveReadingDerivativeOperations;
   offlineWorkingSets: OfflineWorkingSetOperations;

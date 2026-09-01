@@ -1,28 +1,7 @@
 import { useChat } from "@ai-sdk/react";
-import { MessageResponse } from "@lirna/ui/components/ai-elements/message";
-import { Shimmer } from "@lirna/ui/components/ai-elements/shimmer";
-import { Bubble, BubbleContent } from "@lirna/ui/components/bubble";
 import { Button } from "@lirna/ui/components/button";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@lirna/ui/components/empty";
-import { Marker, MarkerContent, MarkerIcon } from "@lirna/ui/components/marker";
-import { Message, MessageContent } from "@lirna/ui/components/message";
-import {
-  MessageScroller,
-  MessageScrollerButton,
-  MessageScrollerContent,
-  MessageScrollerItem,
-  MessageScrollerProvider,
-  MessageScrollerViewport,
-} from "@lirna/ui/components/message-scroller";
-import { Spinner } from "@lirna/ui/components/spinner";
 import type { ChatTransport } from "ai";
-import { MessageCircleDashedIcon, XIcon } from "lucide-react";
+import { XIcon } from "lucide-react";
 import {
   type FormEvent,
   type RefObject,
@@ -31,27 +10,36 @@ import {
   useState,
 } from "react";
 
-import type { SelectionDraft } from "../../annotations/domUtils";
+import {
+  type SelectionDraft,
+  selectionDraftForText,
+} from "../../annotations/domUtils";
+import type { ArticlePassage } from "../../navigation/hooks/useShowInArticle";
+import { useResearchThreads } from "../hooks/useResearchThreads";
 import {
   createResearchAssistantTransport,
   type ResearchAssistantMessage,
+  type ResearchPassageReference,
   type TemporaryEvidenceAttachment,
 } from "../researchAssistantTransport";
-import {
-  MessageAttachments,
-  QuestionComposer,
-} from "./ResearchAssistantComposer";
+import { QuestionComposer } from "./ResearchAssistantComposer";
+import { ResearchAssistantTranscript } from "./ResearchAssistantTranscript";
+import { ResearchThreadPicker } from "./ResearchThreadPicker";
 
+// fallow-ignore-next-line complexity
 export function ReadingResearchAssistant({
   onClose,
   open,
   reading: {
     componentIdentity,
     componentLabel,
+    plainText,
     sourceId,
     sourceTitle,
     stateId,
   },
+  passageForReference,
+  passageForSelection,
   selection,
   transport,
   triggerRef,
@@ -61,10 +49,13 @@ export function ReadingResearchAssistant({
   reading: {
     componentIdentity: string;
     componentLabel: string;
+    plainText: string;
     sourceId: string;
     sourceTitle: string;
     stateId: string;
   };
+  passageForReference: (reference: ResearchPassageReference) => ArticlePassage;
+  passageForSelection: (selection: SelectionDraft) => ArticlePassage;
   selection?: SelectionDraft;
   transport?: ChatTransport<ResearchAssistantMessage>;
   triggerRef: RefObject<HTMLButtonElement | null>;
@@ -75,8 +66,39 @@ export function ReadingResearchAssistant({
   );
   const [composerError, setComposerError] = useState<string>();
   const questionRef = useRef<HTMLTextAreaElement>(null);
+  const draftThreadIdRef = useRef<string | undefined>(undefined);
+  const scope = { sourceId, stateId };
+  const researchThreads = useResearchThreads({
+    disabled: Boolean(transport),
+    open,
+    preferNew: Boolean(selection),
+    scope,
+  });
+  const initialMessages: ResearchAssistantMessage[] =
+    researchThreads.activeThread?.messages.map((message) => {
+      const messageSelection = message.selectedText
+        ? selectionDraftForText(plainText, message.selectedText)
+        : undefined;
+      return {
+        id: message.id,
+        role: message.role,
+        parts: [{ type: "text", text: message.content }],
+        ...(messageSelection || message.references?.length
+          ? {
+              metadata: {
+                ...(messageSelection ? { selection: messageSelection } : {}),
+                ...(message.references?.length
+                  ? { references: message.references }
+                  : {}),
+              },
+            }
+          : {}),
+      };
+    }) ?? [];
   const { clearError, error, messages, sendMessage, status, stop } =
     useChat<ResearchAssistantMessage>({
+      id: researchThreads.activeThread?.id ?? `new:${sourceId}:${stateId}`,
+      messages: initialMessages,
       transport:
         transport ??
         createResearchAssistantTransport({
@@ -84,6 +106,14 @@ export function ReadingResearchAssistant({
           selection,
           sourceId,
           stateId,
+          threadId:
+            researchThreads.activeThread?.id ?? draftThreadIdRef.current,
+          onThreadAllocated: (threadId) => {
+            draftThreadIdRef.current = threadId;
+          },
+          onThreadCreated: (threadId) => {
+            void researchThreads.threadCreated(threadId);
+          },
         }),
     });
   const pending = status === "submitted" || status === "streaming";
@@ -125,8 +155,15 @@ export function ReadingResearchAssistant({
           url: dataUrl,
         })),
       ],
-      ...(submittedAttachments.length
-        ? { metadata: { attachments: submittedAttachments } }
+      ...(submittedAttachments.length || selection
+        ? {
+            metadata: {
+              ...(submittedAttachments.length
+                ? { attachments: submittedAttachments }
+                : {}),
+              ...(selection ? { selection } : {}),
+            },
+          }
         : {}),
     });
   }
@@ -149,6 +186,20 @@ export function ReadingResearchAssistant({
             <p className="truncate text-muted-foreground text-xs">
               {sourceTitle} · {componentLabel}
             </p>
+            {!transport ? (
+              <ResearchThreadPicker
+                activeThreadId={researchThreads.activeThread?.id}
+                disabled={pending || researchThreads.loading}
+                onNew={() => {
+                  draftThreadIdRef.current = undefined;
+                  researchThreads.startNew();
+                }}
+                onResume={(threadId) => {
+                  void researchThreads.resume(threadId);
+                }}
+                threads={researchThreads.threads}
+              />
+            ) : null}
           </div>
           <Button
             aria-label="Close assistant"
@@ -161,9 +212,11 @@ export function ReadingResearchAssistant({
           </Button>
         </header>
         <div className="min-h-0 flex-1 overflow-hidden">
-          <AssistantTranscript
-            error={composerError ?? error?.message}
+          <ResearchAssistantTranscript
+            error={composerError ?? error?.message ?? researchThreads.error}
             messages={messages}
+            passageForReference={passageForReference}
+            passageForSelection={passageForSelection}
             pending={pending}
             selection={selection}
           />
@@ -186,130 +239,4 @@ export function ReadingResearchAssistant({
       </div>
     </aside>
   ) : null;
-}
-
-function AssistantTranscript({
-  error,
-  messages,
-  pending,
-  selection,
-}: {
-  error?: string;
-  messages: ResearchAssistantMessage[];
-  pending: boolean;
-  selection?: SelectionDraft;
-}) {
-  const lastMessage = messages.at(-1);
-  if (messages.length === 0 && !selection && !error) {
-    return (
-      <Empty className="h-full">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <MessageCircleDashedIcon />
-          </EmptyMedia>
-          <EmptyTitle>Ask this Source</EmptyTitle>
-          <EmptyDescription>
-            Explore the captured Source-state evidence. Answers remain
-            provisional and never become a Draft or Owned note automatically.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    );
-  }
-  return (
-    <MessageScrollerProvider>
-      <MessageScroller aria-busy={pending}>
-        <MessageScrollerViewport>
-          <MessageScrollerContent className="justify-end p-4">
-            <MessageScrollerItem>
-              <Marker variant="border">
-                <MarkerContent>
-                  Answers remain provisional. No answer becomes a Draft or Owned
-                  note automatically.
-                </MarkerContent>
-              </Marker>
-            </MessageScrollerItem>
-            {selection ? (
-              <MessageScrollerItem>
-                <Marker>
-                  <MarkerContent>Selected Source-state evidence</MarkerContent>
-                </Marker>
-                <blockquote className="mt-2 border-primary border-l-2 pl-3 text-sm">
-                  {selection.exactText}
-                </blockquote>
-              </MessageScrollerItem>
-            ) : null}
-            {messages.map((message) => {
-              const text = message.parts
-                .filter((part) => part.type === "text")
-                .map((part) => part.text)
-                .join("");
-              const waiting =
-                message.id === lastMessage?.id &&
-                message.role === "assistant" &&
-                pending &&
-                !text;
-              if (message.role === "assistant" && !text && !waiting)
-                return null;
-              return (
-                <MessageScrollerItem
-                  key={message.id}
-                  scrollAnchor={message.role === "user"}
-                >
-                  {waiting ? (
-                    <AssistantWaiting />
-                  ) : message.role === "assistant" ? (
-                    <MessageResponse>{text}</MessageResponse>
-                  ) : (
-                    <Message align="end">
-                      <MessageContent>
-                        {message.metadata?.attachments?.length ? (
-                          <MessageAttachments
-                            attachments={message.metadata.attachments}
-                          />
-                        ) : null}
-                        <Bubble align="end" variant="default">
-                          <BubbleContent className="rounded-2xl px-3 py-2 text-sm">
-                            {text}
-                          </BubbleContent>
-                        </Bubble>
-                      </MessageContent>
-                    </Message>
-                  )}
-                </MessageScrollerItem>
-              );
-            })}
-            {pending && lastMessage?.role === "user" ? (
-              <MessageScrollerItem>
-                <AssistantWaiting />
-              </MessageScrollerItem>
-            ) : null}
-            {error ? (
-              <MessageScrollerItem scrollAnchor>
-                <p className="text-destructive text-sm" role="alert">
-                  {error}
-                </p>
-              </MessageScrollerItem>
-            ) : null}
-          </MessageScrollerContent>
-        </MessageScrollerViewport>
-        <MessageScrollerButton />
-      </MessageScroller>
-    </MessageScrollerProvider>
-  );
-}
-
-function AssistantWaiting() {
-  return (
-    <Marker role="status">
-      <MarkerIcon>
-        <Spinner />
-      </MarkerIcon>
-      <MarkerContent>
-        <Shimmer as="span" duration={1.5}>
-          Reading this Source state…
-        </Shimmer>
-      </MarkerContent>
-    </Marker>
-  );
 }

@@ -77,6 +77,7 @@ export function createReferenceJumper({
   notesIdentity,
   onUnavailable,
   onPublisherNoteActivate,
+  showInArticle,
   topology,
   toolsScrollRef,
 }: {
@@ -86,6 +87,7 @@ export function createReferenceJumper({
   notesIdentity?: string;
   onUnavailable?: (target: string) => void;
   onPublisherNoteActivate?: () => void;
+  showInArticle: (target: HTMLElement | Range) => { show: () => void };
   topology: ReadingSceneTopology;
   toolsScrollRef: RefObject<HTMLElement | null>;
 }) {
@@ -127,6 +129,6 @@ export function createReferenceJumper({
         target,
       })
     )
-      highlightTarget(target);
+      showInArticle(target).show();
   };
 }

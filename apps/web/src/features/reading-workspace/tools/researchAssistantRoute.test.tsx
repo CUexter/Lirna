@@ -11,12 +11,48 @@ import {
 } from "../test-support/sourceInformation";
 
 let assistantInput: unknown;
+const threadId = "30000000-0000-4000-8000-000000000000";
 let pauseAssistantStream = false;
 let releaseAssistantStream: (() => void) | undefined;
 
 async function* assistantStream(input: unknown) {
   assistantInput = input;
   yield { type: "start", messageId: "assistant-message" };
+  if (
+    input &&
+    typeof input === "object" &&
+    "question" in input &&
+    input.question === "Use supplement evidence"
+  ) {
+    const exactText = "First supplement content.";
+    yield {
+      type: "tool-input-available",
+      toolCallId: "reference-call",
+      toolName: "referencePassage",
+      input: {
+        componentIdentity: "supplement-one",
+        exactText,
+        occurrence: 1,
+      },
+    };
+    yield {
+      type: "tool-output-available",
+      toolCallId: "reference-call",
+      output: {
+        kind: "source-passage-reference",
+        componentIdentity: "supplement-one",
+        componentLabel: "Supplement one",
+        selection: {
+          offsetBasis: "normalized-derivative-text-v1",
+          normalizedStartOffset: 0,
+          normalizedEndOffset: exactText.length,
+          exactText,
+          prefix: "",
+          suffix: "\n\nSupplement citation context [1]".slice(0, 32),
+        },
+      },
+    };
+  }
   yield { type: "text-start", id: "assistant-text" };
   yield {
     type: "text-delta",
@@ -40,7 +76,25 @@ async function* assistantStream(input: unknown) {
 await mock.module("@/clients/inquiryClient", () => ({
   inquiryClient: {
     sources: {
-      assistant: { ask: async (input: unknown) => assistantStream(input) },
+      assistant: {
+        ask: async (input: unknown) => assistantStream(input),
+        create: async (input: {
+          componentIdentity: string;
+          question: string;
+          sourceId: string;
+          stateId: string;
+        }) => ({
+          id: threadId,
+          ...input,
+          componentLabel: "Article",
+          title: input.question,
+          createdAt: "2026-09-01T12:00:00.000Z",
+          updatedAt: "2026-09-01T12:00:00.000Z",
+          messages: [],
+        }),
+        get: async () => undefined,
+        list: async () => [],
+      },
     },
   },
 }));
@@ -275,6 +329,7 @@ test("streams a Markdown answer through the server", async () => {
     stateId,
     componentIdentity: "article",
     question: "What claim does this Source make?",
+    threadId,
   });
 });
 
@@ -314,6 +369,7 @@ test("opens the assistant from selected text and sends its exact anchor", async 
     stateId,
     componentIdentity: "article",
     question: "What does this passage claim?",
+    threadId,
     selection: {
       offsetBasis: "normalized-derivative-text-v1",
       normalizedStartOffset: 2,
@@ -325,7 +381,7 @@ test("opens the assistant from selected text and sends its exact anchor", async 
   });
 });
 
-test("closes selected evidence when the reading component changes", async () => {
+test("keeps the assistant session when the reading component changes", async () => {
   const user = userEvent.setup();
   await renderReading();
   await selectPassage();
@@ -333,14 +389,40 @@ test("closes selected evidence when the reading component changes", async () => 
   await waitFor(() =>
     view().getByRole("complementary", { name: "Research assistant" }),
   );
+  await user.type(
+    view().getByRole("textbox", { name: "Question" }),
+    "Continue this inquiry",
+  );
 
   await user.click(view().getByRole("tab", { name: "Supplementary" }));
   await user.click(view().getByRole("button", { name: "Supplement one" }));
 
   await waitFor(() =>
     expect(
-      view().queryByRole("complementary", { name: "Research assistant" }),
-    ).toBeNull(),
+      view().getByRole("complementary", { name: "Research assistant" }),
+    ).toBeTruthy(),
+  );
+  const assistant = view().getByRole("complementary", {
+    name: "Research assistant",
+  });
+  expect(within(assistant).getByText(/Supplement one/)).toBeTruthy();
+  expect(within(assistant).queryByText("synthetic")).toBeNull();
+  expect(
+    within(assistant).getByRole<HTMLInputElement>("textbox", {
+      name: "Question",
+    }).value,
+  ).toBe("Continue this inquiry");
+  await user.click(
+    within(assistant).getByRole("button", { name: "Send question" }),
+  );
+  await waitFor(() =>
+    expect(assistantInput).toMatchObject({
+      componentIdentity: "supplement-one",
+      question: "Continue this inquiry",
+      sourceId,
+      stateId,
+      threadId,
+    }),
   );
 });
 
@@ -363,4 +445,28 @@ test("focuses the composer when selected evidence replaces Source scope", async 
   expect(document.activeElement).toBe(
     within(assistant).getByRole("textbox", { name: "Question" }),
   );
+});
+
+test("opens a tool-referenced passage in a supplementary component", async () => {
+  const user = userEvent.setup();
+  await renderReading();
+  await user.click(
+    await waitFor(() =>
+      view().getByRole("button", { name: "Ask this Source" }),
+    ),
+  );
+  await user.type(
+    view().getByRole("textbox", { name: "Question" }),
+    "Use supplement evidence{Enter}",
+  );
+
+  await waitFor(() => view().getByText("Referenced in Supplement one"));
+  await user.click(view().getByRole("button", { name: "Show in article" }));
+
+  await waitFor(() =>
+    expect(view().getAllByText("First supplement content.")).toHaveLength(2),
+  );
+  expect(
+    view().getByRole("complementary", { name: "Research assistant" }),
+  ).toBeTruthy();
 });

@@ -27,7 +27,11 @@ import {
   isRetryableActivationConflict,
   readAuthoredAnchors,
 } from "./active-reading-derivative-queries";
-import type { DatabaseExecutor } from "./evidence";
+import {
+  type DatabaseExecutor,
+  lockSourceState,
+  sourceStateExists,
+} from "./evidence";
 
 export function readActiveReadingDerivativeInSnapshot(
   database: DatabaseExecutor,
@@ -100,17 +104,8 @@ export class DrizzleActiveReadingDerivativeStore
     tx: Parameters<Parameters<(typeof db)["transaction"]>[0]>[0],
     input: Parameters<ActiveReadingDerivativeOperations["activate"]>[0],
   ): Promise<ReadingDerivativeActivationResult> {
-    const [lockedState] = await tx
-      .select({ id: sourceStates.id })
-      .from(sourceStates)
-      .where(
-        and(
-          eq(sourceStates.id, input.stateId),
-          eq(sourceStates.sourceId, input.sourceId),
-        ),
-      )
-      .for("update");
-    if (!lockedState) return { status: "source-state-not-found" };
+    if (!(await lockSourceState(tx, input)))
+      return { status: "source-state-not-found" };
     const candidate = await readCandidate(tx, input, true);
     if (candidate.status !== "ready") return candidate;
     const active = await readActiveReadingDerivative(tx, input, true);
@@ -247,16 +242,8 @@ async function readCandidate(
   stateAlreadyChecked = false,
 ) {
   if (!stateAlreadyChecked) {
-    const [state] = await database
-      .select({ id: sourceStates.id })
-      .from(sourceStates)
-      .where(
-        and(
-          eq(sourceStates.id, input.stateId),
-          eq(sourceStates.sourceId, input.sourceId),
-        ),
-      );
-    if (!state) return { status: "source-state-not-found" as const };
+    if (!(await sourceStateExists(database, input)))
+      return { status: "source-state-not-found" as const };
   }
   const [candidate] = await database
     .select({

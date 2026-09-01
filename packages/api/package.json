@@ -52,7 +52,6 @@
   },
   "devDependencies": {
     "@lirna/config": "workspace:*",
-    "hono": "catalog:",
     "typescript": "catalog:"
   }
 }

@@ -7,6 +7,8 @@ import { createRef } from "react";
 
 import type { ResearchAssistantMessage } from "../researchAssistantTransport";
 import { ReadingResearchAssistant } from "./ResearchAssistant";
+import { ResearchAssistantTranscript } from "./ResearchAssistantTranscript";
+import { ResearchThreadPicker } from "./ResearchThreadPicker";
 
 afterEach(() => {
   cleanup();
@@ -35,9 +37,18 @@ test("animates while waiting and renders streamed Markdown with AI Elements", as
     <ReadingResearchAssistant
       onClose={() => {}}
       open
+      passageForReference={(reference) => ({
+        show: () => {},
+        text: reference.selection.exactText,
+      })}
+      passageForSelection={(selection) => ({
+        show: () => {},
+        text: selection.exactText,
+      })}
       reading={{
         componentIdentity: "article",
         componentLabel: "Article",
+        plainText: "Possible worlds are grounded in extensional semantics.",
         sourceId: "source-id",
         sourceTitle: "Possible Worlds",
         stateId: "state-id",
@@ -91,9 +102,18 @@ test("shows, removes, and sends temporary evidence attachments", async () => {
     <ReadingResearchAssistant
       onClose={() => {}}
       open
+      passageForReference={(reference) => ({
+        show: () => {},
+        text: reference.selection.exactText,
+      })}
+      passageForSelection={(selection) => ({
+        show: () => {},
+        text: selection.exactText,
+      })}
       reading={{
         componentIdentity: "article",
         componentLabel: "Article",
+        plainText: "Possible worlds are grounded in extensional semantics.",
         sourceId: "source-id",
         sourceTitle: "Possible Worlds",
         stateId: "state-id",
@@ -133,6 +153,344 @@ test("shows, removes, and sends temporary evidence attachments", async () => {
   ]);
   expect(view().getByText("evidence.txt")).toBeTruthy();
   await waitFor(() => expect(view().queryByRole("status")).toBeNull());
+});
+
+test("collapses selected evidence into an article navigation action", async () => {
+  const user = userEvent.setup();
+  const chat = createChat<ResearchAssistantMessage>()
+    .user("Why does this matter?")
+    .assistant("It frames the argument.");
+  const selection = {
+    offsetBasis: "normalized-derivative-text-v1" as const,
+    normalizedStartOffset: 0,
+    normalizedEndOffset: 15,
+    exactText: "Possible worlds",
+    prefix: "",
+    suffix: " are grounded in extensional sem",
+  };
+  let shownSelection: typeof selection | undefined;
+  render(
+    <ReadingResearchAssistant
+      onClose={() => {}}
+      open
+      passageForReference={(reference) => ({
+        show: () => {},
+        text: reference.selection.exactText,
+      })}
+      passageForSelection={(value) => ({
+        show: () => {
+          shownSelection = value;
+        },
+        text: value.exactText,
+      })}
+      reading={{
+        componentIdentity: "article",
+        componentLabel: "Article",
+        plainText: "Possible worlds are grounded in extensional semantics.",
+        sourceId: "source-id",
+        sourceTitle: "Possible Worlds",
+        stateId: "state-id",
+      }}
+      selection={selection}
+      transport={chat.transport({ delayMs: 0 })}
+      triggerRef={createRef<HTMLButtonElement>()}
+    />,
+  );
+
+  expect(view().getByText(selection.exactText)).toBeTruthy();
+  expect(view().getByText("Quoted passage")).toBeTruthy();
+  await user.click(view().getByRole("button", { name: "Show in article" }));
+  expect(shownSelection).toEqual(selection);
+
+  await user.type(view().getByLabelText("Question"), "Why does this matter?");
+  await user.click(view().getByRole("button", { name: "Send question" }));
+  await waitFor(() => expect(view().queryByRole("status")).toBeNull());
+  expect(
+    view().getAllByRole("button", { name: "Show in article" }),
+  ).toHaveLength(1);
+  expect(view().getAllByText("Quoted passage")).toHaveLength(1);
+  expect(view().getAllByText(selection.exactText)).toHaveLength(1);
+});
+
+test("selects an existing Research thread and starts a new one", async () => {
+  const user = userEvent.setup();
+  let resumed: string | undefined;
+  let startedNew = false;
+  render(
+    <ResearchThreadPicker
+      activeThreadId="30000000-0000-4000-8000-000000000000"
+      disabled={false}
+      onNew={() => {
+        startedNew = true;
+      }}
+      onResume={(threadId) => {
+        resumed = threadId;
+      }}
+      threads={[
+        {
+          id: "30000000-0000-4000-8000-000000000000",
+          sourceId: "10000000-0000-4000-8000-000000000000",
+          stateId: "20000000-0000-4000-8000-000000000000",
+          componentIdentity: "article",
+          componentLabel: "Article",
+          title: "Existing inquiry",
+          createdAt: "2026-09-01T12:00:00.000Z",
+          updatedAt: "2026-09-01T12:00:00.000Z",
+        },
+        {
+          id: "40000000-0000-4000-8000-000000000000",
+          sourceId: "10000000-0000-4000-8000-000000000000",
+          stateId: "20000000-0000-4000-8000-000000000000",
+          componentIdentity: "article",
+          componentLabel: "Article",
+          title: "Earlier inquiry",
+          createdAt: "2026-09-01T11:00:00.000Z",
+          updatedAt: "2026-09-01T11:00:00.000Z",
+        },
+      ]}
+    />,
+  );
+
+  await user.selectOptions(
+    view().getByLabelText("Research thread"),
+    "40000000-0000-4000-8000-000000000000",
+  );
+  expect(resumed).toBe("40000000-0000-4000-8000-000000000000");
+  await user.click(
+    view().getByRole("button", { name: "Start new Research thread" }),
+  );
+  expect(startedNew).toBe(true);
+});
+
+test("renders a tool-verified passage as a navigable Source", async () => {
+  const user = userEvent.setup();
+  let shown = false;
+  render(
+    <ResearchAssistantTranscript
+      messages={[
+        {
+          id: "assistant-message",
+          role: "assistant",
+          parts: [
+            { type: "text", text: "The supplement supports the claim." },
+            {
+              type: "tool-referencePassage",
+              toolCallId: "reference-call",
+              state: "output-available",
+              input: {
+                componentIdentity: "supplement-one",
+                exactText: "Supplement evidence.",
+                occurrence: 1,
+              },
+              output: {
+                kind: "source-passage-reference",
+                componentIdentity: "supplement-one",
+                componentLabel: "Supplement one",
+                selection: {
+                  offsetBasis: "normalized-derivative-text-v1",
+                  normalizedStartOffset: 0,
+                  normalizedEndOffset: 20,
+                  exactText: "Supplement evidence.",
+                  prefix: "",
+                  suffix: "",
+                },
+              },
+            },
+          ],
+        },
+      ]}
+      passageForReference={(reference) => ({
+        show: () => {
+          shown = true;
+        },
+        text: reference.selection.exactText,
+      })}
+      passageForSelection={(selection) => ({
+        show: () => {},
+        text: selection.exactText,
+      })}
+      pending={false}
+    />,
+  );
+
+  await user.click(view().getByRole("button", { name: "Used 1 source" }));
+  expect(view().getByText("Supplement evidence.")).toBeTruthy();
+  await user.click(
+    view().getByRole("link", { name: "Show Supplement one in article" }),
+  );
+  expect(shown).toBe(true);
+});
+
+test("separates chronological research activity, answer, and Sources", async () => {
+  const user = userEvent.setup();
+  let shown = false;
+  render(
+    <ResearchAssistantTranscript
+      messages={[
+        {
+          id: "assistant-message",
+          role: "assistant",
+          parts: [
+            { type: "step-start" },
+            {
+              type: "text",
+              text: "Let me read the problems-concretism supplement.",
+            },
+            {
+              type: "tool-readSourceComponent",
+              toolCallId: "read-call",
+              state: "output-available",
+              input: { componentIdentity: "supplement-one", offset: 0 },
+              output: {
+                found: true,
+                componentIdentity: "supplement-one",
+                componentLabel: "Supplement one",
+                offset: 0,
+                endOffset: 20,
+                text: "Supplement evidence.",
+              },
+            },
+            { type: "step-start" },
+            {
+              type: "text",
+              text: "Let me verify the passage before answering.",
+            },
+            {
+              type: "tool-referencePassage",
+              toolCallId: "reference-call",
+              state: "output-available",
+              input: {
+                componentIdentity: "supplement-one",
+                exactText: "Supplement evidence.",
+                occurrence: 1,
+              },
+              output: {
+                kind: "source-passage-reference",
+                componentIdentity: "supplement-one",
+                componentLabel: "Supplement one",
+                selection: {
+                  offsetBasis: "normalized-derivative-text-v1",
+                  normalizedStartOffset: 0,
+                  normalizedEndOffset: 20,
+                  exactText: "Supplement evidence.",
+                  prefix: "",
+                  suffix: "",
+                },
+              },
+            },
+            { type: "step-start" },
+            { type: "text", text: "## Grounded connection" },
+          ],
+        },
+      ]}
+      passageForReference={(reference) => ({
+        show: () => {
+          shown = true;
+        },
+        text: reference.selection.exactText,
+      })}
+      passageForSelection={(selection) => ({
+        show: () => {},
+        text: selection.exactText,
+      })}
+      pending={false}
+    />,
+  );
+
+  const firstTask = view().getByText(
+    "Let me read the problems-concretism supplement.",
+  );
+  const readTool = view().getByText("Read Source component");
+  const secondTask = view().getByText(
+    "Let me verify the passage before answering.",
+  );
+  const referenceTool = view().getByText("Reference passage");
+  const answer = view().getByRole("heading", { name: "Grounded connection" });
+  expect(
+    firstTask.compareDocumentPosition(readTool) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(
+    readTool.compareDocumentPosition(secondTask) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(
+    secondTask.compareDocumentPosition(referenceTool) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(
+    referenceTool.compareDocumentPosition(answer) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+
+  await user.click(view().getByRole("button", { name: "Used 1 source" }));
+  await user.click(
+    view().getByRole("link", { name: "Show Supplement one in article" }),
+  );
+  expect(shown).toBe(true);
+});
+
+test("shows an in-progress tool before the model emits text", () => {
+  render(
+    <ResearchAssistantTranscript
+      messages={[
+        {
+          id: "assistant-message",
+          role: "assistant",
+          parts: [
+            { type: "step-start" },
+            {
+              type: "tool-readSourceComponent",
+              toolCallId: "read-call",
+              state: "input-available",
+              input: { componentIdentity: "supplement-one", offset: 0 },
+            },
+          ],
+        },
+      ]}
+      passageForReference={(reference) => ({
+        show: () => {},
+        text: reference.selection.exactText,
+      })}
+      passageForSelection={(selection) => ({
+        show: () => {},
+        text: selection.exactText,
+      })}
+      pending
+    />,
+  );
+
+  expect(view().getByText("Read Source component")).toBeTruthy();
+  expect(view().getByText("Running")).toBeTruthy();
+});
+
+test("explains when a saved Research response did not complete", () => {
+  render(
+    <ResearchAssistantTranscript
+      messages={[
+        {
+          id: "user-message",
+          role: "user",
+          parts: [{ type: "text", text: "What happened?" }],
+        },
+      ]}
+      passageForReference={(reference) => ({
+        show: () => {},
+        text: reference.selection.exactText,
+      })}
+      passageForSelection={(selection) => ({
+        show: () => {},
+        text: selection.exactText,
+      })}
+      pending={false}
+    />,
+  );
+
+  expect(
+    view().getByText(
+      "This response did not complete. Ask the question again to retry.",
+    ),
+  ).toBeTruthy();
 });
 
 function view() {

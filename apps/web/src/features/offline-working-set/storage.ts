@@ -90,54 +90,39 @@ async function putUnlessBlocked(
 }
 
 async function readEntries() {
-  const database = await openDatabase();
-  return new Promise<Array<[string, unknown]>>((resolve, reject) => {
-    const entries: Array<[string, unknown]> = [];
-    const transaction = database.transaction(storeName, "readonly");
-    const cursorRequest = transaction.objectStore(storeName).openCursor();
-    cursorRequest.onsuccess = () => {
-      const cursor = cursorRequest.result;
-      if (!cursor) return;
-      if (typeof cursor.key === "string")
-        entries.push([cursor.key, cursor.value]);
-      cursor.continue();
-    };
-    const fail = () => {
-      database.close();
-      reject(
-        transaction.error ??
-          cursorRequest.error ??
-          new Error("IndexedDB failed"),
-      );
-    };
-    cursorRequest.onerror = fail;
-    transaction.onerror = fail;
-    transaction.onabort = fail;
-    transaction.oncomplete = () => {
-      database.close();
-      resolve(entries);
-    };
-  });
+  return scanEntries("readonly", (cursor) =>
+    typeof cursor.key === "string"
+      ? ([cursor.key, cursor.value] as [string, unknown])
+      : undefined,
+  );
 }
 
 async function deleteMatchingEntries(
   predicate: (key: string, value: unknown) => boolean,
 ) {
+  return scanEntries("readwrite", (cursor) => {
+    if (typeof cursor.key === "string" && predicate(cursor.key, cursor.value)) {
+      cursor.delete();
+      return cursor.key;
+    }
+    return undefined;
+  });
+}
+
+async function scanEntries<T>(
+  mode: IDBTransactionMode,
+  visit: (cursor: IDBCursorWithValue) => T | undefined,
+) {
   const database = await openDatabase();
-  return new Promise<string[]>((resolve, reject) => {
-    const deleted: string[] = [];
-    const transaction = database.transaction(storeName, "readwrite");
+  return new Promise<T[]>((resolve, reject) => {
+    const values: T[] = [];
+    const transaction = database.transaction(storeName, mode);
     const cursorRequest = transaction.objectStore(storeName).openCursor();
     cursorRequest.onsuccess = () => {
       const cursor = cursorRequest.result;
       if (!cursor) return;
-      if (
-        typeof cursor.key === "string" &&
-        predicate(cursor.key, cursor.value)
-      ) {
-        deleted.push(cursor.key);
-        cursor.delete();
-      }
+      const value = visit(cursor);
+      if (value !== undefined) values.push(value);
       cursor.continue();
     };
     const fail = () => {
@@ -153,7 +138,7 @@ async function deleteMatchingEntries(
     transaction.onabort = fail;
     transaction.oncomplete = () => {
       database.close();
-      resolve(deleted);
+      resolve(values);
     };
   });
 }

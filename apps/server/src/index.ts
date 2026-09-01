@@ -232,7 +232,12 @@ export const app = createApp();
 
 if (import.meta.main) {
   Bun.serve({
-    fetch: app.fetch,
+    fetch(request, server) {
+      if (new URL(request.url).pathname === "/orpc/sources/assistant/ask") {
+        server.timeout(request, 0);
+      }
+      return app.fetch(request);
+    },
     hostname: "127.0.0.1",
     port: Number(process.env.PORT ?? 3000),
   });

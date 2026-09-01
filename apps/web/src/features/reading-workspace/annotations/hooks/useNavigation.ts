@@ -1,10 +1,19 @@
 import { type RefObject, useEffect, useRef } from "react";
 import { isReadingTargetReady } from "../../navigation/hooks/useNavigation";
+import {
+  type ArticlePassage,
+  type ShowInArticleSource,
+  useShowInArticle,
+} from "../../navigation/hooks/useShowInArticle";
 import type {
   ReadingNavigation,
   ReadingNavigationHandle,
 } from "../../navigation/model";
-import type { Annotation, CitationResolution } from "../domUtils";
+import type {
+  Annotation,
+  CitationResolution,
+  SelectionDraft,
+} from "../domUtils";
 import {
   clearAnnotationTarget,
   paintAnnotationTarget,
@@ -22,18 +31,63 @@ export function useAnnotationNavigation({
   return useAnchoredTargetNavigation({ ...options, targetKind: "annotation" });
 }
 
+export function useResearchSelectionNavigation({
+  activeComponentIdentity,
+  articleRef,
+  navigation,
+  onComponentChange,
+}: {
+  activeComponentIdentity: string;
+  articleRef: RefObject<HTMLElement | null>;
+  navigation: ReadingNavigation;
+  onComponentChange: (componentIdentity: string) => void;
+}) {
+  const showInArticle = useShowInArticle();
+  const navigate = useAnchoredTargetNavigation({
+    articleRef,
+    componentIdentity: "",
+    navigation,
+    plainText: "",
+    showInArticle,
+    targetKind: "research-selection",
+  });
+  return ({
+    componentIdentity,
+    plainText,
+    selection,
+  }: {
+    componentIdentity: string;
+    plainText: string;
+    selection: SelectionDraft;
+  }): ArticlePassage =>
+    showInArticle({
+      text: selection.exactText,
+      reveal: () => {
+        if (componentIdentity !== activeComponentIdentity) {
+          onComponentChange(componentIdentity);
+        }
+        navigate(
+          { ...selection, id: "research-assistant-selection" },
+          { componentIdentity, plainText },
+        );
+      },
+    });
+}
+
 export function useAnchoredTargetNavigation({
   articleRef,
   componentIdentity,
   navigation,
   plainText,
+  showInArticle,
   targetKind,
 }: {
   articleRef: RefObject<HTMLElement | null>;
   componentIdentity: string;
   navigation: ReadingNavigation;
   plainText: string;
-  targetKind: "annotation" | "citation-resolution";
+  showInArticle?: (target: ShowInArticleSource) => ArticlePassage;
+  targetKind: "annotation" | "citation-resolution" | "research-selection";
 }) {
   const annotationNavigation = useRef<ReadingNavigationHandle | undefined>(
     undefined,
@@ -49,10 +103,19 @@ export function useAnchoredTargetNavigation({
     [],
   );
 
-  return (annotation: Annotation | CitationResolution) => {
+  return (
+    annotation:
+      | Annotation
+      | CitationResolution
+      | (SelectionDraft & { id: string }),
+    targetOverride?: { componentIdentity: string; plainText: string },
+  ) => {
     cancelAnimationFrame(navigationFrame.current);
     annotationNavigation.current?.cancel();
-    const target = `${targetKind}:${componentIdentity}:${annotation.id}`;
+    const targetComponentIdentity =
+      targetOverride?.componentIdentity ?? componentIdentity;
+    const targetPlainText = targetOverride?.plainText ?? plainText;
+    const target = `${targetKind}:${targetComponentIdentity}:${annotation.id}`;
     const handle = navigation.request({
       cause: "annotation-return",
       owner: "article",
@@ -66,7 +129,7 @@ export function useAnchoredTargetNavigation({
         navigationFrame.current = requestAnimationFrame(moveWhenReady);
         return;
       }
-      const range = rangeFromAnchor(article, plainText, annotation);
+      const range = rangeFromAnchor(article, targetPlainText, annotation);
       if (!range || range.toString() !== annotation.exactText) {
         handle.cancel();
         return;
@@ -87,7 +150,8 @@ export function useAnchoredTargetNavigation({
             window.innerHeight / 2,
         })
       ) {
-        paintAnnotationTarget(range);
+        if (showInArticle) showInArticle(range).show();
+        else paintAnnotationTarget(range);
       }
     };
     navigationFrame.current = requestAnimationFrame(moveWhenReady);

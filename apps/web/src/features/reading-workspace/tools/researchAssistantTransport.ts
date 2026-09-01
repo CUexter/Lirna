@@ -1,4 +1,5 @@
 import type { ChatTransport, UIMessage, UIMessageChunk } from "ai";
+import type { InquiryOutputs } from "@/clients/inquiry";
 import { inquiryClient } from "@/clients/inquiryClient";
 import type { SelectionDraft } from "../annotations/domUtils";
 
@@ -22,22 +23,37 @@ export interface TemporaryEvidenceAttachment {
 
 export interface ResearchAssistantMessageMetadata {
   attachments?: TemporaryEvidenceAttachment[];
+  references?: ResearchPassageReference[];
+  selection?: SelectionDraft;
 }
 
 export type ResearchAssistantMessage =
   UIMessage<ResearchAssistantMessageMetadata>;
+export type ResearchThreadSummary =
+  InquiryOutputs["sources"]["assistant"]["list"][number];
+export type ResearchThread = InquiryOutputs["sources"]["assistant"]["get"];
+export type ResearchPassageReference = NonNullable<
+  ResearchThread["messages"][number]["references"]
+>[number];
 
 export function createResearchAssistantTransport({
   componentIdentity,
   selection,
   sourceId,
   stateId,
+  threadId: initialThreadId,
+  onThreadAllocated,
+  onThreadCreated,
 }: {
   componentIdentity: string;
   selection?: SelectionDraft;
   sourceId: string;
   stateId: string;
+  threadId?: string;
+  onThreadAllocated?: (threadId: string) => void;
+  onThreadCreated?: (threadId: string) => void;
 }): ChatTransport<ResearchAssistantMessage> {
+  let threadId = initialThreadId;
   return {
     async sendMessages({ abortSignal, messages }) {
       const message = latestUserMessage(messages);
@@ -48,6 +64,18 @@ export function createResearchAssistantTransport({
         .join("")
         .trim();
       if (!question) throw new Error("A user question is required");
+      let createdThreadId: string | undefined;
+      if (!threadId) {
+        const thread = await inquiryClient.sources.assistant.create({
+          componentIdentity,
+          question,
+          sourceId,
+          stateId,
+        });
+        threadId = thread.id;
+        createdThreadId = thread.id;
+        onThreadAllocated?.(thread.id);
+      }
 
       const iterator = await inquiryClient.sources.assistant.ask(
         {
@@ -59,10 +87,13 @@ export function createResearchAssistantTransport({
           ...(selection ? { selection } : {}),
           sourceId,
           stateId,
+          threadId,
         },
         { signal: abortSignal },
       );
-      return streamFromIterator(iterator);
+      return streamFromIterator(iterator, () => {
+        if (createdThreadId) onThreadCreated?.(createdThreadId);
+      });
     },
     async reconnectToStream() {
       return null;
@@ -80,19 +111,40 @@ function latestUserMessage(messages: ResearchAssistantMessage[]) {
 
 function streamFromIterator(
   iterator: AsyncIterator<UIMessageChunk>,
+  onFinish?: () => void,
 ): ReadableStream<UIMessageChunk> {
+  let cancelled = false;
   return new ReadableStream({
     async pull(controller) {
       try {
         const next = await iterator.next();
-        if (next.done) controller.close();
-        else controller.enqueue(next.value);
+        if (cancelled) return;
+        if (next.done) {
+          onFinish?.();
+          controller.close();
+        } else controller.enqueue(next.value);
       } catch (error) {
-        controller.error(error);
+        if (!cancelled) controller.error(error);
       }
     },
     async cancel() {
+      cancelled = true;
       await iterator.return?.();
     },
   });
+}
+
+export function listResearchThreads(input: {
+  sourceId: string;
+  stateId: string;
+}) {
+  return inquiryClient.sources.assistant.list(input);
+}
+
+export function loadResearchThread(input: {
+  sourceId: string;
+  stateId: string;
+  threadId: string;
+}) {
+  return inquiryClient.sources.assistant.get(input);
 }

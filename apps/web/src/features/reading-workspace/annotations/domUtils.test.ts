@@ -7,6 +7,7 @@ import {
   paintDraftSelection,
   rangeFromOffsets,
   rangeOffsets,
+  selectionDraftForText,
   selectionInside,
   textOffsetAtPoint,
 } from "./domUtils";
@@ -17,6 +18,19 @@ import {
 } from "./test-support/highlight";
 
 const sourceStateText = "A synthetic Source state preserves nested text.";
+
+test("reconstructs a selection anchor from saved exact text", () => {
+  expect(selectionDraftForText(sourceStateText, "Source state")).toEqual({
+    offsetBasis: "normalized-derivative-text-v1",
+    normalizedStartOffset: 12,
+    normalizedEndOffset: 24,
+    exactText: "Source state",
+    prefix: "A synthetic ",
+    suffix: " preserves nested text.",
+  });
+  expect(selectionDraftForText(sourceStateText, "")).toBeUndefined();
+  expect(selectionDraftForText(sourceStateText, "unavailable")).toBeUndefined();
+});
 
 function articleWithNestedText() {
   const article = document.createElement("article");

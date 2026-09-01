@@ -36,6 +36,27 @@ export interface SelectionDraft {
   publisherAnchor?: string;
 }
 
+export function selectionDraftForText(
+  plainText: string,
+  exactText: string,
+): SelectionDraft | undefined {
+  if (!exactText) return undefined;
+  const normalizedStartOffset = plainText.indexOf(exactText);
+  if (normalizedStartOffset < 0) return undefined;
+  const normalizedEndOffset = normalizedStartOffset + exactText.length;
+  return {
+    offsetBasis: "normalized-derivative-text-v1",
+    normalizedStartOffset,
+    normalizedEndOffset,
+    exactText,
+    prefix: plainText.slice(
+      Math.max(0, normalizedStartOffset - 32),
+      normalizedStartOffset,
+    ),
+    suffix: plainText.slice(normalizedEndOffset, normalizedEndOffset + 32),
+  };
+}
+
 export interface MenuPosition {
   left: number;
   top: number;

@@ -22,6 +22,7 @@ import {
 } from "./useNavigation";
 import { useReadingSceneNavigationObservations } from "./useSceneObservations";
 import { useWorkspaceSceneState } from "./useSceneState";
+import { useShowInArticle } from "./useShowInArticle";
 
 export function useReadingWorkspaceViewProps({
   initialFragment,
@@ -76,6 +77,7 @@ export function useReadingWorkspaceViewProps({
     navigation,
     onFragmentChange,
   });
+  const showInArticle = useShowInArticle();
   const { notes, notesDestination } = resolvePublisherNotes(
     reading,
     notesIdentity,
@@ -152,6 +154,7 @@ export function useReadingWorkspaceViewProps({
     notesIdentity,
     onUnavailable: reportUnavailable,
     onPublisherNoteActivate: () => setSelectedReference(undefined),
+    showInArticle,
     topology,
     toolsScrollRef,
   });
