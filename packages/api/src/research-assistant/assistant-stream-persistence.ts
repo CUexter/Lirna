@@ -1,7 +1,11 @@
 import type { UIMessageChunk } from "ai";
 import { z } from "zod";
 import { authoredTargetInputSchema } from "../authored-targets/authored-target";
-import type { ResearchPassageReference } from "./research-thread-contract";
+import { compileResearchAnswer } from "./research-answer-markers";
+import type {
+  AliasedResearchPassageReference,
+  ResearchPassageReference,
+} from "./research-thread-contract";
 
 // fallow-ignore-next-line complexity
 export async function persistAssistantAnswer(
@@ -15,7 +19,7 @@ export async function persistAssistantAnswer(
   let currentStepContent = "";
   let finalStepContent = "";
   let hasStepBoundaries = false;
-  const references: ResearchPassageReference[] = [];
+  const references: AliasedResearchPassageReference[] = [];
   while (true) {
     const next = await reader.read();
     if (next.done) break;
@@ -33,19 +37,24 @@ export async function persistAssistantAnswer(
     }
   }
   const content = hasStepBoundaries ? finalStepContent : currentStepContent;
-  if (content.trim()) await persist(content, references);
+  if (content.trim()) {
+    const compiled = compileResearchAnswer(content, references);
+    await persist(compiled.content, compiled.references);
+  }
 }
 
 function researchPassageReference(
   output: unknown,
-): ResearchPassageReference | undefined {
+): AliasedResearchPassageReference | undefined {
   if (!output || typeof output !== "object" || !("kind" in output)) return;
   if (output.kind !== "source-passage-reference") return;
-  const candidate = output as Omit<ResearchPassageReference, never> & {
+  const candidate = output as Omit<AliasedResearchPassageReference, never> & {
     kind: string;
   };
   const parsed = z
     .object({
+      id: z.string().uuid(),
+      evidenceAlias: z.string().regex(/^ev_\d+$/),
       componentIdentity: z.string(),
       componentLabel: z.string(),
       selection: authoredTargetInputSchema,

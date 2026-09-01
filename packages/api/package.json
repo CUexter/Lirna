@@ -47,6 +47,7 @@
     "ai": "^7.0.71",
     "dotenv": "catalog:",
     "drizzle-orm": "^0.45.2",
+    "mdast-util-from-markdown": "^2.0.3",
     "parse5": "^7.3.0",
     "zod": "catalog:"
   },

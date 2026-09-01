@@ -141,6 +141,7 @@ test("asks about exact evidence with a rendered-only publisher anchor", async ()
       content: "A **provisional** answer.",
       references: [
         {
+          id: "50000000-0000-4000-8000-000000000000",
           componentIdentity: "active:/",
           componentLabel: "Main entry",
           selection: {
@@ -457,7 +458,12 @@ function assistantStream(
         controller.enqueue({
           type: "tool-output-available",
           toolCallId: "reference-call",
-          output: { kind: "source-passage-reference", ...reference },
+          output: {
+            kind: "source-passage-reference",
+            id: "50000000-0000-4000-8000-000000000000",
+            evidenceAlias: "ev_1",
+            ...reference,
+          },
         });
       }
       controller.enqueue({ type: "text-start", id: "assistant-text" });

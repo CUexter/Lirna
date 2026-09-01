@@ -1,9 +1,34 @@
 import type { AuthoredTargetInput } from "../authored-targets/authored-target";
 
+export type EvidenceRelation =
+  | "supports"
+  | "qualifies"
+  | "conflicts"
+  | "background";
+
+export interface ResearchCitationOccurrence {
+  answerTarget: {
+    startOffset: number;
+    endOffset: number;
+  };
+  id: string;
+  presentation: "passing" | "quote";
+  relation: EvidenceRelation;
+  referenceId: string;
+}
+
 export interface ResearchPassageReference {
+  id?: string;
   componentIdentity: string;
   componentLabel: string;
+  occurrences?: ResearchCitationOccurrence[];
   selection: AuthoredTargetInput;
+}
+
+export interface AliasedResearchPassageReference
+  extends ResearchPassageReference {
+  evidenceAlias: string;
+  id: string;
 }
 
 export interface ResearchThreadMessage {

@@ -137,6 +137,8 @@ test("reads a supplementary component and creates a verified passage reference",
     toolCallId: "reference",
     output: {
       kind: "source-passage-reference",
+      id: expect.any(String),
+      evidenceAlias: "ev_1",
       componentIdentity: "supplement-one",
       componentLabel: "Supplement one",
       selection: {
@@ -183,9 +185,7 @@ test("reserves the final agent step for a text answer", async () => {
   expect(model.doStreamCalls[7]?.toolChoice).toEqual({ type: "none" });
   expect(model.doStreamCalls[7]?.prompt[0]).toMatchObject({
     role: "system",
-    content: expect.stringContaining(
-      "Answer the question now using the evidence already gathered",
-    ),
+    content: expect.stringContaining("empty :::quote[ev_1] then ::: block"),
   });
   expect(chunks).toContainEqual({
     type: "text-delta",

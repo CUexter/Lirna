@@ -20323,11 +20323,78 @@
                             "items": {
                               "type": "object",
                               "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
                                 "componentIdentity": {
                                   "type": "string"
                                 },
                                 "componentLabel": {
                                   "type": "string"
+                                },
+                                "occurrences": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "answerTarget": {
+                                        "type": "object",
+                                        "properties": {
+                                          "startOffset": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "endOffset": {
+                                            "type": "integer",
+                                            "exclusiveMinimum": 0,
+                                            "maximum": 9007199254740991
+                                          }
+                                        },
+                                        "required": [
+                                          "startOffset",
+                                          "endOffset"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "id": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "presentation": {
+                                        "type": "string",
+                                        "enum": [
+                                          "passing",
+                                          "quote"
+                                        ]
+                                      },
+                                      "relation": {
+                                        "type": "string",
+                                        "enum": [
+                                          "supports",
+                                          "qualifies",
+                                          "conflicts",
+                                          "background"
+                                        ]
+                                      },
+                                      "referenceId": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      }
+                                    },
+                                    "required": [
+                                      "answerTarget",
+                                      "id",
+                                      "presentation",
+                                      "relation",
+                                      "referenceId"
+                                    ],
+                                    "additionalProperties": false
+                                  }
                                 },
                                 "selection": {
                                   "type": "object",
@@ -20549,11 +20616,78 @@
                             "items": {
                               "type": "object",
                               "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
                                 "componentIdentity": {
                                   "type": "string"
                                 },
                                 "componentLabel": {
                                   "type": "string"
+                                },
+                                "occurrences": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "answerTarget": {
+                                        "type": "object",
+                                        "properties": {
+                                          "startOffset": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "endOffset": {
+                                            "type": "integer",
+                                            "exclusiveMinimum": 0,
+                                            "maximum": 9007199254740991
+                                          }
+                                        },
+                                        "required": [
+                                          "startOffset",
+                                          "endOffset"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "id": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "presentation": {
+                                        "type": "string",
+                                        "enum": [
+                                          "passing",
+                                          "quote"
+                                        ]
+                                      },
+                                      "relation": {
+                                        "type": "string",
+                                        "enum": [
+                                          "supports",
+                                          "qualifies",
+                                          "conflicts",
+                                          "background"
+                                        ]
+                                      },
+                                      "referenceId": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      }
+                                    },
+                                    "required": [
+                                      "answerTarget",
+                                      "id",
+                                      "presentation",
+                                      "relation",
+                                      "referenceId"
+                                    ],
+                                    "additionalProperties": false
+                                  }
                                 },
                                 "selection": {
                                   "type": "object",

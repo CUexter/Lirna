@@ -1,4 +1,3 @@
-import { MessageResponse } from "@lirna/ui/components/ai-elements/message";
 import {
   Source,
   Sources,
@@ -25,6 +24,7 @@ import type {
   ResearchAssistantMessage,
   ResearchPassageReference,
 } from "../researchAssistantTransport";
+import { ResearchAnswer } from "./ResearchAnswer";
 
 type MessagePart = ResearchAssistantMessage["parts"][number];
 
@@ -41,7 +41,13 @@ export function ResearchAssistantResponse({
   return (
     <div className="flex flex-col gap-3">
       {activity.length ? <ResearchActivity parts={activity} /> : null}
-      {answer ? <MessageResponse>{answer}</MessageResponse> : null}
+      {answer ? (
+        <ResearchAnswer
+          answer={answer}
+          passageForReference={passageForReference}
+          references={references}
+        />
+      ) : null}
       {references.length ? (
         <Sources>
           <SourcesTrigger count={references.length}>
@@ -166,7 +172,7 @@ function responseReferences(message: ResearchAssistantMessage) {
 
 function referenceFromToolPart(part: MessagePart): ResearchPassageReference[] {
   if (
-    part.type !== "tool-referencePassage" ||
+    !isReferencePassagePart(part) ||
     part.state !== "output-available" ||
     !part.output ||
     typeof part.output !== "object"
@@ -181,6 +187,14 @@ function referenceFromToolPart(part: MessagePart): ResearchPassageReference[] {
     output.selection
     ? [output as ResearchPassageReference]
     : [];
+}
+
+function isReferencePassagePart(part: MessagePart): part is ToolPart {
+  return (
+    isToolPart(part) &&
+    (part.type === "tool-referencePassage" ||
+      (part.type === "dynamic-tool" && part.toolName === "referencePassage"))
+  );
 }
 
 function isToolPart(part: MessagePart): part is ToolPart {
@@ -214,7 +228,7 @@ function toolOutput(part: ToolPart): ReactNode {
     };
     return `Read ${result.componentLabel ?? "Source component"}, characters ${result.offset ?? 0}-${result.endOffset ?? 0}.`;
   }
-  if (part.type === "tool-referencePassage" && "kind" in output) {
+  if (isReferencePassagePart(part) && "kind" in output) {
     if (output.kind === "source-passage-reference")
       return "Verified an exact passage for the Sources list.";
     if ("reason" in output && typeof output.reason === "string")
@@ -224,5 +238,10 @@ function toolOutput(part: ToolPart): ReactNode {
 }
 
 function referenceKey(reference: ResearchPassageReference) {
+  if (reference.id) return reference.id;
+  const liveReference = reference as ResearchPassageReference & {
+    evidenceAlias?: string;
+  };
+  if (liveReference.evidenceAlias) return liveReference.evidenceAlias;
   return `${reference.componentIdentity}:${reference.selection.normalizedStartOffset}:${reference.selection.normalizedEndOffset}`;
 }

@@ -18,12 +18,14 @@ let releaseAssistantStream: (() => void) | undefined;
 async function* assistantStream(input: unknown) {
   assistantInput = input;
   yield { type: "start", messageId: "assistant-message" };
-  if (
+  yield { type: "start-step" };
+  const usesSupplementEvidence = Boolean(
     input &&
-    typeof input === "object" &&
-    "question" in input &&
-    input.question === "Use supplement evidence"
-  ) {
+      typeof input === "object" &&
+      "question" in input &&
+      input.question === "Use supplement evidence",
+  );
+  if (usesSupplementEvidence) {
     const exactText = "First supplement content.";
     yield {
       type: "tool-input-available",
@@ -40,6 +42,8 @@ async function* assistantStream(input: unknown) {
       toolCallId: "reference-call",
       output: {
         kind: "source-passage-reference",
+        id: "40000000-0000-4000-8000-000000000000",
+        evidenceAlias: "ev_1",
         componentIdentity: "supplement-one",
         componentLabel: "Supplement one",
         selection: {
@@ -52,6 +56,8 @@ async function* assistantStream(input: unknown) {
         },
       },
     };
+    yield { type: "finish-step" };
+    yield { type: "start-step" };
   }
   yield { type: "text-start", id: "assistant-text" };
   yield {
@@ -67,9 +73,10 @@ async function* assistantStream(input: unknown) {
   yield {
     type: "text-delta",
     id: "assistant-text",
-    delta: " presents a synthetic claim.",
+    delta: ` presents a synthetic claim.${usesSupplementEvidence ? "[^ev_1]" : ""}`,
   };
   yield { type: "text-end", id: "assistant-text" };
+  yield { type: "finish-step" };
   yield { type: "finish", finishReason: "stop" };
 }
 
@@ -460,7 +467,16 @@ test("opens a tool-referenced passage in a supplementary component", async () =>
     "Use supplement evidence{Enter}",
   );
 
-  await waitFor(() => view().getByText("Referenced in Supplement one"));
+  await waitFor(() =>
+    view().getByRole("button", {
+      name: "Citation 1: Supporting evidence from Supplement one",
+    }),
+  );
+  await user.click(
+    view().getByRole("button", {
+      name: "Citation 1: Supporting evidence from Supplement one",
+    }),
+  );
   await user.click(view().getByRole("button", { name: "Show in article" }));
 
   await waitFor(() =>

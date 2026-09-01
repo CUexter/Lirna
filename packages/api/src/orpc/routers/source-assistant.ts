@@ -46,6 +46,16 @@ const threadSummarySchema = z.object({
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
+const citationOccurrenceSchema = z.object({
+  answerTarget: z.object({
+    startOffset: z.number().int().nonnegative(),
+    endOffset: z.number().int().positive(),
+  }),
+  id: z.string().uuid(),
+  presentation: z.enum(["passing", "quote"]),
+  relation: z.enum(["supports", "qualifies", "conflicts", "background"]),
+  referenceId: z.string().uuid(),
+});
 const threadMessageSchema = z.object({
   id: z.string().uuid(),
   role: z.enum(["user", "assistant"]),
@@ -54,8 +64,10 @@ const threadMessageSchema = z.object({
   references: z
     .array(
       z.object({
+        id: z.string().uuid().optional(),
         componentIdentity: z.string(),
         componentLabel: z.string(),
+        occurrences: z.array(citationOccurrenceSchema).optional(),
         selection: authoredTargetInputSchema,
       }),
     )

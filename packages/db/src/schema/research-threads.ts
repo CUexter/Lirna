@@ -52,8 +52,19 @@ export const researchThreadMessages = pgTable(
     references:
       jsonb("references").$type<
         Array<{
+          id?: string;
           componentIdentity: string;
           componentLabel: string;
+          occurrences?: Array<{
+            answerTarget: {
+              startOffset: number;
+              endOffset: number;
+            };
+            id: string;
+            presentation: "passing" | "quote";
+            relation: "supports" | "qualifies" | "conflicts" | "background";
+            referenceId: string;
+          }>;
           selection: {
             offsetBasis: "normalized-derivative-text-v1";
             normalizedStartOffset: number;
