@@ -1,4 +1,8 @@
 import { useChat } from "@ai-sdk/react";
+import {
+  defaultResearchAssistantModel,
+  type ResearchAssistantModel,
+} from "@lirna/api/client";
 import { Button } from "@lirna/ui/components/button";
 import type { ChatTransport } from "ai";
 import { XIcon } from "lucide-react";
@@ -65,6 +69,9 @@ export function ReadingResearchAssistant({
     [],
   );
   const [composerError, setComposerError] = useState<string>();
+  const [model, setModel] = useState<ResearchAssistantModel>(
+    defaultResearchAssistantModel,
+  );
   const questionRef = useRef<HTMLTextAreaElement>(null);
   const draftThreadIdRef = useRef<string | undefined>(undefined);
   const scope = { sourceId, stateId };
@@ -103,6 +110,7 @@ export function ReadingResearchAssistant({
         transport ??
         createResearchAssistantTransport({
           componentIdentity,
+          model,
           selection,
           sourceId,
           stateId,
@@ -229,6 +237,7 @@ export function ReadingResearchAssistant({
               onError: setComposerError,
             }}
             onQuestionChange={setQuestion}
+            model={{ onChange: setModel, value: model }}
             onSubmit={submitQuestion}
             pending={pending}
             question={question}

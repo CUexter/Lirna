@@ -5,3 +5,9 @@ export type {
   OrpcContext,
   OrpcRouter,
 } from "./orpc/router";
+export {
+  defaultResearchAssistantModel,
+  type ResearchAssistantModel,
+  researchAssistantModelIds,
+  researchAssistantModelLabels,
+} from "./research-assistant/research-assistant-contract";

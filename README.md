@@ -163,6 +163,14 @@ bun run dev
 Open <http://localhost:3001> for the web application. The API runs at
 <http://localhost:3000>.
 
+When a reverse proxy exposes both services under one origin, set that origin
+for the lifecycle-managed processes. The proxy should route `/orpc` to the API
+port and all other paths to the web port:
+
+```bash
+LIRNA_DEV_ORIGIN=https://lirna-dev.example.com bun run dev
+```
+
 ## UI Customization
 
 React web apps share shadcn/ui primitives through `packages/ui`.

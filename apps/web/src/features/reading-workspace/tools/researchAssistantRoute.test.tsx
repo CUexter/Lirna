@@ -319,6 +319,12 @@ test("streams a Markdown answer through the server", async () => {
     ),
   );
 
+  const modelSelector = view().getByRole("combobox", { name: "Model" });
+  expect(modelSelector.textContent).toContain("Kimi K3");
+  await user.click(modelSelector);
+  expect(view().getAllByRole("option")).toHaveLength(2);
+  await user.click(view().getByRole("option", { name: "GLM 5.3 Flash" }));
+
   await user.type(
     view().getByRole("textbox", { name: "Question" }),
     "What claim does this Source make?{Enter}",
@@ -346,6 +352,7 @@ test("streams a Markdown answer through the server", async () => {
     sourceId,
     stateId,
     componentIdentity: "article",
+    model: "z-ai/glm-5.3-flash",
     question: "What claim does this Source make?",
     threadId,
   });
@@ -386,6 +393,7 @@ test("opens the assistant from selected text and sends its exact anchor", async 
     sourceId,
     stateId,
     componentIdentity: "article",
+    model: "moonshotai/kimi-k3",
     question: "What does this passage claim?",
     threadId,
     selection: {

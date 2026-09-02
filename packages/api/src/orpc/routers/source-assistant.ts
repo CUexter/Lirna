@@ -8,6 +8,10 @@ import {
   validateAuthoredTarget,
 } from "../../authored-targets/authored-target";
 import { persistAssistantAnswer } from "../../research-assistant/assistant-stream-persistence";
+import {
+  defaultResearchAssistantModel,
+  researchAssistantModelIds,
+} from "../../research-assistant/research-assistant-contract";
 import { publicProcedure } from "../init";
 import { notFoundError, sourceStateInput } from "./source-router-contracts";
 import { notFound, requireReading } from "./source-router-support";
@@ -146,6 +150,9 @@ export const sourceAssistantRouter = {
       sourceStateInput.extend({
         attachments: z.array(temporaryAttachmentInput).max(3).optional(),
         componentIdentity: z.string().trim().min(1).max(2_000),
+        model: z
+          .enum(researchAssistantModelIds)
+          .default(defaultResearchAssistantModel),
         question: z.string().trim().min(1).max(4_000),
         selection: authoredTargetInputSchema.optional(),
         threadId: z.string().uuid(),
@@ -198,6 +205,7 @@ export const sourceAssistantRouter = {
             content,
             ...(selectedText ? { selectedText } : {}),
           })),
+          model: input.model,
           question: input.question,
           sourceTitle: reading.source.title,
           componentLabel: component.label,

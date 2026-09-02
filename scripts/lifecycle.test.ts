@@ -38,6 +38,7 @@ async function runLifecycle(
     databaseUrl,
     dockerBin,
     dockerLog,
+    devOrigin,
     runtimeLog,
     runtimeWaitsForTermination,
     stateHome,
@@ -49,6 +50,7 @@ async function runLifecycle(
       ...process.env,
       DATABASE_URL: databaseUrl ?? process.env.DATABASE_URL,
       LIRNA_DOCKER_LOG: dockerLog,
+      LIRNA_DEV_ORIGIN: devOrigin,
       LIRNA_RUNTIME_LOG: runtimeLog,
       LIRNA_RUNTIME_WAITS_FOR_TERMINATION: runtimeWaitsForTermination
         ? "true"
@@ -73,6 +75,7 @@ function startLifecycle(command, context) {
     databaseUrl,
     dockerBin,
     dockerLog,
+    devOrigin,
     runtimeLog,
     runtimeWaitsForTermination,
     stateHome,
@@ -83,6 +86,7 @@ function startLifecycle(command, context) {
       ...process.env,
       DATABASE_URL: databaseUrl ?? process.env.DATABASE_URL,
       LIRNA_DOCKER_LOG: dockerLog,
+      LIRNA_DEV_ORIGIN: devOrigin,
       LIRNA_RUNTIME_LOG: runtimeLog,
       LIRNA_RUNTIME_WAITS_FOR_TERMINATION: runtimeWaitsForTermination
         ? "true"
@@ -686,6 +690,24 @@ test("runs each managed service with its generated environment and allocated por
       .split("\n")
       .map((line) => JSON.parse(line)),
   ).toEqual(expected);
+});
+
+test("runs proxied services with one public development origin", async () => {
+  const context = {
+    ...(await runtimeBun(await sandbox())),
+    devOrigin: "https://lirna-dev.gusstudio.lan",
+  };
+  expect((await lifecycle(context, "register")).exitCode).toBe(0);
+
+  expect((await lifecycle(context, "run", "web")).exitCode).toBe(0);
+
+  const runtime = JSON.parse(await readFile(context.runtimeLog, "utf8"));
+  expect(runtime.environment).toEqual({
+    CORS_ORIGIN: context.devOrigin,
+    PORT: "3001",
+    SERVER_URL: context.devOrigin,
+    VITE_SERVER_URL: context.devOrigin,
+  });
 });
 
 test("allocates a Studio port before starting Studio from the public package command", async () => {

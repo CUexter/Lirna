@@ -15,6 +15,10 @@ import {
   authoredTargetOffsetBasis,
 } from "../authored-targets/authored-target";
 import type { ReadingComponent } from "../sep-admission/reading/contract";
+import {
+  defaultResearchAssistantModel,
+  type ResearchAssistantModel,
+} from "./research-assistant-contract";
 import type { AliasedResearchPassageReference } from "./research-thread-contract";
 
 export interface ResearchAssistantInput {
@@ -24,6 +28,7 @@ export interface ResearchAssistantInput {
     mediaType: string;
   }>;
   question: string;
+  model?: ResearchAssistantModel;
   history?: Array<{
     role: "user" | "assistant";
     content: string;
@@ -46,7 +51,7 @@ export interface ResearchAssistantOperations {
 }
 
 export function createResearchAssistant(
-  model: LanguageModel,
+  model: LanguageModel | ((model: ResearchAssistantModel) => LanguageModel),
 ): ResearchAssistantOperations {
   return {
     async answer(input, options) {
@@ -75,7 +80,10 @@ export function createResearchAssistant(
       ].join("\n");
       const tools = sourceTools(input.components);
       const agent = new ToolLoopAgent({
-        model,
+        model:
+          typeof model === "function"
+            ? model(input.model ?? defaultResearchAssistantModel)
+            : model,
         instructions: [
           "You are Lirna's research assistant.",
           "Answer only from the supplied Source-state evidence.",
@@ -245,11 +253,9 @@ function occurrenceStart(text: string, exactText: string, occurrence: number) {
 
 export function createOpenRouterResearchAssistant({
   apiKey,
-  model,
 }: {
   apiKey: string;
-  model: string;
 }): ResearchAssistantOperations {
   const openrouter = createOpenRouter({ apiKey });
-  return createResearchAssistant(openrouter.chat(model));
+  return createResearchAssistant((model) => openrouter.chat(model));
 }

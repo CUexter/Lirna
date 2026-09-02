@@ -5,7 +5,11 @@ import {
   InlineCitationCardTrigger,
   InlineCitationCarousel,
   InlineCitationCarouselContent,
+  InlineCitationCarouselHeader,
+  InlineCitationCarouselIndex,
   InlineCitationCarouselItem,
+  InlineCitationCarouselNext,
+  InlineCitationCarouselPrev,
   InlineCitationQuote,
   InlineCitationSource,
 } from "@lirna/ui/components/ai-elements/inline-citation";
@@ -14,22 +18,16 @@ import { createContext, useContext } from "react";
 
 import type { ArticlePassage } from "../../navigation/hooks/useShowInArticle";
 import type { ResearchPassageReference } from "../researchAssistantTransport";
+import {
+  type EvidenceMarkerProps,
+  parsePassingMarkerProps,
+  researchEvidenceMarkers,
+} from "./researchEvidenceMarkers";
 
 type EvidenceRelation = "supports" | "qualifies" | "conflicts" | "background";
 type Presentation = "passing" | "quote";
-type MarkerNode = {
-  type: string;
-  value?: string;
-  children?: MarkerNode[];
-  data?: {
-    hName: string;
-    hProperties: { relation?: string; token: string };
-  };
-};
 type LiveReference = ResearchPassageReference & { evidenceAlias?: string };
 
-const markerPattern = /\[\^([A-Za-z\d_-]+)(?:\|([a-z]+))?\]/g;
-const quotePattern = /^:::quote\[([A-Za-z\d_-]+)(?:\|([a-z]+))?\]\n:::\s*$/;
 const relations = new Set<EvidenceRelation>([
   "supports",
   "qualifies",
@@ -37,7 +35,7 @@ const relations = new Set<EvidenceRelation>([
   "background",
 ]);
 const markerAllowedTags = {
-  "research-citation": ["token", "relation"],
+  "research-citation": ["token", "relation", "markers"],
   "research-quote": ["token", "relation"],
 };
 const markerComponents = {
@@ -79,12 +77,16 @@ export function ResearchAnswer({
 }
 
 function PassingCitation(props: Record<string, unknown>) {
-  const marker = markerProps(props);
+  const markers = passingMarkerProps(props);
   return (
     <CitationControl
-      fallback={passingMarkerText(marker)}
+      fallback={
+        typeof props.markers === "string"
+          ? props.markers
+          : markers.map(passingMarkerText).join("")
+      }
+      markerProps={markers}
       presentation="passing"
-      {...marker}
     />
   );
 }
@@ -107,6 +109,7 @@ function ExactQuote(props: Record<string, unknown>) {
 
 function CitationControl({
   marker: suppliedMarker,
+  markerProps: suppliedMarkerProps,
   presentation,
   relation,
   token,
@@ -114,42 +117,66 @@ function CitationControl({
 }: {
   fallback?: string;
   marker?: ResolvedMarker;
+  markerProps?: EvidenceMarkerProps[];
   presentation: Presentation;
   relation?: string;
   token?: string;
 }) {
-  const resolvedMarker = useEvidenceMarker(presentation, { relation, token });
-  const marker = suppliedMarker ?? resolvedMarker;
+  const markerPropsValues = suppliedMarkerProps ?? [{ relation, token }];
+  const resolvedMarkers = useEvidenceMarkers(presentation, markerPropsValues);
+  const markers = suppliedMarker ? [suppliedMarker] : resolvedMarkers;
   const context = useContext(ResearchAnswerContext);
-  if (!marker) return fallback ?? null;
+  if (!markers.length || markers.length !== markerPropsValues.length)
+    return fallback ?? null;
   if (!context) return null;
-  const passage = context.passageForReference(marker.reference);
-  const citationNumber = context.references.indexOf(marker.reference) + 1;
-  const relationLabel =
-    marker.relation === "supports"
-      ? "Supporting evidence"
-      : `${capitalize(marker.relation)} evidence`;
+  const citations = markers.map((marker) => ({
+    marker,
+    number: context.references.indexOf(marker.reference) + 1,
+    passage: context.passageForReference(marker.reference),
+    relationLabel: relationLabel(marker.relation),
+  }));
+  const grouped = citations.length > 1;
+  const citationNumbers = citations.map(({ number }) => number).join(", ");
+  const ariaLabel = grouped
+    ? `Citations ${citationNumbers}: ${citations
+        .map(
+          ({ marker, relationLabel: label }) =>
+            `${label} from ${marker.reference.componentLabel}`,
+        )
+        .join("; ")}`
+    : `Citation ${citationNumbers}: ${citations[0]?.relationLabel} from ${citations[0]?.marker.reference.componentLabel}`;
 
   return (
     <InlineCitation>
       <InlineCitationCard>
         <InlineCitationCardTrigger
-          aria-label={`Citation ${citationNumber}: ${relationLabel} from ${marker.reference.componentLabel}`}
-          label={`[${citationNumber}]`}
-          onClick={() => passage.show()}
+          aria-label={ariaLabel}
+          label={`[${citationNumbers}]`}
+          onClick={() => citations[0]?.passage.show()}
         />
         <InlineCitationCardBody>
           <InlineCitationCarousel>
+            {grouped ? (
+              <InlineCitationCarouselHeader>
+                <InlineCitationCarouselPrev />
+                <InlineCitationCarouselNext />
+                <InlineCitationCarouselIndex />
+              </InlineCitationCarouselHeader>
+            ) : null}
             <InlineCitationCarouselContent>
-              <InlineCitationCarouselItem>
-                <InlineCitationSource
-                  description={relationLabel}
-                  title={marker.reference.componentLabel}
-                />
-                <InlineCitationQuote>
-                  {marker.reference.selection.exactText}
-                </InlineCitationQuote>
-              </InlineCitationCarouselItem>
+              {citations.map(({ marker, number, relationLabel: label }) => (
+                <InlineCitationCarouselItem
+                  key={`${number}:${marker.reference.selection.normalizedStartOffset}:${label}`}
+                >
+                  <InlineCitationSource
+                    description={label}
+                    title={marker.reference.componentLabel}
+                  />
+                  <InlineCitationQuote>
+                    {marker.reference.selection.exactText}
+                  </InlineCitationQuote>
+                </InlineCitationCarouselItem>
+              ))}
             </InlineCitationCarouselContent>
           </InlineCitationCarousel>
         </InlineCitationCardBody>
@@ -167,9 +194,31 @@ function useEvidenceMarker(
   presentation: Presentation,
   { relation, token }: { relation?: string; token?: string },
 ): ResolvedMarker | undefined {
+  return useEvidenceMarkers(presentation, [{ relation, token }])[0];
+}
+
+function useEvidenceMarkers(
+  presentation: Presentation,
+  markers: EvidenceMarkerProps[],
+) {
   const context = useContext(ResearchAnswerContext);
-  if (!context || !token) return undefined;
-  for (const reference of context.references) {
+  if (!context) return [];
+  return markers.flatMap(({ relation, token }) => {
+    const marker = resolveEvidenceMarker(context.references, presentation, {
+      relation,
+      token,
+    });
+    return marker ? [marker] : [];
+  });
+}
+
+function resolveEvidenceMarker(
+  references: LiveReference[],
+  presentation: Presentation,
+  { relation, token }: { relation?: string; token?: string },
+) {
+  if (!token) return undefined;
+  for (const reference of references) {
     if (reference.evidenceAlias === token) {
       const parsedRelation = evidenceRelation(relation);
       return parsedRelation
@@ -183,6 +232,11 @@ function useEvidenceMarker(
     if (occurrence) return { reference, relation: occurrence.relation };
   }
   return undefined;
+}
+
+function passingMarkerProps(props: Record<string, unknown>) {
+  if (typeof props.markers !== "string") return [markerProps(props)];
+  return parsePassingMarkerProps(props.markers);
 }
 
 function markerProps(props: Record<string, unknown>) {
@@ -200,54 +254,6 @@ function markerToken(marker: { relation?: string; token?: string }) {
   return `${marker.token ?? ""}${marker.relation ? `|${marker.relation}` : ""}`;
 }
 
-function researchEvidenceMarkers() {
-  return (tree: MarkerNode) => transformNode(tree);
-}
-
-function transformNode(node: MarkerNode) {
-  if (!node.children) return;
-  node.children = node.children.flatMap((child) => {
-    if (child.type === "paragraph") {
-      const value =
-        child.children?.length === 1 ? child.children[0]?.value : undefined;
-      const quote = value?.match(quotePattern);
-      if (quote?.[1]) return [markerNode("research-quote", quote[1], quote[2])];
-    }
-    if (child.type === "text" && child.value) return passingNodes(child.value);
-    transformNode(child);
-    return [child];
-  });
-}
-
-function passingNodes(value: string) {
-  const nodes: MarkerNode[] = [];
-  let cursor = 0;
-  for (const match of value.matchAll(markerPattern)) {
-    const index = match.index;
-    if (index > cursor)
-      nodes.push({ type: "text", value: value.slice(cursor, index) });
-    nodes.push(markerNode("research-citation", match[1] ?? "", match[2]));
-    cursor = index + match[0].length;
-  }
-  if (cursor < value.length)
-    nodes.push({ type: "text", value: value.slice(cursor) });
-  return nodes.length ? nodes : [{ type: "text", value }];
-}
-
-function markerNode(
-  type: string,
-  token: string,
-  relation?: string,
-): MarkerNode {
-  return {
-    type,
-    data: {
-      hName: type,
-      hProperties: { token, ...(relation ? { relation } : {}) },
-    },
-  };
-}
-
 function evidenceRelation(
   value: string | undefined,
 ): EvidenceRelation | undefined {
@@ -259,4 +265,10 @@ function evidenceRelation(
 
 function capitalize(value: string) {
   return `${value[0]?.toUpperCase() ?? ""}${value.slice(1)}`;
+}
+
+function relationLabel(relation: EvidenceRelation) {
+  return relation === "supports"
+    ? "Supporting evidence"
+    : `${capitalize(relation)} evidence`;
 }
