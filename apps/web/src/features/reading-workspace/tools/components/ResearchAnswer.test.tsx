@@ -186,6 +186,45 @@ test("keeps aliases for duplicate verified passages independently resolvable", (
   ).toBeTruthy();
 });
 
+test("renders a Markdown table in an assistant message", () => {
+  render(
+    <ResearchAssistantTranscript
+      messages={[
+        {
+          id: "assistant-message",
+          role: "assistant",
+          parts: [
+            {
+              type: "text",
+              text: [
+                "| Finding | Detailed explanation |",
+                "| --- | --- |",
+                "| Result | A deliberately long value that requires horizontal scrolling |",
+              ].join("\n"),
+            },
+          ],
+        },
+      ]}
+      passageForReference={(reference) => ({
+        show: () => {},
+        text: reference.selection.exactText,
+      })}
+      passageForSelection={(selection) => ({
+        show: () => {},
+        text: selection.exactText,
+      })}
+      pending={false}
+    />,
+  );
+
+  const table = view().getByRole("table");
+
+  expect(table.parentElement?.classList.contains("overflow-x-auto")).toBe(true);
+  expect(table.parentElement?.style.maxHeight).toBe("");
+  expect(view().getByRole("columnheader", { name: "Finding" })).toBeTruthy();
+  expect(view().getByRole("cell", { name: "Result" })).toBeTruthy();
+});
+
 function referenceToolPart(
   toolCallId: string,
   evidenceAlias: string,
