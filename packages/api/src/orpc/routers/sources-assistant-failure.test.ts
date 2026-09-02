@@ -1,0 +1,131 @@
+import { expect, test } from "bun:test";
+import { call } from "@orpc/server";
+import type { UIMessageChunk } from "ai";
+import type { ResearchAssistantOperations } from "../../research-assistant/research-assistant";
+import type { ResearchThreadOperations } from "../../research-assistant/research-thread-contract";
+import { createResearchTurnOperations } from "../../research-assistant/research-turn";
+import { createTestContext } from "../application-test-support";
+import {
+  admittedSourceStatesStub,
+  readingFixture,
+  sourceId,
+  stateId,
+} from "./sep-admission.test-fixtures";
+import { sourcesRouter } from "./sources";
+
+const threadId = "30000000-0000-4000-8000-000000000000";
+
+test("failed final persistence preserves only the user question", async () => {
+  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const researchThreads = threads(async (input) => {
+    if (input.role === "assistant") return undefined;
+    appended.push(input);
+    return message(input.role, input.content);
+  });
+  const result = await call(
+    sourcesRouter.assistant.ask,
+    {
+      sourceId,
+      stateId,
+      componentIdentity: "active:/",
+      question: "What is the central claim?",
+      threadId,
+    },
+    {
+      context: createTestContext(
+        {
+          admittedSourceStates: admittedSourceStatesStub({
+            async getReading() {
+              const reading = readingFixture();
+              const component = reading.components[0];
+              if (!component)
+                throw new Error("Fixture needs a reading component");
+              component.plainText = "Synthetic reading text.";
+              return reading;
+            },
+          }),
+          researchThreads,
+          researchTurns: createResearchTurnOperations(
+            assistant(completedStream()),
+            researchThreads,
+          ),
+        },
+        { debugErrors: true },
+      ),
+    },
+  );
+
+  const chunks: UIMessageChunk[] = [];
+  for await (const chunk of result) chunks.push(chunk);
+
+  expect(chunks.at(-1)).toEqual({
+    type: "error",
+    errorText:
+      "Research assistant response failed: Research answer could not be persisted",
+  });
+  expect(appended).toEqual([
+    {
+      threadId,
+      role: "user",
+      content: "What is the central claim?",
+    },
+  ]);
+});
+
+function assistant(stream: ReadableStream<UIMessageChunk>) {
+  return {
+    async answer() {
+      return stream;
+    },
+  } satisfies ResearchAssistantOperations;
+}
+
+function threads(
+  append: ResearchThreadOperations["append"],
+): ResearchThreadOperations {
+  return {
+    async create() {
+      throw new Error("Unexpected Research thread creation");
+    },
+    async list() {
+      return [];
+    },
+    async get() {
+      return {
+        id: threadId,
+        sourceId,
+        stateId,
+        componentIdentity: "active:/",
+        componentLabel: "Main entry",
+        title: "Existing inquiry",
+        createdAt: "2026-09-01T12:00:00.000Z",
+        updatedAt: "2026-09-01T12:00:00.000Z",
+        messages: [],
+      };
+    },
+    append,
+  };
+}
+
+function message(role: "user" | "assistant", content: string) {
+  return {
+    id: crypto.randomUUID(),
+    role,
+    content,
+    createdAt: "2026-09-01T12:00:00.000Z",
+  };
+}
+
+function completedStream(): ReadableStream<UIMessageChunk> {
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue({
+        type: "text-delta",
+        id: "assistant-text",
+        delta: "Completed answer",
+      });
+      controller.enqueue({ type: "finish", finishReason: "stop" });
+      controller.close();
+    },
+  });
+}

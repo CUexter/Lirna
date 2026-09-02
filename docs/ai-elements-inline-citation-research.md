@@ -46,8 +46,8 @@ The current path is already stronger than the component's URL-oriented example:
    [transport](../apps/web/src/features/reading-workspace/tools/researchAssistantTransport.ts)).
 2. `sourceAssistantRouter.ask` scopes a request to one admitted Source state,
    verifies the selected passage against the active Reading derivative, loads the
-   durable Research thread, sends the Source-state text and components to the
-   assistant, tees the stream, and persists the completed answer
+   durable Research thread, persists the user question, and delegates the
+   assistant lifecycle through one Research-turn interface
    ([router](../packages/api/src/orpc/routers/source-assistant.ts)).
 3. `createResearchAssistant` runs an AI SDK `ToolLoopAgent`. Its
    `referencePassage` tool accepts component identity, exact text, and occurrence;
@@ -55,10 +55,10 @@ The current path is already stronger than the component's URL-oriented example:
    normalized anchored selection rather than trusting model-provided offsets
    ([assistant](../packages/api/src/research-assistant/research-assistant.ts),
    [authored target](../packages/api/src/authored-targets/authored-target.ts)).
-4. `persistAssistantAnswer` consumes the UI message stream, saves only the final
-   synthesis step's text, and collects successful `referencePassage` tool outputs
-   as `ResearchPassageReference[]`
-   ([stream persistence](../packages/api/src/research-assistant/assistant-stream-persistence.ts)).
+4. `createResearchTurnOperations` owns model-stream consumption, cancellation,
+   final-step selection, marker compilation, and the atomic assistant answer plus
+   `ResearchPassageReference[]` commit
+   ([Research turn](../packages/api/src/research-assistant/research-turn.ts)).
 5. The PostgreSQL message row stores answer text and references. A reference
    contains component identity and label plus exact text, normalized offsets,
    prefix, suffix, and offset basis. The containing Research thread supplies the
@@ -496,8 +496,8 @@ Compiled inline-placement phase:
 - `packages/api/src/research-assistant/research-assistant.ts`:
   `createResearchAssistant`, `sourceTools`, alias-bearing tool output, and marker
   instructions for final synthesis.
-- `packages/api/src/research-assistant/assistant-stream-persistence.ts`:
-  `persistAssistantAnswer`, marker compilation, and occurrence persistence.
+- `packages/api/src/research-assistant/research-turn.ts`:
+  Research-turn streaming, marker compilation, and occurrence persistence.
 - `packages/api/src/orpc/routers/source-assistant.ts`: API schemas and projection.
 - `apps/web/src/features/reading-workspace/tools/researchAssistantTransport.ts`:
   compiled-occurrence metadata or typed `UIMessage` data-parts map.

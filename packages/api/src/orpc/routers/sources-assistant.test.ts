@@ -4,6 +4,7 @@ import type { UIMessageChunk } from "ai";
 import type { Context } from "../../context";
 import type { ResearchAssistantOperations } from "../../research-assistant/research-assistant";
 import type { ResearchThreadOperations } from "../../research-assistant/research-thread-contract";
+import { createResearchTurnOperations } from "../../research-assistant/research-turn";
 import { createTestContext } from "../application-test-support";
 import {
   admittedSourceStatesStub,
@@ -260,6 +261,7 @@ test("rejects selected evidence that does not match the admitted Source state", 
 
 test("observes a late assistant stream failure and returns a useful error", async () => {
   const observations: Record<string, unknown>[] = [];
+  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
   const result = await call(
     sourcesRouter.assistant.ask,
     {
@@ -280,7 +282,7 @@ test("observes a late assistant stream failure and returns a useful error", asyn
             });
           },
         },
-        undefined,
+        appended,
         {
           debugErrors: true,
           observation: {
@@ -312,12 +314,19 @@ test("observes a late assistant stream failure and returns a useful error", asyn
     outcome: "failure",
     err: { message: "Provider stream disconnected" },
   });
+  expect(appended).toEqual([
+    {
+      threadId: "30000000-0000-4000-8000-000000000000",
+      role: "user",
+      content: "What is the central claim?",
+    },
+  ]);
 });
 
-test("does not fail when the completed assistant stream is cancelled", async () => {
+test("cancelling a streamed turn preserves only the user question", async () => {
   const observations: Record<string, unknown>[] = [];
-  const persistenceStarted = Promise.withResolvers<void>();
-  const releasePersistence = Promise.withResolvers<void>();
+  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  let modelCancelled = false;
   const testContext = context(
     {
       async answer() {
@@ -326,15 +335,16 @@ test("does not fail when the completed assistant stream is cancelled", async () 
             controller.enqueue({
               type: "text-delta",
               id: "assistant-text",
-              delta: "Completed answer",
+              delta: "Partial answer",
             });
-            controller.enqueue({ type: "finish", finishReason: "stop" });
-            controller.close();
+          },
+          cancel() {
+            modelCancelled = true;
           },
         });
       },
     },
-    undefined,
+    appended,
     {
       observation: {
         requestId: "req-stream-cancelled",
@@ -345,18 +355,6 @@ test("does not fail when the completed assistant stream is cancelled", async () 
       },
     },
   );
-  testContext.researchThreads.append = async (input) => {
-    if (input.role === "assistant") {
-      persistenceStarted.resolve();
-      await releasePersistence.promise;
-    }
-    return {
-      id: crypto.randomUUID(),
-      role: input.role,
-      content: input.content,
-      createdAt: "2026-09-01T12:00:00.000Z",
-    };
-  };
   const result = await call(
     sourcesRouter.assistant.ask,
     {
@@ -372,15 +370,16 @@ test("does not fail when the completed assistant stream is cancelled", async () 
   expect(await result.next()).toMatchObject({
     value: { type: "text-delta" },
   });
-  expect(await result.next()).toMatchObject({
-    value: { type: "finish" },
-  });
-  await persistenceStarted.promise;
-  const cancellation = result.return?.();
-  releasePersistence.resolve();
-  await cancellation;
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await result.return?.();
 
+  expect(modelCancelled).toBe(true);
+  expect(appended).toEqual([
+    {
+      threadId: "30000000-0000-4000-8000-000000000000",
+      role: "user",
+      content: "What is the central claim?",
+    },
+  ]);
   expect(observations).toEqual([]);
 });
 
@@ -389,6 +388,37 @@ function context(
   appended?: Array<Parameters<ResearchThreadOperations["append"]>[0]>,
   options: Parameters<typeof createTestContext>[1] = {},
 ): Context {
+  const researchThreads: ResearchThreadOperations = {
+    async create() {
+      throw new Error("Unexpected Research thread creation");
+    },
+    async list() {
+      return [];
+    },
+    async get() {
+      return {
+        id: "30000000-0000-4000-8000-000000000000",
+        sourceId,
+        stateId,
+        componentIdentity: "active:/",
+        componentLabel: "Main entry",
+        title: "Existing inquiry",
+        createdAt: "2026-09-01T12:00:00.000Z",
+        updatedAt: "2026-09-01T12:00:00.000Z",
+        messages: [],
+      };
+    },
+    async append(input) {
+      appended?.push(input);
+      return {
+        id: crypto.randomUUID(),
+        role: input.role,
+        content: input.content,
+        ...(input.selectedText ? { selectedText: input.selectedText } : {}),
+        createdAt: "2026-09-01T12:00:00.000Z",
+      };
+    },
+  };
   return createTestContext(
     {
       admittedSourceStates: admittedSourceStatesStub({
@@ -400,38 +430,11 @@ function context(
           return reading;
         },
       }),
-      researchAssistant,
-      researchThreads: {
-        async create() {
-          throw new Error("Unexpected Research thread creation");
-        },
-        async list() {
-          return [];
-        },
-        async get() {
-          return {
-            id: "30000000-0000-4000-8000-000000000000",
-            sourceId,
-            stateId,
-            componentIdentity: "active:/",
-            componentLabel: "Main entry",
-            title: "Existing inquiry",
-            createdAt: "2026-09-01T12:00:00.000Z",
-            updatedAt: "2026-09-01T12:00:00.000Z",
-            messages: [],
-          };
-        },
-        async append(input) {
-          appended?.push(input);
-          return {
-            id: crypto.randomUUID(),
-            role: input.role,
-            content: input.content,
-            ...(input.selectedText ? { selectedText: input.selectedText } : {}),
-            createdAt: "2026-09-01T12:00:00.000Z",
-          };
-        },
-      },
+      researchTurns: createResearchTurnOperations(
+        researchAssistant,
+        researchThreads,
+      ),
+      researchThreads,
     },
     options,
   );

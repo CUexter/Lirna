@@ -1,13 +1,11 @@
 import { openapi } from "@orpc/openapi";
 import { ORPCError, streamToAsyncIteratorObject } from "@orpc/server";
-import type { UIMessageChunk } from "ai";
 import { z } from "zod";
 import {
   authoredTargetInputSchema,
   InvalidAuthoredTargetError,
   validateAuthoredTarget,
 } from "../../authored-targets/authored-target";
-import { persistAssistantAnswer } from "../../research-assistant/assistant-stream-persistence";
 import { researchAnswerHistoryContent } from "../../research-assistant/research-answer-markers";
 import {
   defaultResearchAssistantModel,
@@ -175,7 +173,7 @@ export const sourceAssistantRouter = {
         ({ identity }) => identity === input.componentIdentity,
       );
       if (!component) throw notFound("SEP Reading component is unavailable");
-      if (!context.researchAssistant) {
+      if (!context.researchTurns) {
         throw new ORPCError("INTERNAL_SERVER_ERROR", {
           message: "Research assistant is not configured",
         });
@@ -198,8 +196,9 @@ export const sourceAssistantRouter = {
         });
       }
       const handleStreamError = streamErrorHandler(context);
-      const answer = await context.researchAssistant.answer(
+      const answer = await context.researchTurns.answer(
         {
+          threadId: thread.id,
           ...(attachments ? { attachments } : {}),
           history: thread.messages.map(
             ({ role, content, references, selectedText }) => ({
@@ -228,56 +227,12 @@ export const sourceAssistantRouter = {
         },
         { onError: handleStreamError },
       );
-      const [responseStream, persistenceStream] = answer.tee();
-      const persistence = persistAssistantAnswer(
-        persistenceStream,
-        (content, references) =>
-          context.researchThreads.append({
-            threadId: thread.id,
-            role: "assistant",
-            content,
-            ...(references.length ? { references } : {}),
-          }),
-      ).catch(handleStreamError);
-      return streamToAsyncIteratorObject(
-        recoverAssistantStream(responseStream, handleStreamError, persistence),
-      );
+      return streamToAsyncIteratorObject(answer);
     }),
 };
 
 function threadTitle(question: string) {
   return question.length <= 120 ? question : `${question.slice(0, 117)}...`;
-}
-
-function recoverAssistantStream(
-  stream: ReadableStream<UIMessageChunk>,
-  onError: (error: unknown) => string,
-  completion?: Promise<unknown>,
-): ReadableStream<UIMessageChunk> {
-  const reader = stream.getReader();
-  let cancelled = false;
-  return new ReadableStream({
-    async pull(controller) {
-      try {
-        const next = await reader.read();
-        if (next.done) {
-          await completion;
-          if (!cancelled) controller.close();
-          return;
-        }
-        if (cancelled) return;
-        controller.enqueue(next.value);
-      } catch (error) {
-        if (cancelled) return;
-        controller.enqueue({ type: "error", errorText: onError(error) });
-        controller.close();
-      }
-    },
-    async cancel(reason) {
-      cancelled = true;
-      await reader.cancel(reason);
-    },
-  });
 }
 
 function streamErrorHandler(context: {

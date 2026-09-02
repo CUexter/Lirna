@@ -21,6 +21,10 @@ import {
 } from "./research-assistant/research-assistant";
 import type { ResearchThreadOperations } from "./research-assistant/research-thread-contract";
 import { DrizzleResearchThreadStore } from "./research-assistant/research-thread-store";
+import {
+  createResearchTurnOperations,
+  type ResearchTurnOperations,
+} from "./research-assistant/research-turn";
 import type { SepAdmissionOperations } from "./sep-admission/admission/operations";
 import { createDrizzleSepAdmissionOperations } from "./sep-admission/admission/store";
 import type { ActiveReadingDerivativeOperations } from "./sep-admission/state/active-reading-derivative";
@@ -37,6 +41,7 @@ export type ApplicationAdapters = {
   readingPositions?: ReadingPositionOperations;
   readingWorkspaces?: ReadingWorkspaceOperations;
   researchAssistant?: ResearchAssistantOperations | null;
+  researchTurns?: ResearchTurnOperations | null;
   researchThreads?: ResearchThreadOperations;
   derivativeUpdates?: DerivativeUpdateOperations;
   activeReadingDerivatives?: ActiveReadingDerivativeOperations;
@@ -57,6 +62,13 @@ export function createApplication(
     adapters.researchAssistant === undefined
       ? productionResearchAssistant()
       : adapters.researchAssistant;
+  const researchThreads =
+    adapters.researchThreads ?? new DrizzleResearchThreadStore(db);
+  const researchTurns = selectResearchTurns(
+    adapters.researchTurns,
+    researchAssistant,
+    researchThreads,
+  );
   return {
     sepAdmissions:
       adapters.sepAdmissions ?? createDrizzleSepAdmissionOperations(db),
@@ -75,14 +87,13 @@ export function createApplication(
       new DrizzleReadingPositionStore(db, activeReadingDerivatives),
     readingWorkspaces:
       adapters.readingWorkspaces ?? createReadingWorkspaceReader(db),
-    researchThreads:
-      adapters.researchThreads ?? new DrizzleResearchThreadStore(db),
+    researchThreads,
     derivativeUpdates:
       adapters.derivativeUpdates ?? new DrizzleDerivativeUpdateStore(db),
     activeReadingDerivatives,
     offlineWorkingSets:
       adapters.offlineWorkingSets ?? createOfflineWorkingSetCapture(db),
-    ...(researchAssistant ? { researchAssistant } : {}),
+    ...(researchTurns ? { researchTurns } : {}),
   };
 }
 
@@ -102,5 +113,16 @@ function productionResearchAssistant() {
     ? createOpenRouterResearchAssistant({
         apiKey: env.OPENROUTER_API_KEY,
       })
+    : undefined;
+}
+
+function selectResearchTurns(
+  configured: ResearchTurnOperations | null | undefined,
+  assistant: ResearchAssistantOperations | null | undefined,
+  threads: ResearchThreadOperations,
+) {
+  if (configured !== undefined) return configured ?? undefined;
+  return assistant
+    ? createResearchTurnOperations(assistant, threads)
     : undefined;
 }
