@@ -179,7 +179,9 @@ export function QuestionComposer({
             value={model.value}
           >
             <SelectTrigger aria-label="Model" className="mr-auto border-0 px-1">
-              <SelectValue />
+              <SelectValue>
+                {researchAssistantModelLabels[model.value]}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent align="start">
               {researchAssistantModelIds.map((modelId) => (

@@ -320,10 +320,11 @@ test("streams a Markdown answer through the server", async () => {
   );
 
   const modelSelector = view().getByRole("combobox", { name: "Model" });
-  expect(modelSelector.textContent).toContain("Kimi K3");
+  expect(modelSelector.textContent).toContain("GLM 5.3 Flash");
   await user.click(modelSelector);
-  expect(view().getAllByRole("option")).toHaveLength(2);
-  await user.click(view().getByRole("option", { name: "GLM 5.3 Flash" }));
+  await user.click(
+    view().getByRole("option", { name: "DeepSeek V4 Flash 0731" }),
+  );
 
   await user.type(
     view().getByRole("textbox", { name: "Question" }),
@@ -352,7 +353,7 @@ test("streams a Markdown answer through the server", async () => {
     sourceId,
     stateId,
     componentIdentity: "article",
-    model: "z-ai/glm-5.3-flash",
+    model: "deepseek/deepseek-v4-flash-0731",
     question: "What claim does this Source make?",
     threadId,
   });
@@ -393,7 +394,7 @@ test("opens the assistant from selected text and sends its exact anchor", async 
     sourceId,
     stateId,
     componentIdentity: "article",
-    model: "moonshotai/kimi-k3",
+    model: "z-ai/glm-5.3-flash",
     question: "What does this passage claim?",
     threadId,
     selection: {

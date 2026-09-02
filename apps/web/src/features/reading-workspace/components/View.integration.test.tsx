@@ -27,6 +27,9 @@ test("renders Source-state scholarly apparatus", async () => {
   expect(view().getAllByRole("banner")[0]?.classList.contains("sticky")).toBe(
     true,
   );
+  expect(
+    view().getByRole("link", { name: "Source library" }).getAttribute("href"),
+  ).toBe("/sources");
   expect(within(view().getByRole("main")).queryByText("SEP")).toBeNull();
   expect(view().getAllByText("Synthetic figure")).toHaveLength(1);
   expect(

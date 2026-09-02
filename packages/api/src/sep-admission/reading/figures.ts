@@ -226,12 +226,16 @@ function isDecorativeImage(image: HtmlElement) {
   );
 }
 
+function isPublisherIcon(image: HtmlElement) {
+  return /\bicon\s*$/i.test(attribute(image, "alt") ?? "");
+}
+
 function isSemanticFigure(
   element: HtmlElement,
   asset: FigureResource | undefined,
 ) {
   if (element.tagName !== "img") return true;
-  if (isDecorativeImage(element)) return false;
+  if (isDecorativeImage(element) || isPublisherIcon(element)) return false;
   return Boolean(
     asset ||
       attribute(element, "alt")?.trim() ||

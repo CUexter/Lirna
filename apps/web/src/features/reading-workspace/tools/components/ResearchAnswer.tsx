@@ -14,6 +14,7 @@ import {
   InlineCitationSource,
 } from "@lirna/ui/components/ai-elements/inline-citation";
 import { MessageResponse } from "@lirna/ui/components/ai-elements/message";
+import { Button } from "@lirna/ui/components/button";
 import { createContext, useContext } from "react";
 
 import type { ArticlePassage } from "../../navigation/hooks/useShowInArticle";
@@ -67,6 +68,7 @@ export function ResearchAnswer({
     >
       <MessageResponse
         allowedTags={markerAllowedTags}
+        className="research-answer"
         components={markerComponents}
         remarkPlugins={markerPlugins}
       >
@@ -164,19 +166,29 @@ function CitationControl({
               </InlineCitationCarouselHeader>
             ) : null}
             <InlineCitationCarouselContent>
-              {citations.map(({ marker, number, relationLabel: label }) => (
-                <InlineCitationCarouselItem
-                  key={`${number}:${marker.reference.selection.normalizedStartOffset}:${label}`}
-                >
-                  <InlineCitationSource
-                    description={label}
-                    title={marker.reference.componentLabel}
-                  />
-                  <InlineCitationQuote>
-                    {marker.reference.selection.exactText}
-                  </InlineCitationQuote>
-                </InlineCitationCarouselItem>
-              ))}
+              {citations.map(
+                ({ marker, number, passage, relationLabel: label }) => (
+                  <InlineCitationCarouselItem
+                    key={`${number}:${marker.reference.selection.normalizedStartOffset}:${label}`}
+                  >
+                    <Button
+                      type="button"
+                      aria-label={`Show citation ${number} in article`}
+                      className="h-auto w-full justify-start rounded-none p-0 text-left font-normal transition-opacity hover:bg-transparent hover:opacity-80 focus-visible:outline-2 focus-visible:-outline-offset-2"
+                      onClick={() => passage.show()}
+                      variant="ghost"
+                    >
+                      <InlineCitationSource
+                        description={label}
+                        title={marker.reference.componentLabel}
+                      />
+                      <InlineCitationQuote>
+                        {marker.reference.selection.exactText}
+                      </InlineCitationQuote>
+                    </Button>
+                  </InlineCitationCarouselItem>
+                ),
+              )}
             </InlineCitationCarouselContent>
           </InlineCitationCarousel>
         </InlineCitationCardBody>

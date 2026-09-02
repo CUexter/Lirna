@@ -257,10 +257,12 @@ test("selects an existing Research thread and starts a new one", async () => {
     />,
   );
 
-  await user.selectOptions(
-    view().getByLabelText("Research thread"),
-    "40000000-0000-4000-8000-000000000000",
+  await user.click(view().getByRole("button", { name: "Research thread" }));
+  await user.type(
+    view().getByPlaceholderText("Search Research threads…"),
+    "Earlier",
   );
+  await user.click(view().getByRole("option", { name: /Earlier inquiry/ }));
   expect(resumed).toBe("40000000-0000-4000-8000-000000000000");
   await user.click(
     view().getByRole("button", { name: "Start new Research thread" }),

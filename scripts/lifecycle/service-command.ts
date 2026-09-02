@@ -105,6 +105,17 @@ async function runtimeEnvironment() {
   };
 }
 
+export function serviceProcessEnvironment(
+  name: string,
+  values: Record<string, string>,
+  port: number,
+  inherited: Record<string, string | undefined> = process.env,
+) {
+  const environment = { ...inherited, ...values, PORT: String(port) };
+  if (name === "server") delete environment.OPENROUTER_API_KEY;
+  return environment;
+}
+
 export async function runService(args: string[]) {
   const name = args[0];
   if (args.length !== 1 || !name || !Object.hasOwn(serviceDefinitions, name)) {
@@ -120,7 +131,7 @@ export async function runService(args: string[]) {
   }
   const child = Bun.spawn(service.command(port, checkoutPath), {
     cwd: checkoutPath,
-    env: { ...process.env, ...values, PORT: String(port) },
+    env: serviceProcessEnvironment(name, values, port),
     stderr: "inherit",
     stdin: "inherit",
     stdout: "inherit",

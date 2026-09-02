@@ -9,6 +9,18 @@ html:has(.reading-workspace) {
   scrollbar-gutter: stable;
 }
 
+/* Verbatim Source passages reach Research answers as inline code; present them
+   as quotations instead of Streamdown's monospace chips. */
+.research-answer [data-streamdown="inline-code"] {
+  background-color: color-mix(in oklab, var(--muted) 55%, transparent);
+  border-radius: 0.25rem;
+  box-decoration-break: clone;
+  font-family: var(--font-serif);
+  font-size: inherit;
+  font-style: italic;
+  padding: 0 0.2em;
+}
+
 .cn-toast[data-type="error"] {
   --error-text: #b00020;
 }

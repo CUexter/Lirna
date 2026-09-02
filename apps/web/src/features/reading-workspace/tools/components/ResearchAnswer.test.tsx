@@ -187,6 +187,8 @@ test("keeps aliases for duplicate verified passages independently resolvable", (
 });
 
 test("groups adjacent evidence markers for one claim into one citation carousel", async () => {
+  const user = userEvent.setup();
+  const shown: string[] = [];
   render(
     <ResearchAssistantTranscript
       messages={[
@@ -198,11 +200,13 @@ test("groups adjacent evidence markers for one claim into one citation carousel"
               "first-reference",
               "ev_1",
               "10000000-0000-4000-8000-000000000000",
+              "First evidence text.",
             ),
             referenceToolPart(
               "second-reference",
               "ev_2",
               "20000000-0000-4000-8000-000000000000",
+              "Second evidence text.",
             ),
             { type: "step-start" },
             {
@@ -213,7 +217,9 @@ test("groups adjacent evidence markers for one claim into one citation carousel"
         },
       ]}
       passageForReference={(reference) => ({
-        show: () => {},
+        show: () => {
+          shown.push(reference.selection.exactText);
+        },
         text: reference.selection.exactText,
       })}
       passageForSelection={(selection) => ({
@@ -234,6 +240,14 @@ test("groups adjacent evidence markers for one claim into one citation carousel"
   await waitFor(() =>
     expect(view().getByRole("button", { name: "Next" })).toBeTruthy(),
   );
+
+  await user.click(
+    view().getByRole("button", { name: "Show citation 2 in article" }),
+  );
+  expect(shown).toEqual(["Second evidence text."]);
+
+  await user.click(citation);
+  expect(shown).toEqual(["Second evidence text.", "First evidence text."]);
 });
 
 test("renders a Markdown table in an assistant message", () => {
@@ -279,6 +293,7 @@ function referenceToolPart(
   toolCallId: string,
   evidenceAlias: string,
   id: string,
+  exactText = "Verified evidence.",
 ) {
   return {
     type: "tool-referencePassage" as const,
@@ -286,7 +301,7 @@ function referenceToolPart(
     state: "output-available" as const,
     input: {
       componentIdentity: "article",
-      exactText: "Verified evidence.",
+      exactText,
       occurrence: 1,
     },
     output: {
@@ -299,7 +314,7 @@ function referenceToolPart(
         offsetBasis: "normalized-derivative-text-v1" as const,
         normalizedStartOffset: 0,
         normalizedEndOffset: 18,
-        exactText: "Verified evidence.",
+        exactText,
         prefix: "",
         suffix: "",
       },

@@ -76,28 +76,30 @@ export function ReadingWorkspaceView({
     >
       <div className="@container/reading min-w-0">
         <header className="sticky top-0 z-40 border-b bg-background/95 px-4 backdrop-blur sm:px-6 lg:px-10">
-          <div className="mx-auto flex h-16 w-full max-w-6xl items-center 2xl:max-w-[104rem]">
+          <div className="mx-auto grid h-16 w-full max-w-6xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center 2xl:max-w-[104rem]">
             <Link
-              className={buttonVariants({ size: "sm", variant: "ghost" })}
-              hash="source-information"
-              onClick={(event) => {
-                if (!authoredFragmentFromClick(event)) return;
-                event.preventDefault();
-                onFragmentActivate("source-information");
-              }}
-              to="."
+              className={buttonVariants({
+                className: "justify-self-start",
+                size: "sm",
+                variant: "ghost",
+              })}
+              to="/sources"
             >
               <ArrowLeftIcon data-icon="inline-start" />
-              Source information
+              Source library
             </Link>
-            <span className="ml-auto font-semibold font-serif text-xl">
+            <span className="justify-self-center font-semibold font-serif text-xl">
               Lirna
             </span>
             <Button
               aria-controls="reading-research-assistant"
               aria-expanded={assistantOpen}
               aria-label="Ask this Source"
-              className={buttonVariants({ size: "sm", variant: "ghost" })}
+              className={buttonVariants({
+                className: "justify-self-end",
+                size: "sm",
+                variant: "ghost",
+              })}
               onClick={() => {
                 if (assistantOpen) {
                   setAssistantContext(undefined);

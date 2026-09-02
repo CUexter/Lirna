@@ -74,18 +74,11 @@ function derivative(
 }
 
 describe("SEP Reading figures", () => {
-  test("keeps semantic images with missing assets as diagnosed figures", () => {
+  test("omits standalone publisher icons", () => {
     const result = derivative(
-      '<main><p>Reading content.</p><img src="icons/sep-man.png" alt="SEP man icon"></main>',
+      '<main><p>Reading content.</p><img src="icons/sep-man.png" alt="SEP man icon"><img src="icons/inpho.png" alt="inpho icon"><img src="icons/philpapers.png" alt="phil papers icon"></main>',
     );
-    expect(result.components[0]?.figures).toEqual([
-      expect.objectContaining({
-        description: { text: [{ kind: "text", text: "SEP man icon" }] },
-        diagnostics: [
-          expect.objectContaining({ code: "missing-semantic-asset" }),
-        ],
-      }),
-    ]);
+    expect(result.components[0]?.figures).toEqual([]);
   });
 
   test("keeps images with authored descriptions when assets are missing", () => {

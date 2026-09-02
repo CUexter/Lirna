@@ -45,6 +45,7 @@
     "packages/ui/src/components/select.tsx": "b041f2d8a761b02a21dfe2d8f57b531caf38978abd264566ddb8a25872e6fd0c",
     "packages/ui/src/components/ai-elements/inline-citation.tsx": "1df78b844cb9a06dfcb1310810c7e81b83454a7f5c94fe2fdc5b866345453182",
     "packages/ui/src/components/carousel.tsx": "c38bc10c95f137abb688a68192c46036f9cc482517b584f4ee8b10278d8667f9",
-    "packages/ui/src/components/hover-card.tsx": "e1ae88229baa7964c6ba89360253eb1e362e5e6b18a06acb04b0d2fe0960a2cc"
+    "packages/ui/src/components/hover-card.tsx": "e1ae88229baa7964c6ba89360253eb1e362e5e6b18a06acb04b0d2fe0960a2cc",
+    "packages/ui/src/components/command.tsx": "9d4988c2832ae2c81a8b18147eda1d93d248720db9bdd73f377089a98a70d668"
   }
 }
