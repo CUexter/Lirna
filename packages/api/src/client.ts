@@ -5,6 +5,10 @@ export type {
   OrpcContext,
   OrpcRouter,
 } from "./orpc/router";
+export type {
+  EvidenceResolutionResult,
+  UnresolvedEvidenceResolution,
+} from "./research-assistant/evidence-resolution";
 export {
   defaultResearchAssistantModel,
   type ResearchAssistantModel,

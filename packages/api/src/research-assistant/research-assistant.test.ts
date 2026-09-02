@@ -154,6 +154,8 @@ test("reads a supplementary component and creates a verified passage reference",
     toolCallId: "reference",
     output: {
       kind: "source-passage-reference",
+      outcome: "found",
+      candidateCount: 1,
       id: expect.any(String),
       evidenceAlias: "ev_1",
       componentIdentity: "supplement-one",

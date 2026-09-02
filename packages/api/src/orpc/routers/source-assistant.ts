@@ -12,6 +12,7 @@ import {
   researchAssistantModelIds,
 } from "../../research-assistant/research-assistant-contract";
 import { publicProcedure } from "../init";
+import { researchAssistantAnswerOptions } from "./research-assistant-observation";
 import { notFoundError, sourceStateInput } from "./source-router-contracts";
 import { notFound, requireReading } from "./source-router-support";
 
@@ -195,7 +196,6 @@ export const sourceAssistantRouter = {
           message: "Research question could not be persisted",
         });
       }
-      const handleStreamError = streamErrorHandler(context);
       const answer = await context.researchTurns.answer(
         {
           threadId: thread.id,
@@ -225,7 +225,7 @@ export const sourceAssistantRouter = {
             }),
           ),
         },
-        { onError: handleStreamError },
+        researchAssistantAnswerOptions(context),
       );
       return streamToAsyncIteratorObject(answer);
     }),
@@ -233,37 +233,6 @@ export const sourceAssistantRouter = {
 
 function threadTitle(question: string) {
   return question.length <= 120 ? question : `${question.slice(0, 117)}...`;
-}
-
-function streamErrorHandler(context: {
-  debugErrors?: boolean;
-  observation?: {
-    requestId: string;
-    emit(level: "error", record: Record<string, unknown>): void;
-  };
-}) {
-  let observed = false;
-  return (error: unknown) => {
-    const cause = error instanceof Error ? error : new Error(String(error));
-    if (!observed) {
-      observed = true;
-      try {
-        context.observation?.emit("error", {
-          event: "research_assistant.stream_failed",
-          operation: "sources.assistant.ask",
-          outcome: "failure",
-          err: cause,
-        });
-      } catch {
-        // Diagnostics must not alter stream handling.
-      }
-    }
-    const reference = context.observation?.requestId;
-    const detail = context.debugErrors ? `: ${cause.message}` : ".";
-    return `Research assistant response failed${detail}${
-      reference ? ` Error reference: ${reference}.` : ""
-    }`;
-  };
 }
 
 function temporaryAttachment(

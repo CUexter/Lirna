@@ -72,6 +72,86 @@ test("failed final persistence preserves only the user question", async () => {
   ]);
 });
 
+test("observes evidence refusal as a content-free research outcome", async () => {
+  const observations: Array<{
+    level: string;
+    record: Record<string, unknown>;
+  }> = [];
+  const researchThreads = threads(async (input) =>
+    message(input.role, input.content),
+  );
+  const result = await call(
+    sourcesRouter.assistant.ask,
+    {
+      sourceId,
+      stateId,
+      componentIdentity: "active:/",
+      question: "Do not retain this question",
+      threadId,
+    },
+    {
+      context: createTestContext(
+        {
+          admittedSourceStates: admittedSourceStatesStub({
+            async getReading() {
+              return readingFixture();
+            },
+          }),
+          researchThreads,
+          researchTurns: createResearchTurnOperations(
+            {
+              async answer(_input, options) {
+                options?.onEvidenceResolution?.({
+                  operation: "referencePassage",
+                  outcome: "refused",
+                  reasonCode: "scope-denied",
+                  componentScope: ["supplement:/private"],
+                  candidateCount: 0,
+                  durationMs: 4.5,
+                });
+                return completedStream();
+              },
+            },
+            researchThreads,
+          ),
+        },
+        {
+          observation: {
+            requestId: "req-evidence-refused",
+            emit(level, record) {
+              observations.push({ level, record });
+            },
+            fail() {},
+          },
+        },
+      ),
+    },
+  );
+
+  for await (const _chunk of result) {
+    // Consume the response so the Research turn completes.
+  }
+
+  expect(observations).toEqual([
+    {
+      level: "info",
+      record: {
+        event: "research_assistant.evidence_resolution",
+        operation: "referencePassage",
+        outcome: "refused",
+        reasonCode: "scope-denied",
+        componentScope: ["supplement:/private"],
+        candidateCount: 0,
+        durationMs: 4.5,
+      },
+    },
+  ]);
+  expect(JSON.stringify(observations)).not.toContain(
+    "Do not retain this question",
+  );
+  expect(JSON.stringify(observations)).not.toContain("Completed answer");
+});
+
 function assistant(stream: ReadableStream<UIMessageChunk>) {
   return {
     async answer() {

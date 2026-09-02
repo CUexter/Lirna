@@ -112,6 +112,7 @@ function ResearchTool({ part }: { part: ToolPart }) {
       {part.type === "dynamic-tool" ? (
         <ToolHeader
           state={part.state}
+          statusLabel={evidenceStatus(part)}
           title={toolTitle(part)}
           toolName={part.toolName}
           type={part.type}
@@ -119,6 +120,7 @@ function ResearchTool({ part }: { part: ToolPart }) {
       ) : (
         <ToolHeader
           state={part.state}
+          statusLabel={evidenceStatus(part)}
           title={toolTitle(part)}
           type={part.type}
         />
@@ -214,6 +216,25 @@ function toolTitle(part: ToolPart) {
   );
 }
 
+function evidenceStatus(part: ToolPart) {
+  if (part.state !== "output-available") return;
+  const output = part.output;
+  if (!output || typeof output !== "object" || !("outcome" in output)) return;
+  if (typeof output.outcome !== "string") return;
+  return evidenceOutcomeText(output.outcome);
+}
+
+function evidenceOutcomeText(outcome: string) {
+  return {
+    found: "Verified passage",
+    none: "No relevant passage found",
+    ambiguous: "Several passages may apply",
+    stale: "Source representation changed",
+    refused: "Evidence could not be admitted",
+    "budget-exhausted": "Evidence budget exhausted",
+  }[outcome];
+}
+
 // fallow-ignore-next-line complexity
 function toolOutput(part: ToolPart): ReactNode {
   if (part.state !== "output-available") return null;
@@ -229,6 +250,10 @@ function toolOutput(part: ToolPart): ReactNode {
     return `Read ${result.componentLabel ?? "Source component"}, characters ${result.offset ?? 0}-${result.endOffset ?? 0}.`;
   }
   if (isReferencePassagePart(part) && "kind" in output) {
+    if ("outcome" in output && typeof output.outcome === "string")
+      return (
+        evidenceOutcomeText(output.outcome) ?? "Evidence outcome recorded."
+      );
     if (output.kind === "source-passage-reference")
       return "Verified an exact passage for the Sources list.";
     if ("reason" in output && typeof output.reason === "string")

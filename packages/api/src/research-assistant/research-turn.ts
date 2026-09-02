@@ -3,6 +3,7 @@ import { z } from "zod";
 import { authoredTargetInputSchema } from "../authored-targets/authored-target";
 import { compileResearchAnswer } from "./research-answer-markers";
 import type {
+  ResearchAssistantAnswerOptions,
   ResearchAssistantInput,
   ResearchAssistantOperations,
 } from "./research-assistant";
@@ -18,7 +19,7 @@ export interface ResearchTurnInput extends ResearchAssistantInput {
 export interface ResearchTurnOperations {
   answer(
     input: ResearchTurnInput,
-    options?: { onError?: (error: unknown) => string },
+    options?: ResearchAssistantAnswerOptions,
   ): Promise<ReadableStream<UIMessageChunk>>;
 }
 
