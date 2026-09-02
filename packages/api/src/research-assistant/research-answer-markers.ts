@@ -52,6 +52,23 @@ export function compileResearchAnswer(
   return { content: compiledContent, references };
 }
 
+export function researchAnswerHistoryContent(
+  content: string,
+  references: ResearchPassageReference[],
+) {
+  let historyContent = content;
+  for (const reference of references) {
+    for (const occurrence of reference.occurrences ?? []) {
+      const marker =
+        occurrence.presentation === "quote"
+          ? `:::quote[${occurrence.id}]\n:::`
+          : `[^${occurrence.id}]`;
+      historyContent = historyContent.replaceAll(marker, "");
+    }
+  }
+  return historyContent;
+}
+
 function collectReplacements(
   node: MarkdownNode,
   content: string,

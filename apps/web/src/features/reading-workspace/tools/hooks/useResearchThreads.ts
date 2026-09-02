@@ -25,6 +25,7 @@ export function useResearchThreads({
 }) {
   const [threads, setThreads] = useState<ResearchThreadSummary[]>([]);
   const [activeThread, setActiveThread] = useState<ResearchThread>();
+  const [activeThreadId, setActiveThreadId] = useState<string>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
   const { sourceId, stateId } = scope;
@@ -35,6 +36,7 @@ export function useResearchThreads({
     setLoading(true);
     setError(undefined);
     setActiveThread(undefined);
+    setActiveThreadId(undefined);
     void listResearchThreads({ sourceId, stateId })
       .then(async (listed) => {
         if (!current) return;
@@ -46,7 +48,10 @@ export function useResearchThreads({
           stateId,
           threadId: latest.id,
         });
-        if (current) setActiveThread(loaded);
+        if (current) {
+          setActiveThread(loaded);
+          setActiveThreadId(loaded?.id);
+        }
       })
       .catch((reason: unknown) => {
         if (current)
@@ -68,7 +73,9 @@ export function useResearchThreads({
     setLoading(true);
     setError(undefined);
     try {
-      setActiveThread(await loadResearchThread({ ...scope, threadId }));
+      const loaded = await loadResearchThread({ ...scope, threadId });
+      setActiveThread(loaded);
+      setActiveThreadId(loaded?.id);
     } catch (reason) {
       setError(
         reason instanceof Error
@@ -82,12 +89,9 @@ export function useResearchThreads({
 
   async function threadCreated(threadId: string) {
     try {
-      const [listed, created] = await Promise.all([
-        listResearchThreads(scope),
-        loadResearchThread({ ...scope, threadId }),
-      ]);
+      const listed = await listResearchThreads(scope);
       setThreads(listed);
-      setActiveThread(created);
+      setActiveThreadId(threadId);
     } catch (reason) {
       setError(
         reason instanceof Error
@@ -99,10 +103,14 @@ export function useResearchThreads({
 
   return {
     activeThread,
+    activeThreadId,
     error,
     loading,
     resume,
-    startNew: () => setActiveThread(undefined),
+    startNew: () => {
+      setActiveThread(undefined);
+      setActiveThreadId(undefined);
+    },
     threadCreated,
     threads,
   };

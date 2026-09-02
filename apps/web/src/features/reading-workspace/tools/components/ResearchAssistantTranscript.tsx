@@ -71,7 +71,7 @@ export function ResearchAssistantTranscript({
     );
   }
   return (
-    <MessageScrollerProvider>
+    <MessageScrollerProvider autoScroll>
       <MessageScroller aria-busy={pending}>
         <MessageScrollerViewport>
           <MessageScrollerContent className="justify-end p-4">
@@ -156,7 +156,7 @@ function TranscriptMessage({
   if (message.role === "assistant" && !hasAssistantContent && !waiting)
     return null;
   return (
-    <MessageScrollerItem scrollAnchor={message.role === "user"}>
+    <MessageScrollerItem>
       {waiting ? (
         <AssistantWaiting />
       ) : message.role === "assistant" ? (

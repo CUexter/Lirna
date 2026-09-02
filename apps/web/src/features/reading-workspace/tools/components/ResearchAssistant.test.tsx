@@ -71,6 +71,12 @@ test("animates while waiting and renders streamed Markdown with AI Elements", as
   expect(waiting.querySelector(".bg-clip-text.text-transparent")).toBeTruthy();
   expect(document.querySelectorAll("[data-slot='message']")).toHaveLength(1);
   expect(document.querySelectorAll("[data-slot='bubble']")).toHaveLength(1);
+  expect(
+    view()
+      .getByText("What is grounded?")
+      .closest("[data-slot='message-scroller-item']")
+      ?.getAttribute("data-scroll-anchor"),
+  ).toBe("false");
 
   await act(async () => {
     releaseResponse();

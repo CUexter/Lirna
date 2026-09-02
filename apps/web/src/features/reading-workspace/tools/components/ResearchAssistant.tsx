@@ -188,7 +188,7 @@ export function ReadingResearchAssistant({
             </p>
             {!transport ? (
               <ResearchThreadPicker
-                activeThreadId={researchThreads.activeThread?.id}
+                activeThreadId={researchThreads.activeThreadId}
                 disabled={pending || researchThreads.loading}
                 onNew={() => {
                   draftThreadIdRef.current = undefined;

@@ -8,6 +8,7 @@ import {
   validateAuthoredTarget,
 } from "../../authored-targets/authored-target";
 import { persistAssistantAnswer } from "../../research-assistant/assistant-stream-persistence";
+import { researchAnswerHistoryContent } from "../../research-assistant/research-answer-markers";
 import { publicProcedure } from "../init";
 import { notFoundError, sourceStateInput } from "./source-router-contracts";
 import { notFound, requireReading } from "./source-router-support";
@@ -193,11 +194,16 @@ export const sourceAssistantRouter = {
       const answer = await context.researchAssistant.answer(
         {
           ...(attachments ? { attachments } : {}),
-          history: thread.messages.map(({ role, content, selectedText }) => ({
-            role,
-            content,
-            ...(selectedText ? { selectedText } : {}),
-          })),
+          history: thread.messages.map(
+            ({ role, content, references, selectedText }) => ({
+              role,
+              content:
+                role === "assistant" && references?.length
+                  ? researchAnswerHistoryContent(content, references)
+                  : content,
+              ...(selectedText ? { selectedText } : {}),
+            }),
+          ),
           question: input.question,
           sourceTitle: reading.source.title,
           componentLabel: component.label,

@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 
-import { compileResearchAnswer } from "./research-answer-markers";
+import {
+  compileResearchAnswer,
+  researchAnswerHistoryContent,
+} from "./research-answer-markers";
 
 const referenceId = "10000000-0000-4000-8000-000000000000";
 
@@ -56,6 +59,22 @@ test("compiles passing references and exact quotes from verified aliases", () =>
       ],
     },
   ]);
+});
+
+test("removes persisted occurrence markers before a later model turn", () => {
+  const occurrenceIds = [
+    "20000000-0000-4000-8000-000000000000",
+    "30000000-0000-4000-8000-000000000000",
+  ];
+  const persisted = compileResearchAnswer(
+    "The first claim.[^ev_1]\n\n:::quote[ev_1]\n:::",
+    [reference()],
+    () => occurrenceIds.shift() ?? "unexpected-id",
+  );
+
+  expect(
+    researchAnswerHistoryContent(persisted.content, persisted.references),
+  ).toBe("The first claim.\n\n");
 });
 
 test("leaves unknown, malformed, escaped, and code markers uncompiled", () => {
