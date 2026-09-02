@@ -90,6 +90,7 @@ test("sends temporary evidence as an AI SDK file part", async () => {
 
 test("reads a supplementary component and creates a verified passage reference", async () => {
   let call = 0;
+  const supplementText = `${"x".repeat(25_000)} Supplement evidence.`;
   const model = new MockLanguageModelV4({
     doStream: async () => {
       call += 1;
@@ -120,7 +121,7 @@ test("reads a supplementary component and creates a verified passage reference",
       {
         identity: "supplement-one",
         label: "Supplement one",
-        plainText: "Supplement evidence.",
+        plainText: supplementText,
         role: "supplement",
       },
     ],
@@ -132,6 +133,16 @@ test("reads a supplementary component and creates a verified passage reference",
   for await (const chunk of answer) chunks.push(chunk);
 
   expect(model.doStreamCalls).toHaveLength(3);
+  expect(JSON.stringify(model.doStreamCalls[1]?.prompt)).toContain(
+    "Supplement evidence.",
+  );
+  const instructions = model.doStreamCalls[0]?.prompt[0]?.content;
+  expect(instructions).toContain(
+    "Do not use readSourceComponent for the active component",
+  );
+  expect(instructions).toContain(
+    "Call every needed referencePassage in the same step",
+  );
   expect(chunks).toContainEqual({
     type: "tool-output-available",
     toolCallId: "reference",
@@ -143,10 +154,10 @@ test("reads a supplementary component and creates a verified passage reference",
       componentLabel: "Supplement one",
       selection: {
         offsetBasis: "normalized-derivative-text-v1",
-        normalizedStartOffset: 0,
-        normalizedEndOffset: 20,
+        normalizedStartOffset: 25_001,
+        normalizedEndOffset: 25_021,
         exactText: "Supplement evidence.",
-        prefix: "",
+        prefix: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx ",
         suffix: "",
       },
     },

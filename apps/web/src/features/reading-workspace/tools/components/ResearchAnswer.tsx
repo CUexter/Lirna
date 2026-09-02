@@ -1,13 +1,15 @@
-import { MessageResponse } from "@lirna/ui/components/ai-elements/message";
-import { Button } from "@lirna/ui/components/button";
 import {
-  Popover,
-  PopoverContent,
-  PopoverDescription,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverTrigger,
-} from "@lirna/ui/components/popover";
+  InlineCitation,
+  InlineCitationCard,
+  InlineCitationCardBody,
+  InlineCitationCardTrigger,
+  InlineCitationCarousel,
+  InlineCitationCarouselContent,
+  InlineCitationCarouselItem,
+  InlineCitationQuote,
+  InlineCitationSource,
+} from "@lirna/ui/components/ai-elements/inline-citation";
+import { MessageResponse } from "@lirna/ui/components/ai-elements/message";
 import { createContext, useContext } from "react";
 
 import type { ArticlePassage } from "../../navigation/hooks/useShowInArticle";
@@ -129,35 +131,30 @@ function CitationControl({
       : `${capitalize(marker.relation)} evidence`;
 
   return (
-    <Popover>
-      <PopoverTrigger
-        aria-label={`Citation ${citationNumber}: ${relationLabel} from ${marker.reference.componentLabel}`}
-        render={<Button size="sm" type="button" variant="outline" />}
-      >
-        [{citationNumber}]
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        className="max-w-[calc(100vw-2rem)]"
-        side="top"
-      >
-        <PopoverHeader>
-          <PopoverTitle>{marker.reference.componentLabel}</PopoverTitle>
-          <PopoverDescription>{relationLabel}</PopoverDescription>
-        </PopoverHeader>
-        <blockquote className="border-l-2 pl-2 text-foreground leading-relaxed">
-          {marker.reference.selection.exactText}
-        </blockquote>
-        <Button
+    <InlineCitation>
+      <InlineCitationCard>
+        <InlineCitationCardTrigger
+          aria-label={`Citation ${citationNumber}: ${relationLabel} from ${marker.reference.componentLabel}`}
+          label={`[${citationNumber}]`}
           onClick={() => passage.show()}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          Show in article
-        </Button>
-      </PopoverContent>
-    </Popover>
+        />
+        <InlineCitationCardBody>
+          <InlineCitationCarousel>
+            <InlineCitationCarouselContent>
+              <InlineCitationCarouselItem>
+                <InlineCitationSource
+                  description={relationLabel}
+                  title={marker.reference.componentLabel}
+                />
+                <InlineCitationQuote>
+                  {marker.reference.selection.exactText}
+                </InlineCitationQuote>
+              </InlineCitationCarouselItem>
+            </InlineCitationCarouselContent>
+          </InlineCitationCarousel>
+        </InlineCitationCardBody>
+      </InlineCitationCard>
+    </InlineCitation>
   );
 }
 

@@ -79,8 +79,10 @@ export function createResearchAssistant(
         instructions: [
           "You are Lirna's research assistant.",
           "Answer only from the supplied Source-state evidence.",
-          "Use readSourceComponent when another Source component may contain relevant evidence.",
+          "Do not use readSourceComponent for the active component unless the answer requires text beyond the supplied 100,000-character evidence.",
+          "Use readSourceComponent once for each other Source component that may contain relevant evidence, and request another page only when nextOffset is present and the answer needs it.",
           "Use referencePassage for every exact passage that materially grounds the answer.",
+          "Call every needed referencePassage in the same step so references are verified in parallel.",
           "A successful referencePassage call returns an evidence alias such as ev_1; use only successful aliases in the final answer.",
           "Place [^ev_1] immediately after the smallest claim it grounds when a passing reference is sufficient.",
           "When exact wording matters, emit an empty quote block exactly as :::quote[ev_1] on one line followed by ::: on the next line; never copy quotation text into it.",
@@ -149,7 +151,7 @@ function sourceTools(components: ResearchAssistantInput["components"]) {
   return {
     readSourceComponent: tool({
       description:
-        "Read a bounded page of any component in this Source-state bundle, including supplementary articles and publisher notes.",
+        "Read up to 100,000 characters of any component in this Source-state bundle, including supplementary articles and publisher notes. Most components fit in one call; continue from nextOffset only when necessary.",
       inputSchema: z.object({
         componentIdentity: z.string().min(1),
         offset: z.number().int().nonnegative().default(0),
@@ -162,7 +164,10 @@ function sourceTools(components: ResearchAssistantInput["components"]) {
             availableComponentIdentities: [...byIdentity.keys()],
           };
         }
-        const endOffset = Math.min(offset + 20_000, component.plainText.length);
+        const endOffset = Math.min(
+          offset + 100_000,
+          component.plainText.length,
+        );
         return {
           found: true as const,
           componentIdentity,

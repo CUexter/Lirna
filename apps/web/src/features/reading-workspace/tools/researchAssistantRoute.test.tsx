@@ -25,37 +25,46 @@ async function* assistantStream(input: unknown) {
       "question" in input &&
       input.question === "Use supplement evidence",
   );
-  if (usesSupplementEvidence) {
+  const usesTenthEvidence = Boolean(
+    input &&
+      typeof input === "object" &&
+      "question" in input &&
+      input.question === "Use tenth evidence",
+  );
+  const evidenceCount = usesTenthEvidence ? 10 : usesSupplementEvidence ? 1 : 0;
+  if (evidenceCount) {
     const exactText = "First supplement content.";
-    yield {
-      type: "tool-input-available",
-      toolCallId: "reference-call",
-      toolName: "referencePassage",
-      input: {
-        componentIdentity: "supplement-one",
-        exactText,
-        occurrence: 1,
-      },
-    };
-    yield {
-      type: "tool-output-available",
-      toolCallId: "reference-call",
-      output: {
-        kind: "source-passage-reference",
-        id: "40000000-0000-4000-8000-000000000000",
-        evidenceAlias: "ev_1",
-        componentIdentity: "supplement-one",
-        componentLabel: "Supplement one",
-        selection: {
-          offsetBasis: "normalized-derivative-text-v1",
-          normalizedStartOffset: 0,
-          normalizedEndOffset: exactText.length,
+    for (let index = 1; index <= evidenceCount; index += 1) {
+      yield {
+        type: "tool-input-available",
+        toolCallId: `reference-call-${index}`,
+        toolName: "referencePassage",
+        input: {
+          componentIdentity: "supplement-one",
           exactText,
-          prefix: "",
-          suffix: "\n\nSupplement citation context [1]".slice(0, 32),
+          occurrence: 1,
         },
-      },
-    };
+      };
+      yield {
+        type: "tool-output-available",
+        toolCallId: `reference-call-${index}`,
+        output: {
+          kind: "source-passage-reference",
+          id: `40000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+          evidenceAlias: `ev_${index}`,
+          componentIdentity: "supplement-one",
+          componentLabel: "Supplement one",
+          selection: {
+            offsetBasis: "normalized-derivative-text-v1",
+            normalizedStartOffset: 0,
+            normalizedEndOffset: exactText.length,
+            exactText,
+            prefix: "",
+            suffix: "\n\nSupplement citation context [1]".slice(0, 32),
+          },
+        },
+      };
+    }
     yield { type: "finish-step" };
     yield { type: "start-step" };
   }
@@ -73,8 +82,10 @@ async function* assistantStream(input: unknown) {
   yield {
     type: "text-delta",
     id: "assistant-text",
-    delta: ` presents a synthetic claim.${usesSupplementEvidence ? "[^ev_1]" : ""}`,
+    delta: ` presents a synthetic claim.${usesSupplementEvidence ? "[^ev_1]" : usesTenthEvidence ? "[^ev_" : ""}`,
   };
+  if (usesTenthEvidence)
+    yield { type: "text-delta", id: "assistant-text", delta: "10]" };
   yield { type: "text-end", id: "assistant-text" };
   yield { type: "finish-step" };
   yield { type: "finish", finishReason: "stop" };
@@ -472,12 +483,17 @@ test("opens a tool-referenced passage in a supplementary component", async () =>
       name: "Citation 1: Supporting evidence from Supplement one",
     }),
   );
+  await user.hover(
+    view().getByRole("button", {
+      name: "Citation 1: Supporting evidence from Supplement one",
+    }),
+  );
+  await waitFor(() => view().getByText("First supplement content."));
   await user.click(
     view().getByRole("button", {
       name: "Citation 1: Supporting evidence from Supplement one",
     }),
   );
-  await user.click(view().getByRole("button", { name: "Show in article" }));
 
   await waitFor(() =>
     expect(view().getAllByText("First supplement content.")).toHaveLength(2),
@@ -485,4 +501,25 @@ test("opens a tool-referenced passage in a supplementary component", async () =>
   expect(
     view().getByRole("complementary", { name: "Research assistant" }),
   ).toBeTruthy();
+});
+
+test("renders a split multi-digit evidence alias as an inline citation", async () => {
+  const user = userEvent.setup();
+  await renderReading();
+  await user.click(
+    await waitFor(() =>
+      view().getByRole("button", { name: "Ask this Source" }),
+    ),
+  );
+  await user.type(
+    view().getByRole("textbox", { name: "Question" }),
+    "Use tenth evidence{Enter}",
+  );
+
+  await waitFor(() =>
+    view().getByRole("button", {
+      name: "Citation 10: Supporting evidence from Supplement one",
+    }),
+  );
+  expect(view().queryByText("[^ev_10]")).toBeNull();
 });

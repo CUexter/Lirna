@@ -42,6 +42,9 @@
     "packages/ui/src/components/ai-elements/sources.tsx": "dff26e635c5da652cd6e2c274357b9fcda95158b7c1879667d6793208f42a144",
     "packages/ui/src/components/ai-elements/task.tsx": "f277dfb14f20b71e41979632a00743a5830aab94c2f578a678100cf41c589795",
     "packages/ui/src/components/ai-elements/tool.tsx": "990db02de2a5af164ab3bd9af102fa92b73e9b00d0a5cd290b4a660a39df7449",
-    "packages/ui/src/components/select.tsx": "b041f2d8a761b02a21dfe2d8f57b531caf38978abd264566ddb8a25872e6fd0c"
+    "packages/ui/src/components/select.tsx": "b041f2d8a761b02a21dfe2d8f57b531caf38978abd264566ddb8a25872e6fd0c",
+    "packages/ui/src/components/ai-elements/inline-citation.tsx": "1df78b844cb9a06dfcb1310810c7e81b83454a7f5c94fe2fdc5b866345453182",
+    "packages/ui/src/components/carousel.tsx": "c38bc10c95f137abb688a68192c46036f9cc482517b584f4ee8b10278d8667f9",
+    "packages/ui/src/components/hover-card.tsx": "e1ae88229baa7964c6ba89360253eb1e362e5e6b18a06acb04b0d2fe0960a2cc"
   }
 }

@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, render, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { ResearchAssistantTranscript } from "./ResearchAssistantTranscript";
@@ -64,13 +64,20 @@ test("renders a live evidence alias as an inline citation", async () => {
   const citation = view().getByRole("button", {
     name: "Citation 1: Supporting evidence from Article",
   });
-  citation.focus();
-  await user.keyboard("{Enter}");
-  expect(view().getByText("Verified evidence.")).toBeTruthy();
+  act(() => citation.focus());
+  await waitFor(() =>
+    expect(view().getByText("Verified evidence.")).toBeTruthy(),
+  );
   await user.keyboard("{Escape}");
   await waitFor(() => expect(document.activeElement).toBe(citation));
+  act(() => {
+    citation.blur();
+    citation.focus();
+  });
+  await waitFor(() =>
+    expect(view().getByText("Verified evidence.")).toBeTruthy(),
+  );
   await user.keyboard("{Enter}");
-  await user.click(view().getByRole("button", { name: "Show in article" }));
   expect(shown).toBe(true);
 });
 
