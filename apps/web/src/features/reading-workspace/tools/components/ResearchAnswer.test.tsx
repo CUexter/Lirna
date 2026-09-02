@@ -186,6 +186,56 @@ test("keeps aliases for duplicate verified passages independently resolvable", (
   ).toBeTruthy();
 });
 
+test("groups adjacent evidence markers for one claim into one citation carousel", async () => {
+  render(
+    <ResearchAssistantTranscript
+      messages={[
+        {
+          id: "assistant-message",
+          role: "assistant",
+          parts: [
+            referenceToolPart(
+              "first-reference",
+              "ev_1",
+              "10000000-0000-4000-8000-000000000000",
+            ),
+            referenceToolPart(
+              "second-reference",
+              "ev_2",
+              "20000000-0000-4000-8000-000000000000",
+            ),
+            { type: "step-start" },
+            {
+              type: "text",
+              text: "One claim has two sources.[^ev_1][^ev_2|qualifies]",
+            },
+          ],
+        },
+      ]}
+      passageForReference={(reference) => ({
+        show: () => {},
+        text: reference.selection.exactText,
+      })}
+      passageForSelection={(selection) => ({
+        show: () => {},
+        text: selection.exactText,
+      })}
+      pending={false}
+    />,
+  );
+
+  const citation = view().getByRole("button", {
+    name: /Citations 1, 2:/,
+  });
+  expect(view().queryByRole("button", { name: /^Citation 1:/ })).toBeNull();
+  expect(view().queryByRole("button", { name: /^Citation 2:/ })).toBeNull();
+
+  act(() => citation.focus());
+  await waitFor(() =>
+    expect(view().getByRole("button", { name: "Next" })).toBeTruthy(),
+  );
+});
+
 test("renders a Markdown table in an assistant message", () => {
   render(
     <ResearchAssistantTranscript

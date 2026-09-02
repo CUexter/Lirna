@@ -1,4 +1,9 @@
 import {
+  type ResearchAssistantModel,
+  researchAssistantModelIds,
+  researchAssistantModelLabels,
+} from "@lirna/api/client";
+import {
   Attachment,
   AttachmentAction,
   AttachmentActions,
@@ -8,13 +13,20 @@ import {
   AttachmentMedia,
   AttachmentTitle,
 } from "@lirna/ui/components/attachment";
+import { Input } from "@lirna/ui/components/input";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupTextarea,
 } from "@lirna/ui/components/input-group";
-import { Input } from "@lirna/ui/components/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@lirna/ui/components/select";
 import { Spinner } from "@lirna/ui/components/spinner";
 import { FileTextIcon, PaperclipIcon, SendIcon, XIcon } from "lucide-react";
 import { type FormEvent, type RefObject, useRef } from "react";
@@ -41,6 +53,7 @@ const maxAttachmentSize = 5 * 1024 * 1024;
 
 export function QuestionComposer({
   attachment,
+  model,
   onQuestionChange,
   onSubmit,
   pending,
@@ -52,6 +65,10 @@ export function QuestionComposer({
     attachments: TemporaryEvidenceAttachment[];
     onAttachmentsChange: (attachments: TemporaryEvidenceAttachment[]) => void;
     onError: (error?: string) => void;
+  };
+  model: {
+    value: ResearchAssistantModel;
+    onChange: (model: ResearchAssistantModel) => void;
   };
   onQuestionChange: (question: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -154,7 +171,25 @@ export function QuestionComposer({
           >
             <PaperclipIcon data-icon="inline-start" />
           </InputGroupButton>
-          <span className="mr-auto">Temporary evidence only.</span>
+          <Select
+            disabled={pending}
+            onValueChange={(value) =>
+              model.onChange(value as ResearchAssistantModel)
+            }
+            value={model.value}
+          >
+            <SelectTrigger aria-label="Model" className="mr-auto border-0 px-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="start">
+              {researchAssistantModelIds.map((modelId) => (
+                <SelectItem key={modelId} value={modelId}>
+                  {researchAssistantModelLabels[modelId]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="sr-only">Temporary evidence only.</span>
           <InputGroupButton
             aria-label="Send question"
             disabled={!question.trim() || pending}

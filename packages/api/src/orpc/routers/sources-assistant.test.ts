@@ -115,6 +115,7 @@ test("asks about exact evidence with a rendered-only publisher anchor", async ()
     delta: "A **provisional** answer.",
   });
   expect(received).toMatchObject({
+    model: "moonshotai/kimi-k3",
     question: "What is the central claim?",
     sourceTitle: "Test entry",
     componentLabel: "Main entry",

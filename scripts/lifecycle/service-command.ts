@@ -73,16 +73,34 @@ async function runtimeEnvironment() {
 
   const serverUrl = `http://127.0.0.1:${environment.ports.server}`;
   const webUrl = `http://127.0.0.1:${environment.ports.web}`;
+  const devOrigin = process.env.LIRNA_DEV_ORIGIN;
+  let publicOrigin: string | undefined;
+  if (devOrigin) {
+    try {
+      const url = new URL(devOrigin);
+      if (
+        !["http:", "https:"].includes(url.protocol) ||
+        url.origin !== devOrigin
+      ) {
+        throw new Error();
+      }
+      publicOrigin = url.origin;
+    } catch {
+      throw new Error(
+        "LIRNA_DEV_ORIGIN must be an HTTP or HTTPS origin without a path or trailing slash.",
+      );
+    }
+  }
   const databaseUrl = postgresAdminUrl();
   databaseUrl.pathname = `/${databaseName(environment.identity)}`;
   return {
     checkoutPath: checkout.checkoutPath,
     environment,
     values: {
-      CORS_ORIGIN: webUrl,
+      CORS_ORIGIN: publicOrigin ?? webUrl,
       DATABASE_URL: databaseUrl.toString(),
-      SERVER_URL: serverUrl,
-      VITE_SERVER_URL: serverUrl,
+      SERVER_URL: publicOrigin ?? serverUrl,
+      VITE_SERVER_URL: publicOrigin ?? serverUrl,
     },
   };
 }

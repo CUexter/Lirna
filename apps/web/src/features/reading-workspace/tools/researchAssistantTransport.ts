@@ -1,3 +1,4 @@
+import type { ResearchAssistantModel } from "@lirna/api/client";
 import type { ChatTransport, UIMessage, UIMessageChunk } from "ai";
 import type { InquiryOutputs } from "@/clients/inquiry";
 import { inquiryClient } from "@/clients/inquiryClient";
@@ -38,6 +39,7 @@ export type ResearchPassageReference = NonNullable<
 
 export function createResearchAssistantTransport({
   componentIdentity,
+  model,
   selection,
   sourceId,
   stateId,
@@ -46,6 +48,7 @@ export function createResearchAssistantTransport({
   onThreadCreated,
 }: {
   componentIdentity: string;
+  model: ResearchAssistantModel;
   selection?: SelectionDraft;
   sourceId: string;
   stateId: string;
@@ -80,6 +83,7 @@ export function createResearchAssistantTransport({
       const iterator = await inquiryClient.sources.assistant.ask(
         {
           componentIdentity,
+          model,
           ...(message.metadata?.attachments?.length
             ? { attachments: message.metadata.attachments }
             : {}),

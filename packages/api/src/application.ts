@@ -101,7 +101,6 @@ function productionResearchAssistant() {
   return env.OPENROUTER_API_KEY
     ? createOpenRouterResearchAssistant({
         apiKey: env.OPENROUTER_API_KEY,
-        model: env.OPENROUTER_MODEL,
       })
     : undefined;
 }

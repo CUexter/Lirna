@@ -4,6 +4,7 @@ import { MockLanguageModelV4 } from "ai/test";
 import { createResearchAssistant } from "./research-assistant";
 
 test("sends temporary evidence as an AI SDK file part", async () => {
+  let selectedModel: string | undefined;
   const model = new MockLanguageModelV4({
     doStream: async () => ({
       stream: simulateReadableStream({
@@ -29,7 +30,10 @@ test("sends temporary evidence as an AI SDK file part", async () => {
       }),
     }),
   });
-  const answer = await createResearchAssistant(model).answer({
+  const answer = await createResearchAssistant((modelId) => {
+    selectedModel = modelId;
+    return model;
+  }).answer({
     attachments: [
       {
         data: new URL("data:text/plain;base64,dGVtcG9yYXJ5IGV2aWRlbmNl"),
@@ -37,6 +41,7 @@ test("sends temporary evidence as an AI SDK file part", async () => {
         mediaType: "text/plain",
       },
     ],
+    model: "z-ai/glm-5.3-flash",
     componentLabel: "Main entry",
     components: [
       {
@@ -86,6 +91,7 @@ test("sends temporary evidence as an AI SDK file part", async () => {
       },
     ],
   });
+  expect(selectedModel).toBe("z-ai/glm-5.3-flash");
 });
 
 test("reads a supplementary component and creates a verified passage reference", async () => {
