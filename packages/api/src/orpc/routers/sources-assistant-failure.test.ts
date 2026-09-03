@@ -101,6 +101,32 @@ test("observes evidence refusal as a content-free research outcome", async () =>
           researchTurns: createResearchTurnOperations(
             {
               async answer(_input, options) {
+                options?.onEvidenceSessionUpdate?.({
+                  sessionId: "session-refused",
+                  sourceStateId: stateId,
+                  resolverVersion: "lexical-v1",
+                  indexVersion: "reading-components-v1",
+                  budget: {
+                    maximumDiscoveries: 12,
+                    maximumCandidatesPerDiscovery: 5,
+                    maximumAdmissions: 12,
+                    maximumModelSteps: 8,
+                    maximumTotalEvidenceCharacters: 100_000,
+                  },
+                  consumption: {
+                    discoveries: 1,
+                    candidates: 0,
+                    admissions: 0,
+                    modelSteps: 2,
+                    evidenceCharacters: 0,
+                  },
+                  componentScope: ["supplement:/private"],
+                  candidateCount: 0,
+                  reasonCodes: ["scope-denied"],
+                  admittedCount: 0,
+                  refusedCount: 1,
+                  budgetExhausted: false,
+                });
                 options?.onEvidenceResolution?.({
                   operation: "findEvidence",
                   outcome: "refused",
@@ -132,20 +158,31 @@ test("observes evidence refusal as a content-free research outcome", async () =>
     // Consume the response so the Research turn completes.
   }
 
-  expect(observations).toEqual([
-    {
-      level: "info",
-      record: {
-        event: "research_assistant.evidence_resolution",
-        operation: "findEvidence",
-        outcome: "refused",
-        reasonCode: "scope-denied",
-        componentScope: ["supplement:/private"],
-        candidateCount: 0,
-        durationMs: 4.5,
-      },
+  expect(observations).toHaveLength(2);
+  expect(observations[0]).toEqual({
+    level: "info",
+    record: {
+      event: "research_assistant.evidence_resolution",
+      operation: "findEvidence",
+      outcome: "refused",
+      reasonCode: "scope-denied",
+      componentScope: ["supplement:/private"],
+      candidateCount: 0,
+      durationMs: 4.5,
     },
-  ]);
+  });
+  expect(observations[1]).toMatchObject({
+    level: "info",
+    record: {
+      event: "research_assistant.session_completed",
+      sessionId: "session-refused",
+      researchThreadId: threadId,
+      sourceStateId: stateId,
+      outcome: "refused",
+      reasonCodes: ["scope-denied"],
+      latencyBucket: expect.any(String),
+    },
+  });
   expect(JSON.stringify(observations)).not.toContain(
     "Do not retain this question",
   );

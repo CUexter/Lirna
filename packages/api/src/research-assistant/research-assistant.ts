@@ -13,6 +13,12 @@ import {
   defaultResearchAssistantModel,
   type ResearchAssistantModel,
 } from "./research-assistant-contract";
+import {
+  defaultResearchEvidenceBudget,
+  type ResearchEvidenceBudget,
+  type ResearchEvidenceDecisionReceipt,
+  type ResearchEvidenceSessionSnapshot,
+} from "./research-evidence-session-contract";
 import { createResearchEvidenceSession } from "./research-evidence-tools";
 
 export interface ResearchAssistantInput {
@@ -51,11 +57,18 @@ export interface ResearchAssistantOperations {
 export interface ResearchAssistantAnswerOptions {
   onError?: (error: unknown) => string;
   onEvidenceResolution?: (observation: EvidenceResolutionObservation) => void;
+  onEvidenceSessionUpdate?: (snapshot: ResearchEvidenceSessionSnapshot) => void;
+  onEvidenceSessionReceipt?: (receipt: ResearchEvidenceDecisionReceipt) => void;
+}
+
+interface ResearchAssistantConfiguration {
+  evidenceBudget?: ResearchEvidenceBudget;
 }
 
 export function createResearchAssistant(
   model: LanguageModel | ((model: ResearchAssistantModel) => LanguageModel),
   activeReadingDerivatives?: Pick<ActiveReadingDerivativeOperations, "read">,
+  configuration: ResearchAssistantConfiguration = {},
 ): ResearchAssistantOperations {
   return {
     async answer(input, options) {
@@ -100,7 +113,17 @@ export function createResearchAssistant(
             }
           : async () => derivativeId,
         observe: options?.onEvidenceResolution,
+        update: options?.onEvidenceSessionUpdate,
+        budget: configuration.evidenceBudget,
       });
+      try {
+        options?.onEvidenceSessionUpdate?.(evidenceSession.snapshot());
+      } catch {
+        // Diagnostics must not alter Research Assistant execution.
+      }
+      const maximumModelSteps =
+        configuration.evidenceBudget?.maximumModelSteps ??
+        defaultResearchEvidenceBudget.maximumModelSteps;
       const agent = new ToolLoopAgent({
         model:
           typeof model === "function"
@@ -126,14 +149,16 @@ export function createResearchAssistant(
           "Keep the answer provisional and do not claim that it is a saved note.",
           "Respond in concise Markdown.",
         ].join(" "),
-        prepareStep: ({ instructions, stepNumber }) =>
-          stepNumber === 7
+        prepareStep: ({ instructions, stepNumber }) => {
+          evidenceSession.beginModelStep(stepNumber);
+          return evidenceSession.snapshot().budgetExhausted
             ? {
                 instructions: `${instructions} This is the final synthesis step. Answer the question now using the evidence already gathered. Do not call or imitate tools, and do not emit tool-call markup. Write natural Markdown, use only aliases from successful admitEvidence outputs, place passing markers directly after grounded claims, and use an empty :::quote[ev_1] then ::: block only when exact wording matters.`,
                 toolChoice: "none",
               }
-            : undefined,
-        stopWhen: stepCountIs(8),
+            : undefined;
+        },
+        stopWhen: stepCountIs(maximumModelSteps),
         tools: evidenceSession.tools,
       });
       const result = await agent

@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import type { UIMessageChunk } from "ai";
 import type { ResearchAssistantOperations } from "./research-assistant";
+import type {
+  ResearchEvidenceDecisionReceipt,
+  ResearchEvidenceSessionSnapshot,
+} from "./research-evidence-session-contract";
 import type { ResearchThreadOperations } from "./research-thread-contract";
 import { createResearchTurnOperations } from "./research-turn";
 
@@ -62,8 +66,57 @@ test("commits only final synthesis Markdown from a multi-step turn", async () =>
   ]);
 });
 
+test("reports successful, refused, and exhausted sessions without content", async () => {
+  const receipts: ResearchEvidenceDecisionReceipt[] = [];
+  for (const snapshot of [
+    evidenceSnapshot(),
+    evidenceSnapshot({
+      admittedCount: 0,
+      refusedCount: 1,
+      reasonCodes: ["scope-denied"],
+    }),
+    evidenceSnapshot({
+      budgetExhausted: true,
+      reasonCodes: ["model-step-budget-exhausted"],
+    }),
+  ]) {
+    const turns = createResearchTurnOperations(
+      assistant(answerStream("Completed answer"), snapshot),
+      recordingThreads([]),
+    );
+    await collect(
+      await turns.answer(input(), {
+        onEvidenceSessionReceipt(receipt) {
+          receipts.push(receipt);
+        },
+      }),
+    );
+  }
+
+  expect(receipts.map(({ outcome }) => outcome)).toEqual([
+    "successful",
+    "refused",
+    "exhausted",
+  ]);
+  expect(receipts[0]).toMatchObject({
+    sessionId: "session-test",
+    researchThreadId: threadId,
+    sourceStateId: "state-one",
+    resolverVersion: "lexical-v1",
+    indexVersion: "reading-components-v1",
+    budget: expect.any(Object),
+    consumption: expect.any(Object),
+    candidateCount: 1,
+    latencyBucket: expect.any(String),
+  });
+  expect(JSON.stringify(receipts)).not.toContain("What is the central claim?");
+  expect(JSON.stringify(receipts)).not.toContain("Completed answer");
+  expect(JSON.stringify(receipts)).not.toContain("Verified passage");
+});
+
 test("cancelling a turn cancels model execution and commits no answer", async () => {
   let modelCancelled = false;
+  const receipts: ResearchEvidenceDecisionReceipt[] = [];
   const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
   const modelStream = new ReadableStream<UIMessageChunk>({
     start(controller) {
@@ -78,20 +131,26 @@ test("cancelling a turn cancels model execution and commits no answer", async ()
     },
   });
   const turns = createResearchTurnOperations(
-    assistant(modelStream),
+    assistant(modelStream, evidenceSnapshot()),
     recordingThreads(appended),
   );
-  const reader = (await turns.answer(input())).getReader();
+  const reader = (
+    await turns.answer(input(), {
+      onEvidenceSessionReceipt: (receipt) => receipts.push(receipt),
+    })
+  ).getReader();
 
   await reader.read();
   await reader.cancel("client disconnected");
 
   expect(modelCancelled).toBe(true);
   expect(appended).toEqual([]);
+  expect(receipts).toMatchObject([{ outcome: "cancelled" }]);
 });
 
 test("a late model failure returns an error chunk and commits no answer", async () => {
   const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const receipts: ResearchEvidenceDecisionReceipt[] = [];
   let pulls = 0;
   const modelStream = new ReadableStream<UIMessageChunk>({
     pull(controller) {
@@ -108,13 +167,14 @@ test("a late model failure returns an error chunk and commits no answer", async 
     },
   });
   const turns = createResearchTurnOperations(
-    assistant(modelStream),
+    assistant(modelStream, evidenceSnapshot()),
     recordingThreads(appended),
   );
 
   const chunks = await collect(
     await turns.answer(input(), {
       onError: (error) => `Failed: ${(error as Error).message}`,
+      onEvidenceSessionReceipt: (receipt) => receipts.push(receipt),
     }),
   );
 
@@ -123,6 +183,7 @@ test("a late model failure returns an error chunk and commits no answer", async 
     errorText: "Failed: Provider stream disconnected",
   });
   expect(appended).toEqual([]);
+  expect(receipts).toMatchObject([{ outcome: "provider-failed" }]);
 });
 
 test("a model stream that ends before its finish chunk commits no answer", async () => {
@@ -167,6 +228,7 @@ test("an error finish reason commits no answer", async () => {
 
 test("an error chunk from model execution commits no answer", async () => {
   const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const receipts: ResearchEvidenceDecisionReceipt[] = [];
   const modelStream = new ReadableStream<UIMessageChunk>({
     start(controller) {
       controller.enqueue({
@@ -179,28 +241,38 @@ test("an error chunk from model execution commits no answer", async () => {
     },
   });
   const turns = createResearchTurnOperations(
-    assistant(modelStream),
+    assistant(modelStream, evidenceSnapshot()),
     recordingThreads(appended),
   );
 
-  const chunks = await collect(await turns.answer(input()));
+  const reader = (
+    await turns.answer(input(), {
+      onEvidenceSessionReceipt: (receipt) => receipts.push(receipt),
+    })
+  ).getReader();
+  const first = await reader.read();
+  const second = await reader.read();
 
-  expect(chunks.at(-1)).toEqual({
+  expect(first.value).toMatchObject({ type: "text-delta" });
+  expect(second.value).toEqual({
     type: "error",
     errorText: "Provider failed",
   });
   expect(appended).toEqual([]);
+  expect(receipts).toMatchObject([{ outcome: "provider-failed" }]);
 });
 
 test("a failed final persistence returns an error chunk", async () => {
+  const receipts: ResearchEvidenceDecisionReceipt[] = [];
   const turns = createResearchTurnOperations(
-    assistant(answerStream("Completed answer")),
+    assistant(answerStream("Completed answer"), evidenceSnapshot()),
     threads(async () => undefined),
   );
 
   const chunks = await collect(
     await turns.answer(input(), {
       onError: (error) => `Failed: ${(error as Error).message}`,
+      onEvidenceSessionReceipt: (receipt) => receipts.push(receipt),
     }),
   );
 
@@ -208,11 +280,15 @@ test("a failed final persistence returns an error chunk", async () => {
     type: "error",
     errorText: "Failed: Research answer could not be persisted",
   });
+  expect(receipts).toMatchObject([{ outcome: "commit-failed" }]);
 });
 
 function input() {
   return {
     threadId,
+    sourceId: "source-one",
+    sourceStateId: "state-one",
+    componentIdentity: "active:/",
     question: "What is the central claim?",
     sourceTitle: "Test entry",
     componentLabel: "Main entry",
@@ -228,12 +304,48 @@ function input() {
   };
 }
 
-function assistant(stream: ReadableStream<UIMessageChunk>) {
+function assistant(
+  stream: ReadableStream<UIMessageChunk>,
+  snapshot?: ResearchEvidenceSessionSnapshot,
+) {
   return {
-    async answer() {
+    async answer(_input, options) {
+      if (snapshot) options?.onEvidenceSessionUpdate?.(snapshot);
       return stream;
     },
   } satisfies ResearchAssistantOperations;
+}
+
+function evidenceSnapshot(
+  overrides: Partial<ResearchEvidenceSessionSnapshot> = {},
+): ResearchEvidenceSessionSnapshot {
+  return {
+    sessionId: "session-test",
+    sourceStateId: "state-one",
+    resolverVersion: "lexical-v1",
+    indexVersion: "reading-components-v1",
+    budget: {
+      maximumDiscoveries: 12,
+      maximumCandidatesPerDiscovery: 5,
+      maximumAdmissions: 12,
+      maximumModelSteps: 8,
+      maximumTotalEvidenceCharacters: 100_000,
+    },
+    consumption: {
+      discoveries: 1,
+      candidates: 1,
+      admissions: 1,
+      modelSteps: 2,
+      evidenceCharacters: 17,
+    },
+    componentScope: ["active:/"],
+    candidateCount: 1,
+    reasonCodes: [],
+    admittedCount: 1,
+    refusedCount: 0,
+    budgetExhausted: false,
+    ...overrides,
+  };
 }
 
 function threads(

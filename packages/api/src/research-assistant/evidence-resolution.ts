@@ -18,7 +18,9 @@ export type EvidenceResolutionReasonCode =
   | "policy-denied"
   | "outside-session-scope"
   | "discovery-budget-exhausted"
-  | "admission-budget-exhausted";
+  | "admission-budget-exhausted"
+  | "evidence-character-budget-exhausted"
+  | "model-step-budget-exhausted";
 
 export type EvidenceDiscovery = {
   kind: "evidence-discovery";
@@ -41,7 +43,9 @@ interface UnresolvedEvidenceReasons {
   refused: "scope-denied" | "policy-denied" | "outside-session-scope";
   "budget-exhausted":
     | "discovery-budget-exhausted"
-    | "admission-budget-exhausted";
+    | "admission-budget-exhausted"
+    | "evidence-character-budget-exhausted"
+    | "model-step-budget-exhausted";
 }
 
 export type UnresolvedEvidenceResolution = {

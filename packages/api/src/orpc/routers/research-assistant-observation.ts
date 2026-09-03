@@ -35,6 +35,12 @@ export function researchAssistantAnswerOptions(
     onEvidenceResolution(observation) {
       evidenceResolution(context, observation);
     },
+    onEvidenceSessionReceipt(receipt) {
+      emit(context, "info", {
+        event: "research_assistant.session_completed",
+        ...receipt,
+      });
+    },
   };
 }
 

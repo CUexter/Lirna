@@ -276,6 +276,97 @@ test("reserves the final agent step for a text answer", async () => {
   });
 });
 
+test("uses the configured final model step to synthesize without more tools", async () => {
+  const model = new MockLanguageModelV4({
+    doStream: async ({ toolChoice }) =>
+      toolChoice?.type === "none"
+        ? textStream("Budget-bounded answer with remaining uncertainty.")
+        : toolCallStream("read", "readSourceComponent", {
+            componentIdentity: "article",
+            offset: 0,
+          }),
+  });
+  const answer = await createResearchAssistant(model, undefined, {
+    evidenceBudget: {
+      maximumDiscoveries: 2,
+      maximumCandidatesPerDiscovery: 2,
+      maximumAdmissions: 2,
+      maximumModelSteps: 3,
+      maximumTotalEvidenceCharacters: 1_000,
+    },
+  }).answer({
+    componentLabel: "Article",
+    componentIdentity: "article",
+    components: [
+      {
+        identity: "article",
+        label: "Article",
+        plainText: "Main article.",
+        role: "main",
+      },
+    ],
+    question: "Keep researching before answering.",
+    sourceId: "source-one",
+    sourceStateId: "state-one",
+    derivativeId: "derivative-one",
+    sourceText: "Main article.",
+    sourceTitle: "Test source",
+  });
+
+  for await (const _chunk of answer) {
+    // Consume the stream so every bounded model step runs.
+  }
+
+  expect(model.doStreamCalls).toHaveLength(3);
+  expect(model.doStreamCalls[2]?.toolChoice).toEqual({ type: "none" });
+});
+
+test("forces synthesis immediately after an evidence budget is exhausted", async () => {
+  const model = new MockLanguageModelV4({
+    doStream: async ({ toolChoice }) =>
+      toolChoice?.type === "none"
+        ? textStream("One passage was found; further evidence is uncertain.")
+        : toolCallStream("find", "findEvidence", {
+            componentScope: ["article"],
+            intent: "main evidence",
+            limit: 1,
+          }),
+  });
+  const answer = await createResearchAssistant(model, undefined, {
+    evidenceBudget: {
+      maximumDiscoveries: 1,
+      maximumCandidatesPerDiscovery: 1,
+      maximumAdmissions: 1,
+      maximumModelSteps: 8,
+      maximumTotalEvidenceCharacters: 1_000,
+    },
+  }).answer({
+    componentLabel: "Article",
+    componentIdentity: "article",
+    components: [
+      {
+        identity: "article",
+        label: "Article",
+        plainText: "Main evidence.",
+        role: "main",
+      },
+    ],
+    question: "Keep finding evidence.",
+    sourceId: "source-one",
+    sourceStateId: "state-one",
+    derivativeId: "derivative-one",
+    sourceText: "Main evidence.",
+    sourceTitle: "Test source",
+  });
+
+  for await (const _chunk of answer) {
+    // Consume the stream so the forced synthesis step runs.
+  }
+
+  expect(model.doStreamCalls).toHaveLength(3);
+  expect(model.doStreamCalls[2]?.toolChoice).toEqual({ type: "none" });
+});
+
 function toolCallStream(id: string, toolName: string, input: object) {
   return {
     stream: simulateReadableStream({

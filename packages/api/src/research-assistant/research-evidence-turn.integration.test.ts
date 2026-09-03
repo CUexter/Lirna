@@ -3,6 +3,7 @@ import { simulateReadableStream, type UIMessageChunk } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 
 import { createResearchAssistant } from "./research-assistant";
+import type { ResearchEvidenceDecisionReceipt } from "./research-evidence-session-contract";
 import type { ResearchThreadOperations } from "./research-thread-contract";
 import { createResearchTurnOperations } from "./research-turn";
 
@@ -26,6 +27,7 @@ test("persists a canonical Reference admitted through evidence discovery", async
     },
   });
   const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const receipts: ResearchEvidenceDecisionReceipt[] = [];
   const turns = createResearchTurnOperations(createResearchAssistant(model), {
     async append(input) {
       appended.push(input);
@@ -38,28 +40,30 @@ test("persists a canonical Reference admitted through evidence discovery", async
     },
   });
 
-  const stream = await turns.answer({
-    threadId: "30000000-0000-4000-8000-000000000000",
-    componentIdentity: "active:/",
-    componentLabel: "Main entry",
-    components: [
-      {
-        identity: "active:/",
-        label: "Main entry",
-        plainText: "Before.\n\nVerified passage.\n\nAfter.",
-        role: "main",
-      },
-    ],
-    derivativeId: "derivative-one",
-    question: "What is verified?",
-    sourceId: "source-one",
-    sourceStateId: "state-one",
-    sourceText: "Before.\n\nVerified passage.\n\nAfter.",
-    sourceTitle: "Test source",
-  });
-  for await (const _chunk of stream) {
-    // Consume the stream so the answer is committed.
-  }
+  const stream = await turns.answer(
+    {
+      threadId: "30000000-0000-4000-8000-000000000000",
+      componentIdentity: "active:/",
+      componentLabel: "Main entry",
+      components: [
+        {
+          identity: "active:/",
+          label: "Main entry",
+          plainText: "Before.\n\nVerified passage.\n\nAfter.",
+          role: "main",
+        },
+      ],
+      derivativeId: "derivative-one",
+      question: "What is verified?",
+      sourceId: "source-one",
+      sourceStateId: "state-one",
+      sourceText: "Before.\n\nVerified passage.\n\nAfter.",
+      sourceTitle: "Test source",
+    },
+    { onEvidenceSessionReceipt: (receipt) => receipts.push(receipt) },
+  );
+  const chunks: UIMessageChunk[] = [];
+  for await (const chunk of stream) chunks.push(chunk);
 
   expect(appended).toMatchObject([
     {
@@ -85,6 +89,35 @@ test("persists a canonical Reference admitted through evidence discovery", async
       ],
     },
   ]);
+  expect(receipts).toMatchObject([
+    {
+      outcome: "successful",
+      sourceStateId: "state-one",
+      consumption: {
+        discoveries: 1,
+        candidates: 1,
+        admissions: 1,
+        modelSteps: 3,
+        evidenceCharacters: 17,
+      },
+      candidateCount: 1,
+    },
+  ]);
+  expect(JSON.stringify(receipts)).not.toContain("What is verified?");
+  expect(JSON.stringify(receipts)).not.toContain("Verified passage.");
+  expect(JSON.stringify(receipts)).not.toContain("componentScope");
+  const toolProgress = chunks.filter((chunk) => chunk.type.startsWith("tool-"));
+  expect(JSON.stringify(toolProgress)).not.toContain("candidate_");
+  expect(JSON.stringify(toolProgress)).not.toContain("Verified passage.");
+  expect(JSON.stringify(toolProgress)).not.toContain("normalizedStartOffset");
+  expect(chunks).toContainEqual({
+    type: "message-metadata",
+    messageMetadata: {
+      references: expect.arrayContaining([
+        expect.objectContaining({ componentIdentity: "active:/" }),
+      ]),
+    },
+  });
 });
 
 test("persists only the deliberately selected repeated occurrence", async () => {
@@ -248,7 +281,6 @@ test("answers the trans women and trans men question without exact-text retries"
       kind: "evidence-resolution",
       outcome: "none",
       reasonCode: "no-relevant-passage",
-      componentScope: ["active:/", "supplement:notes"],
       candidateCount: 0,
     },
   });

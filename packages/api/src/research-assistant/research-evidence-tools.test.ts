@@ -2,11 +2,12 @@ import { expect, test } from "bun:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 
+import type { EvidenceResolutionObservation } from "./evidence-resolution";
 import { createResearchAssistant } from "./research-assistant";
 
 test("reports repeated canonical passages as ambiguous candidates", async () => {
   let call = 0;
-  const observations: Record<string, unknown>[] = [];
+  const observations: EvidenceResolutionObservation[] = [];
   const model = new MockLanguageModelV4({
     doStream: async () => {
       call += 1;
