@@ -21,6 +21,11 @@ import {
   validateResearchEvidenceBudget,
 } from "./research-evidence-session-contract";
 import {
+  completeResearchEvidenceSession,
+  type ResearchEvidenceSessionCompletion,
+  refuseResearchEvidenceSession,
+} from "./research-evidence-session-stream";
+import {
   observed,
   sourceComponentReader,
   unresolved,
@@ -40,6 +45,7 @@ interface ResearchEvidenceToolOptions {
   observe?: (observation: EvidenceResolutionObservation) => void;
   update?: (snapshot: ResearchEvidenceSessionSnapshot) => void;
   budget?: ResearchEvidenceBudget;
+  processingAllowed?: boolean;
 }
 
 export function createResearchEvidenceSession(
@@ -208,6 +214,17 @@ export function createResearchEvidenceSession(
     };
   };
 
+  const refusePolicy = () =>
+    finish(
+      unresolved(
+        "refused",
+        "policy-denied",
+        options.components.map(({ identity }) => identity),
+      ),
+      "findEvidence",
+      performance.now(),
+    );
+
   function finish<Result extends EvidenceResolutionResult>(
     result: Result,
     operation: EvidenceResolutionObservation["operation"],
@@ -320,6 +337,28 @@ export function createResearchEvidenceSession(
     hasValidAnswerLedger: () => answerLedger !== undefined,
     answerLedgerAttempts: () => answerLedgerAttempts,
     validateReferences,
+    async run(
+      start: () => Promise<ReadableStream<import("ai").UIMessageChunk>>,
+      completion: ResearchEvidenceSessionCompletion,
+    ) {
+      if (options.processingAllowed === false) {
+        refusePolicy();
+        return refuseResearchEvidenceSession(this, completion);
+      }
+      try {
+        return completeResearchEvidenceSession(await start(), this, completion);
+      } catch (error) {
+        return completeResearchEvidenceSession(
+          new ReadableStream({
+            start(controller) {
+              controller.error(error);
+            },
+          }),
+          this,
+          completion,
+        );
+      }
+    },
     beginModelStep(stepNumber: number) {
       modelSteps = Math.max(modelSteps, stepNumber + 1);
       if (modelSteps === budget.maximumModelSteps) {

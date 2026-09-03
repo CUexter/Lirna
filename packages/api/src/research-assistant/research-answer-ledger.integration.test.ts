@@ -3,6 +3,7 @@ import { simulateReadableStream, type UIMessageChunk } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 
 import { createResearchAssistant } from "./research-assistant";
+import { createResearchEvidenceSession } from "./research-evidence-tools";
 import type { ResearchThreadOperations } from "./research-thread-contract";
 import { createResearchTurnOperations } from "./research-turn";
 
@@ -67,20 +68,31 @@ test("gives an invalid answer ledger one bounded repair before synthesis", async
 });
 
 test("revalidates canonical evidence before persistence and expires the session", async () => {
-  let expired = false;
+  let evidenceSession:
+    | ReturnType<typeof createResearchEvidenceSession>
+    | undefined;
   const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
   const turns = createResearchTurnOperations(
     {
       async answer(_input, options) {
-        options?.onEvidenceSessionReady?.({
-          async validateReferences() {
-            return false;
-          },
-          expire() {
-            expired = true;
-          },
+        const session = createResearchEvidenceSession({
+          components: [
+            {
+              identity: "active:/",
+              label: "Main entry",
+              plainText: "Different passage.",
+              role: "main",
+            },
+          ],
+          sourceStateId: "state-one",
+          derivativeId: "derivative-one",
         });
-        return canonicalEvidenceStream();
+        evidenceSession = session;
+        return session.run(async () => canonicalEvidenceStream(), {
+          commit: options?.commit,
+          onError: options?.onError,
+          onReceipt: options?.onEvidenceSessionReceipt,
+        });
       },
     },
     {
@@ -114,7 +126,7 @@ test("revalidates canonical evidence before persistence and expires the session"
   for await (const chunk of stream) chunks.push(chunk);
 
   expect(appended).toEqual([]);
-  expect(expired).toBe(true);
+  expect(await evidenceSession?.validateReferences([])).toBe(false);
   expect(chunks.at(-1)).toEqual({
     type: "error",
     errorText: "Research assistant response failed.",

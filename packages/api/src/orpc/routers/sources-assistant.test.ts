@@ -5,6 +5,7 @@ import type { Context } from "../../context";
 import type { ResearchAssistantOperations } from "../../research-assistant/research-assistant";
 import type { ResearchThreadOperations } from "../../research-assistant/research-thread-contract";
 import { createResearchTurnOperations } from "../../research-assistant/research-turn";
+import { managedResearchAssistant } from "../../research-assistant/research-turn.test-support";
 import { createTestContext } from "../application-test-support";
 import {
   admittedSourceStatesStub,
@@ -307,12 +308,16 @@ test("observes a late assistant stream failure and returns a useful error", asyn
         "Research assistant response failed: Provider stream disconnected Error reference: req-stream-failure.",
     },
   ]);
-  expect(observations).toHaveLength(1);
+  expect(observations).toHaveLength(2);
   expect(observations[0]).toMatchObject({
     event: "research_assistant.stream_failed",
     operation: "sources.assistant.ask",
     outcome: "failure",
     err: { message: "Provider stream disconnected" },
+  });
+  expect(observations[1]).toMatchObject({
+    event: "research_assistant.session_completed",
+    outcome: "provider-failed",
   });
   expect(appended).toEqual([
     {
@@ -380,7 +385,12 @@ test("cancelling a streamed turn preserves only the user question", async () => 
       content: "What is the central claim?",
     },
   ]);
-  expect(observations).toEqual([]);
+  expect(observations).toMatchObject([
+    {
+      event: "research_assistant.session_completed",
+      outcome: "cancelled",
+    },
+  ]);
 });
 
 function context(
@@ -431,7 +441,7 @@ function context(
         },
       }),
       researchTurns: createResearchTurnOperations(
-        researchAssistant,
+        managedResearchAssistant(researchAssistant),
         researchThreads,
       ),
       researchThreads,

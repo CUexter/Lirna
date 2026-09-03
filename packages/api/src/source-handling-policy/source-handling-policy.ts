@@ -58,6 +58,8 @@ export const processingEndpointClasses = [
   "restricted-cloud",
   "local",
 ] as const;
+export type ProcessingEndpointClass =
+  (typeof processingEndpointClasses)[number];
 export const processingDenialReasons = [
   "content-inaccessible",
   "rights-reference-only",
@@ -103,30 +105,22 @@ const sensitivityRank: Record<SensitivityLevel, number> = {
   "local-only": 2,
 };
 
-const endpointClassRank: Record<
-  CitationInferenceRequest["endpointClass"],
-  number
-> = {
+const endpointClassRank: Record<ProcessingEndpointClass, number> = {
   "ordinary-cloud": 0,
   "restricted-cloud": 1,
   local: 2,
 };
 
-export function decideCitationInference(
+export function decideContentProcessing(
   policy: SourceHandlingPolicy,
-  endpointClass: CitationInferenceRequest["endpointClass"],
-): CitationInferenceDecision {
-  const request: CitationInferenceRequest = {
-    activity: "citation-candidate-inference",
-    endpointClass,
-  };
+  endpointClass: ProcessingEndpointClass,
+) {
   const reasons: ProcessingDenialReason[] = [];
   const contentAccessDenial = contentAccessDenialReason(policy.rightsBasis);
   if (contentAccessDenial) reasons.push(contentAccessDenial);
 
   if (
-    endpointClassRank[request.endpointClass] <
-    sensitivityRank[policy.sensitivityLevel]
+    endpointClassRank[endpointClass] < sensitivityRank[policy.sensitivityLevel]
   ) {
     reasons.push(
       policy.sensitivityLevel === "local-only"
@@ -136,8 +130,22 @@ export function decideCitationInference(
   }
 
   return reasons.length
-    ? { allowed: false, request, reasons }
-    : { allowed: true, request, reason: "eligible" };
+    ? ({ allowed: false, reasons } as const)
+    : ({ allowed: true, reason: "eligible" } as const);
+}
+
+export function decideCitationInference(
+  policy: SourceHandlingPolicy,
+  endpointClass: CitationInferenceRequest["endpointClass"],
+): CitationInferenceDecision {
+  const request: CitationInferenceRequest = {
+    activity: "citation-candidate-inference",
+    endpointClass,
+  };
+  const decision = decideContentProcessing(policy, endpointClass);
+  return decision.allowed
+    ? { allowed: true, request, reason: decision.reason }
+    : { allowed: false, request, reasons: decision.reasons };
 }
 
 export function mostRestrictiveSensitivity(

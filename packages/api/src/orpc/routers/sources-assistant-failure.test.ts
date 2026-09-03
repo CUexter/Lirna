@@ -1,9 +1,12 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
 import type { UIMessageChunk } from "ai";
-import type { ResearchAssistantOperations } from "../../research-assistant/research-assistant";
 import type { ResearchThreadOperations } from "../../research-assistant/research-thread-contract";
 import { createResearchTurnOperations } from "../../research-assistant/research-turn";
+import {
+  evidenceSnapshot,
+  managedResearchAssistant,
+} from "../../research-assistant/research-turn.test-support";
 import { createTestContext } from "../application-test-support";
 import {
   admittedSourceStatesStub,
@@ -99,45 +102,63 @@ test("observes evidence refusal as a content-free research outcome", async () =>
           }),
           researchThreads,
           researchTurns: createResearchTurnOperations(
-            {
-              async answer(_input, options) {
-                options?.onEvidenceSessionUpdate?.({
-                  sessionId: "session-refused",
-                  sourceStateId: stateId,
-                  resolverVersion: "lexical-v1",
-                  indexVersion: "reading-components-v1",
-                  budget: {
-                    maximumDiscoveries: 12,
-                    maximumCandidatesPerDiscovery: 5,
-                    maximumAdmissions: 12,
-                    maximumModelSteps: 8,
-                    maximumTotalEvidenceCharacters: 100_000,
-                  },
-                  consumption: {
-                    discoveries: 1,
-                    candidates: 0,
-                    admissions: 0,
-                    modelSteps: 2,
-                    evidenceCharacters: 0,
-                  },
-                  componentScope: ["supplement:/private"],
-                  candidateCount: 0,
-                  reasonCodes: ["scope-denied"],
-                  admittedCount: 0,
-                  refusedCount: 1,
-                  budgetExhausted: false,
-                });
-                options?.onEvidenceResolution?.({
-                  operation: "findEvidence",
-                  outcome: "refused",
-                  reasonCode: "scope-denied",
-                  componentScope: ["supplement:/private"],
-                  candidateCount: 0,
-                  durationMs: 4.5,
-                });
-                return completedStream();
+            managedResearchAssistant(
+              {
+                async answer(_input, options) {
+                  options?.onEvidenceSessionUpdate?.({
+                    sessionId: "session-refused",
+                    sourceStateId: stateId,
+                    resolverVersion: "lexical-v1",
+                    indexVersion: "reading-components-v1",
+                    budget: {
+                      maximumDiscoveries: 12,
+                      maximumCandidatesPerDiscovery: 5,
+                      maximumAdmissions: 12,
+                      maximumModelSteps: 8,
+                      maximumTotalEvidenceCharacters: 100_000,
+                    },
+                    consumption: {
+                      discoveries: 1,
+                      candidates: 0,
+                      admissions: 0,
+                      modelSteps: 2,
+                      evidenceCharacters: 0,
+                    },
+                    componentScope: ["supplement:/private"],
+                    candidateCount: 0,
+                    reasonCodes: ["scope-denied"],
+                    admittedCount: 0,
+                    refusedCount: 1,
+                    budgetExhausted: false,
+                  });
+                  options?.onEvidenceResolution?.({
+                    operation: "findEvidence",
+                    outcome: "refused",
+                    reasonCode: "scope-denied",
+                    componentScope: ["supplement:/private"],
+                    candidateCount: 0,
+                    durationMs: 4.5,
+                  });
+                  return completedStream();
+                },
               },
-            },
+              evidenceSnapshot({
+                sessionId: "session-refused",
+                sourceStateId: stateId,
+                consumption: {
+                  discoveries: 1,
+                  candidates: 0,
+                  admissions: 0,
+                  modelSteps: 2,
+                  evidenceCharacters: 0,
+                },
+                componentScope: ["supplement:/private"],
+                candidateCount: 0,
+                reasonCodes: ["scope-denied"],
+                admittedCount: 0,
+                refusedCount: 1,
+              }),
+            ),
             researchThreads,
           ),
         },
@@ -190,11 +211,11 @@ test("observes evidence refusal as a content-free research outcome", async () =>
 });
 
 function assistant(stream: ReadableStream<UIMessageChunk>) {
-  return {
+  return managedResearchAssistant({
     async answer() {
       return stream;
     },
-  } satisfies ResearchAssistantOperations;
+  });
 }
 
 function threads(

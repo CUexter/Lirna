@@ -9,13 +9,18 @@ import {
   validateResearchAnswer,
 } from "./research-answer-ledger";
 import { compileResearchAnswer } from "./research-answer-markers";
-import type { ResearchAssistantEvidenceFinalizer } from "./research-assistant";
 import type { AliasedResearchPassageReference } from "./research-thread-contract";
 
 export type PersistResearchAnswer = (
   content: string,
   references: ReturnType<typeof compileResearchAnswer>["references"],
 ) => Promise<void>;
+
+interface ResearchAssistantEvidenceFinalizer {
+  validateReferences(
+    references: AliasedResearchPassageReference[],
+  ): Promise<boolean>;
+}
 
 export class AssistantAnswer {
   private currentStepContent = "";
