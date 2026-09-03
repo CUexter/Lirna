@@ -1,5 +1,8 @@
+import type { EvidenceAdmission, EvidenceCandidate } from "./evidence-resolver";
+
 export type EvidenceResolutionOutcome =
-  | "found"
+  | "candidates"
+  | "admitted"
   | "none"
   | "ambiguous"
   | "stale"
@@ -7,56 +10,59 @@ export type EvidenceResolutionOutcome =
   | "budget-exhausted";
 
 export type EvidenceResolutionReasonCode =
-  | "no-matching-passage"
-  | "multiple-matching-passages"
+  | "no-relevant-passage"
+  | "equally-ranked-passages"
   | "derivative-changed"
   | "session-expired"
   | "scope-denied"
   | "policy-denied"
+  | "outside-session-scope"
+  | "discovery-budget-exhausted"
   | "admission-budget-exhausted";
 
-export type FoundEvidenceResolution =
-  import("./research-thread-contract").AliasedResearchPassageReference & {
-    kind: "source-passage-reference";
-    outcome: "found";
-    candidateCount: 1;
-  };
+export type EvidenceDiscovery = {
+  kind: "evidence-discovery";
+  outcome: "candidates" | "ambiguous";
+  componentScope: string[];
+  candidateCount: number;
+  candidates: EvidenceCandidate[];
+  reasonCode?: "equally-ranked-passages";
+};
 
-interface UnresolvedEvidenceResolutionBase {
+interface UnresolvedEvidenceResolutionFields {
   kind: "evidence-resolution";
   componentScope: string[];
+  candidateCount?: number;
 }
 
-export type UnresolvedEvidenceResolution =
-  | (UnresolvedEvidenceResolutionBase & {
-      outcome: "none";
-      reasonCode: "no-matching-passage";
-      candidateCount: 0;
-    })
-  | (UnresolvedEvidenceResolutionBase & {
-      outcome: "ambiguous";
-      reasonCode: "multiple-matching-passages";
-      candidateCount: number;
-    })
-  | (UnresolvedEvidenceResolutionBase & {
-      outcome: "stale";
-      reasonCode: "derivative-changed" | "session-expired";
-    })
-  | (UnresolvedEvidenceResolutionBase & {
-      outcome: "refused";
-      reasonCode: "scope-denied" | "policy-denied";
-    })
-  | (UnresolvedEvidenceResolutionBase & {
-      outcome: "budget-exhausted";
-      reasonCode: "admission-budget-exhausted";
-    });
+interface UnresolvedEvidenceReasons {
+  none: "no-relevant-passage";
+  stale: "derivative-changed" | "session-expired";
+  refused: "scope-denied" | "policy-denied" | "outside-session-scope";
+  "budget-exhausted":
+    | "discovery-budget-exhausted"
+    | "admission-budget-exhausted";
+}
+
+export type UnresolvedEvidenceResolution = {
+  [Outcome in keyof UnresolvedEvidenceReasons]: UnresolvedEvidenceResolutionFields & {
+    outcome: Outcome;
+    reasonCode: UnresolvedEvidenceReasons[Outcome];
+  };
+}[keyof UnresolvedEvidenceReasons];
+
+export type UnresolvedEvidenceOutcome = keyof UnresolvedEvidenceReasons;
+export type UnresolvedEvidenceReason<
+  Outcome extends UnresolvedEvidenceOutcome,
+> = UnresolvedEvidenceReasons[Outcome];
 
 export type EvidenceResolutionResult =
-  | FoundEvidenceResolution
+  | EvidenceDiscovery
+  | EvidenceAdmission
   | UnresolvedEvidenceResolution;
 
 export interface EvidenceResolutionObservation {
-  operation: "referencePassage" | "findEvidence" | "admitEvidence";
+  operation: "findEvidence" | "admitEvidence";
   outcome: EvidenceResolutionOutcome;
   reasonCode?: EvidenceResolutionReasonCode;
   componentScope: string[];

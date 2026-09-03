@@ -7,6 +7,7 @@ import {
   type UIMessageChunk,
 } from "ai";
 import type { ReadingComponent } from "../sep-admission/reading/contract";
+import type { ActiveReadingDerivativeOperations } from "../sep-admission/state/active-reading-derivative";
 import type { EvidenceResolutionObservation } from "./evidence-resolution";
 import {
   defaultResearchAssistantModel,
@@ -28,6 +29,10 @@ export interface ResearchAssistantInput {
     selectedText?: string;
   }>;
   sourceTitle: string;
+  sourceId: string;
+  sourceStateId: string;
+  derivativeId?: string;
+  componentIdentity: string;
   componentLabel: string;
   selectedText?: string;
   sourceText: string;
@@ -50,36 +55,52 @@ export interface ResearchAssistantAnswerOptions {
 
 export function createResearchAssistant(
   model: LanguageModel | ((model: ResearchAssistantModel) => LanguageModel),
+  activeReadingDerivatives?: Pick<ActiveReadingDerivativeOperations, "read">,
 ): ResearchAssistantOperations {
   return {
     async answer(input, options) {
+      const { derivativeId, evidenceComponents, selectedText, sourceText } =
+        await activeEvidenceContext(input, activeReadingDerivatives);
       const prompt = [
         `Source: ${input.sourceTitle}`,
         `Component: ${input.componentLabel}`,
         "Source components:",
-        ...input.components.map(
+        ...evidenceComponents.map(
           (component) =>
             `- ${component.identity}: ${component.label} (${component.role})`,
         ),
-        ...(input.selectedText
+        ...(selectedText
           ? [
               "",
               "<selected-source-state-evidence>",
-              input.selectedText,
+              selectedText,
               "</selected-source-state-evidence>",
             ]
           : []),
         "",
         "<source-state-evidence>",
-        input.sourceText.slice(0, 100_000),
+        sourceText.slice(0, 100_000),
         "</source-state-evidence>",
         "",
         `Question: ${input.question}`,
       ].join("\n");
-      const tools = createResearchEvidenceTools(
-        input.components,
-        options?.onEvidenceResolution,
-      );
+      const tools = createResearchEvidenceTools({
+        components: evidenceComponents,
+        sourceStateId: input.sourceStateId,
+        derivativeId,
+        currentDerivativeId: activeReadingDerivatives
+          ? async () => {
+              const active = await activeReadingDerivatives.read({
+                sourceId: input.sourceId,
+                stateId: input.sourceStateId,
+              });
+              return active.status === "active"
+                ? active.value.derivativeId
+                : undefined;
+            }
+          : async () => derivativeId,
+        observe: options?.onEvidenceResolution,
+      });
       const agent = new ToolLoopAgent({
         model:
           typeof model === "function"
@@ -90,9 +111,9 @@ export function createResearchAssistant(
           "Answer only from the supplied Source-state evidence.",
           "Do not use readSourceComponent for the active component unless the answer requires text beyond the supplied 100,000-character evidence.",
           "Use readSourceComponent once for each other Source component that may contain relevant evidence, and request another page only when nextOffset is present and the answer needs it.",
-          "Use referencePassage for every exact passage that materially grounds the answer.",
-          "Call every needed referencePassage in the same step so references are verified in parallel.",
-          "A successful referencePassage call returns an evidence alias such as ev_1; use only successful aliases in the final answer.",
+          "Use findEvidence with a natural-language intent and bounded componentScope for every passage that may materially ground the answer; never send quotation text, offsets, occurrence numbers, prefixes, or suffixes.",
+          "Select relevant candidates by calling admitEvidence with only their opaque candidateHandle and a brief purpose.",
+          "A successful admitEvidence call returns an evidence alias such as ev_1; use only successfully admitted aliases in the final answer.",
           "Place [^ev_1] immediately after the smallest claim it grounds when a passing reference is sufficient.",
           "When exact wording matters, emit an empty quote block exactly as :::quote[ev_1] on one line followed by ::: on the next line; never copy quotation text into it.",
           "References support their claims by default; use |qualifies, |conflicts, or |background after an alias only when that different relation matters.",
@@ -107,7 +128,7 @@ export function createResearchAssistant(
         prepareStep: ({ instructions, stepNumber }) =>
           stepNumber === 7
             ? {
-                instructions: `${instructions} This is the final synthesis step. Answer the question now using the evidence already gathered. Do not call or imitate tools, and do not emit tool-call markup. Write natural Markdown, use only aliases from successful referencePassage outputs, place passing markers directly after grounded claims, and use an empty :::quote[ev_1] then ::: block only when exact wording matters.`,
+                instructions: `${instructions} This is the final synthesis step. Answer the question now using the evidence already gathered. Do not call or imitate tools, and do not emit tool-call markup. Write natural Markdown, use only aliases from successful admitEvidence outputs, place passing markers directly after grounded claims, and use an empty :::quote[ev_1] then ::: block only when exact wording matters.`,
                 toolChoice: "none",
               }
             : undefined,
@@ -116,19 +137,7 @@ export function createResearchAssistant(
       });
       const result = await agent.stream({
         messages: [
-          ...(input.history ?? []).map((message) => ({
-            role: message.role,
-            content:
-              message.role === "user" && message.selectedText
-                ? [
-                    "<selected-source-state-evidence>",
-                    message.selectedText,
-                    "</selected-source-state-evidence>",
-                    "",
-                    `Question: ${message.content}`,
-                  ].join("\n")
-                : message.content,
-          })),
+          ...researchHistoryMessages(input.history, evidenceComponents),
           {
             role: "user",
             content: [
@@ -153,11 +162,86 @@ export function createResearchAssistant(
   };
 }
 
+async function activeEvidenceContext(
+  input: ResearchAssistantInput,
+  activeReadingDerivatives?: Pick<ActiveReadingDerivativeOperations, "read">,
+) {
+  const active = await activeReadingDerivatives?.read({
+    sourceId: input.sourceId,
+    stateId: input.sourceStateId,
+  });
+  if (activeReadingDerivatives && active?.status !== "active")
+    throw new Error("Active Reading Derivative is unavailable");
+  const derivativeId =
+    active?.status === "active"
+      ? active.value.derivativeId
+      : (input.derivativeId ?? `${input.sourceStateId}:snapshot`);
+  const evidenceComponents =
+    active?.status === "active"
+      ? active.value.reading.components.map(
+          ({ identity, label, plainText, role }) => ({
+            identity,
+            label,
+            plainText,
+            role,
+          }),
+        )
+      : input.components;
+  const activeComponent = evidenceComponents.find(
+    ({ identity }) => identity === input.componentIdentity,
+  );
+  if (activeReadingDerivatives && !activeComponent)
+    throw new Error("Active Reading Derivative component is unavailable");
+  const sourceText = activeComponent?.plainText ?? input.sourceText;
+  return {
+    derivativeId,
+    evidenceComponents,
+    sourceText,
+    selectedText:
+      input.selectedText && sourceText.includes(input.selectedText)
+        ? input.selectedText
+        : undefined,
+  };
+}
+
+function researchHistoryMessages(
+  history: ResearchAssistantInput["history"],
+  components: ResearchAssistantInput["components"],
+) {
+  return (history ?? []).map((message) => {
+    const selectedText =
+      message.selectedText &&
+      components.some(({ plainText }) =>
+        plainText.includes(message.selectedText ?? ""),
+      )
+        ? message.selectedText
+        : undefined;
+    return {
+      role: message.role,
+      content:
+        message.role === "user" && selectedText
+          ? [
+              "<selected-source-state-evidence>",
+              selectedText,
+              "</selected-source-state-evidence>",
+              "",
+              `Question: ${message.content}`,
+            ].join("\n")
+          : message.content,
+    };
+  });
+}
+
 export function createOpenRouterResearchAssistant({
   apiKey,
+  activeReadingDerivatives,
 }: {
   apiKey: string;
+  activeReadingDerivatives: Pick<ActiveReadingDerivativeOperations, "read">;
 }): ResearchAssistantOperations {
   const openrouter = createOpenRouter({ apiKey });
-  return createResearchAssistant((model) => openrouter.chat(model));
+  return createResearchAssistant(
+    (model) => openrouter.chat(model),
+    activeReadingDerivatives,
+  );
 }

@@ -102,7 +102,7 @@ test("observes evidence refusal as a content-free research outcome", async () =>
             {
               async answer(_input, options) {
                 options?.onEvidenceResolution?.({
-                  operation: "referencePassage",
+                  operation: "findEvidence",
                   outcome: "refused",
                   reasonCode: "scope-denied",
                   componentScope: ["supplement:/private"],
@@ -137,7 +137,7 @@ test("observes evidence refusal as a content-free research outcome", async () =>
       level: "info",
       record: {
         event: "research_assistant.evidence_resolution",
-        operation: "referencePassage",
+        operation: "findEvidence",
         outcome: "refused",
         reasonCode: "scope-denied",
         componentScope: ["supplement:/private"],

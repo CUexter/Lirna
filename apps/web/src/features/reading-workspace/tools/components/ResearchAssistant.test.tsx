@@ -270,7 +270,7 @@ test("selects an existing Research thread and starts a new one", async () => {
   expect(startedNew).toBe(true);
 });
 
-test("renders a tool-verified passage as a navigable Source", async () => {
+test("renders a reloaded canonical Reference as a navigable Source", async () => {
   const user = userEvent.setup();
   let shown = false;
   render(
@@ -279,19 +279,11 @@ test("renders a tool-verified passage as a navigable Source", async () => {
         {
           id: "assistant-message",
           role: "assistant",
-          parts: [
-            { type: "text", text: "The supplement supports the claim." },
-            {
-              type: "tool-referencePassage",
-              toolCallId: "reference-call",
-              state: "output-available",
-              input: {
-                componentIdentity: "supplement-one",
-                exactText: "Supplement evidence.",
-                occurrence: 1,
-              },
-              output: {
-                kind: "source-passage-reference",
+          parts: [{ type: "text", text: "The supplement supports the claim." }],
+          metadata: {
+            references: [
+              {
+                id: "50000000-0000-4000-8000-000000000000",
                 componentIdentity: "supplement-one",
                 componentLabel: "Supplement one",
                 selection: {
@@ -303,8 +295,8 @@ test("renders a tool-verified passage as a navigable Source", async () => {
                   suffix: "",
                 },
               },
-            },
-          ],
+            ],
+          },
         },
       ]}
       passageForReference={(reference) => ({

@@ -174,7 +174,7 @@ function responseReferences(message: ResearchAssistantMessage) {
 
 function referenceFromToolPart(part: MessagePart): ResearchPassageReference[] {
   if (
-    !isReferencePassagePart(part) ||
+    !isAdmitEvidencePart(part) ||
     part.state !== "output-available" ||
     !part.output ||
     typeof part.output !== "object"
@@ -191,11 +191,14 @@ function referenceFromToolPart(part: MessagePart): ResearchPassageReference[] {
     : [];
 }
 
-function isReferencePassagePart(part: MessagePart): part is ToolPart {
+function isAdmitEvidencePart(part: MessagePart): part is ToolPart {
   return (
     isToolPart(part) &&
-    (part.type === "tool-referencePassage" ||
-      (part.type === "dynamic-tool" && part.toolName === "referencePassage"))
+    (part.type === "tool-admitEvidence" ||
+      part.type === "tool-referencePassage" ||
+      (part.type === "dynamic-tool" &&
+        (part.toolName === "admitEvidence" ||
+          part.toolName === "referencePassage")))
   );
 }
 
@@ -211,6 +214,8 @@ function toolTitle(part: ToolPart) {
   return (
     {
       readSourceComponent: "Read Source component",
+      findEvidence: "Find evidence",
+      admitEvidence: "Admit evidence",
       referencePassage: "Reference passage",
     }[name] ?? name
   );
@@ -226,6 +231,8 @@ function evidenceStatus(part: ToolPart) {
 
 function evidenceOutcomeText(outcome: string) {
   return {
+    candidates: "Found candidate passages",
+    admitted: "Verified passage",
     found: "Verified passage",
     none: "No relevant passage found",
     ambiguous: "Several passages may apply",
@@ -249,7 +256,7 @@ function toolOutput(part: ToolPart): ReactNode {
     };
     return `Read ${result.componentLabel ?? "Source component"}, characters ${result.offset ?? 0}-${result.endOffset ?? 0}.`;
   }
-  if (isReferencePassagePart(part) && "kind" in output) {
+  if (isEvidenceToolPart(part) && "kind" in output) {
     if ("outcome" in output && typeof output.outcome === "string")
       return (
         evidenceOutcomeText(output.outcome) ?? "Evidence outcome recorded."
@@ -260,6 +267,21 @@ function toolOutput(part: ToolPart): ReactNode {
       return output.reason;
   }
   return "Tool completed.";
+}
+
+function isEvidenceToolPart(part: ToolPart): boolean {
+  if (
+    part.type === "tool-admitEvidence" ||
+    part.type === "tool-findEvidence" ||
+    part.type === "tool-referencePassage"
+  )
+    return true;
+  return (
+    part.type === "dynamic-tool" &&
+    (part.toolName === "admitEvidence" ||
+      part.toolName === "findEvidence" ||
+      part.toolName === "referencePassage")
+  );
 }
 
 function referenceKey(reference: ResearchPassageReference) {

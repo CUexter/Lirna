@@ -2,212 +2,219 @@ import { randomUUID } from "node:crypto";
 import { tool } from "ai";
 import { z } from "zod";
 
-import {
-  type AuthoredTargetInput,
-  authoredTargetOffsetBasis,
-} from "../authored-targets/authored-target";
 import type { ReadingComponent } from "../sep-admission/reading/contract";
 import type {
   EvidenceResolutionObservation,
   EvidenceResolutionResult,
-  FoundEvidenceResolution,
+  UnresolvedEvidenceOutcome,
+  UnresolvedEvidenceReason,
   UnresolvedEvidenceResolution,
 } from "./evidence-resolution";
+import { createEvidenceResolver } from "./evidence-resolver";
 
 type EvidenceComponent = Pick<
   ReadingComponent,
   "identity" | "label" | "plainText" | "role"
 >;
 
-type UnresolvedEvidenceResolutionInput =
-  UnresolvedEvidenceResolution extends infer Resolution
-    ? Resolution extends UnresolvedEvidenceResolution
-      ? Omit<Resolution, "kind" | "componentScope">
-      : never
-    : never;
+interface ResearchEvidenceToolOptions {
+  components: EvidenceComponent[];
+  sourceStateId: string;
+  derivativeId: string;
+  currentDerivativeId?: () => Promise<string | undefined>;
+  observe?: (observation: EvidenceResolutionObservation) => void;
+}
 
 export function createResearchEvidenceTools(
-  components: EvidenceComponent[],
-  observe?: (observation: EvidenceResolutionObservation) => void,
+  options: ResearchEvidenceToolOptions,
 ) {
-  const byIdentity = new Map(
-    components.map((component) => [component.identity, component]),
+  const sessionId = `session_${randomUUID()}`;
+  const componentIdentities = new Set(
+    options.components.map(({ identity }) => identity),
   );
-  let evidenceAliasSequence = 0;
-  let referenceAttempts = 0;
+  const resolver = createEvidenceResolver({
+    sessionId,
+    sourceStateId: options.sourceStateId,
+    derivativeId: options.derivativeId,
+    components: options.components,
+    currentDerivativeId: options.currentDerivativeId,
+  });
+  let discoveries = 0;
+  let admissions = 0;
+
   return {
-    readSourceComponent: tool({
+    readSourceComponent: sourceComponentReader(options.components),
+    findEvidence: tool({
       description:
-        "Read up to 100,000 characters of any component in this Source-state bundle, including supplementary articles and publisher notes. Most components fit in one call; continue from nextOffset only when necessary.",
+        "Find canonical passages matching a natural-language evidence intent within a bounded Source-component scope. Select a returned candidate by its opaque handle; never send quotation text or offsets.",
       inputSchema: z.object({
-        componentIdentity: z.string().min(1),
-        offset: z.number().int().nonnegative().default(0),
+        intent: z.string().trim().min(1).max(2_000),
+        componentScope: z.array(z.string().min(1)).min(1).max(20),
+        desiredRelation: z
+          .enum(["supports", "qualifies", "conflicts", "background"])
+          .default("supports"),
+        limit: z.number().int().min(1).max(5).default(5),
       }),
-      execute: async ({ componentIdentity, offset }) => {
-        const component = byIdentity.get(componentIdentity);
-        if (!component) {
-          return {
-            found: false as const,
-            availableComponentIdentities: [...byIdentity.keys()],
-          };
-        }
-        const endOffset = Math.min(
-          offset + 100_000,
-          component.plainText.length,
-        );
-        return {
-          found: true as const,
-          componentIdentity,
-          componentLabel: component.label,
-          offset,
-          endOffset,
-          nextOffset:
-            endOffset < component.plainText.length ? endOffset : undefined,
-          text: component.plainText.slice(offset, endOffset),
-        };
-      },
-    }),
-    referencePassage: tool({
-      description:
-        "Create a verified navigable reference to an exact passage previously read from a Source component. Omit occurrence first; if the result is ambiguous, retry with the occurrence that grounds the claim.",
-      inputSchema: z.object({
-        componentIdentity: z.string().min(1),
-        exactText: z.string().min(1).max(20_000),
-        occurrence: z.number().int().positive().max(100).optional(),
-      }),
-      execute: async ({ componentIdentity, exactText, occurrence }) => {
+      execute: async ({ intent, componentScope, limit }) => {
         const startedAt = performance.now();
-        referenceAttempts += 1;
-        if (referenceAttempts > 12)
+        discoveries += 1;
+        if (discoveries > 12)
           return observed(
             unresolved(
-              {
-                outcome: "budget-exhausted",
-                reasonCode: "admission-budget-exhausted",
-              },
-              componentIdentity,
+              "budget-exhausted",
+              "discovery-budget-exhausted",
+              componentScope,
             ),
-            componentIdentity,
+            "findEvidence",
             startedAt,
-            observe,
+            options.observe,
           );
-        const component = byIdentity.get(componentIdentity);
-        if (!component)
+        if (
+          componentScope.some((identity) => !componentIdentities.has(identity))
+        )
           return observed(
-            unresolved(
-              { outcome: "refused", reasonCode: "scope-denied" },
-              componentIdentity,
-            ),
-            componentIdentity,
+            unresolved("refused", "scope-denied", componentScope),
+            "findEvidence",
             startedAt,
-            observe,
+            options.observe,
           );
-        const matchingStarts = occurrenceStarts(component.plainText, exactText);
-        if (matchingStarts.length === 0)
+        const rankedCandidates = await resolver.find({
+          sourceStateId: options.sourceStateId,
+          componentIdentities: componentScope,
+          intent,
+          limit: Math.max(2, limit),
+        });
+        if (rankedCandidates.length === 0)
           return observed(
-            unresolved(
-              {
-                outcome: "none",
-                reasonCode: "no-matching-passage",
-                candidateCount: 0,
-              },
-              componentIdentity,
-            ),
-            componentIdentity,
+            unresolved("none", "no-relevant-passage", componentScope, 0),
+            "findEvidence",
             startedAt,
-            observe,
+            options.observe,
           );
-        if (occurrence === undefined && matchingStarts.length > 1)
-          return observed(
-            unresolved(
-              {
-                outcome: "ambiguous",
-                reasonCode: "multiple-matching-passages",
-                candidateCount: matchingStarts.length,
-              },
-              componentIdentity,
-            ),
-            componentIdentity,
-            startedAt,
-            observe,
-          );
-        const start = matchingStarts[(occurrence ?? 1) - 1];
-        if (start === undefined)
-          return observed(
-            unresolved(
-              {
-                outcome: "none",
-                reasonCode: "no-matching-passage",
-                candidateCount: 0,
-              },
-              componentIdentity,
-            ),
-            componentIdentity,
-            startedAt,
-            observe,
-          );
-        const selection: AuthoredTargetInput = {
-          offsetBasis: authoredTargetOffsetBasis,
-          normalizedStartOffset: start,
-          normalizedEndOffset: start + exactText.length,
-          exactText,
-          prefix: component.plainText.slice(Math.max(0, start - 32), start),
-          suffix: component.plainText.slice(
-            start + exactText.length,
-            start + exactText.length + 32,
-          ),
-        };
-        evidenceAliasSequence += 1;
+        const outcome =
+          rankedCandidates.length > 1 &&
+          rankedCandidates[0]?.relevanceScore ===
+            rankedCandidates[1]?.relevanceScore
+            ? "ambiguous"
+            : "candidates";
+        const candidates =
+          outcome === "ambiguous"
+            ? rankedCandidates.filter(
+                ({ relevanceScore }) =>
+                  relevanceScore === rankedCandidates[0]?.relevanceScore,
+              )
+            : rankedCandidates.slice(0, limit);
         return observed(
           {
-            kind: "source-passage-reference",
-            outcome: "found",
-            candidateCount: 1,
-            id: randomUUID(),
-            evidenceAlias: `ev_${evidenceAliasSequence}`,
-            componentIdentity,
-            componentLabel: component.label,
-            selection,
-          } satisfies FoundEvidenceResolution,
-          componentIdentity,
+            kind: "evidence-discovery",
+            outcome,
+            componentScope,
+            candidateCount: candidates.length,
+            candidates,
+            ...(outcome === "ambiguous"
+              ? { reasonCode: "equally-ranked-passages" as const }
+              : {}),
+          },
+          "findEvidence",
           startedAt,
-          observe,
+          options.observe,
         );
+      },
+    }),
+    admitEvidence: tool({
+      description:
+        "Admit one candidate returned by findEvidence. A successful admission returns an answer-scoped evidence alias for Markdown markers.",
+      inputSchema: z.object({
+        candidateHandle: z.string().startsWith("candidate_").max(100),
+        purpose: z.string().trim().min(1).max(1_000),
+      }),
+      execute: async ({ candidateHandle }) => {
+        const startedAt = performance.now();
+        admissions += 1;
+        if (admissions > 12)
+          return observed(
+            unresolved("budget-exhausted", "admission-budget-exhausted", []),
+            "admitEvidence",
+            startedAt,
+            options.observe,
+          );
+        const result = await resolver.admit({
+          sessionId,
+          sourceStateId: options.sourceStateId,
+          candidateHandle,
+        });
+        return observed(result, "admitEvidence", startedAt, options.observe);
       },
     }),
   };
 }
 
-function unresolved(
-  result: UnresolvedEvidenceResolutionInput,
-  componentIdentity: string,
-): UnresolvedEvidenceResolution {
-  const scope = {
-    kind: "evidence-resolution" as const,
-    componentScope: [componentIdentity],
-  };
-  switch (result.outcome) {
-    case "none":
-    case "ambiguous":
-    case "stale":
-    case "refused":
-    case "budget-exhausted":
-      return { ...scope, ...result };
-  }
+function sourceComponentReader(components: EvidenceComponent[]) {
+  const byIdentity = new Map(
+    components.map((component) => [component.identity, component]),
+  );
+  return tool({
+    description:
+      "Read up to 100,000 characters of a Source component when broader context is needed before evidence discovery.",
+    inputSchema: z.object({
+      componentIdentity: z.string().min(1),
+      offset: z.number().int().nonnegative().default(0),
+    }),
+    execute: async ({ componentIdentity, offset }) => {
+      const component = byIdentity.get(componentIdentity);
+      if (!component) {
+        return {
+          found: false as const,
+          availableComponentIdentities: [...byIdentity.keys()],
+        };
+      }
+      const endOffset = Math.min(offset + 100_000, component.plainText.length);
+      return {
+        found: true as const,
+        componentIdentity,
+        componentLabel: component.label,
+        offset,
+        endOffset,
+        nextOffset:
+          endOffset < component.plainText.length ? endOffset : undefined,
+        text: component.plainText.slice(offset, endOffset),
+      };
+    },
+  });
+}
+
+function unresolved<Outcome extends UnresolvedEvidenceOutcome>(
+  outcome: Outcome,
+  reasonCode: UnresolvedEvidenceReason<Outcome>,
+  componentScope: string[],
+  candidateCount?: number,
+): Extract<UnresolvedEvidenceResolution, { outcome: Outcome }> {
+  return {
+    kind: "evidence-resolution",
+    outcome,
+    reasonCode,
+    componentScope,
+    ...(candidateCount === undefined ? {} : { candidateCount }),
+  } as Extract<UnresolvedEvidenceResolution, { outcome: Outcome }>;
 }
 
 function observed<Result extends EvidenceResolutionResult>(
   result: Result,
-  componentIdentity: string,
+  operation: EvidenceResolutionObservation["operation"],
   startedAt: number,
   observe?: (observation: EvidenceResolutionObservation) => void,
 ) {
   try {
     observe?.({
-      operation: "referencePassage",
+      operation,
       outcome: result.outcome,
-      ...(result.outcome === "found" ? {} : { reasonCode: result.reasonCode }),
-      componentScope: [componentIdentity],
+      ...(result.outcome === "admitted" || result.outcome === "candidates"
+        ? {}
+        : { reasonCode: result.reasonCode }),
+      componentScope:
+        "componentScope" in result
+          ? result.componentScope
+          : [result.componentIdentity],
       candidateCount:
         "candidateCount" in result ? result.candidateCount : undefined,
       durationMs: performance.now() - startedAt,
@@ -216,14 +223,4 @@ function observed<Result extends EvidenceResolutionResult>(
     // Diagnostics must not alter evidence resolution.
   }
   return result;
-}
-
-function occurrenceStarts(text: string, exactText: string) {
-  const starts: number[] = [];
-  let start = -1;
-  while (true) {
-    start = text.indexOf(exactText, start + 1);
-    if (start === -1) return starts;
-    starts.push(start);
-  }
 }

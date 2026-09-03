@@ -15,19 +15,37 @@ test("presents every evidence outcome as a research status instead of Completed"
     <ResearchAssistantResponse
       message={message([
         foundOutput(),
-        outcomeOutput({
-          kind: "evidence-resolution",
-          outcome: "none",
-          reasonCode: "no-matching-passage",
+        discoveryOutput({
+          kind: "evidence-discovery",
+          outcome: "candidates",
           componentScope: ["active:/"],
-          candidateCount: 0,
+          candidateCount: 1,
+          candidates: [
+            {
+              handle: "candidate_10000000-0000-4000-8000-000000000000",
+              componentIdentity: "active:/",
+              componentLabel: "Main entry",
+              relevanceScore: 2,
+              passage: "Candidate passage.",
+              before: "",
+              after: "",
+            },
+          ],
         }),
         outcomeOutput({
           kind: "evidence-resolution",
+          outcome: "none",
+          reasonCode: "no-relevant-passage",
+          componentScope: ["active:/"],
+          candidateCount: 0,
+        }),
+        discoveryOutput({
+          kind: "evidence-discovery",
           outcome: "ambiguous",
-          reasonCode: "multiple-matching-passages",
+          reasonCode: "equally-ranked-passages",
           componentScope: ["active:/"],
           candidateCount: 2,
+          candidates: [],
         }),
         outcomeOutput({
           kind: "evidence-resolution",
@@ -56,6 +74,7 @@ test("presents every evidence outcome as a research status instead of Completed"
   );
 
   expect(document.body.textContent).toContain("Verified passage");
+  expect(document.body.textContent).toContain("Found candidate passages");
   expect(document.body.textContent).toContain("No relevant passage found");
   expect(document.body.textContent).toContain("Several passages may apply");
   expect(document.body.textContent).toContain("Source representation changed");
@@ -70,7 +89,7 @@ test("keeps execution exceptions visibly distinct", () => {
     <ResearchAssistantResponse
       message={message([
         {
-          type: "tool-referencePassage",
+          type: "tool-admitEvidence",
           toolCallId: "failed-call",
           state: "output-error",
           input: { componentIdentity: "active:/" },
@@ -97,7 +116,7 @@ function outcomeOutput(
   output: UnresolvedEvidenceResolution,
 ): ResearchAssistantMessage["parts"][number] {
   return {
-    type: "tool-referencePassage",
+    type: "tool-findEvidence",
     toolCallId: `${output.outcome}-call`,
     state: "output-available",
     input: { componentIdentity: "active:/" },
@@ -105,20 +124,33 @@ function outcomeOutput(
   };
 }
 
+function discoveryOutput(
+  output: Extract<EvidenceResolutionResult, { kind: "evidence-discovery" }>,
+): ResearchAssistantMessage["parts"][number] {
+  return {
+    type: "tool-findEvidence",
+    toolCallId: `${output.outcome}-call`,
+    state: "output-available",
+    input: { componentScope: ["active:/"], intent: "evidence" },
+    output,
+  };
+}
+
 function foundOutput(): ResearchAssistantMessage["parts"][number] {
   return {
-    type: "tool-referencePassage",
+    type: "tool-admitEvidence",
     toolCallId: "found-call",
     state: "output-available",
     input: { componentIdentity: "active:/" },
     output: {
       kind: "source-passage-reference",
-      outcome: "found",
+      outcome: "admitted",
       candidateCount: 1,
       id: "10000000-0000-4000-8000-000000000000",
       evidenceAlias: "ev_1",
       componentIdentity: "active:/",
       componentLabel: "Main entry",
+      passage: "Verified passage.",
       selection: {
         offsetBasis: "normalized-derivative-text-v1",
         normalizedStartOffset: 0,

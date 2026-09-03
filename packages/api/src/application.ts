@@ -60,7 +60,7 @@ export function createApplication(
       : adapters.citationInference;
   const researchAssistant =
     adapters.researchAssistant === undefined
-      ? productionResearchAssistant()
+      ? productionResearchAssistant(activeReadingDerivatives)
       : adapters.researchAssistant;
   const researchThreads =
     adapters.researchThreads ?? new DrizzleResearchThreadStore(db);
@@ -108,10 +108,13 @@ function productionCitationInference() {
     : undefined;
 }
 
-function productionResearchAssistant() {
+function productionResearchAssistant(
+  activeReadingDerivatives: ActiveReadingDerivativeOperations,
+) {
   return env.OPENROUTER_API_KEY
     ? createOpenRouterResearchAssistant({
         apiKey: env.OPENROUTER_API_KEY,
+        activeReadingDerivatives,
       })
     : undefined;
 }

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
+import { activeReadingStub } from "../annotations/annotation-store.test-support";
 import { createResearchAssistant } from "./research-assistant";
 
 test("sends temporary evidence as an AI SDK file part", async () => {
@@ -43,11 +44,12 @@ test("sends temporary evidence as an AI SDK file part", async () => {
     ],
     model: "z-ai/glm-5.3-flash",
     componentLabel: "Main entry",
+    componentIdentity: "article",
     components: [
       {
         identity: "article",
         label: "Main entry",
-        plainText: "Synthetic reading text.",
+        plainText: "Earlier\n\nSynthetic reading text.",
         role: "main",
       },
     ],
@@ -56,7 +58,10 @@ test("sends temporary evidence as an AI SDK file part", async () => {
       { role: "assistant", content: "An earlier grounded answer." },
     ],
     question: "What does this add?",
-    sourceText: "Synthetic reading text.",
+    sourceId: "source-one",
+    sourceStateId: "state-one",
+    derivativeId: "derivative-one",
+    sourceText: "Earlier\n\nSynthetic reading text.",
     sourceTitle: "Test entry",
   });
 
@@ -94,29 +99,76 @@ test("sends temporary evidence as an AI SDK file part", async () => {
   expect(selectedModel).toBe("z-ai/glm-5.3-flash");
 });
 
-test("reads a supplementary component and creates a verified passage reference", async () => {
-  let call = 0;
-  const supplementText = `${"x".repeat(25_000)} Supplement evidence.`;
+test("builds prompt evidence from the active Reading Derivative", async () => {
   const model = new MockLanguageModelV4({
-    doStream: async () => {
+    doStream: async () => textStream("Grounded answer."),
+  });
+  const answer = await createResearchAssistant(
+    model,
+    activeReadingStub(true),
+  ).answer({
+    componentIdentity: "article:main",
+    componentLabel: "Article",
+    components: [
+      {
+        identity: "article:main",
+        label: "Article",
+        plainText: "Stale reading text.",
+        role: "main",
+      },
+    ],
+    question: "What is active?",
+    history: [
+      {
+        role: "user",
+        content: "What was selected?",
+        selectedText: "Stale historical selection.",
+      },
+    ],
+    selectedText: "Stale reading text.",
+    sourceId: "source-one",
+    sourceStateId: "state-one",
+    sourceText: "Stale reading text.",
+    sourceTitle: "Test entry",
+  });
+
+  for await (const _chunk of answer) {
+    // Consume the stream so the model call completes.
+  }
+
+  const prompt = JSON.stringify(model.doStreamCalls[0]?.prompt);
+  expect(prompt).toContain("Readevidence carefully.");
+  expect(prompt).not.toContain("Stale reading text.");
+  expect(prompt).not.toContain("Stale historical selection.");
+});
+
+test("discovers and admits a canonical passage from a supplementary component", async () => {
+  let call = 0;
+  const supplementText = `${"x".repeat(25_000)}\n\nSupplement evidence.`;
+  const model = new MockLanguageModelV4({
+    doStream: async ({ prompt }) => {
       call += 1;
       if (call === 1)
-        return toolCallStream("read", "readSourceComponent", {
-          componentIdentity: "supplement-one",
-          offset: 0,
+        return toolCallStream("find", "findEvidence", {
+          componentScope: ["supplement-one"],
+          intent: "supplement supporting evidence",
+          desiredRelation: "supports",
+          limit: 5,
         });
-      if (call === 2)
-        return toolCallStream("reference", "referencePassage", {
-          componentIdentity: "supplement-one",
-          exactText: "Supplement evidence.",
-          occurrence: 1,
+      if (call === 2) {
+        const candidateHandle = candidateHandleFromPrompt(prompt);
+        return toolCallStream("admit", "admitEvidence", {
+          candidateHandle,
+          purpose: "Ground the supplement claim",
         });
+      }
       return textStream("The supplement provides supporting evidence.");
     },
   });
   const chunks = [];
   const answer = await createResearchAssistant(model).answer({
     componentLabel: "Article",
+    componentIdentity: "article",
     components: [
       {
         identity: "article",
@@ -132,6 +184,9 @@ test("reads a supplementary component and creates a verified passage reference",
       },
     ],
     question: "Does the supplement support this?",
+    sourceId: "source-one",
+    sourceStateId: "state-one",
+    derivativeId: "derivative-one",
     sourceText: "Main article.",
     sourceTitle: "Test source",
   });
@@ -147,25 +202,26 @@ test("reads a supplementary component and creates a verified passage reference",
     "Do not use readSourceComponent for the active component",
   );
   expect(instructions).toContain(
-    "Call every needed referencePassage in the same step",
+    "never send quotation text, offsets, occurrence numbers, prefixes, or suffixes",
   );
   expect(chunks).toContainEqual({
     type: "tool-output-available",
-    toolCallId: "reference",
+    toolCallId: "admit",
     output: {
       kind: "source-passage-reference",
-      outcome: "found",
+      outcome: "admitted",
       candidateCount: 1,
       id: expect.any(String),
       evidenceAlias: "ev_1",
       componentIdentity: "supplement-one",
       componentLabel: "Supplement one",
+      passage: "Supplement evidence.",
       selection: {
         offsetBasis: "normalized-derivative-text-v1",
-        normalizedStartOffset: 25_001,
-        normalizedEndOffset: 25_021,
+        normalizedStartOffset: 25_002,
+        normalizedEndOffset: 25_022,
         exactText: "Supplement evidence.",
-        prefix: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx ",
+        prefix: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n",
         suffix: "",
       },
     },
@@ -185,6 +241,7 @@ test("reserves the final agent step for a text answer", async () => {
   const chunks = [];
   const answer = await createResearchAssistant(model).answer({
     componentLabel: "Article",
+    componentIdentity: "article",
     components: [
       {
         identity: "article",
@@ -194,6 +251,9 @@ test("reserves the final agent step for a text answer", async () => {
       },
     ],
     question: "Keep researching before answering.",
+    sourceId: "source-one",
+    sourceStateId: "state-one",
+    derivativeId: "derivative-one",
     sourceText: "Main article.",
     sourceTitle: "Test source",
   });
@@ -227,6 +287,12 @@ function toolCallStream(id: string, toolName: string, input: object) {
       ],
     }),
   };
+}
+
+function candidateHandleFromPrompt(prompt: unknown) {
+  const match = JSON.stringify(prompt).match(/candidate_[0-9a-f-]+/);
+  if (!match) throw new Error("Expected an evidence candidate handle");
+  return match[0];
 }
 
 function textStream(text: string) {
