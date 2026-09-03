@@ -17,20 +17,23 @@ test("renders a live evidence alias as an inline citation", async () => {
           role: "assistant",
           parts: [
             {
-              type: "tool-referencePassage",
-              toolCallId: "reference-call",
+              type: "tool-admitEvidence",
+              toolCallId: "admit-call",
               state: "output-available",
               input: {
-                componentIdentity: "article",
-                exactText: "Verified evidence.",
-                occurrence: 1,
+                candidateHandle:
+                  "candidate_10000000-0000-4000-8000-000000000000",
+                purpose: "Ground the claim",
               },
               output: {
                 kind: "source-passage-reference",
+                outcome: "admitted",
+                candidateCount: 1,
                 id: "10000000-0000-4000-8000-000000000000",
                 evidenceAlias: "ev_1",
                 componentIdentity: "article",
                 componentLabel: "Article",
+                passage: "Verified evidence.",
                 selection: {
                   offsetBasis: "normalized-derivative-text-v1",
                   normalizedStartOffset: 0,
@@ -152,12 +155,12 @@ test("keeps aliases for duplicate verified passages independently resolvable", (
           id: "assistant-message",
           role: "assistant",
           parts: [
-            referenceToolPart(
+            admittedEvidenceToolPart(
               "first-reference",
               "ev_1",
               "10000000-0000-4000-8000-000000000000",
             ),
-            referenceToolPart(
+            admittedEvidenceToolPart(
               "second-reference",
               "ev_2",
               "20000000-0000-4000-8000-000000000000",
@@ -196,13 +199,13 @@ test("groups adjacent evidence markers for one claim into one citation carousel"
           id: "assistant-message",
           role: "assistant",
           parts: [
-            referenceToolPart(
+            admittedEvidenceToolPart(
               "first-reference",
               "ev_1",
               "10000000-0000-4000-8000-000000000000",
               "First evidence text.",
             ),
-            referenceToolPart(
+            admittedEvidenceToolPart(
               "second-reference",
               "ev_2",
               "20000000-0000-4000-8000-000000000000",
@@ -289,27 +292,29 @@ test("renders a Markdown table in an assistant message", () => {
   expect(view().getByRole("cell", { name: "Result" })).toBeTruthy();
 });
 
-function referenceToolPart(
+function admittedEvidenceToolPart(
   toolCallId: string,
   evidenceAlias: string,
   id: string,
   exactText = "Verified evidence.",
 ) {
   return {
-    type: "tool-referencePassage" as const,
+    type: "tool-admitEvidence" as const,
     toolCallId,
     state: "output-available" as const,
     input: {
-      componentIdentity: "article",
-      exactText,
-      occurrence: 1,
+      candidateHandle: `candidate_${id}`,
+      purpose: "Ground the claim",
     },
     output: {
       kind: "source-passage-reference",
+      outcome: "admitted",
+      candidateCount: 1,
       id,
       evidenceAlias,
       componentIdentity: "article",
       componentLabel: "Article",
+      passage: exactText,
       selection: {
         offsetBasis: "normalized-derivative-text-v1" as const,
         normalizedStartOffset: 0,

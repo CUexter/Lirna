@@ -195,10 +195,7 @@ function isAdmitEvidencePart(part: MessagePart): part is ToolPart {
   return (
     isToolPart(part) &&
     (part.type === "tool-admitEvidence" ||
-      part.type === "tool-referencePassage" ||
-      (part.type === "dynamic-tool" &&
-        (part.toolName === "admitEvidence" ||
-          part.toolName === "referencePassage")))
+      (part.type === "dynamic-tool" && part.toolName === "admitEvidence"))
   );
 }
 
@@ -216,7 +213,6 @@ function toolTitle(part: ToolPart) {
       readSourceComponent: "Read Source component",
       findEvidence: "Find evidence",
       admitEvidence: "Admit evidence",
-      referencePassage: "Reference passage",
     }[name] ?? name
   );
 }
@@ -270,17 +266,11 @@ function toolOutput(part: ToolPart): ReactNode {
 }
 
 function isEvidenceToolPart(part: ToolPart): boolean {
-  if (
-    part.type === "tool-admitEvidence" ||
-    part.type === "tool-findEvidence" ||
-    part.type === "tool-referencePassage"
-  )
+  if (part.type === "tool-admitEvidence" || part.type === "tool-findEvidence")
     return true;
   return (
     part.type === "dynamic-tool" &&
-    (part.toolName === "admitEvidence" ||
-      part.toolName === "findEvidence" ||
-      part.toolName === "referencePassage")
+    (part.toolName === "admitEvidence" || part.toolName === "findEvidence")
   );
 }
 

@@ -204,6 +204,9 @@ test("discovers and admits a canonical passage from a supplementary component", 
   expect(instructions).toContain(
     "never send quotation text, offsets, occurrence numbers, prefixes, or suffixes",
   );
+  expect(instructions).toContain(
+    "synthesize from successfully admitted evidence and state what remains uncertain",
+  );
   expect(chunks).toContainEqual({
     type: "tool-output-available",
     toolCallId: "admit",

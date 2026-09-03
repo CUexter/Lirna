@@ -106,6 +106,46 @@ test("keeps execution exceptions visibly distinct", () => {
   );
 });
 
+test("does not support the retired exact-text passage tool protocol", () => {
+  render(
+    <ResearchAssistantResponse
+      message={message([
+        {
+          type: "tool-referencePassage",
+          toolCallId: "retired-call",
+          state: "output-available",
+          input: {
+            componentIdentity: "active:/",
+            exactText: "Model-supplied passage.",
+            occurrence: 1,
+          },
+          output: {
+            kind: "source-passage-reference",
+            id: "10000000-0000-4000-8000-000000000000",
+            evidenceAlias: "ev_1",
+            componentIdentity: "active:/",
+            componentLabel: "Main entry",
+            selection: {
+              offsetBasis: "normalized-derivative-text-v1",
+              normalizedStartOffset: 0,
+              normalizedEndOffset: 23,
+              exactText: "Model-supplied passage.",
+              prefix: "",
+              suffix: "",
+            },
+          },
+        },
+        { type: "step-start" },
+        { type: "text", text: "Unsupported evidence.[^ev_1]" },
+      ])}
+      passageForReference={() => ({ show() {}, text: "" })}
+    />,
+  );
+
+  expect(document.body.textContent).not.toContain("Used 1 source");
+  expect(document.body.textContent).toContain("referencePassage");
+});
+
 function message(
   parts: ResearchAssistantMessage["parts"],
 ): ResearchAssistantMessage {

@@ -356,18 +356,21 @@ test("separates chronological research activity, answer, and Sources", async () 
               text: "Let me verify the passage before answering.",
             },
             {
-              type: "tool-referencePassage",
-              toolCallId: "reference-call",
+              type: "tool-admitEvidence",
+              toolCallId: "admit-call",
               state: "output-available",
               input: {
-                componentIdentity: "supplement-one",
-                exactText: "Supplement evidence.",
-                occurrence: 1,
+                candidateHandle:
+                  "candidate_10000000-0000-4000-8000-000000000000",
+                purpose: "Ground the supplement claim",
               },
               output: {
                 kind: "source-passage-reference",
+                outcome: "admitted",
+                candidateCount: 1,
                 componentIdentity: "supplement-one",
                 componentLabel: "Supplement one",
+                passage: "Supplement evidence.",
                 selection: {
                   offsetBasis: "normalized-derivative-text-v1",
                   normalizedStartOffset: 0,
@@ -404,7 +407,7 @@ test("separates chronological research activity, answer, and Sources", async () 
   const secondTask = view().getByText(
     "Let me verify the passage before answering.",
   );
-  const referenceTool = view().getByText("Reference passage");
+  const admissionTool = view().getByText("Admit evidence");
   const answer = view().getByRole("heading", { name: "Grounded connection" });
   expect(
     firstTask.compareDocumentPosition(readTool) &
@@ -415,11 +418,11 @@ test("separates chronological research activity, answer, and Sources", async () 
       Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
   expect(
-    secondTask.compareDocumentPosition(referenceTool) &
+    secondTask.compareDocumentPosition(admissionTool) &
       Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
   expect(
-    referenceTool.compareDocumentPosition(answer) &
+    admissionTool.compareDocumentPosition(answer) &
       Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
 

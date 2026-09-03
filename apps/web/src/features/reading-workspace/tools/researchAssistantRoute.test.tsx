@@ -37,23 +37,22 @@ async function* assistantStream(input: unknown) {
     for (let index = 1; index <= evidenceCount; index += 1) {
       yield {
         type: "tool-input-available",
-        toolCallId: `reference-call-${index}`,
-        toolName: "referencePassage",
-        input: {
-          componentIdentity: "supplement-one",
-          exactText,
-          occurrence: 1,
-        },
+        toolCallId: `admit-call-${index}`,
+        toolName: "admitEvidence",
+        input: { candidateHandle: "candidate_handle", purpose: "Ground claim" },
       };
       yield {
         type: "tool-output-available",
-        toolCallId: `reference-call-${index}`,
+        toolCallId: `admit-call-${index}`,
         output: {
           kind: "source-passage-reference",
+          outcome: "admitted",
+          candidateCount: 1,
           id: `40000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
           evidenceAlias: `ev_${index}`,
           componentIdentity: "supplement-one",
           componentLabel: "Supplement one",
+          passage: exactText,
           selection: {
             offsetBasis: "normalized-derivative-text-v1",
             normalizedStartOffset: 0,
