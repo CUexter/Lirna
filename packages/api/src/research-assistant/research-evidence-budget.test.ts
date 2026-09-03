@@ -50,7 +50,7 @@ test("presents ambiguous alternatives when the model requests one", async () => 
     derivativeId: "derivative-one",
   });
 
-  const result = await session.tools.findEvidence.execute?.(
+  const result = await session.tools.groundEvidence.execute?.(
     {
       intent: "alpha beta evidence",
       componentScope: ["active:/"],

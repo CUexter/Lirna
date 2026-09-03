@@ -90,7 +90,7 @@ export function createResearchEvidenceSessionCore(
           "discovery-budget-exhausted",
           requestedScope,
         ),
-        "findEvidence",
+        "groundEvidence",
         startedAt,
       );
     }
@@ -98,7 +98,7 @@ export function createResearchEvidenceSessionCore(
     if (requestedScope.some((identity) => !componentIdentities.has(identity)))
       return observeOutcome(
         unresolved("refused", "scope-denied", requestedScope),
-        "findEvidence",
+        "groundEvidence",
         startedAt,
       );
     const candidateLimit = Math.min(
@@ -114,7 +114,7 @@ export function createResearchEvidenceSessionCore(
     if (rankedCandidates.length === 0)
       return observeOutcome(
         unresolved("none", "no-relevant-passage", requestedScope, 0),
-        "findEvidence",
+        "groundEvidence",
         startedAt,
       );
     const ambiguity = ambiguousDiscovery(rankedCandidates);
@@ -136,7 +136,7 @@ export function createResearchEvidenceSessionCore(
         candidates: selected,
         ...(ambiguity.reasonCode ? { reasonCode: ambiguity.reasonCode } : {}),
       },
-      "findEvidence",
+      "groundEvidence",
       startedAt,
     );
   };
@@ -278,7 +278,7 @@ export function createResearchEvidenceSessionCore(
             "policy-denied",
             options.components.map(({ identity }) => identity),
           ),
-          "findEvidence",
+          "groundEvidence",
           createdAt,
         );
         return refuseResearchEvidenceSession(this, completion, createdAt);

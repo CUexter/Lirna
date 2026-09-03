@@ -4,7 +4,6 @@ import { MockLanguageModelV4 } from "ai/test";
 import { activeReadingStub } from "../annotations/annotation-store.test-support";
 import { createResearchAssistant } from "./research-assistant";
 import {
-  candidateHandleFromPrompt,
   textStream,
   toolCallStream,
 } from "./research-model-stream.test-support";
@@ -154,23 +153,15 @@ test("discovers and admits a canonical passage from a supplementary component", 
   let call = 0;
   const supplementText = `${"x".repeat(25_000)}\n\nSupplement evidence.`;
   const model = new MockLanguageModelV4({
-    doStream: async ({ prompt }) => {
+    doStream: async () => {
       call += 1;
       if (call === 1)
-        return toolCallStream("find", "findEvidence", {
+        return toolCallStream("ground", "groundEvidence", {
           componentScope: ["supplement-one"],
           intent: "supplement supporting evidence",
-          desiredRelation: "supports",
           limit: 5,
         });
-      if (call === 2) {
-        const candidateHandle = candidateHandleFromPrompt(prompt);
-        return toolCallStream("admit", "admitEvidence", {
-          candidateHandle,
-          purpose: "Ground the supplement claim",
-        });
-      }
-      if (call === 3)
+      if (call === 2)
         return toolCallStream("prepare", "prepareAnswer", {
           claims: [
             {
@@ -212,7 +203,7 @@ test("discovers and admits a canonical passage from a supplementary component", 
 
   for await (const chunk of answer) chunks.push(chunk);
 
-  expect(model.doStreamCalls).toHaveLength(4);
+  expect(model.doStreamCalls).toHaveLength(3);
   expect(JSON.stringify(model.doStreamCalls[1]?.prompt)).toContain(
     "Supplement evidence.",
   );
@@ -228,7 +219,7 @@ test("discovers and admits a canonical passage from a supplementary component", 
   );
   expect(chunks).toContainEqual({
     type: "tool-output-available",
-    toolCallId: "admit",
+    toolCallId: "ground",
     output: {
       kind: "source-passage-reference",
       outcome: "admitted",

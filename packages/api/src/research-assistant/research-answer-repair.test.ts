@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import { MockLanguageModelV4 } from "ai/test";
 import { createResearchAssistant } from "./research-assistant";
 import {
-  candidateHandleFromPrompt,
   textStream,
   toolCallStream,
 } from "./research-model-stream.test-support";
@@ -33,19 +32,15 @@ test("renders a validated ledger when final synthesis is structurally invalid", 
   const persisted: Array<{ content: string; references: unknown[] }> = [];
   const receipts = [];
   const model = new MockLanguageModelV4({
-    doStream: async ({ prompt }) => {
+    doStream: async () => {
       call += 1;
       if (call === 1)
-        return toolCallStream("find", "findEvidence", {
+        return toolCallStream("ground", "groundEvidence", {
           componentScope: ["article"],
           intent: "verified passage",
           limit: 5,
         });
       if (call === 2)
-        return toolCallStream("admit", "admitEvidence", {
-          candidateHandle: candidateHandleFromPrompt(prompt),
-        });
-      if (call === 3)
         return toolCallStream("prepare", "prepareAnswer", {
           claims: [
             {
@@ -77,7 +72,7 @@ test("renders a validated ledger when final synthesis is structurally invalid", 
   const chunks = [];
   for await (const chunk of answer) chunks.push(chunk);
 
-  expect(call).toBe(4);
+  expect(call).toBe(3);
   expect(persisted).toHaveLength(1);
   expect(persisted[0]?.content).toMatch(
     /^Verified prose claim\n\n:::quote\[[0-9a-f-]{36}\]\n:::$/,
@@ -98,7 +93,7 @@ test("renders a validated ledger when final synthesis is structurally invalid", 
   });
   expect(chunks).toContainEqual({
     type: "tool-output-available",
-    toolCallId: "admit",
+    toolCallId: "ground",
     output: {
       kind: "source-passage-reference",
       outcome: "admitted",
@@ -124,19 +119,15 @@ test("does not spend the remaining model budget repairing answer formatting", as
   const receipts = [];
   let call = 0;
   const model = new MockLanguageModelV4({
-    doStream: async ({ prompt }) => {
+    doStream: async () => {
       call += 1;
       if (call === 1)
-        return toolCallStream("find", "findEvidence", {
+        return toolCallStream("ground", "groundEvidence", {
           componentScope: ["article"],
           intent: "verified passage",
           limit: 5,
         });
       if (call === 2)
-        return toolCallStream("admit", "admitEvidence", {
-          candidateHandle: candidateHandleFromPrompt(prompt),
-        });
-      if (call === 3)
         return toolCallStream("prepare", "prepareAnswer", {
           claims: [
             {
@@ -167,7 +158,7 @@ test("does not spend the remaining model budget repairing answer formatting", as
   const chunks = [];
   for await (const chunk of answer) chunks.push(chunk);
 
-  expect(call).toBe(4);
+  expect(call).toBe(3);
   expect(persisted).toEqual(["persisted"]);
   expect(chunks.some(({ type }) => type === "error")).toBe(false);
   expect(receipts).toMatchObject([{ outcome: "successful" }]);

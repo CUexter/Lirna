@@ -94,7 +94,7 @@ An opaque, turn-local capability naming one canonical candidate passage during o
 _Avoid_: reference ID, offset, quote
 
 **Evidence admission**:
-Lirna's verification of one model-selected candidate against the active Reading Derivative, producing the canonical Authored target. Only admission constructs exact text and offsets; the model never supplies them.
+Lirna's verification of one unambiguously resolved or model-selected candidate against the active Reading Derivative, producing the canonical Authored target. Lirna may admit a uniquely best candidate directly from the model's evidence intent; ambiguous candidates require model selection. Only admission constructs exact text and offsets; the model never supplies them.
 _Avoid_: copy, paste, quotation
 
 **Evidence alias**:

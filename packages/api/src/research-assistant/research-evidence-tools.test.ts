@@ -27,7 +27,7 @@ test("reports repeated canonical passages as ambiguous candidates", async () => 
     doStream: async () => {
       call += 1;
       if (call === 1)
-        return toolCallStream("find", "findEvidence", {
+        return toolCallStream("ground", "groundEvidence", {
           componentScope: ["article"],
           intent: "repeated evidence",
           desiredRelation: "supports",
@@ -50,7 +50,7 @@ test("reports repeated canonical passages as ambiguous candidates", async () => 
 
   expect(chunks).toContainEqual({
     type: "tool-output-available",
-    toolCallId: "find",
+    toolCallId: "ground",
     output: {
       kind: "evidence-discovery",
       outcome: "ambiguous",
@@ -68,7 +68,7 @@ test("reports repeated canonical passages as ambiguous candidates", async () => 
   });
   expect(observations).toEqual([
     {
-      operation: "findEvidence",
+      operation: "groundEvidence",
       outcome: "ambiguous",
       reasonCode: "equally-ranked-passages",
       componentScope: ["article"],
@@ -86,7 +86,7 @@ test("reports distinct equally ranked passages as ambiguous candidates", async (
     doStream: async () => {
       call += 1;
       if (call === 1)
-        return toolCallStream("find", "findEvidence", {
+        return toolCallStream("ground", "groundEvidence", {
           componentScope: ["article"],
           intent: "alpha beta evidence",
           limit: 5,
@@ -103,7 +103,7 @@ test("reports distinct equally ranked passages as ambiguous candidates", async (
 
   expect(chunks).toContainEqual({
     type: "tool-output-available",
-    toolCallId: "find",
+    toolCallId: "ground",
     output: expect.objectContaining({
       kind: "evidence-discovery",
       outcome: "ambiguous",
@@ -119,7 +119,7 @@ test("detects ambiguity even when the model requests one candidate", async () =>
     doStream: async () => {
       call += 1;
       if (call === 1)
-        return toolCallStream("find", "findEvidence", {
+        return toolCallStream("ground", "groundEvidence", {
           componentScope: ["article"],
           intent: "alpha beta evidence",
           limit: 2,
@@ -136,7 +136,7 @@ test("detects ambiguity even when the model requests one candidate", async () =>
 
   expect(chunks).toContainEqual({
     type: "tool-output-available",
-    toolCallId: "find",
+    toolCallId: "ground",
     output: expect.objectContaining({
       outcome: "ambiguous",
       candidateCount: 2,
@@ -154,13 +154,13 @@ test("reports no result and out-of-scope discovery as expected outcomes", async 
     doStream: async () => {
       call += 1;
       if (call === 1)
-        return toolCallStream("missing", "findEvidence", {
+        return toolCallStream("missing", "groundEvidence", {
           componentScope: ["article"],
           intent: "absent evidence",
           limit: 5,
         });
       if (call === 2)
-        return toolCallStream("refused", "findEvidence", {
+        return toolCallStream("refused", "groundEvidence", {
           componentScope: ["outside-scope"],
           intent: "verified passage",
           limit: 5,
@@ -204,7 +204,7 @@ test("reports near-tied ranked passages as ambiguous candidates", async () => {
     doStream: async () => {
       call += 1;
       if (call === 1)
-        return toolCallStream("find", "findEvidence", {
+        return toolCallStream("ground", "groundEvidence", {
           componentScope: ["article"],
           intent: "alpha beta gamma evidence",
           limit: 5,
@@ -221,7 +221,7 @@ test("reports near-tied ranked passages as ambiguous candidates", async () => {
 
   expect(chunks).toContainEqual({
     type: "tool-output-available",
-    toolCallId: "find",
+    toolCallId: "ground",
     output: expect.objectContaining({
       kind: "evidence-discovery",
       outcome: "ambiguous",

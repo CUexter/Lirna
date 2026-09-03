@@ -74,6 +74,8 @@ test("presents every evidence outcome as a research status instead of Completed"
   );
 
   expect(document.body.textContent).toContain("Verified passage");
+  expect(document.body.textContent).toContain("Ground evidence");
+  expect(document.body.textContent).toContain("Used 1 source");
   expect(document.body.textContent).toContain("Found candidate passages");
   expect(document.body.textContent).toContain("No relevant passage found");
   expect(document.body.textContent).toContain("Several passages may apply");
@@ -186,7 +188,7 @@ function outcomeOutput(
   output: UnresolvedEvidenceResolution,
 ): ResearchAssistantMessage["parts"][number] {
   return {
-    type: "tool-findEvidence",
+    type: "tool-groundEvidence",
     toolCallId: `${output.outcome}-call`,
     state: "output-available",
     input: { componentIdentity: "active:/" },
@@ -198,7 +200,7 @@ function discoveryOutput(
   output: Extract<EvidenceResolutionResult, { kind: "evidence-discovery" }>,
 ): ResearchAssistantMessage["parts"][number] {
   return {
-    type: "tool-findEvidence",
+    type: "tool-groundEvidence",
     toolCallId: `${output.outcome}-call`,
     state: "output-available",
     input: { componentScope: ["active:/"], intent: "evidence" },
@@ -208,7 +210,7 @@ function discoveryOutput(
 
 function foundOutput(): ResearchAssistantMessage["parts"][number] {
   return {
-    type: "tool-admitEvidence",
+    type: "tool-groundEvidence",
     toolCallId: "found-call",
     state: "output-available",
     input: { componentIdentity: "active:/" },

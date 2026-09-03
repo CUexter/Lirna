@@ -32,19 +32,26 @@ export function createResearchEvidenceSession(
     ...session,
     tools: {
       readSourceComponent: sourceComponentReader(options.components),
-      findEvidence: tool({
+      groundEvidence: tool({
         description:
-          "Find canonical passages matching a natural-language evidence intent within a bounded Source-component scope. componentScope must contain only exact identity values from the Source component records in the user prompt, never component labels. Select a returned candidate by its opaque handle; never send quotation text or offsets.",
+          "Find and admit the uniquely best canonical passage for a natural-language evidence intent. componentScope must contain only exact identity values from the Source component records in the user prompt, never component labels. Never send quotation text or offsets. If several passages are plausible, select one returned candidate with admitEvidence.",
         inputSchema: z.object({
           intent: z.string().trim().min(1).max(2_000),
           componentScope: z.array(z.string().min(1)).min(1).max(20),
           limit: z.number().int().min(1).max(5).default(5),
         }),
-        execute: session.discover,
+        execute: async (input) => {
+          const discovery = await session.discover(input);
+          if (discovery.outcome !== "candidates") return discovery;
+          const candidate = discovery.candidates[0];
+          return candidate
+            ? session.admit({ candidateHandle: candidate.handle })
+            : discovery;
+        },
       }),
       admitEvidence: tool({
         description:
-          "Admit one candidate returned by findEvidence. A successful admission returns an answer-scoped evidence alias for Markdown markers.",
+          "Admit one ambiguous candidate returned by groundEvidence. A successful admission returns an answer-scoped evidence alias for Markdown markers.",
         inputSchema: z.object({
           candidateHandle: z.string().startsWith("candidate_").max(100),
         }),

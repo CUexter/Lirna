@@ -147,7 +147,7 @@ test("forces synthesis immediately after an evidence budget is exhausted", async
             },
           ],
         });
-      return toolCallStream("find", "findEvidence", {
+      return toolCallStream("ground", "groundEvidence", {
         componentScope: ["article"],
         intent: "main evidence",
         limit: 2,

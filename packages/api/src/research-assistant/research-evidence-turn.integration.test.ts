@@ -15,20 +15,15 @@ import { createResearchTurnOperations } from "./research-turn";
 test("persists a canonical Reference admitted through evidence discovery", async () => {
   let call = 0;
   const model = new MockLanguageModelV4({
-    doStream: async ({ prompt }) => {
+    doStream: async () => {
       call += 1;
       if (call === 1)
-        return toolCallStream("find", "findEvidence", {
+        return toolCallStream("ground", "groundEvidence", {
           componentScope: ["active:/"],
           intent: "verified passage",
           limit: 5,
         });
       if (call === 2)
-        return toolCallStream("admit", "admitEvidence", {
-          candidateHandle: candidateHandleFromPrompt(prompt),
-          purpose: "Ground the answer",
-        });
-      if (call === 3)
         return toolCallStream("prepare", "prepareAnswer", {
           claims: [
             {
@@ -113,7 +108,7 @@ test("persists a canonical Reference admitted through evidence discovery", async
         discoveries: 1,
         candidates: 1,
         admissions: 1,
-        modelSteps: 4,
+        modelSteps: 3,
         evidenceCharacters: 17,
       },
       candidateCount: 1,
@@ -123,6 +118,14 @@ test("persists a canonical Reference admitted through evidence discovery", async
   expect(JSON.stringify(receipts)).not.toContain("Verified passage.");
   expect(JSON.stringify(receipts)).not.toContain("componentScope");
   const toolProgress = chunks.filter((chunk) => chunk.type.startsWith("tool-"));
+  expect(toolProgress).toContainEqual(
+    expect.objectContaining({
+      type: "tool-output-available",
+      toolCallId: "ground",
+    }),
+  );
+  expect(JSON.stringify(toolProgress)).not.toContain("findEvidence");
+  expect(JSON.stringify(toolProgress)).not.toContain("admitEvidence");
   expect(JSON.stringify(toolProgress)).not.toContain("candidate_");
   expect(JSON.stringify(toolProgress)).not.toContain("Verified passage.");
   expect(JSON.stringify(toolProgress)).not.toContain("The claim is grounded.");
@@ -143,7 +146,7 @@ test("persists only the deliberately selected repeated occurrence", async () => 
     doStream: async ({ prompt }) => {
       call += 1;
       if (call === 1)
-        return toolCallStream("find", "findEvidence", {
+        return toolCallStream("ground", "groundEvidence", {
           componentScope: ["active:/"],
           intent: "repeated evidence",
           limit: 5,
@@ -227,32 +230,25 @@ test("answers the trans women and trans men question without exact-text retries"
   let call = 0;
   const toolNames: string[] = [];
   const model = new MockLanguageModelV4({
-    doStream: async ({ prompt }) => {
+    doStream: async () => {
       call += 1;
       if (call === 1) {
-        toolNames.push("findEvidence");
-        return toolCallStream("find-women", "findEvidence", {
+        toolNames.push("groundEvidence");
+        return toolCallStream("ground-women", "groundEvidence", {
           componentScope: ["active:/", "supplement:notes"],
           intent: "academic positions rejecting trans women identities",
           limit: 5,
         });
       }
       if (call === 2) {
-        toolNames.push("admitEvidence");
-        return toolCallStream("admit-women", "admitEvidence", {
-          candidateHandle: candidateHandleFromPrompt(prompt),
-          purpose: "Ground the account of gender-critical feminism",
-        });
-      }
-      if (call === 3) {
-        toolNames.push("findEvidence");
-        return toolCallStream("find-men", "findEvidence", {
+        toolNames.push("groundEvidence");
+        return toolCallStream("ground-men", "groundEvidence", {
           componentScope: ["active:/", "supplement:notes"],
           intent: "coverage devoted to transgender males",
           limit: 5,
         });
       }
-      if (call === 4)
+      if (call === 3)
         return toolCallStream("prepare", "prepareAnswer", {
           claims: [
             {
@@ -318,10 +314,10 @@ test("answers the trans women and trans men question without exact-text retries"
   });
   for await (const chunk of stream) chunks.push(chunk);
 
-  expect(toolNames).toEqual(["findEvidence", "admitEvidence", "findEvidence"]);
+  expect(toolNames).toEqual(["groundEvidence", "groundEvidence"]);
   expect(chunks).toContainEqual({
     type: "tool-output-available",
-    toolCallId: "find-men",
+    toolCallId: "ground-men",
     output: {
       kind: "evidence-resolution",
       outcome: "none",

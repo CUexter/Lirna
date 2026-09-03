@@ -23,11 +23,13 @@ database transaction, and durable writes happen only after the answer and its
 verified References compile.
 
 The session owns discovery, admission, claim-ledger validation, budgets,
-cancellation, and the final answer-plus-References commit. The model may
-describe the evidence it needs (`findEvidence` intent and component scope) and
-select among candidates (`admitEvidence` by opaque, turn-local handle). Only
-Lirna locates, canonicalizes, validates, and persists evidence, so the model
-never supplies exact text, offsets, occurrence numbers, or target fields.
+cancellation, and the final answer-plus-References commit. The model describes
+the evidence it needs through `groundEvidence` intent and component scope. The
+session admits a uniquely best candidate in that call; when candidates are
+ambiguous, the model selects one through `admitEvidence` by opaque, turn-local
+handle. Only Lirna locates, canonicalizes, validates, and persists evidence, so
+the model never supplies exact text, offsets, occurrence numbers, or target
+fields.
 Claim-level Evidence relations live in the transient answer ledger prepared
 before final synthesis; discovery-time relation requests were dropped as
 speculative once the ledger owned relations.

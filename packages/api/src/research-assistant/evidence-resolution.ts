@@ -73,7 +73,7 @@ export type EvidenceResolutionResult =
   | UnresolvedEvidenceResolution;
 
 export interface EvidenceResolutionObservation {
-  operation: "findEvidence" | "admitEvidence";
+  operation: "groundEvidence" | "admitEvidence";
   outcome: EvidenceResolutionOutcome;
   reasonCode?: EvidenceResolutionReasonCode;
   componentScope: string[];

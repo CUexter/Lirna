@@ -176,7 +176,7 @@ function responseReferences(message: ResearchAssistantMessage) {
 
 function referenceFromToolPart(part: MessagePart): ResearchPassageReference[] {
   if (
-    !isAdmitEvidencePart(part) ||
+    !isReferenceEvidencePart(part) ||
     part.state !== "output-available" ||
     !part.output ||
     typeof part.output !== "object"
@@ -193,11 +193,14 @@ function referenceFromToolPart(part: MessagePart): ResearchPassageReference[] {
     : [];
 }
 
-function isAdmitEvidencePart(part: MessagePart): part is ToolPart {
+function isReferenceEvidencePart(part: MessagePart): part is ToolPart {
   return (
     isToolPart(part) &&
-    (part.type === "tool-admitEvidence" ||
-      (part.type === "dynamic-tool" && part.toolName === "admitEvidence"))
+    (part.type === "tool-groundEvidence" ||
+      part.type === "tool-admitEvidence" ||
+      (part.type === "dynamic-tool" &&
+        (part.toolName === "groundEvidence" ||
+          part.toolName === "admitEvidence")))
   );
 }
 
@@ -213,7 +216,7 @@ function toolTitle(part: ToolPart) {
   return (
     {
       readSourceComponent: "Read Source component",
-      findEvidence: "Find evidence",
+      groundEvidence: "Ground evidence",
       admitEvidence: "Admit evidence",
       prepareAnswer: "Validate answer evidence",
     }[name] ?? name

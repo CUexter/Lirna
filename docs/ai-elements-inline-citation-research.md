@@ -5,8 +5,9 @@ Research date: 2026-09-02
 > **Superseded protocol note.** The `referencePassage({ componentIdentity,
 > exactText, occurrence })` protocol this document describes was retired by the
 > Research Assistant tool overhaul (issues #198–#200, ADR 0015). Evidence is now
-> resolved through `findEvidence` intent discovery and `admitEvidence` candidate
-> admission; the model never supplies exact Source text or occurrence numbers.
+> resolved through `groundEvidence`, which admits a uniquely best candidate in
+> one call; ambiguous candidates require `admitEvidence` selection. The model
+> never supplies exact Source text or occurrence numbers.
 > The rendering guidance below still applies to evidence markers and inline
 > citations.
 

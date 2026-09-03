@@ -69,10 +69,7 @@ test("a derivative change expires remaining handles and restarts discovery", asy
   });
 });
 
-import {
-  candidateHandleFromPrompt,
-  toolCallStream,
-} from "./research-model-stream.test-support";
+import { toolCallStream } from "./research-model-stream.test-support";
 
 test("cancellation interrupts an admission awaiting Derivative validation", async () => {
   const activeReading = activeReadingStub(true);
@@ -86,21 +83,13 @@ test("cancellation interrupts an admission awaiting Derivative validation", asyn
     releaseValidation = resolve;
   });
   const observations: EvidenceResolutionObservation[] = [];
-  let modelCall = 0;
   const model = new MockLanguageModelV4({
-    doStream: async ({ prompt }) => {
-      modelCall += 1;
-      if (modelCall === 1)
-        return toolCallStream("find", "findEvidence", {
-          componentScope: ["article:main"],
-          intent: "readevidence carefully",
-          limit: 5,
-        });
-      return toolCallStream("admit", "admitEvidence", {
-        candidateHandle: candidateHandleFromPrompt(prompt),
-        purpose: "Ground the answer",
-      });
-    },
+    doStream: async () =>
+      toolCallStream("ground", "groundEvidence", {
+        componentScope: ["article:main"],
+        intent: "readevidence carefully",
+        limit: 5,
+      }),
   });
   const answer = await createResearchAssistant(model, {
     async read(input) {

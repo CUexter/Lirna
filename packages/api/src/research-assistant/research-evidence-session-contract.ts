@@ -89,7 +89,7 @@ export const maximumAnswerLedgerAttempts = 2;
 
 const researchToolNames = [
   "readSourceComponent",
-  "findEvidence",
+  "groundEvidence",
   "admitEvidence",
   "prepareAnswer",
 ] as const;
