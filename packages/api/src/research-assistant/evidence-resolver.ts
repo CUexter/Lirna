@@ -58,6 +58,7 @@ export interface EvidenceResolver {
     sourceStateId: string;
     candidateHandle: string;
   }): Promise<EvidenceAdmission>;
+  expire(): void;
 }
 
 interface ResolverOptions {
@@ -100,9 +101,11 @@ export function createEvidenceResolver(
   );
   const candidates = new Map<string, StoredCandidate>();
   let evidenceAliasSequence = 0;
+  let expired = false;
 
   return {
     async find(input) {
+      if (expired) return [];
       if (input.sourceStateId !== options.sourceStateId) return [];
       const intentTerms = lexicalTerms(input.intent);
       if (intentTerms.length === 0) return [];
@@ -137,6 +140,14 @@ export function createEvidenceResolver(
     },
     async admit(input) {
       const candidate = candidates.get(input.candidateHandle);
+      if (expired) {
+        return {
+          kind: "evidence-resolution",
+          outcome: "stale",
+          reasonCode: "session-expired",
+          componentScope: candidate ? [candidate.componentIdentity] : [],
+        };
+      }
       if (
         !candidate ||
         input.sessionId !== options.sessionId ||
@@ -151,6 +162,14 @@ export function createEvidenceResolver(
       }
       candidates.delete(input.candidateHandle);
       const currentDerivativeId = await options.currentDerivativeId?.();
+      if (expired) {
+        return {
+          kind: "evidence-resolution",
+          outcome: "stale",
+          reasonCode: "session-expired",
+          componentScope: [candidate.componentIdentity],
+        };
+      }
       if (
         options.currentDerivativeId &&
         currentDerivativeId !== candidate.derivativeId
@@ -189,6 +208,9 @@ export function createEvidenceResolver(
         passage: candidate.passage,
         selection: authoredTarget(component.plainText, candidate),
       };
+    },
+    expire() {
+      expired = true;
     },
   };
 }

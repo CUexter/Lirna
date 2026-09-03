@@ -226,6 +226,82 @@ test("makes a candidate stale when the active Reading Derivative changes", async
   });
 });
 
+test("expires every uncommitted candidate when the session ends", async () => {
+  const resolver = createEvidenceResolver({
+    derivativeId: "derivative-one",
+    sessionId: "session-one",
+    sourceStateId: "state-one",
+    components: [component("active:/", "Canonical evidence.")],
+  });
+  const [candidate] = await resolver.find({
+    sourceStateId: "state-one",
+    componentIdentities: ["active:/"],
+    intent: "canonical evidence",
+    limit: 5,
+  });
+  if (!candidate) throw new Error("Expected an evidence candidate");
+
+  resolver.expire();
+
+  expect(
+    await resolver.admit({
+      sessionId: "session-one",
+      sourceStateId: "state-one",
+      candidateHandle: candidate.handle,
+    }),
+  ).toEqual({
+    kind: "evidence-resolution",
+    outcome: "stale",
+    reasonCode: "session-expired",
+    componentScope: ["active:/"],
+  });
+});
+
+test("expires a candidate while Derivative validation is in flight", async () => {
+  let validationStarted: (() => void) | undefined;
+  let releaseValidation: (() => void) | undefined;
+  const validationPending = new Promise<void>((resolve) => {
+    validationStarted = resolve;
+  });
+  const validationGate = new Promise<void>((resolve) => {
+    releaseValidation = resolve;
+  });
+  const resolver = createEvidenceResolver({
+    derivativeId: "derivative-one",
+    sessionId: "session-one",
+    sourceStateId: "state-one",
+    components: [component("active:/", "Canonical evidence.")],
+    async currentDerivativeId() {
+      validationStarted?.();
+      await validationGate;
+      return "derivative-one";
+    },
+  });
+  const [candidate] = await resolver.find({
+    sourceStateId: "state-one",
+    componentIdentities: ["active:/"],
+    intent: "canonical evidence",
+    limit: 5,
+  });
+  if (!candidate) throw new Error("Expected an evidence candidate");
+
+  const admission = resolver.admit({
+    sessionId: "session-one",
+    sourceStateId: "state-one",
+    candidateHandle: candidate.handle,
+  });
+  await validationPending;
+  resolver.expire();
+  releaseValidation?.();
+
+  expect(await admission).toEqual({
+    kind: "evidence-resolution",
+    outcome: "stale",
+    reasonCode: "session-expired",
+    componentScope: ["active:/"],
+  });
+});
+
 function component(identity: string, plainText: string) {
   return {
     identity,

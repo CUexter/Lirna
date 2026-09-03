@@ -87,10 +87,86 @@ test("persists a canonical Reference admitted through evidence discovery", async
   ]);
 });
 
-function candidateHandleFromPrompt(prompt: unknown) {
-  const match = JSON.stringify(prompt).match(/candidate_[0-9a-f-]+/);
+test("persists only the deliberately selected repeated occurrence", async () => {
+  let call = 0;
+  const model = new MockLanguageModelV4({
+    doStream: async ({ prompt }) => {
+      call += 1;
+      if (call === 1)
+        return toolCallStream("find", "findEvidence", {
+          componentScope: ["active:/"],
+          intent: "repeated evidence",
+          limit: 5,
+        });
+      if (call === 2)
+        return toolCallStream("admit", "admitEvidence", {
+          candidateHandle: candidateHandleFromPrompt(prompt, 1),
+          purpose: "Ground the later occurrence",
+        });
+      return textStream(
+        "The later occurrence matters.[^ev_1]\n\n:::quote[ev_1]\n:::",
+      );
+    },
+  });
+  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const turns = createResearchTurnOperations(createResearchAssistant(model), {
+    async append(input) {
+      appended.push(input);
+      return {
+        id: crypto.randomUUID(),
+        role: input.role,
+        content: input.content,
+        createdAt: "2026-09-03T12:00:00.000Z",
+      };
+    },
+  });
+
+  const sourceText =
+    "Repeated evidence.\n\nBetween occurrences.\n\nRepeated evidence.";
+  const stream = await turns.answer({
+    threadId: "30000000-0000-4000-8000-000000000000",
+    componentIdentity: "active:/",
+    componentLabel: "Main entry",
+    components: [
+      {
+        identity: "active:/",
+        label: "Main entry",
+        plainText: sourceText,
+        role: "main",
+      },
+    ],
+    derivativeId: "derivative-one",
+    question: "Which occurrence matters?",
+    sourceId: "source-one",
+    sourceStateId: "state-one",
+    sourceText,
+    sourceTitle: "Test source",
+  });
+  for await (const _chunk of stream) {
+    // Consume the stream so the answer is committed.
+  }
+
+  expect(appended).toHaveLength(1);
+  expect(appended[0]?.references).toHaveLength(1);
+  expect(appended[0]?.references?.[0]).toMatchObject({
+    componentIdentity: "active:/",
+    selection: {
+      normalizedStartOffset: 42,
+      normalizedEndOffset: 60,
+      exactText: "Repeated evidence.",
+    },
+    occurrences: [
+      { presentation: "passing", relation: "supports" },
+      { presentation: "quote", relation: "supports" },
+    ],
+  });
+});
+
+function candidateHandleFromPrompt(prompt: unknown, index = 0) {
+  const matches = JSON.stringify(prompt).match(/candidate_[0-9a-f-]+/g);
+  const match = matches?.[index];
   if (!match) throw new Error("Expected an evidence candidate handle");
-  return match[0];
+  return match;
 }
 
 function toolCallStream(id: string, toolName: string, input: object) {

@@ -25,7 +25,7 @@ interface ResearchEvidenceToolOptions {
   observe?: (observation: EvidenceResolutionObservation) => void;
 }
 
-export function createResearchEvidenceTools(
+export function createResearchEvidenceSession(
   options: ResearchEvidenceToolOptions,
 ) {
   const sessionId = `session_${randomUUID()}`;
@@ -42,7 +42,7 @@ export function createResearchEvidenceTools(
   let discoveries = 0;
   let admissions = 0;
 
-  return {
+  const tools = {
     readSourceComponent: sourceComponentReader(options.components),
     findEvidence: tool({
       description:
@@ -146,6 +146,10 @@ export function createResearchEvidenceTools(
         return observed(result, "admitEvidence", startedAt, options.observe);
       },
     }),
+  };
+  return {
+    tools,
+    expire: () => resolver.expire(),
   };
 }
 

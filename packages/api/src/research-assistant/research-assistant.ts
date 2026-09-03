@@ -13,7 +13,7 @@ import {
   defaultResearchAssistantModel,
   type ResearchAssistantModel,
 } from "./research-assistant-contract";
-import { createResearchEvidenceTools } from "./research-evidence-tools";
+import { createResearchEvidenceSession } from "./research-evidence-tools";
 
 export interface ResearchAssistantInput {
   attachments?: Array<{
@@ -84,7 +84,7 @@ export function createResearchAssistant(
         "",
         `Question: ${input.question}`,
       ].join("\n");
-      const tools = createResearchEvidenceTools({
+      const evidenceSession = createResearchEvidenceSession({
         components: evidenceComponents,
         sourceStateId: input.sourceStateId,
         derivativeId,
@@ -133,33 +133,74 @@ export function createResearchAssistant(
               }
             : undefined,
         stopWhen: stepCountIs(8),
-        tools,
+        tools: evidenceSession.tools,
       });
-      const result = await agent.stream({
-        messages: [
-          ...researchHistoryMessages(input.history, evidenceComponents),
-          {
-            role: "user",
-            content: [
-              { type: "text", text: prompt },
-              ...(input.attachments ?? []).map((attachment) => ({
-                type: "file" as const,
-                data: attachment.data,
-                filename: attachment.filename,
-                mediaType: attachment.mediaType,
-              })),
-            ],
-          },
-        ],
-      });
-      return toUIMessageStream({
-        stream: result.stream,
-        tools,
-        sendReasoning: false,
-        onError: options?.onError,
-      });
+      const result = await agent
+        .stream({
+          messages: [
+            ...researchHistoryMessages(input.history, evidenceComponents),
+            {
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                ...(input.attachments ?? []).map((attachment) => ({
+                  type: "file" as const,
+                  data: attachment.data,
+                  filename: attachment.filename,
+                  mediaType: attachment.mediaType,
+                })),
+              ],
+            },
+          ],
+        })
+        .catch((error: unknown) => {
+          evidenceSession.expire();
+          throw error;
+        });
+      return expireSessionWithStream(
+        toUIMessageStream({
+          stream: result.stream,
+          tools: evidenceSession.tools,
+          sendReasoning: false,
+          onError: options?.onError,
+        }),
+        evidenceSession.expire,
+      );
     },
   };
+}
+
+function expireSessionWithStream(
+  stream: ReadableStream<UIMessageChunk>,
+  expire: () => void,
+) {
+  const reader = stream.getReader();
+  let expired = false;
+  const expireOnce = () => {
+    if (expired) return;
+    expired = true;
+    expire();
+  };
+  return new ReadableStream<UIMessageChunk>({
+    async pull(controller) {
+      try {
+        const next = await reader.read();
+        if (next.done) {
+          expireOnce();
+          controller.close();
+          return;
+        }
+        controller.enqueue(next.value);
+      } catch (error) {
+        expireOnce();
+        controller.error(error);
+      }
+    },
+    async cancel(reason) {
+      expireOnce();
+      await reader.cancel(reason);
+    },
+  });
 }
 
 async function activeEvidenceContext(
