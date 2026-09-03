@@ -15,6 +15,11 @@ test("renders a live evidence alias as an inline citation", async () => {
         {
           id: "assistant-message",
           role: "assistant",
+          metadata: {
+            references: [
+              liveReference("ev_1", "10000000-0000-4000-8000-000000000000"),
+            ],
+          },
           parts: [
             {
               type: "tool-admitEvidence",
@@ -29,19 +34,6 @@ test("renders a live evidence alias as an inline citation", async () => {
                 kind: "source-passage-reference",
                 outcome: "admitted",
                 candidateCount: 1,
-                id: "10000000-0000-4000-8000-000000000000",
-                evidenceAlias: "ev_1",
-                componentIdentity: "article",
-                componentLabel: "Article",
-                passage: "Verified evidence.",
-                selection: {
-                  offsetBasis: "normalized-derivative-text-v1",
-                  normalizedStartOffset: 0,
-                  normalizedEndOffset: 18,
-                  exactText: "Verified evidence.",
-                  prefix: "",
-                  suffix: "",
-                },
               },
             },
             { type: "step-start" },
@@ -220,15 +212,19 @@ test("keeps aliases for duplicate verified passages independently resolvable", (
         {
           id: "assistant-message",
           role: "assistant",
+          metadata: {
+            references: [
+              liveReference("ev_1", "10000000-0000-4000-8000-000000000000"),
+              liveReference("ev_2", "20000000-0000-4000-8000-000000000000"),
+            ],
+          },
           parts: [
             admittedEvidenceToolPart(
               "first-reference",
-              "ev_1",
               "10000000-0000-4000-8000-000000000000",
             ),
             admittedEvidenceToolPart(
               "second-reference",
-              "ev_2",
               "20000000-0000-4000-8000-000000000000",
             ),
             { type: "step-start" },
@@ -264,23 +260,33 @@ test("groups adjacent evidence markers for one claim into one citation carousel"
         {
           id: "assistant-message",
           role: "assistant",
+          metadata: {
+            references: [
+              liveReference(
+                "ev_1",
+                "10000000-0000-4000-8000-000000000000",
+                "First evidence text.",
+              ),
+              liveReference(
+                "ev_2",
+                "20000000-0000-4000-8000-000000000000",
+                "Second evidence text.",
+              ),
+            ],
+          },
           parts: [
             admittedEvidenceToolPart(
               "first-reference",
-              "ev_1",
               "10000000-0000-4000-8000-000000000000",
-              "First evidence text.",
             ),
             admittedEvidenceToolPart(
               "second-reference",
-              "ev_2",
               "20000000-0000-4000-8000-000000000000",
-              "Second evidence text.",
             ),
             { type: "step-start" },
             {
               type: "text",
-              text: "One claim has two sources.[^ev_1][^ev_2|qualifies]",
+              text: "One claim has two sources.[^ev_2|qualifies][^ev_1]",
             },
           ],
         },
@@ -309,6 +315,19 @@ test("groups adjacent evidence markers for one claim into one citation carousel"
   await waitFor(() =>
     expect(view().getByRole("button", { name: "Next" })).toBeTruthy(),
   );
+  const citationPopup = view()
+    .getByRole("button", { name: "Next" })
+    .closest('[data-slot="hover-card-content"]');
+  expect(
+    citationPopup?.classList.contains("max-h-[min(24rem,calc(100dvh-2rem))]"),
+  ).toBe(true);
+  expect(citationPopup?.classList.contains("overflow-y-auto")).toBe(true);
+  const firstCitation = view().getByRole("button", {
+    name: "Show citation 1 in article",
+  });
+  expect(firstCitation.classList.contains("flex-col")).toBe(true);
+  expect(firstCitation.classList.contains("items-stretch")).toBe(true);
+  expect(firstCitation.classList.contains("whitespace-normal")).toBe(true);
 
   await user.click(
     view().getByRole("button", { name: "Show citation 2 in article" }),
@@ -358,12 +377,7 @@ test("renders a Markdown table in an assistant message", () => {
   expect(view().getByRole("cell", { name: "Result" })).toBeTruthy();
 });
 
-function admittedEvidenceToolPart(
-  toolCallId: string,
-  evidenceAlias: string,
-  id: string,
-  exactText = "Verified evidence.",
-) {
+function admittedEvidenceToolPart(toolCallId: string, id: string) {
   return {
     type: "tool-admitEvidence" as const,
     toolCallId,
@@ -376,19 +390,27 @@ function admittedEvidenceToolPart(
       kind: "source-passage-reference",
       outcome: "admitted",
       candidateCount: 1,
-      id,
-      evidenceAlias,
-      componentIdentity: "article",
-      componentLabel: "Article",
-      passage: exactText,
-      selection: {
-        offsetBasis: "normalized-derivative-text-v1" as const,
-        normalizedStartOffset: 0,
-        normalizedEndOffset: 18,
-        exactText,
-        prefix: "",
-        suffix: "",
-      },
+    },
+  };
+}
+
+function liveReference(
+  evidenceAlias: string,
+  id: string,
+  exactText = "Verified evidence.",
+) {
+  return {
+    id,
+    evidenceAlias,
+    componentIdentity: "article",
+    componentLabel: "Article",
+    selection: {
+      offsetBasis: "normalized-derivative-text-v1" as const,
+      normalizedStartOffset: 0,
+      normalizedEndOffset: exactText.length,
+      exactText,
+      prefix: "",
+      suffix: "",
     },
   };
 }

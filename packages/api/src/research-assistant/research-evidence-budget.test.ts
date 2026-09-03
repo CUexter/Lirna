@@ -16,7 +16,7 @@ test("bounds discoveries and candidates per discovery", async () => {
     components,
     sourceStateId: "state-one",
     derivativeId: "derivative-one",
-    budget: budget({ maximumDiscoveries: 1, maximumCandidatesPerDiscovery: 1 }),
+    budget: budget({ maximumDiscoveries: 1, maximumCandidatesPerDiscovery: 2 }),
   });
 
   const first = await session.discover({
@@ -30,7 +30,7 @@ test("bounds discoveries and candidates per discovery", async () => {
     limit: 5,
   });
 
-  expect(first).toMatchObject({ outcome: "ambiguous", candidateCount: 1 });
+  expect(first).toMatchObject({ outcome: "ambiguous", candidateCount: 2 });
   expect(second).toEqual({
     kind: "evidence-resolution",
     outcome: "budget-exhausted",
@@ -39,8 +39,44 @@ test("bounds discoveries and candidates per discovery", async () => {
   });
   expect(session.snapshot().consumption).toMatchObject({
     discoveries: 1,
-    candidates: 1,
+    candidates: 2,
   });
+});
+
+test("presents ambiguous alternatives when the model requests one", async () => {
+  const session = createResearchEvidenceSession({
+    components,
+    sourceStateId: "state-one",
+    derivativeId: "derivative-one",
+  });
+
+  const result = await session.tools.findEvidence.execute?.(
+    {
+      intent: "alpha beta evidence",
+      componentScope: ["active:/"],
+      limit: 1,
+    },
+    {
+      toolCallId: "find-one",
+      messages: [],
+      abortSignal: undefined,
+    },
+  );
+
+  expect(result).toMatchObject({ outcome: "ambiguous", candidateCount: 2 });
+});
+
+test("rejects a candidate budget that cannot present ambiguity", () => {
+  expect(() =>
+    createResearchEvidenceSession({
+      components,
+      sourceStateId: "state-one",
+      derivativeId: "derivative-one",
+      budget: budget({ maximumCandidatesPerDiscovery: 1 }),
+    }),
+  ).toThrow(
+    "maximumCandidatesPerDiscovery must allow an ambiguous candidate pair",
+  );
 });
 
 test("bounds admissions and total admitted evidence characters", async () => {
@@ -56,12 +92,12 @@ test("bounds admissions and total admitted evidence characters", async () => {
   const alpha = await session.discover({
     intent: "alpha evidence",
     componentScope: ["active:/"],
-    limit: 1,
+    limit: 2,
   });
   const beta = await session.discover({
     intent: "beta evidence",
     componentScope: ["active:/"],
-    limit: 1,
+    limit: 2,
   });
   if (alpha.outcome !== "candidates" || beta.outcome !== "candidates")
     throw new Error("Expected evidence candidates");

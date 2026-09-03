@@ -33,7 +33,7 @@ test("gives an invalid answer ledger one bounded repair before synthesis", async
   const answer = await createResearchAssistant(model, undefined, {
     evidenceBudget: {
       maximumDiscoveries: 1,
-      maximumCandidatesPerDiscovery: 1,
+      maximumCandidatesPerDiscovery: 2,
       maximumAdmissions: 1,
       maximumModelSteps: 3,
       maximumTotalEvidenceCharacters: 1_000,
@@ -56,7 +56,6 @@ test("gives an invalid answer ledger one bounded repair before synthesis", async
     sourceText: "Main evidence.",
     sourceTitle: "Test source",
   });
-
   for await (const chunk of answer) chunks.push(chunk);
 
   expect(model.doStreamCalls.map(({ toolChoice }) => toolChoice)).toEqual([
@@ -69,6 +68,75 @@ test("gives an invalid answer ledger one bounded repair before synthesis", async
     id: "text-1",
     delta: "Uncertain answer.",
   });
+});
+
+test("returns one uncertainty response when ledger repair is exhausted", async () => {
+  const persisted: unknown[] = [];
+  const receipts = [];
+  const model = new MockLanguageModelV4({
+    doStream: async () =>
+      toolCallStream(crypto.randomUUID(), "prepareAnswer", {
+        claims: [
+          {
+            key: "claim",
+            text: "Unsupported claim.",
+            kind: "source-dependent",
+            evidence: [],
+          },
+        ],
+      }),
+  });
+  const answer = await createResearchAssistant(model, undefined, {
+    evidenceBudget: {
+      maximumDiscoveries: 1,
+      maximumCandidatesPerDiscovery: 2,
+      maximumAdmissions: 1,
+      maximumModelSteps: 3,
+      maximumTotalEvidenceCharacters: 1_000,
+    },
+  }).answer(
+    {
+      componentIdentity: "article",
+      componentLabel: "Article",
+      components: [
+        {
+          identity: "article",
+          label: "Article",
+          plainText: "Main evidence.",
+          role: "main",
+        },
+      ],
+      question: "What can be concluded?",
+      sourceId: "source-one",
+      sourceStateId: "state-one",
+      derivativeId: "derivative-one",
+      sourceText: "Main evidence.",
+      sourceTitle: "Test source",
+    },
+    {
+      commit: {
+        researchThreadId: "30000000-0000-4000-8000-000000000000",
+        persist: async (...result) => {
+          persisted.push(result);
+        },
+      },
+      onEvidenceSessionReceipt: (receipt) => receipts.push(receipt),
+    },
+  );
+
+  const chunks: UIMessageChunk[] = [];
+  for await (const chunk of answer) chunks.push(chunk);
+
+  expect(chunks).toContainEqual({
+    type: "text-delta",
+    id: "invalid-answer",
+    delta:
+      "I could not complete a reliable answer because I could not validate its evidence links. No answer was saved.",
+  });
+  expect(chunks.at(-1)).toMatchObject({ type: "finish", finishReason: "stop" });
+  expect(chunks.some(({ type }) => type === "error")).toBe(false);
+  expect(persisted).toEqual([]);
+  expect(receipts).toMatchObject([{ outcome: "invalid-answer" }]);
 });
 
 test("revalidates canonical evidence before persistence and expires the session", async () => {
@@ -133,7 +201,8 @@ test("revalidates canonical evidence before persistence and expires the session"
   expect(await evidenceSession?.validateReferences([])).toBe(false);
   expect(chunks.at(-1)).toEqual({
     type: "error",
-    errorText: "Research assistant response failed.",
+    errorText:
+      "I could not complete a reliable answer because I could not validate its evidence links. No answer was saved.",
   });
 });
 

@@ -108,11 +108,12 @@ function ResearchActivity({ parts }: { parts: MessagePart[] }) {
 }
 
 function ResearchTool({ part }: { part: ToolPart }) {
+  const displayState = evidenceDisplayState(part);
   return (
     <Tool>
       {part.type === "dynamic-tool" ? (
         <ToolHeader
-          state={part.state}
+          state={displayState}
           statusLabel={evidenceStatus(part)}
           title={toolTitle(part)}
           toolName={part.toolName}
@@ -120,7 +121,7 @@ function ResearchTool({ part }: { part: ToolPart }) {
         />
       ) : (
         <ToolHeader
-          state={part.state}
+          state={displayState}
           statusLabel={evidenceStatus(part)}
           title={toolTitle(part)}
           type={part.type}
@@ -224,10 +225,34 @@ function evidenceStatus(part: ToolPart) {
   const output = part.output;
   if (!output || typeof output !== "object" || !("outcome" in output)) return;
   if (typeof output.outcome !== "string") return;
-  return evidenceOutcomeText(output.outcome);
+  const reasonCode =
+    "reasonCode" in output && typeof output.reasonCode === "string"
+      ? output.reasonCode
+      : undefined;
+  return evidenceOutcomeText(output.outcome, reasonCode);
 }
 
-function evidenceOutcomeText(outcome: string) {
+function evidenceDisplayState(part: ToolPart): ToolPart["state"] {
+  if (part.state !== "output-available") return part.state;
+  const output = part.output;
+  if (!output || typeof output !== "object" || !("outcome" in output))
+    return part.state;
+  return ["budget-exhausted", "invalid", "refused", "stale"].includes(
+    String(output.outcome),
+  )
+    ? "output-denied"
+    : part.state;
+}
+
+function evidenceOutcomeText(outcome: string, reasonCode?: string) {
+  const reasonText = reasonCode
+    ? {
+        "scope-denied": "Component scope was not recognized",
+        "policy-denied": "Evidence processing was not permitted",
+        "outside-session-scope": "Evidence candidate was no longer available",
+      }[reasonCode]
+    : undefined;
+  if (reasonText) return reasonText;
   return {
     candidates: "Found candidate passages",
     admitted: "Verified passage",
@@ -235,7 +260,7 @@ function evidenceOutcomeText(outcome: string) {
     none: "No relevant passage found",
     ambiguous: "Several passages may apply",
     stale: "Source representation changed",
-    refused: "Evidence could not be admitted",
+    refused: "Evidence request was refused",
     "budget-exhausted": "Evidence budget exhausted",
     valid: "Answer evidence validated",
     invalid: "Answer evidence needs repair",
@@ -259,10 +284,16 @@ function toolOutput(part: ToolPart): ReactNode {
     return `Read ${result.componentLabel ?? "Source component"}, characters ${result.offset ?? 0}-${result.endOffset ?? 0}.`;
   }
   if (isEvidenceToolPart(part) && "kind" in output) {
-    if ("outcome" in output && typeof output.outcome === "string")
+    if ("outcome" in output && typeof output.outcome === "string") {
+      const reasonCode =
+        "reasonCode" in output && typeof output.reasonCode === "string"
+          ? output.reasonCode
+          : undefined;
       return (
-        evidenceOutcomeText(output.outcome) ?? "Evidence outcome recorded."
+        evidenceOutcomeText(output.outcome, reasonCode) ??
+        "Evidence outcome recorded."
       );
+    }
     if (output.kind === "source-passage-reference")
       return "Verified an exact passage for the Sources list.";
     if ("reason" in output && typeof output.reason === "string")

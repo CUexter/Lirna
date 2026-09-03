@@ -133,19 +133,21 @@ function CitationControl({
   if (!markers.length || markers.length !== markerPropsValues.length)
     return fallback ?? null;
   if (!context) return null;
-  const citations = markers.map((marker) => ({
-    marker,
-    number: context.references.indexOf(marker.reference) + 1,
-    passage: context.passageForReference(marker.reference),
-    relationLabel: relationLabel(marker.relation),
-    claimText:
-      marker.occurrence?.presentation === "passing"
-        ? context.answer.slice(
-            marker.occurrence.answerTarget.startOffset,
-            marker.occurrence.answerTarget.endOffset,
-          )
-        : undefined,
-  }));
+  const citations = markers
+    .map((marker) => ({
+      marker,
+      number: context.references.indexOf(marker.reference) + 1,
+      passage: context.passageForReference(marker.reference),
+      relationLabel: relationLabel(marker.relation),
+      claimText:
+        marker.occurrence?.presentation === "passing"
+          ? context.answer.slice(
+              marker.occurrence.answerTarget.startOffset,
+              marker.occurrence.answerTarget.endOffset,
+            )
+          : undefined,
+    }))
+    .toSorted((left, right) => left.number - right.number);
   const grouped = citations.length > 1;
   const citationNumbers = citations.map(({ number }) => number).join(", ");
   const ariaLabel = grouped
@@ -165,10 +167,10 @@ function CitationControl({
           label={`[${citationNumbers}]`}
           onClick={() => citations[0]?.passage.show()}
         />
-        <InlineCitationCardBody>
+        <InlineCitationCardBody className="max-h-[min(24rem,calc(100dvh-2rem))] overflow-y-auto overscroll-contain">
           <InlineCitationCarousel>
             {grouped ? (
-              <InlineCitationCarouselHeader>
+              <InlineCitationCarouselHeader className="sticky top-0 z-10">
                 <InlineCitationCarouselPrev />
                 <InlineCitationCarouselNext />
                 <InlineCitationCarouselIndex />
@@ -189,7 +191,7 @@ function CitationControl({
                     <Button
                       type="button"
                       aria-label={`Show citation ${number} in article`}
-                      className="h-auto w-full justify-start rounded-none p-0 text-left font-normal transition-opacity hover:bg-transparent hover:opacity-80 focus-visible:outline-2 focus-visible:-outline-offset-2"
+                      className="h-auto w-full min-w-0 flex-col items-stretch justify-start gap-3 whitespace-normal rounded-none p-0 text-left font-normal transition-opacity hover:bg-transparent hover:opacity-80 focus-visible:outline-2 focus-visible:-outline-offset-2 [&>*]:min-w-0"
                       onClick={() => passage.show()}
                       variant="ghost"
                     >
@@ -205,7 +207,7 @@ function CitationControl({
                         description={label}
                         title={marker.reference.componentLabel}
                       />
-                      <InlineCitationQuote>
+                      <InlineCitationQuote className="break-words text-left">
                         {marker.reference.selection.exactText}
                       </InlineCitationQuote>
                       <p className="text-[11px] text-muted-foreground">

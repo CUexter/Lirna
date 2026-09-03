@@ -148,6 +148,64 @@ test("a failed final persistence returns an error chunk", async () => {
   expect(receipts).toMatchObject([{ outcome: "commit-failed" }]);
 });
 
+test("stream completion waits for durable receipt storage", async () => {
+  let releaseReceipt: (() => void) | undefined;
+  const receiptStored = new Promise<void>((resolve) => {
+    releaseReceipt = resolve;
+  });
+  const receipts: ResearchEvidenceDecisionReceipt[] = [];
+  const turns = createResearchTurnOperations(
+    assistant(answerStream("Completed answer"), evidenceSnapshot()),
+    recordingThreads([]),
+  );
+  let completed = false;
+
+  const collecting = collect(
+    await turns.answer(input(), {
+      async onEvidenceSessionReceipt(receipt) {
+        receipts.push(receipt);
+        await receiptStored;
+      },
+    }),
+  ).then((chunks) => {
+    completed = true;
+    return chunks;
+  });
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+  expect(receipts).toMatchObject([{ outcome: "successful" }]);
+  expect(completed).toBe(false);
+
+  releaseReceipt?.();
+  const chunks = await collecting;
+  expect(completed).toBe(true);
+  expect(chunks.at(-1)).toEqual({ type: "finish", finishReason: "stop" });
+});
+
+test("a receipt storage failure is returned to the stream consumer", async () => {
+  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const turns = createResearchTurnOperations(
+    assistant(answerStream("Completed answer"), evidenceSnapshot()),
+    recordingThreads(appended),
+  );
+
+  const chunks = await collect(
+    await turns.answer(input(), {
+      onError: (error) => `Failed: ${(error as Error).message}`,
+      async onEvidenceSessionReceipt() {
+        throw new Error("Receipt storage unavailable");
+      },
+    }),
+  );
+
+  expect(appended).toHaveLength(1);
+  expect(chunks.at(-1)).toEqual({
+    type: "error",
+    errorText: "Failed: Receipt storage unavailable",
+  });
+  expect(chunks).not.toContainEqual({ type: "finish", finishReason: "stop" });
+});
+
 test("a cancellation during the atomic commit finishes the commit", async () => {
   const receipts: ResearchEvidenceDecisionReceipt[] = [];
   const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];

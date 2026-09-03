@@ -85,6 +85,7 @@ export const defaultResearchEvidenceBudget: ResearchEvidenceBudget = {
 
 export const researchEvidenceResolverVersion = "lexical-v1";
 export const researchEvidenceIndexVersion = "reading-components-v1";
+export const maximumAnswerLedgerAttempts = 2;
 
 const researchToolNames = [
   "readSourceComponent",
@@ -102,6 +103,7 @@ export function isResearchToolName(name: string): name is ResearchToolName {
 export function validateResearchEvidenceBudget(
   budget: ResearchEvidenceBudget,
 ): ResearchEvidenceBudget {
+  validateAmbiguityBudget(budget.maximumCandidatesPerDiscovery);
   for (const [name, value] of Object.entries(budget)) {
     if (name === "maximumModelSteps" && value < 3)
       throw new RangeError(
@@ -117,6 +119,13 @@ export function validateResearchEvidenceBudget(
       );
   }
   return budget;
+}
+
+function validateAmbiguityBudget(maximumCandidatesPerDiscovery: number) {
+  if (maximumCandidatesPerDiscovery < 2)
+    throw new RangeError(
+      "maximumCandidatesPerDiscovery must allow an ambiguous candidate pair",
+    );
 }
 
 export function sessionReceipt(
@@ -191,7 +200,9 @@ export interface ResearchEvidenceSessionCompletion {
     persist: PersistResearchAnswer;
   };
   onError?: (error: unknown) => string;
-  onReceipt?: (receipt: ResearchEvidenceDecisionReceipt) => void;
+  onReceipt?: (
+    receipt: ResearchEvidenceDecisionReceipt,
+  ) => void | Promise<void>;
   repair?: (
     problems: AnswerValidationProblem[],
   ) => Promise<ReadableStream<UIMessageChunk>>;

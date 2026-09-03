@@ -78,10 +78,15 @@ test("presents every evidence outcome as a research status instead of Completed"
   expect(document.body.textContent).toContain("No relevant passage found");
   expect(document.body.textContent).toContain("Several passages may apply");
   expect(document.body.textContent).toContain("Source representation changed");
-  expect(document.body.textContent).toContain("Evidence could not be admitted");
+  expect(document.body.textContent).toContain(
+    "Component scope was not recognized",
+  );
   expect(document.body.textContent).toContain("Evidence budget exhausted");
   expect(document.body.textContent).not.toContain("Completed");
   expect(document.body.textContent).not.toContain("Error");
+  expect(
+    document.querySelectorAll("svg[class*='text-orange-600']"),
+  ).toHaveLength(3);
 });
 
 test("keeps execution exceptions visibly distinct", () => {
@@ -102,7 +107,32 @@ test("keeps execution exceptions visibly distinct", () => {
 
   expect(document.body.textContent).toContain("Error");
   expect(document.body.textContent).not.toContain(
-    "Evidence could not be admitted",
+    "Evidence request was refused",
+  );
+});
+
+test("shows uncertainty after exhausted answer evidence repair", () => {
+  render(
+    <ResearchAssistantResponse
+      message={message([
+        invalidLedgerOutput(1),
+        invalidLedgerOutput(2),
+        invalidLedgerOutput(3),
+        { type: "step-start" },
+        {
+          type: "text",
+          text: "I could not complete a reliable answer because I could not validate its evidence links. No answer was saved.",
+        },
+      ])}
+      passageForReference={() => ({ show() {}, text: "" })}
+    />,
+  );
+
+  expect(
+    document.body.textContent?.match(/Answer evidence needs repair/g),
+  ).toHaveLength(3);
+  expect(document.body.textContent).toContain(
+    "I could not complete a reliable answer because I could not validate its evidence links. No answer was saved.",
   );
 });
 
@@ -201,6 +231,22 @@ function foundOutput(): ResearchAssistantMessage["parts"][number] {
       },
     } satisfies EvidenceResolutionResult,
   };
+}
+
+function invalidLedgerOutput(
+  attempt: number,
+): ResearchAssistantMessage["parts"][number] {
+  return {
+    type: "tool-prepareAnswer",
+    toolCallId: `invalid-ledger-${attempt}`,
+    state: "output-available",
+    input: {},
+    output: {
+      kind: "answer-ledger",
+      outcome: "invalid",
+      problemCodes: ["source-dependent-claim-without-direct-evidence"],
+    },
+  } as ResearchAssistantMessage["parts"][number];
 }
 
 test("renders redacted Source-component reads without fabricated coordinates", async () => {

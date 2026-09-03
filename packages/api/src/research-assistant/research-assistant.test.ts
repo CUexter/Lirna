@@ -101,6 +101,9 @@ test("sends temporary evidence as an AI SDK file part", async () => {
       },
     ],
   });
+  expect(JSON.stringify(model.doStreamCalls[0]?.prompt[3])).toContain(
+    '\\"identity\\":\\"article\\"',
+  );
   expect(selectedModel).toBe("z-ai/glm-5.3-flash");
 });
 

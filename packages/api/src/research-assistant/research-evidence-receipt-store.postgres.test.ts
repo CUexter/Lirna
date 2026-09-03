@@ -120,7 +120,7 @@ describePostgres("Research evidence receipt PostgreSQL store", () => {
         indexVersion: "reading-components-v1",
         budget: {
           maximumDiscoveries: 1,
-          maximumCandidatesPerDiscovery: 1,
+          maximumCandidatesPerDiscovery: 2,
           maximumAdmissions: 1,
           maximumModelSteps: 8,
           maximumTotalEvidenceCharacters: 1_000,

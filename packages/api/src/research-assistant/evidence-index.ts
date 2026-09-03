@@ -13,7 +13,6 @@ export interface EvidenceSegment {
 }
 
 const maximumSegmentCharacters = 2_000;
-const hardMaximumSegmentCharacters = 20_000;
 
 /**
  * The canonical segment index for one Reading component: publisher-authored
@@ -95,7 +94,7 @@ function segmentsWithinHardLimit(
   baseOffset: number,
   blockIdentity: string,
 ) {
-  return passage.length > hardMaximumSegmentCharacters
+  return passage.length > maximumSegmentCharacters
     ? boundedSegments(passage, baseOffset, blockIdentity)
     : [plainSegment(passage, baseOffset, blockIdentity)];
 }
@@ -138,7 +137,7 @@ function boundedSegments(
   const values: RawSegment[] = [];
   let start = 0;
   while (start < text.length) {
-    let end = Math.min(start + hardMaximumSegmentCharacters, text.length);
+    let end = Math.min(start + maximumSegmentCharacters, text.length);
     if (end < text.length) {
       const boundary = text.lastIndexOf(" ", end);
       if (boundary > start) end = boundary;

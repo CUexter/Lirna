@@ -77,7 +77,7 @@ test("removes persisted occurrence markers before a later model turn", () => {
   ).toBe("The first claim.\n\n");
 });
 
-test("leaves unknown, malformed, escaped, and code markers uncompiled", () => {
+test("leaves invalid markers uncompiled and omits their unreferenced evidence", () => {
   const content = [
     "Unknown[^ev_2] malformed[^ev_1|praises] escaped \\[^ev_1].",
     "Inline `code[^ev_1]` remains code.",
@@ -91,8 +91,22 @@ test("leaves unknown, malformed, escaped, and code markers uncompiled", () => {
 
   expect(compileResearchAnswer(content, [reference()])).toEqual({
     content,
-    references: [referenceWithoutAlias()],
+    references: [],
   });
+});
+
+test("persists only admitted evidence cited by the final answer", () => {
+  const cited = reference();
+  const unused = {
+    ...reference(),
+    id: "40000000-0000-4000-8000-000000000000",
+    evidenceAlias: "ev_2",
+  };
+
+  const compiled = compileResearchAnswer("Grounded.[^ev_1]", [cited, unused]);
+
+  expect(compiled.references).toHaveLength(1);
+  expect(compiled.references[0]?.id).toBe(referenceId);
 });
 
 test("creates a distinct occurrence each time evidence is cited", () => {

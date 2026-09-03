@@ -347,3 +347,24 @@ test("splits oversized blocks by sentence and admits the canonical segment", asy
     },
   });
 });
+
+test("bounds an oversized sentence below the canonical segment limit", async () => {
+  const plainText = `${"filler ".repeat(700)}distinctive tail evidence`;
+  const resolver = createEvidenceResolver({
+    derivativeId: "derivative-one",
+    sessionId: "session-one",
+    sourceStateId: "state-one",
+    components: [component("active:/", plainText)],
+  });
+
+  const candidates = await resolver.find({
+    sourceStateId: "state-one",
+    componentIdentities: ["active:/"],
+    intent: "distinctive tail evidence",
+    limit: 5,
+  });
+
+  expect(candidates).toHaveLength(1);
+  expect(candidates[0]?.passage.length).toBeLessThanOrEqual(2_000);
+  expect(candidates[0]?.passage).toEndWith("distinctive tail evidence");
+});

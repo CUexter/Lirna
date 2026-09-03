@@ -114,7 +114,7 @@ test("asks about exact evidence with a rendered-only publisher anchor", async ()
   expect(chunks).toContainEqual({
     type: "text-delta",
     id: "assistant-text",
-    delta: "A **provisional** answer.",
+    delta: "A **provisional** answer.[^ev_1]",
   });
   expect(received).toMatchObject({
     model: "z-ai/glm-5.3-flash",
@@ -131,34 +131,35 @@ test("asks about exact evidence with a rendered-only publisher anchor", async ()
       },
     ],
   });
-  expect(appended).toEqual([
-    {
-      threadId: "30000000-0000-4000-8000-000000000000",
-      role: "user",
-      content: "What is the central claim?",
-      selectedText: "Synthetic",
-    },
-    {
-      threadId: "30000000-0000-4000-8000-000000000000",
-      role: "assistant",
-      content: "A **provisional** answer.",
-      references: [
-        {
-          id: "50000000-0000-4000-8000-000000000000",
-          componentIdentity: "active:/",
-          componentLabel: "Main entry",
-          selection: {
-            offsetBasis: "normalized-derivative-text-v1",
-            normalizedStartOffset: 0,
-            normalizedEndOffset: 9,
-            exactText: "Synthetic",
-            prefix: "",
-            suffix: " reading text.",
-          },
-        },
-      ],
-    },
-  ]);
+  expect(appended[0]).toEqual({
+    threadId: "30000000-0000-4000-8000-000000000000",
+    role: "user",
+    content: "What is the central claim?",
+    selectedText: "Synthetic",
+  });
+  expect(appended[1]).toMatchObject({
+    threadId: "30000000-0000-4000-8000-000000000000",
+    role: "assistant",
+    content: expect.stringMatching(
+      /^A \*\*provisional\*\* answer\.\[\^[0-9a-f-]{36}\]$/,
+    ),
+    references: [
+      {
+        id: "50000000-0000-4000-8000-000000000000",
+        componentIdentity: "active:/",
+        componentLabel: "Main entry",
+        occurrences: [
+          expect.objectContaining({
+            presentation: "passing",
+            relation: "supports",
+          }),
+        ],
+        selection: expect.objectContaining({
+          exactText: "Synthetic",
+        }),
+      },
+    ],
+  });
 });
 
 test("rejects temporary evidence that does not match its media type", async () => {
@@ -465,6 +466,7 @@ function assistantStream(
     };
   },
 ): ReadableStream<UIMessageChunk> {
+  const answer = reference ? `${text}[^ev_1]` : text;
   return new ReadableStream({
     start(controller) {
       controller.enqueue({ type: "start", messageId: "assistant-message" });
@@ -491,8 +493,10 @@ function assistantStream(
               {
                 key: "answer",
                 text,
-                kind: "original-reasoning",
-                evidence: [],
+                kind: reference ? "source-dependent" : "original-reasoning",
+                evidence: reference
+                  ? [{ alias: "ev_1", relation: "supports" }]
+                  : [],
               },
             ],
           },
@@ -502,7 +506,7 @@ function assistantStream(
       controller.enqueue({
         type: "text-delta",
         id: "assistant-text",
-        delta: text,
+        delta: answer,
       });
       controller.enqueue({ type: "text-end", id: "assistant-text" });
       controller.enqueue({ type: "finish", finishReason: "stop" });

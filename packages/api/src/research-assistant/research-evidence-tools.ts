@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 
 import type { EvidenceResolutionObservation } from "./evidence-resolution";
+import { answerLedgerSchema } from "./research-answer-ledger";
 import { createResearchEvidenceSessionCore } from "./research-evidence-session";
 import type {
   ResearchEvidenceBudget,
@@ -33,7 +34,7 @@ export function createResearchEvidenceSession(
       readSourceComponent: sourceComponentReader(options.components),
       findEvidence: tool({
         description:
-          "Find canonical passages matching a natural-language evidence intent within a bounded Source-component scope. Select a returned candidate by its opaque handle; never send quotation text or offsets.",
+          "Find canonical passages matching a natural-language evidence intent within a bounded Source-component scope. componentScope must contain only exact identity values from the Source component records in the user prompt, never component labels. Select a returned candidate by its opaque handle; never send quotation text or offsets.",
         inputSchema: z.object({
           intent: z.string().trim().min(1).max(2_000),
           componentScope: z.array(z.string().min(1)).min(1).max(20),
@@ -52,9 +53,7 @@ export function createResearchEvidenceSession(
       prepareAnswer: tool({
         description:
           "Prepare the transient claim ledger before final synthesis. Declare each answer claim as source-dependent, interpretation, or original-reasoning and relate only admitted evidence aliases. A valid ledger permits final Markdown synthesis; an invalid result must be repaired.",
-        inputSchema: z.object({
-          claims: z.array(z.unknown()).max(100),
-        }),
+        inputSchema: answerLedgerSchema,
         execute: session.prepareAnswer,
       }),
     },

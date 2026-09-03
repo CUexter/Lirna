@@ -93,7 +93,8 @@ test("rejects final synthesis when its transient claim ledger is missing", async
   expect(appended).toEqual([]);
   expect(chunks.at(-1)).toEqual({
     type: "error",
-    errorText: "Failed: Research answer evidence validation failed",
+    errorText:
+      "I could not complete a reliable answer because I could not validate its evidence links. No answer was saved.",
   });
   expect(receipts).toMatchObject([
     {

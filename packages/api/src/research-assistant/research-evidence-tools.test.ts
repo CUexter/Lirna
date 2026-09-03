@@ -2,11 +2,23 @@ import { expect, test } from "bun:test";
 import { MockLanguageModelV4 } from "ai/test";
 
 import type { EvidenceResolutionObservation } from "./evidence-resolution";
+import { answerLedgerSchema } from "./research-answer-ledger";
 import { createResearchAssistant } from "./research-assistant";
+import { createResearchEvidenceSession } from "./research-evidence-tools";
 import {
   textStream,
   toolCallStream,
 } from "./research-model-stream.test-support";
+
+test("publishes the complete answer ledger schema to the model", () => {
+  const session = createResearchEvidenceSession({
+    components: [],
+    sourceStateId: "state-one",
+    derivativeId: "derivative-one",
+  });
+
+  expect(session.tools.prepareAnswer.inputSchema).toBe(answerLedgerSchema);
+});
 
 test("reports repeated canonical passages as ambiguous candidates", async () => {
   let call = 0;
@@ -110,7 +122,7 @@ test("detects ambiguity even when the model requests one candidate", async () =>
         return toolCallStream("find", "findEvidence", {
           componentScope: ["article"],
           intent: "alpha beta evidence",
-          limit: 1,
+          limit: 2,
         });
       return textStream("The passages are ambiguous.");
     },

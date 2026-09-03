@@ -48,8 +48,11 @@ export function compileResearchAnswer(
 
   collectReplacements(fromMarkdown(content) as MarkdownNode, content, compiler);
   const compiledContent = applyReplacements(content, compiler.replacements);
-  locateAnswerTargets(compiledContent, references);
-  return { content: compiledContent, references };
+  const citedReferences = references.filter(
+    (reference) => reference.occurrences?.length,
+  );
+  locateAnswerTargets(compiledContent, citedReferences);
+  return { content: compiledContent, references: citedReferences };
 }
 
 export function researchAnswerHistoryContent(

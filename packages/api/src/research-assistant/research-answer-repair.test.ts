@@ -28,7 +28,7 @@ function request(plainText: string) {
   };
 }
 
-test("repairs a final answer that fails structural validation once", async () => {
+test("renders a validated ledger when final synthesis is structurally invalid", async () => {
   let call = 0;
   const persisted: Array<{ content: string; references: unknown[] }> = [];
   const receipts = [];
@@ -56,7 +56,8 @@ test("repairs a final answer that fails structural validation once", async () =>
             },
           ],
         });
-      if (call === 4) return textStream("Unrelated prose.");
+      if (call < 6)
+        return textStream("Unrelated prose.\n\n:::quote[ev_1]\n:::");
       return textStream("Verified prose claim[^ev_1]");
     },
   });
@@ -76,14 +77,49 @@ test("repairs a final answer that fails structural validation once", async () =>
   const chunks = [];
   for await (const chunk of answer) chunks.push(chunk);
 
+  expect(call).toBe(4);
   expect(persisted).toHaveLength(1);
   expect(persisted[0]?.content).toMatch(
-    /^Verified prose claim\[\^[0-9a-f-]{36}\]$/,
+    /^Verified prose claim\n\n:::quote\[[0-9a-f-]{36}\]\n:::$/,
   );
+  expect(persisted[0]?.references).not.toEqual([
+    expect.objectContaining({ evidenceAlias: "ev_1" }),
+  ]);
+  expect(chunks).toContainEqual({
+    type: "message-metadata",
+    messageMetadata: {
+      references: [
+        expect.objectContaining({
+          evidenceAlias: "ev_1",
+          occurrences: [expect.objectContaining({ presentation: "quote" })],
+        }),
+      ],
+    },
+  });
+  expect(chunks).toContainEqual({
+    type: "tool-output-available",
+    toolCallId: "admit",
+    output: {
+      kind: "source-passage-reference",
+      outcome: "admitted",
+      candidateCount: 1,
+    },
+  });
+  expect(
+    chunks.some(
+      (chunk) =>
+        chunk.type === "text-delta" && chunk.delta.includes("Unrelated prose."),
+    ),
+  ).toBe(false);
+  expect(chunks).toContainEqual({
+    type: "text-delta",
+    id: "validated-answer",
+    delta: "Verified prose claim\n\n:::quote[ev_1]\n:::",
+  });
   expect(receipts).toMatchObject([{ outcome: "successful" }]);
 });
 
-test("a second validation failure after repair commits no answer", async () => {
+test("does not spend the remaining model budget repairing answer formatting", async () => {
   const persisted: unknown[] = [];
   const receipts = [];
   let call = 0;
@@ -131,10 +167,8 @@ test("a second validation failure after repair commits no answer", async () => {
   const chunks = [];
   for await (const chunk of answer) chunks.push(chunk);
 
-  expect(persisted).toEqual([]);
-  expect(chunks.at(-1)).toEqual({
-    type: "error",
-    errorText: "Failed: Research answer evidence validation failed",
-  });
-  expect(receipts).toMatchObject([{ outcome: "invalid-answer" }]);
+  expect(call).toBe(4);
+  expect(persisted).toEqual(["persisted"]);
+  expect(chunks.some(({ type }) => type === "error")).toBe(false);
+  expect(receipts).toMatchObject([{ outcome: "successful" }]);
 });

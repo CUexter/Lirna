@@ -24,7 +24,7 @@ export interface TemporaryEvidenceAttachment {
 
 export interface ResearchAssistantMessageMetadata {
   attachments?: TemporaryEvidenceAttachment[];
-  references?: ResearchPassageReference[];
+  references?: Array<ResearchPassageReference & { evidenceAlias?: string }>;
   selection?: SelectionDraft;
 }
 

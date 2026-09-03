@@ -150,14 +150,14 @@ test("forces synthesis immediately after an evidence budget is exhausted", async
       return toolCallStream("find", "findEvidence", {
         componentScope: ["article"],
         intent: "main evidence",
-        limit: 1,
+        limit: 2,
       });
     },
   });
   const answer = await createResearchAssistant(model, undefined, {
     evidenceBudget: {
       maximumDiscoveries: 1,
-      maximumCandidatesPerDiscovery: 1,
+      maximumCandidatesPerDiscovery: 2,
       maximumAdmissions: 1,
       maximumModelSteps: 8,
       maximumTotalEvidenceCharacters: 1_000,

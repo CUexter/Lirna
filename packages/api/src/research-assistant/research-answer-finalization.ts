@@ -10,7 +10,10 @@ import {
 } from "./research-answer-ledger";
 import { compileResearchAnswer } from "./research-answer-markers";
 import { isResearchToolName } from "./research-evidence-session-contract";
-import type { AliasedResearchPassageReference } from "./research-thread-contract";
+import type {
+  AliasedResearchPassageReference,
+  ResearchPassageReference,
+} from "./research-thread-contract";
 
 export type PersistResearchAnswer = (
   content: string,
@@ -22,6 +25,13 @@ interface ResearchAssistantEvidenceFinalizer {
     references: AliasedResearchPassageReference[],
   ): Promise<boolean>;
 }
+
+type FinalizedResearchAnswer = ReturnType<typeof compileResearchAnswer> & {
+  streamContent: string;
+  streamReferences: Array<
+    ResearchPassageReference & { evidenceAlias?: string }
+  >;
+};
 
 export class AssistantAnswer {
   private currentStepContent = "";
@@ -94,22 +104,30 @@ export class AssistantAnswer {
   async commit(
     persist: PersistResearchAnswer,
     evidenceFinalizer?: ResearchAssistantEvidenceFinalizer,
-  ): Promise<ReturnType<typeof compileResearchAnswer> | undefined> {
+  ): Promise<FinalizedResearchAnswer | undefined> {
     if (this.streamFailed) return;
     if (this.completionError) throw this.completionError;
     if (!this.completed)
       throw new Error("Research assistant response ended before completion");
-    const content = this.hasStepBoundaries
+    let content = this.hasStepBoundaries
       ? this.finalStepContent
       : this.currentStepContent;
     if (!content.trim()) return;
     if (!this.answerLedger)
       throw new AnswerValidationError([{ code: "malformed-ledger" }]);
-    const validation = validateResearchAnswer(
+    let validation = validateResearchAnswer(
       content,
       this.answerLedger,
       new Set(this.references.map(({ evidenceAlias }) => evidenceAlias)),
     );
+    if (validation.outcome === "invalid") {
+      content = renderAnswerLedger(this.answerLedger, quoteAliases(content));
+      validation = validateResearchAnswer(
+        content,
+        this.answerLedger,
+        new Set(this.references.map(({ evidenceAlias }) => evidenceAlias)),
+      );
+    }
     if (validation.outcome === "invalid")
       throw new AnswerValidationError(validation.problems);
     if (
@@ -119,8 +137,44 @@ export class AssistantAnswer {
       throw new AnswerValidationError([{ code: "stale-evidence" }]);
     const compiled = compileResearchAnswer(content, this.references);
     await persist(compiled.content, compiled.references);
-    return compiled;
+    const aliasesByReferenceId = new Map(
+      this.references.map(({ evidenceAlias, id }) => [id, evidenceAlias]),
+    );
+    return {
+      ...compiled,
+      streamContent: content,
+      streamReferences: compiled.references.map((reference) => ({
+        ...reference,
+        evidenceAlias: reference.id
+          ? aliasesByReferenceId.get(reference.id)
+          : undefined,
+      })),
+    };
   }
+}
+
+function renderAnswerLedger(ledger: AnswerLedger, quotedAliases: Set<string>) {
+  return ledger.claims
+    .map(
+      (claim) =>
+        `${claim.text}${claim.evidence
+          .map(({ alias, relation }) => {
+            const marker = `${alias}${relation === "supports" ? "" : `|${relation}`}`;
+            return quotedAliases.has(alias)
+              ? `\n\n:::quote[${marker}]\n:::`
+              : `[^${marker}]`;
+          })
+          .join("")}`,
+    )
+    .join("\n\n");
+}
+
+function quoteAliases(content: string) {
+  return new Set(
+    [...content.matchAll(/:::quote\[([A-Za-z\d_-]+)(?:\|[a-z]+)?\]/g)].flatMap(
+      (match) => (match[1] ? [match[1]] : []),
+    ),
+  );
 }
 
 export class AnswerValidationError extends Error {

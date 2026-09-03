@@ -1,6 +1,5 @@
 import type { UIMessageChunk } from "ai";
 
-import { observeQuietly } from "../observation";
 import {
   AnswerValidationError,
   AssistantAnswer,
@@ -8,6 +7,7 @@ import {
 import {
   completedOutcome,
   latencyBucket,
+  maximumAnswerLedgerAttempts,
   type ResearchEvidenceSessionCompletion,
   type ResearchEvidenceSessionOutcome,
   type ResearchEvidenceSessionSnapshot,
@@ -18,12 +18,16 @@ import type { AliasedResearchPassageReference } from "./research-thread-contract
 
 export type { ResearchEvidenceSessionCompletion };
 
+const invalidAnswerText =
+  "I could not complete a reliable answer because I could not validate its evidence links. No answer was saved.";
+
 interface EvidenceSessionFinalizer {
   snapshot(): ResearchEvidenceSessionSnapshot;
   validateReferences(
     references: AliasedResearchPassageReference[],
   ): Promise<boolean>;
   validAnswerLedger?: () => unknown;
+  answerLedgerAttempts?: () => number;
   expire(): void;
 }
 
@@ -38,22 +42,20 @@ export function completeResearchEvidenceSession(
   const startedAt = performance.now();
   let reader = stream.getReader();
   const answer = new AssistantAnswer();
+  const deferFinalAnswer = session.validAnswerLedger !== undefined;
   let cancelled = false;
   let committing = false;
   let persisting = false;
-  let repairAttempted = false;
   let receiptEmitted = false;
-  const emitReceipt = (outcome: ResearchEvidenceSessionOutcome) => {
+  const emitReceipt = async (outcome: ResearchEvidenceSessionOutcome) => {
     if (receiptEmitted) return;
     receiptEmitted = true;
-    observeQuietly(() =>
-      options.onReceipt?.(
-        sessionReceipt(session.snapshot(), commit, {
-          outcome,
-          ...terminalReason(outcome),
-          latencyBucket: latencyBucket(performance.now() - startedAt),
-        }),
-      ),
+    await options.onReceipt?.(
+      sessionReceipt(session.snapshot(), commit, {
+        outcome,
+        ...terminalReason(outcome),
+        latencyBucket: latencyBucket(performance.now() - startedAt),
+      }),
     );
   };
 
@@ -62,7 +64,12 @@ export function completeResearchEvidenceSession(
     async pull(controller) {
       try {
         while (true) {
-          const chunk = await nextPublicChunk(reader, answer, emitReceipt);
+          const chunk = await nextPublicChunk(
+            reader,
+            answer,
+            emitReceipt,
+            deferFinalAnswer && Boolean(session.validAnswerLedger?.()),
+          );
           if (chunk) {
             deliver(controller, chunk, cancelled);
             return;
@@ -70,8 +77,15 @@ export function completeResearchEvidenceSession(
           if (cancelled) return;
           if (answer.streamFailed) {
             session.expire();
-            emitReceipt("provider-failed");
+            await emitReceipt("provider-failed");
             controller.close();
+            return;
+          }
+          if (ledgerRepairExhausted(session)) {
+            session.expire();
+            await emitReceipt("invalid-answer");
+            deliverInvalidAnswer(controller, cancelled);
+            closeQuietly(controller);
             return;
           }
           committing = true;
@@ -84,8 +98,7 @@ export function completeResearchEvidenceSession(
             }, session);
           } catch (error) {
             committing = false;
-            if (repairable(error, session, repairAttempted) && options.repair) {
-              repairAttempted = true;
+            if (repairable(error, session) && options.repair) {
               answer.beginRepair();
               reader = (
                 await options.repair((error as AnswerValidationError).problems)
@@ -96,33 +109,47 @@ export function completeResearchEvidenceSession(
           }
           committing = false;
           session.expire();
-          if (committed?.references.length)
+          await emitReceipt(completedOutcome(session.snapshot()));
+          if (committed && deferFinalAnswer)
+            deliverValidatedAnswer(
+              controller,
+              committed.streamContent,
+              cancelled,
+            );
+          if (committed?.streamReferences.length)
             deliver(
               controller,
               {
                 type: "message-metadata",
-                messageMetadata: { references: committed.references },
+                messageMetadata: { references: committed.streamReferences },
               },
               cancelled,
             );
           if (answer.finishChunk)
             deliver(controller, answer.finishChunk, cancelled);
-          emitReceipt(completedOutcome(session.snapshot()));
           closeQuietly(controller);
           return;
         }
       } catch (error) {
         if (cancelled) return;
-        const errorText =
-          options.onError?.(error) ?? "Research assistant response failed.";
         session.expire();
-        emitReceipt(
-          persisting
-            ? "commit-failed"
-            : error instanceof AnswerValidationError
-              ? "invalid-answer"
-              : "provider-failed",
-        );
+        const validationFailed = error instanceof AnswerValidationError;
+        let errorText = validationFailed
+          ? invalidAnswerText
+          : (options.onError?.(error) ?? "Research assistant response failed.");
+        try {
+          await emitReceipt(
+            persisting
+              ? "commit-failed"
+              : validationFailed
+                ? "invalid-answer"
+                : "provider-failed",
+          );
+        } catch (receiptError) {
+          errorText =
+            options.onError?.(receiptError) ??
+            "Research assistant response failed.";
+        }
         deliver(
           controller,
           {
@@ -138,10 +165,25 @@ export function completeResearchEvidenceSession(
       if (committing) return;
       cancelled = true;
       session.expire();
-      emitReceipt("cancelled");
+      await emitReceipt("cancelled");
       await reader.cancel(reason);
     },
   });
+}
+
+function deliverValidatedAnswer(
+  controller: ReadableStreamDefaultController<UIMessageChunk>,
+  content: string,
+  cancelled: boolean,
+) {
+  for (const chunk of [
+    { type: "start-step" as const },
+    { type: "text-start" as const, id: "validated-answer" },
+    { type: "text-delta" as const, id: "validated-answer", delta: content },
+    { type: "text-end" as const, id: "validated-answer" },
+    { type: "finish-step" as const },
+  ])
+    deliver(controller, chunk, cancelled);
 }
 
 export function refuseResearchEvidenceSession(
@@ -150,18 +192,26 @@ export function refuseResearchEvidenceSession(
   startedAt = performance.now(),
 ) {
   const snapshot = session.snapshot();
-  observeQuietly(() => {
-    if (options.commit)
-      options.onReceipt?.(
-        sessionReceipt(snapshot, options.commit, {
-          outcome: "refused",
-          latencyBucket: latencyBucket(performance.now() - startedAt),
-        }),
-      );
-  });
   session.expire();
   return new ReadableStream<UIMessageChunk>({
-    start(controller) {
+    async start(controller) {
+      try {
+        if (options.commit)
+          await options.onReceipt?.(
+            sessionReceipt(snapshot, options.commit, {
+              outcome: "refused",
+              latencyBucket: latencyBucket(performance.now() - startedAt),
+            }),
+          );
+      } catch (error) {
+        controller.enqueue({
+          type: "error",
+          errorText:
+            options.onError?.(error) ?? "Research assistant response failed.",
+        });
+        controller.close();
+        return;
+      }
       controller.enqueue({ type: "start", messageId: crypto.randomUUID() });
       controller.enqueue({ type: "text-start", id: "policy-refusal" });
       controller.enqueue({
@@ -180,11 +230,38 @@ export function refuseResearchEvidenceSession(
 function repairable(
   error: unknown,
   session: EvidenceSessionFinalizer,
-  attempted: boolean,
 ): error is AnswerValidationError {
-  if (attempted || !(error instanceof AnswerValidationError)) return false;
+  if (!(error instanceof AnswerValidationError)) return false;
   if (!session.validAnswerLedger?.()) return false;
+  const { budget, consumption } = session.snapshot();
+  if (consumption.modelSteps >= budget.maximumModelSteps) return false;
   return error.problems.every(({ code }) => code !== "stale-evidence");
+}
+
+function ledgerRepairExhausted(session: EvidenceSessionFinalizer) {
+  return (
+    !session.validAnswerLedger?.() &&
+    (session.answerLedgerAttempts?.() ?? 0) >= maximumAnswerLedgerAttempts
+  );
+}
+
+function deliverInvalidAnswer(
+  controller: ReadableStreamDefaultController<UIMessageChunk>,
+  cancelled: boolean,
+) {
+  for (const chunk of [
+    { type: "start-step" as const },
+    { type: "text-start" as const, id: "invalid-answer" },
+    {
+      type: "text-delta" as const,
+      id: "invalid-answer",
+      delta: invalidAnswerText,
+    },
+    { type: "text-end" as const, id: "invalid-answer" },
+    { type: "finish-step" as const },
+    { type: "finish" as const, finishReason: "stop" as const },
+  ])
+    deliver(controller, chunk, cancelled);
 }
 
 function deliver(
@@ -213,15 +290,29 @@ function closeQuietly(
 async function nextPublicChunk(
   reader: ReadableStreamDefaultReader<UIMessageChunk>,
   answer: AssistantAnswer,
-  onTerminal: (outcome: ResearchEvidenceSessionOutcome) => void,
+  onTerminal: (outcome: ResearchEvidenceSessionOutcome) => Promise<void>,
+  deferFinalAnswer: boolean,
 ) {
   while (true) {
     const next = await reader.read();
     if (next.done) return;
     answer.accept(next.value);
-    if (next.value.type === "error") onTerminal("provider-failed");
-    if (next.value.type !== "finish") return answer.publicChunk(next.value);
+    if (next.value.type === "error") await onTerminal("provider-failed");
+    if (next.value.type === "finish") continue;
+    const chunk = answer.publicChunk(next.value);
+    if (deferFinalAnswer && finalAnswerChunk(chunk)) continue;
+    return chunk;
   }
+}
+
+function finalAnswerChunk(chunk: UIMessageChunk) {
+  return (
+    chunk.type === "start-step" ||
+    chunk.type === "text-start" ||
+    chunk.type === "text-delta" ||
+    chunk.type === "text-end" ||
+    chunk.type === "finish-step"
+  );
 }
 
 function expireUncommittedSession(

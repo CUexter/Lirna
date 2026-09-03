@@ -61,7 +61,7 @@ export function researchInstructions(): string[] {
     "Answer only from the supplied Source-state evidence.",
     "Do not use readSourceComponent for the active component unless the answer requires text beyond the supplied 100,000-character evidence.",
     "Use readSourceComponent once for each other Source component that may contain relevant evidence, and request another page only when nextOffset is present and the answer needs it.",
-    "Use findEvidence with a natural-language intent and bounded componentScope for every passage that may materially ground the answer; never send quotation text, offsets, occurrence numbers, prefixes, or suffixes.",
+    "Use findEvidence with a natural-language intent and bounded componentScope for every passage that may materially ground the answer. componentScope accepts only exact identity values from the Source component records; never substitute labels or guess identity formats, and never send quotation text, offsets, occurrence numbers, prefixes, or suffixes.",
     "Select relevant candidates by calling admitEvidence with only their opaque candidateHandle.",
     "A successful admitEvidence call returns an evidence alias such as ev_1; use only successfully admitted aliases in the final answer.",
     "Place [^ev_1] immediately after the smallest claim it grounds when a passing reference is sufficient.",
@@ -92,10 +92,9 @@ export function researchUserPrompt(
   return [
     `Source: ${input.sourceTitle}`,
     `Component: ${input.componentLabel}`,
-    "Source components:",
-    ...components.map(
-      (component) =>
-        `- ${component.identity}: ${component.label} (${component.role})`,
+    "Source component records (use exact identity values in componentScope):",
+    ...components.map(({ identity, label, role }) =>
+      JSON.stringify({ identity, label, role }),
     ),
     ...(selectedText
       ? [

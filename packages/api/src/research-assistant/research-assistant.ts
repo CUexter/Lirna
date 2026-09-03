@@ -28,6 +28,7 @@ import {
 } from "./research-assistant-contract";
 import {
   defaultResearchEvidenceBudget,
+  maximumAnswerLedgerAttempts,
   type ResearchEvidenceBudget,
   type ResearchEvidenceDecisionReceipt,
   type ResearchEvidenceSessionSnapshot,
@@ -74,7 +75,9 @@ export interface ResearchAssistantAnswerOptions {
   onError?: (error: unknown) => string;
   onEvidenceResolution?: (observation: EvidenceResolutionObservation) => void;
   onEvidenceSessionUpdate?: (snapshot: ResearchEvidenceSessionSnapshot) => void;
-  onEvidenceSessionReceipt?: (receipt: ResearchEvidenceDecisionReceipt) => void;
+  onEvidenceSessionReceipt?: (
+    receipt: ResearchEvidenceDecisionReceipt,
+  ) => void | Promise<void>;
   commit?: {
     researchThreadId: string;
     persist: PersistResearchAnswer;
@@ -167,7 +170,11 @@ export function createResearchAssistant(
             const mustPrepareLedger =
               evidenceSession.snapshot().budgetExhausted ||
               stepNumber >= Math.max(0, maximumModelSteps - 3);
-            if (mustPrepareLedger && evidenceSession.answerLedgerAttempts() < 2)
+            if (
+              mustPrepareLedger &&
+              evidenceSession.answerLedgerAttempts() <
+                maximumAnswerLedgerAttempts
+            )
               return {
                 instructions: `${instructions} Prepare the answer ledger now. Call prepareAnswer and no other tool. If a prior ledger was invalid, repair the reported structural problems.`,
                 toolChoice: { type: "tool", toolName: "prepareAnswer" },
@@ -232,8 +239,10 @@ async function repairFinalAnswer({
       ...researchInstructions(),
       `Your previous final answer failed structural evidence validation: ${describeProblems(problems)}. Write a corrected final answer now in concise natural Markdown. Cover exactly the claims in this validated ledger: ${JSON.stringify(ledger)}. Preserve each declared claim text verbatim, place only declared alias and relation pairs immediately after the claim they ground, and use an empty :::quote[ev_1] then ::: block only when exact wording matters. Do not call or imitate tools.`,
     ].join(" "),
-    prepareStep: ({ stepNumber }) => {
-      evidenceSession.beginModelStep(stepNumber);
+    prepareStep: () => {
+      evidenceSession.beginModelStep(
+        evidenceSession.snapshot().consumption.modelSteps,
+      );
       return { toolChoice: "none" };
     },
     stopWhen: stepCountIs(1),

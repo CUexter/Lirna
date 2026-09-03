@@ -37,16 +37,12 @@ export function researchAssistantAnswerOptions(
     onEvidenceResolution(observation) {
       evidenceResolution(context, observation);
     },
-    onEvidenceSessionReceipt(receipt) {
+    async onEvidenceSessionReceipt(receipt) {
       emit(context, "info", {
         event: "research_assistant.session_completed",
         ...receipt,
       });
-      observeQuietly(() => {
-        void context.researchEvidenceReceipts?.record(receipt).catch(() => {
-          // A receipt that cannot be persisted must not alter the turn.
-        });
-      });
+      await context.researchEvidenceReceipts?.record(receipt);
     },
   };
 }
