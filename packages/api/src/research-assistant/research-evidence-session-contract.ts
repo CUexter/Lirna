@@ -35,6 +35,7 @@ export type ResearchEvidenceSessionOutcome =
   | "successful"
   | "refused"
   | "exhausted"
+  | "invalid-answer"
   | "cancelled"
   | "provider-failed"
   | "commit-failed";
@@ -56,7 +57,11 @@ export interface ResearchEvidenceDecisionReceipt
   > {
   researchThreadId: string;
   outcome: ResearchEvidenceSessionOutcome;
-  terminalReasonCode?: "client-cancelled" | "provider-failed" | "commit-failed";
+  terminalReasonCode?:
+    | "client-cancelled"
+    | "provider-failed"
+    | "answer-validation-failed"
+    | "commit-failed";
   latencyBucket: "under-100ms" | "100ms-1s" | "1s-5s" | "over-5s";
 }
 
@@ -75,6 +80,10 @@ export function validateResearchEvidenceBudget(
   budget: ResearchEvidenceBudget,
 ): ResearchEvidenceBudget {
   for (const [name, value] of Object.entries(budget)) {
+    if (name === "maximumModelSteps" && value < 3)
+      throw new RangeError(
+        "maximumModelSteps must reserve ledger preparation, repair, and synthesis",
+      );
     const allowsZero =
       name === "maximumDiscoveries" ||
       name === "maximumAdmissions" ||

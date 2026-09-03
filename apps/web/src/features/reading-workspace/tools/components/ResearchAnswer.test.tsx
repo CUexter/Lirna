@@ -147,6 +147,72 @@ test("renders a persisted quote occurrence from exact verified text", () => {
   expect(view().queryByText(`:::quote[${occurrenceId}]`)).toBeNull();
 });
 
+test("shows persisted claim text beside exact evidence without claiming entailment", async () => {
+  const user = userEvent.setup();
+  const occurrenceId = "20000000-0000-4000-8000-000000000000";
+  const answer = `This claim is grounded.[^${occurrenceId}]`;
+  render(
+    <ResearchAssistantTranscript
+      messages={[
+        {
+          id: "assistant-message",
+          role: "assistant",
+          metadata: {
+            references: [
+              {
+                id: "10000000-0000-4000-8000-000000000000",
+                componentIdentity: "article",
+                componentLabel: "Article",
+                occurrences: [
+                  {
+                    answerTarget: { startOffset: 0, endOffset: 23 },
+                    id: occurrenceId,
+                    presentation: "passing",
+                    relation: "supports",
+                    referenceId: "10000000-0000-4000-8000-000000000000",
+                  },
+                ],
+                selection: {
+                  offsetBasis: "normalized-derivative-text-v1",
+                  normalizedStartOffset: 0,
+                  normalizedEndOffset: 18,
+                  exactText: "Verified evidence.",
+                  prefix: "",
+                  suffix: "",
+                },
+              },
+            ],
+          },
+          parts: [{ type: "text", text: answer }],
+        },
+      ]}
+      passageForReference={(reference) => ({
+        show: () => {},
+        text: reference.selection.exactText,
+      })}
+      passageForSelection={(selection) => ({
+        show: () => {},
+        text: selection.exactText,
+      })}
+      pending={false}
+    />,
+  );
+
+  await user.click(
+    view().getByRole("button", {
+      name: "Citation 1: Supporting evidence from Article",
+    }),
+  );
+
+  expect(view().getAllByText("This claim is grounded.")).toHaveLength(2);
+  expect(view().getByText("Verified evidence.")).toBeTruthy();
+  expect(
+    view().getByText(
+      "This evidence relation is structural, not proof of semantic entailment.",
+    ),
+  ).toBeTruthy();
+});
+
 test("keeps aliases for duplicate verified passages independently resolvable", () => {
   render(
     <ResearchAssistantTranscript

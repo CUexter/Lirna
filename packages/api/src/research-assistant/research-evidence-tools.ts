@@ -9,6 +9,10 @@ import type {
 } from "./evidence-resolution";
 import { createEvidenceResolver } from "./evidence-resolver";
 import {
+  type AnswerLedger,
+  validateAnswerLedger,
+} from "./research-answer-ledger";
+import {
   defaultResearchEvidenceBudget,
   type ResearchEvidenceBudget,
   type ResearchEvidenceSessionSnapshot,
@@ -21,6 +25,7 @@ import {
   sourceComponentReader,
   unresolved,
 } from "./research-evidence-tool-support";
+import type { AliasedResearchPassageReference } from "./research-thread-contract";
 
 type EvidenceComponent = Pick<
   ReadingComponent,
@@ -62,6 +67,14 @@ export function createResearchEvidenceSession(
   let refusedCount = 0;
   let modelSteps = 0;
   let budgetExhausted = false;
+  let answerLedger: AnswerLedger | undefined;
+  let answerLedgerAttempts = 0;
+  let expired = false;
+  const admittedAliases = new Set<string>();
+  const admittedReferences = new Map<
+    string,
+    Extract<EvidenceResolutionResult, { outcome: "admitted" }>
+  >();
   const componentScope = new Set<string>();
   const reasonCodes = new Set<EvidenceResolutionObservation["reasonCode"]>();
 
@@ -176,8 +189,23 @@ export function createResearchEvidenceSession(
     if (result.outcome === "admitted") {
       evidenceCharacters += result.passage.length;
       admittedCount += 1;
+      admittedAliases.add(result.evidenceAlias);
+      admittedReferences.set(result.evidenceAlias, result);
     }
     return finish(result, "admitEvidence", startedAt);
+  };
+
+  const prepareAnswer = ({ claims }: { claims: unknown[] }) => {
+    answerLedgerAttempts += 1;
+    const result = validateAnswerLedger(
+      { claims },
+      expired ? new Set() : admittedAliases,
+    );
+    answerLedger = result.outcome === "valid" ? result.ledger : undefined;
+    return {
+      kind: "answer-ledger" as const,
+      ...result,
+    };
   };
 
   function finish<Result extends EvidenceResolutionResult>(
@@ -243,12 +271,55 @@ export function createResearchEvidenceSession(
       }),
       execute: admit,
     }),
+    prepareAnswer: tool({
+      description:
+        "Prepare the transient claim ledger before final synthesis. Declare each answer claim as source-dependent, interpretation, or original-reasoning and relate only admitted evidence aliases. A valid ledger permits final Markdown synthesis; an invalid result must be repaired.",
+      inputSchema: z.object({
+        claims: z.array(z.unknown()).max(100),
+      }),
+      execute: prepareAnswer,
+    }),
+  };
+  const validateReferences = async (
+    references: AliasedResearchPassageReference[],
+  ) => {
+    if (expired) return false;
+    if (
+      options.currentDerivativeId &&
+      (await options.currentDerivativeId()) !== options.derivativeId
+    )
+      return false;
+    return references.every((reference) => {
+      const admitted = admittedReferences.get(reference.evidenceAlias);
+      const component = options.components.find(
+        ({ identity }) => identity === reference.componentIdentity,
+      );
+      return (
+        admitted?.id === reference.id &&
+        admitted.componentIdentity === reference.componentIdentity &&
+        admitted.selection.offsetBasis === reference.selection.offsetBasis &&
+        admitted.selection.exactText === reference.selection.exactText &&
+        admitted.selection.normalizedStartOffset ===
+          reference.selection.normalizedStartOffset &&
+        admitted.selection.normalizedEndOffset ===
+          reference.selection.normalizedEndOffset &&
+        admitted.selection.prefix === reference.selection.prefix &&
+        admitted.selection.suffix === reference.selection.suffix &&
+        component?.plainText.slice(
+          reference.selection.normalizedStartOffset,
+          reference.selection.normalizedEndOffset,
+        ) === reference.selection.exactText
+      );
+    });
   };
   return {
     id: sessionId,
     discover,
     admit,
     snapshot,
+    hasValidAnswerLedger: () => answerLedger !== undefined,
+    answerLedgerAttempts: () => answerLedgerAttempts,
+    validateReferences,
     beginModelStep(stepNumber: number) {
       modelSteps = Math.max(modelSteps, stepNumber + 1);
       if (modelSteps === budget.maximumModelSteps) {
@@ -258,7 +329,13 @@ export function createResearchEvidenceSession(
       notifyUpdate(options.update, snapshot());
     },
     tools,
-    expire: () => resolver.expire(),
+    expire() {
+      expired = true;
+      answerLedger = undefined;
+      admittedAliases.clear();
+      admittedReferences.clear();
+      resolver.expire();
+    },
   };
 }
 

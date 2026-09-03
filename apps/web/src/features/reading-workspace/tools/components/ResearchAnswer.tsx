@@ -46,6 +46,7 @@ const markerComponents = {
 const markerPlugins = [researchEvidenceMarkers];
 
 const ResearchAnswerContext = createContext<{
+  answer: string;
   passageForReference: (reference: ResearchPassageReference) => ArticlePassage;
   references: LiveReference[];
 } | null>(null);
@@ -62,6 +63,7 @@ export function ResearchAnswer({
   return (
     <ResearchAnswerContext.Provider
       value={{
+        answer,
         passageForReference,
         references: references as LiveReference[],
       }}
@@ -136,6 +138,13 @@ function CitationControl({
     number: context.references.indexOf(marker.reference) + 1,
     passage: context.passageForReference(marker.reference),
     relationLabel: relationLabel(marker.relation),
+    claimText:
+      marker.occurrence?.presentation === "passing"
+        ? context.answer.slice(
+            marker.occurrence.answerTarget.startOffset,
+            marker.occurrence.answerTarget.endOffset,
+          )
+        : undefined,
   }));
   const grouped = citations.length > 1;
   const citationNumbers = citations.map(({ number }) => number).join(", ");
@@ -167,7 +176,13 @@ function CitationControl({
             ) : null}
             <InlineCitationCarouselContent>
               {citations.map(
-                ({ marker, number, passage, relationLabel: label }) => (
+                ({
+                  marker,
+                  number,
+                  passage,
+                  relationLabel: label,
+                  claimText,
+                }) => (
                   <InlineCitationCarouselItem
                     key={`${number}:${marker.reference.selection.normalizedStartOffset}:${label}`}
                   >
@@ -178,6 +193,14 @@ function CitationControl({
                       onClick={() => passage.show()}
                       variant="ghost"
                     >
+                      {claimText ? (
+                        <p className="text-muted-foreground text-xs">
+                          <span className="font-medium text-foreground">
+                            Claim:
+                          </span>
+                          {claimText}
+                        </p>
+                      ) : null}
                       <InlineCitationSource
                         description={label}
                         title={marker.reference.componentLabel}
@@ -185,6 +208,10 @@ function CitationControl({
                       <InlineCitationQuote>
                         {marker.reference.selection.exactText}
                       </InlineCitationQuote>
+                      <p className="text-[11px] text-muted-foreground">
+                        This evidence relation is structural, not proof of
+                        semantic entailment.
+                      </p>
                     </Button>
                   </InlineCitationCarouselItem>
                 ),
@@ -200,6 +227,7 @@ function CitationControl({
 interface ResolvedMarker {
   reference: LiveReference;
   relation: EvidenceRelation;
+  occurrence?: NonNullable<ResearchPassageReference["occurrences"]>[number];
 }
 
 function useEvidenceMarker(
@@ -241,7 +269,8 @@ function resolveEvidenceMarker(
       (candidate) =>
         candidate.id === token && candidate.presentation === presentation,
     );
-    if (occurrence) return { reference, relation: occurrence.relation };
+    if (occurrence)
+      return { reference, relation: occurrence.relation, occurrence };
   }
   return undefined;
 }

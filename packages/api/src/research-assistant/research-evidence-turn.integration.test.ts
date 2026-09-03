@@ -23,6 +23,17 @@ test("persists a canonical Reference admitted through evidence discovery", async
           candidateHandle: candidateHandleFromPrompt(prompt),
           purpose: "Ground the answer",
         });
+      if (call === 3)
+        return toolCallStream("prepare", "prepareAnswer", {
+          claims: [
+            {
+              key: "grounded-claim",
+              text: "The claim is grounded.",
+              kind: "source-dependent",
+              evidence: [{ alias: "ev_1", relation: "supports" }],
+            },
+          ],
+        });
       return textStream("The claim is grounded.[^ev_1]");
     },
   });
@@ -97,7 +108,7 @@ test("persists a canonical Reference admitted through evidence discovery", async
         discoveries: 1,
         candidates: 1,
         admissions: 1,
-        modelSteps: 3,
+        modelSteps: 4,
         evidenceCharacters: 17,
       },
       candidateCount: 1,
@@ -109,6 +120,7 @@ test("persists a canonical Reference admitted through evidence discovery", async
   const toolProgress = chunks.filter((chunk) => chunk.type.startsWith("tool-"));
   expect(JSON.stringify(toolProgress)).not.toContain("candidate_");
   expect(JSON.stringify(toolProgress)).not.toContain("Verified passage.");
+  expect(JSON.stringify(toolProgress)).not.toContain("The claim is grounded.");
   expect(JSON.stringify(toolProgress)).not.toContain("normalizedStartOffset");
   expect(chunks).toContainEqual({
     type: "message-metadata",
@@ -135,6 +147,17 @@ test("persists only the deliberately selected repeated occurrence", async () => 
         return toolCallStream("admit", "admitEvidence", {
           candidateHandle: candidateHandleFromPrompt(prompt, 1),
           purpose: "Ground the later occurrence",
+        });
+      if (call === 3)
+        return toolCallStream("prepare", "prepareAnswer", {
+          claims: [
+            {
+              key: "later-occurrence",
+              text: "The later occurrence matters.",
+              kind: "source-dependent",
+              evidence: [{ alias: "ev_1", relation: "supports" }],
+            },
+          ],
         });
       return textStream(
         "The later occurrence matters.[^ev_1]\n\n:::quote[ev_1]\n:::",
@@ -224,6 +247,23 @@ test("answers the trans women and trans men question without exact-text retries"
           limit: 5,
         });
       }
+      if (call === 4)
+        return toolCallStream("prepare", "prepareAnswer", {
+          claims: [
+            {
+              key: "women",
+              text: "The article presents gender-critical feminism as rejecting trans women's identities.",
+              kind: "source-dependent",
+              evidence: [{ alias: "ev_1", relation: "supports" }],
+            },
+            {
+              key: "men",
+              text: "It does not provide enough evidence to assess its treatment of trans men.",
+              kind: "original-reasoning",
+              evidence: [],
+            },
+          ],
+        });
       return textStream(
         "The article presents gender-critical feminism as rejecting trans women's identities.[^ev_1] It does not provide enough evidence to assess its treatment of trans men.",
       );

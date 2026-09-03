@@ -237,6 +237,24 @@ function completedStream(): ReadableStream<UIMessageChunk> {
   return new ReadableStream({
     start(controller) {
       controller.enqueue({
+        type: "tool-output-available",
+        toolCallId: "prepare-answer",
+        output: {
+          kind: "answer-ledger",
+          outcome: "valid",
+          ledger: {
+            claims: [
+              {
+                key: "answer",
+                text: "Completed answer",
+                kind: "original-reasoning",
+                evidence: [],
+              },
+            ],
+          },
+        },
+      });
+      controller.enqueue({
         type: "text-delta",
         id: "assistant-text",
         delta: "Completed answer",

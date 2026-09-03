@@ -162,7 +162,18 @@ test("discovers and admits a canonical passage from a supplementary component", 
           purpose: "Ground the supplement claim",
         });
       }
-      return textStream("The supplement provides supporting evidence.");
+      if (call === 3)
+        return toolCallStream("prepare", "prepareAnswer", {
+          claims: [
+            {
+              key: "supplement-claim",
+              text: "The supplement provides supporting evidence.",
+              kind: "source-dependent",
+              evidence: [{ alias: "ev_1", relation: "supports" }],
+            },
+          ],
+        });
+      return textStream("The supplement provides supporting evidence.[^ev_1]");
     },
   });
   const chunks = [];
@@ -193,7 +204,7 @@ test("discovers and admits a canonical passage from a supplementary component", 
 
   for await (const chunk of answer) chunks.push(chunk);
 
-  expect(model.doStreamCalls).toHaveLength(3);
+  expect(model.doStreamCalls).toHaveLength(4);
   expect(JSON.stringify(model.doStreamCalls[1]?.prompt)).toContain(
     "Supplement evidence.",
   );
@@ -233,13 +244,28 @@ test("discovers and admits a canonical passage from a supplementary component", 
 
 test("reserves the final agent step for a text answer", async () => {
   const model = new MockLanguageModelV4({
-    doStream: async ({ toolChoice }) =>
-      toolChoice?.type === "none"
-        ? textStream("Final grounded answer.")
-        : toolCallStream("read", "readSourceComponent", {
-            componentIdentity: "article",
-            offset: 0,
-          }),
+    doStream: async ({ toolChoice }) => {
+      if (toolChoice?.type === "none")
+        return textStream("Final grounded answer.");
+      if (
+        toolChoice?.type === "tool" &&
+        toolChoice.toolName === "prepareAnswer"
+      )
+        return toolCallStream("prepare", "prepareAnswer", {
+          claims: [
+            {
+              key: "reasoning",
+              text: "Final grounded answer.",
+              kind: "original-reasoning",
+              evidence: [],
+            },
+          ],
+        });
+      return toolCallStream("read", "readSourceComponent", {
+        componentIdentity: "article",
+        offset: 0,
+      });
+    },
   });
   const chunks = [];
   const answer = await createResearchAssistant(model).answer({
@@ -263,9 +289,9 @@ test("reserves the final agent step for a text answer", async () => {
 
   for await (const chunk of answer) chunks.push(chunk);
 
-  expect(model.doStreamCalls).toHaveLength(8);
-  expect(model.doStreamCalls[7]?.toolChoice).toEqual({ type: "none" });
-  expect(model.doStreamCalls[7]?.prompt[0]).toMatchObject({
+  expect(model.doStreamCalls).toHaveLength(7);
+  expect(model.doStreamCalls[6]?.toolChoice).toEqual({ type: "none" });
+  expect(model.doStreamCalls[6]?.prompt[0]).toMatchObject({
     role: "system",
     content: expect.stringContaining("empty :::quote[ev_1] then ::: block"),
   });
@@ -278,13 +304,28 @@ test("reserves the final agent step for a text answer", async () => {
 
 test("uses the configured final model step to synthesize without more tools", async () => {
   const model = new MockLanguageModelV4({
-    doStream: async ({ toolChoice }) =>
-      toolChoice?.type === "none"
-        ? textStream("Budget-bounded answer with remaining uncertainty.")
-        : toolCallStream("read", "readSourceComponent", {
-            componentIdentity: "article",
-            offset: 0,
-          }),
+    doStream: async ({ toolChoice }) => {
+      if (toolChoice?.type === "none")
+        return textStream("Budget-bounded answer with remaining uncertainty.");
+      if (
+        toolChoice?.type === "tool" &&
+        toolChoice.toolName === "prepareAnswer"
+      )
+        return toolCallStream("prepare", "prepareAnswer", {
+          claims: [
+            {
+              key: "uncertainty",
+              text: "Budget-bounded answer with remaining uncertainty.",
+              kind: "original-reasoning",
+              evidence: [],
+            },
+          ],
+        });
+      return toolCallStream("read", "readSourceComponent", {
+        componentIdentity: "article",
+        offset: 0,
+      });
+    },
   });
   const answer = await createResearchAssistant(model, undefined, {
     evidenceBudget: {
@@ -317,20 +358,37 @@ test("uses the configured final model step to synthesize without more tools", as
     // Consume the stream so every bounded model step runs.
   }
 
-  expect(model.doStreamCalls).toHaveLength(3);
-  expect(model.doStreamCalls[2]?.toolChoice).toEqual({ type: "none" });
+  expect(model.doStreamCalls).toHaveLength(2);
+  expect(model.doStreamCalls[1]?.toolChoice).toEqual({ type: "none" });
 });
 
 test("forces synthesis immediately after an evidence budget is exhausted", async () => {
   const model = new MockLanguageModelV4({
-    doStream: async ({ toolChoice }) =>
-      toolChoice?.type === "none"
-        ? textStream("One passage was found; further evidence is uncertain.")
-        : toolCallStream("find", "findEvidence", {
-            componentScope: ["article"],
-            intent: "main evidence",
-            limit: 1,
-          }),
+    doStream: async ({ toolChoice }) => {
+      if (toolChoice?.type === "none")
+        return textStream(
+          "One passage was found; further evidence is uncertain.",
+        );
+      if (
+        toolChoice?.type === "tool" &&
+        toolChoice.toolName === "prepareAnswer"
+      )
+        return toolCallStream("prepare", "prepareAnswer", {
+          claims: [
+            {
+              key: "uncertainty",
+              text: "One passage was found; further evidence is uncertain.",
+              kind: "original-reasoning",
+              evidence: [],
+            },
+          ],
+        });
+      return toolCallStream("find", "findEvidence", {
+        componentScope: ["article"],
+        intent: "main evidence",
+        limit: 1,
+      });
+    },
   });
   const answer = await createResearchAssistant(model, undefined, {
     evidenceBudget: {
@@ -363,8 +421,8 @@ test("forces synthesis immediately after an evidence budget is exhausted", async
     // Consume the stream so the forced synthesis step runs.
   }
 
-  expect(model.doStreamCalls).toHaveLength(3);
-  expect(model.doStreamCalls[2]?.toolChoice).toEqual({ type: "none" });
+  expect(model.doStreamCalls).toHaveLength(4);
+  expect(model.doStreamCalls[3]?.toolChoice).toEqual({ type: "none" });
 });
 
 function toolCallStream(id: string, toolName: string, input: object) {

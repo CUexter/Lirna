@@ -213,6 +213,7 @@ function toolTitle(part: ToolPart) {
       readSourceComponent: "Read Source component",
       findEvidence: "Find evidence",
       admitEvidence: "Admit evidence",
+      prepareAnswer: "Validate answer evidence",
     }[name] ?? name
   );
 }
@@ -235,6 +236,8 @@ function evidenceOutcomeText(outcome: string) {
     stale: "Source representation changed",
     refused: "Evidence could not be admitted",
     "budget-exhausted": "Evidence budget exhausted",
+    valid: "Answer evidence validated",
+    invalid: "Answer evidence needs repair",
   }[outcome];
 }
 
@@ -266,11 +269,17 @@ function toolOutput(part: ToolPart): ReactNode {
 }
 
 function isEvidenceToolPart(part: ToolPart): boolean {
-  if (part.type === "tool-admitEvidence" || part.type === "tool-findEvidence")
+  if (
+    part.type === "tool-admitEvidence" ||
+    part.type === "tool-findEvidence" ||
+    part.type === "tool-prepareAnswer"
+  )
     return true;
   return (
     part.type === "dynamic-tool" &&
-    (part.toolName === "admitEvidence" || part.toolName === "findEvidence")
+    (part.toolName === "admitEvidence" ||
+      part.toolName === "findEvidence" ||
+      part.toolName === "prepareAnswer")
   );
 }
 

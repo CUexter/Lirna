@@ -94,15 +94,17 @@ test("bounds admissions and total admitted evidence characters", async () => {
   });
 });
 
-test("rejects budgets that cannot reserve a synthesis step", () => {
+test("rejects budgets that cannot reserve ledger preparation and synthesis", () => {
   expect(() =>
     createResearchEvidenceSession({
       components,
       sourceStateId: "state-one",
       derivativeId: "derivative-one",
-      budget: budget({ maximumModelSteps: 0 }),
+      budget: budget({ maximumModelSteps: 2 }),
     }),
-  ).toThrow("maximumModelSteps must be a positive integer");
+  ).toThrow(
+    "maximumModelSteps must reserve ledger preparation, repair, and synthesis",
+  );
 });
 
 function budget(overrides: Record<string, number>) {

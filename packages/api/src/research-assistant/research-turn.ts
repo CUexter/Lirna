@@ -1,9 +1,12 @@
 import type { UIMessageChunk } from "ai";
-import { z } from "zod";
-import { authoredTargetInputSchema } from "../authored-targets/authored-target";
-import { compileResearchAnswer } from "./research-answer-markers";
+import {
+  AnswerValidationError,
+  AssistantAnswer,
+  type PersistResearchAnswer,
+} from "./research-answer-finalization";
 import type {
   ResearchAssistantAnswerOptions,
+  ResearchAssistantEvidenceFinalizer,
   ResearchAssistantInput,
   ResearchAssistantOperations,
 } from "./research-assistant";
@@ -12,10 +15,7 @@ import type {
   ResearchEvidenceSessionOutcome,
   ResearchEvidenceSessionSnapshot,
 } from "./research-evidence-session-contract";
-import type {
-  AliasedResearchPassageReference,
-  ResearchThreadOperations,
-} from "./research-thread-contract";
+import type { ResearchThreadOperations } from "./research-thread-contract";
 
 export interface ResearchTurnInput extends ResearchAssistantInput {
   threadId: string;
@@ -63,6 +63,7 @@ export function createResearchTurnOperations(
         }
       };
       let modelStream: ReadableStream<UIMessageChunk>;
+      let evidenceFinalizer: ResearchAssistantEvidenceFinalizer | undefined;
       try {
         modelStream = await assistant.answer(input, {
           ...options,
@@ -74,14 +75,19 @@ export function createResearchTurnOperations(
               // Diagnostics must not alter Research turn handling.
             }
           },
+          onEvidenceSessionReady(session) {
+            evidenceFinalizer = session;
+            options?.onEvidenceSessionReady?.(session);
+          },
         });
       } catch (error) {
+        evidenceFinalizer?.expire();
         emitReceipt("provider-failed");
         throw error;
       }
-      return researchTurnStream(
-        modelStream,
-        async (content, references) => {
+      return researchTurnStream({
+        stream: modelStream,
+        persist: async (content, references) => {
           const persisted = await threads.append({
             threadId,
             role: "assistant",
@@ -91,14 +97,15 @@ export function createResearchTurnOperations(
           if (!persisted)
             throw new Error("Research answer could not be persisted");
         },
-        options?.onError,
-        (outcome) =>
+        onError: options?.onError,
+        onTerminal: (outcome) =>
           emitReceipt(
             outcome === "successful" && snapshot
               ? completedOutcome(snapshot)
               : outcome,
           ),
-      );
+        evidenceFinalizer: () => evidenceFinalizer,
+      });
     },
   };
 }
@@ -108,25 +115,33 @@ function terminalReason(outcome: ResearchEvidenceSessionOutcome) {
     return { terminalReasonCode: "client-cancelled" as const };
   if (outcome === "provider-failed")
     return { terminalReasonCode: "provider-failed" as const };
+  if (outcome === "invalid-answer")
+    return { terminalReasonCode: "answer-validation-failed" as const };
   if (outcome === "commit-failed")
     return { terminalReasonCode: "commit-failed" as const };
   return {};
 }
 
-function researchTurnStream(
-  stream: ReadableStream<UIMessageChunk>,
-  persist: (
-    content: string,
-    references: ReturnType<typeof compileResearchAnswer>["references"],
-  ) => Promise<void>,
-  onError?: (error: unknown) => string,
-  onTerminal?: (outcome: ResearchEvidenceSessionOutcome) => void,
-) {
+function researchTurnStream({
+  stream,
+  persist,
+  onError,
+  onTerminal,
+  evidenceFinalizer,
+}: {
+  stream: ReadableStream<UIMessageChunk>;
+  persist: PersistResearchAnswer;
+  onError?: (error: unknown) => string;
+  onTerminal?: (outcome: ResearchEvidenceSessionOutcome) => void;
+  evidenceFinalizer?: () => ResearchAssistantEvidenceFinalizer | undefined;
+}) {
   const reader = stream.getReader();
   const answer = new AssistantAnswer();
   let cancelled = false;
-  let committing = false;
+  let finalizing = false;
+  let persisting = false;
   return new ReadableStream<UIMessageChunk>({
+    // fallow-ignore-next-line complexity
     async pull(controller) {
       try {
         const chunk = await nextPublicChunk(reader, answer, onTerminal);
@@ -136,13 +151,19 @@ function researchTurnStream(
         }
         if (cancelled) return;
         if (answer.streamFailed) {
+          evidenceFinalizer?.()?.expire();
           onTerminal?.("provider-failed");
           controller.close();
           return;
         }
-        committing = true;
-        const committed = await answer.commit(persist);
-        committing = false;
+        finalizing = true;
+        const committed = await answer.commit(async (content, references) => {
+          persisting = true;
+          await persist(content, references);
+          persisting = false;
+        }, evidenceFinalizer?.());
+        finalizing = false;
+        evidenceFinalizer?.()?.expire();
         if (committed?.references.length)
           controller.enqueue({
             type: "message-metadata",
@@ -153,7 +174,14 @@ function researchTurnStream(
         controller.close();
       } catch (error) {
         if (cancelled) return;
-        onTerminal?.(committing ? "commit-failed" : "provider-failed");
+        evidenceFinalizer?.()?.expire();
+        onTerminal?.(
+          persisting
+            ? "commit-failed"
+            : finalizing && error instanceof AnswerValidationError
+              ? "invalid-answer"
+              : "provider-failed",
+        );
         controller.enqueue({
           type: "error",
           errorText: onError?.(error) ?? "Research assistant response failed.",
@@ -163,6 +191,7 @@ function researchTurnStream(
     },
     async cancel(reason) {
       cancelled = true;
+      evidenceFinalizer?.()?.expire();
       onTerminal?.("cancelled");
       await reader.cancel(reason);
     },
@@ -199,116 +228,4 @@ function latencyBucket(
   if (durationMs < 1_000) return "100ms-1s";
   if (durationMs < 5_000) return "1s-5s";
   return "over-5s";
-}
-
-class AssistantAnswer {
-  private currentStepContent = "";
-  private finalStepContent = "";
-  private hasStepBoundaries = false;
-  private readonly references: AliasedResearchPassageReference[] = [];
-  private readonly toolNames = new Map<string, string>();
-  finishChunk?: Extract<UIMessageChunk, { type: "finish" }>;
-  completed = false;
-  completionError?: Error;
-  streamFailed = false;
-
-  accept(chunk: UIMessageChunk) {
-    if (chunk.type === "tool-input-available")
-      this.toolNames.set(chunk.toolCallId, chunk.toolName);
-    if (chunk.type === "start-step") {
-      this.hasStepBoundaries = true;
-      this.currentStepContent = "";
-    }
-    if (chunk.type === "text-delta") this.currentStepContent += chunk.delta;
-    if (chunk.type === "finish-step")
-      this.finalStepContent = this.currentStepContent;
-    if (chunk.type === "tool-output-available") {
-      const reference = researchPassageReference(chunk.output);
-      if (reference) this.references.push(reference);
-    }
-    if (chunk.type === "error") this.streamFailed = true;
-    if (chunk.type === "abort")
-      this.completionError = new Error(
-        chunk.reason ?? "Research assistant response was aborted",
-      );
-    if (chunk.type === "finish") {
-      this.finishChunk = chunk;
-      if (chunk.finishReason === "stop") this.completed = true;
-      else
-        this.completionError = new Error(
-          `Research assistant response ended with ${chunk.finishReason ?? "an unknown reason"}`,
-        );
-    }
-  }
-
-  publicChunk(chunk: UIMessageChunk): UIMessageChunk {
-    if (
-      chunk.type === "tool-input-available" &&
-      researchTool(this.toolNames.get(chunk.toolCallId))
-    )
-      return { ...chunk, input: {} };
-    if (
-      chunk.type === "tool-output-available" &&
-      researchTool(this.toolNames.get(chunk.toolCallId))
-    )
-      return { ...chunk, output: contentFreeToolOutput(chunk.output) };
-    return chunk;
-  }
-
-  async commit(
-    persist: Parameters<typeof researchTurnStream>[1],
-  ): Promise<ReturnType<typeof compileResearchAnswer> | undefined> {
-    if (this.streamFailed) return;
-    if (this.completionError) throw this.completionError;
-    if (!this.completed)
-      throw new Error("Research assistant response ended before completion");
-    const content = this.hasStepBoundaries
-      ? this.finalStepContent
-      : this.currentStepContent;
-    if (!content.trim()) return;
-    const compiled = compileResearchAnswer(content, this.references);
-    await persist(compiled.content, compiled.references);
-    return compiled;
-  }
-}
-
-function researchTool(name: string | undefined) {
-  return (
-    name === "readSourceComponent" ||
-    name === "findEvidence" ||
-    name === "admitEvidence"
-  );
-}
-
-function contentFreeToolOutput(output: unknown) {
-  if (!output || typeof output !== "object") return {};
-  const value = output as Record<string, unknown>;
-  return {
-    ...(typeof value.kind === "string" ? { kind: value.kind } : {}),
-    ...(typeof value.outcome === "string" ? { outcome: value.outcome } : {}),
-    ...(typeof value.reasonCode === "string"
-      ? { reasonCode: value.reasonCode }
-      : {}),
-    ...(typeof value.candidateCount === "number"
-      ? { candidateCount: value.candidateCount }
-      : {}),
-    ...(typeof value.found === "boolean" ? { found: value.found } : {}),
-  };
-}
-
-function researchPassageReference(
-  output: unknown,
-): AliasedResearchPassageReference | undefined {
-  if (!output || typeof output !== "object" || !("kind" in output)) return;
-  if (output.kind !== "source-passage-reference") return;
-  const parsed = z
-    .object({
-      id: z.string().uuid(),
-      evidenceAlias: z.string().regex(/^ev_\d+$/),
-      componentIdentity: z.string(),
-      componentLabel: z.string(),
-      selection: authoredTargetInputSchema,
-    })
-    .safeParse(output);
-  return parsed.success ? parsed.data : undefined;
 }

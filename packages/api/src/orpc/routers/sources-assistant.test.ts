@@ -470,6 +470,24 @@ function assistantStream(
           },
         });
       }
+      controller.enqueue({
+        type: "tool-output-available",
+        toolCallId: "prepare-answer",
+        output: {
+          kind: "answer-ledger",
+          outcome: "valid",
+          ledger: {
+            claims: [
+              {
+                key: "answer",
+                text,
+                kind: "original-reasoning",
+                evidence: [],
+              },
+            ],
+          },
+        },
+      });
       controller.enqueue({ type: "text-start", id: "assistant-text" });
       controller.enqueue({
         type: "text-delta",

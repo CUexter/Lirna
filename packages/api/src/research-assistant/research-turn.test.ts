@@ -66,6 +66,37 @@ test("commits only final synthesis Markdown from a multi-step turn", async () =>
   ]);
 });
 
+test("rejects final synthesis when its transient claim ledger is missing", async () => {
+  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const receipts: ResearchEvidenceDecisionReceipt[] = [];
+  const turns = createResearchTurnOperations(
+    assistant(
+      answerStream("Unsupported answer", true, "stop", false),
+      evidenceSnapshot(),
+    ),
+    recordingThreads(appended),
+  );
+
+  const chunks = await collect(
+    await turns.answer(input(), {
+      onError: (error) => `Failed: ${(error as Error).message}`,
+      onEvidenceSessionReceipt: (receipt) => receipts.push(receipt),
+    }),
+  );
+
+  expect(appended).toEqual([]);
+  expect(chunks.at(-1)).toEqual({
+    type: "error",
+    errorText: "Failed: Research answer evidence validation failed",
+  });
+  expect(receipts).toMatchObject([
+    {
+      outcome: "invalid-answer",
+      terminalReasonCode: "answer-validation-failed",
+    },
+  ]);
+});
+
 test("reports successful, refused, and exhausted sessions without content", async () => {
   const receipts: ResearchEvidenceDecisionReceipt[] = [];
   for (const snapshot of [
@@ -382,10 +413,22 @@ function answerStream(
   text: string,
   completed = true,
   finishReason: "stop" | "error" = "stop",
+  includeLedger = true,
 ): ReadableStream<UIMessageChunk> {
   return new ReadableStream({
     start(controller) {
       controller.enqueue({ type: "start", messageId: "assistant-message" });
+      if (includeLedger)
+        controller.enqueue(
+          validLedgerOutput([
+            {
+              key: "answer",
+              text,
+              kind: "original-reasoning",
+              evidence: [],
+            },
+          ]),
+        );
       controller.enqueue({ type: "text-start", id: "assistant-text" });
       controller.enqueue({
         type: "text-delta",
@@ -409,6 +452,16 @@ function multiStepStream(): ReadableStream<UIMessageChunk> {
         delta: "Let me inspect the supplement.",
       });
       controller.enqueue({ type: "finish-step" });
+      controller.enqueue(
+        validLedgerOutput([
+          {
+            key: "answer",
+            text: "## Grounded connection",
+            kind: "original-reasoning",
+            evidence: [],
+          },
+        ]),
+      );
       controller.enqueue({ type: "start-step" });
       controller.enqueue({
         type: "text-delta",
@@ -445,6 +498,16 @@ function evidenceStream(): ReadableStream<UIMessageChunk> {
           },
         },
       });
+      controller.enqueue(
+        validLedgerOutput([
+          {
+            key: "claim_1",
+            text: "The passage grounds this claim.",
+            kind: "source-dependent",
+            evidence: [{ alias: "ev_1", relation: "supports" }],
+          },
+        ]),
+      );
       controller.enqueue({ type: "text-start", id: "assistant-text" });
       controller.enqueue({
         type: "text-delta",
@@ -456,4 +519,16 @@ function evidenceStream(): ReadableStream<UIMessageChunk> {
       controller.close();
     },
   });
+}
+
+function validLedgerOutput(claims: unknown[]): UIMessageChunk {
+  return {
+    type: "tool-output-available",
+    toolCallId: "prepare-answer",
+    output: {
+      kind: "answer-ledger",
+      outcome: "valid",
+      ledger: { claims },
+    },
+  };
 }
