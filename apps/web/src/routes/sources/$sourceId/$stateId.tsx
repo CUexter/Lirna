@@ -100,9 +100,9 @@ function RouteComponent() {
           onWorkspaceLeave: (href) => window.location.assign(href),
         }}
       />
-      {/* <Suspense fallback={null}> */}
-      {/*   <SourceInformation workspace={opening.workspace} /> */}
-      {/* </Suspense> */}
+      <Suspense fallback={null}>
+        <SourceInformation workspace={opening.workspace} />
+      </Suspense>
     </>
   );
 }

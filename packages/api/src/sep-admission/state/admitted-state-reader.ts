@@ -146,32 +146,37 @@ export function createSepAdmittedStateReader(
       return active.status === "active" ? active.value.reading : undefined;
     },
 
-    async getUpdateTarget(sourceId: string) {
-      const [row] = await database
-        .select({
-          stableKey: sources.stableKey,
-          canonicalUrl: sourceStates.canonicalUrl,
-        })
-        .from(sources)
-        .innerJoin(sourceStates, eq(sourceStates.sourceId, sources.id))
-        .innerJoin(
-          sepSourceStateMetadata,
-          eq(sepSourceStateMetadata.sourceStateId, sourceStates.id),
-        )
-        .where(
-          and(
-            eq(sources.id, sourceId),
-            eq(sourceStates.adapterId, "sep"),
-            eq(sepSourceStateMetadata.observationKey, "submitted"),
-          ),
-        )
-        .orderBy(desc(sourceStates.sequence))
-        .limit(1);
-      return row?.stableKey && row.canonicalUrl
-        ? { stableKey: row.stableKey, canonicalUrl: row.canonicalUrl }
-        : undefined;
-    },
+    getUpdateTarget: (sourceId) => readSepUpdateTarget(database, sourceId),
   };
+}
+
+export async function readSepUpdateTarget(
+  database: DatabaseExecutor,
+  sourceId: string,
+) {
+  const [row] = await database
+    .select({
+      stableKey: sources.stableKey,
+      canonicalUrl: sourceStates.canonicalUrl,
+    })
+    .from(sources)
+    .innerJoin(sourceStates, eq(sourceStates.sourceId, sources.id))
+    .innerJoin(
+      sepSourceStateMetadata,
+      eq(sepSourceStateMetadata.sourceStateId, sourceStates.id),
+    )
+    .where(
+      and(
+        eq(sources.id, sourceId),
+        eq(sourceStates.adapterId, "sep"),
+        eq(sepSourceStateMetadata.observationKey, "submitted"),
+      ),
+    )
+    .orderBy(desc(sourceStates.sequence))
+    .limit(1);
+  return row?.stableKey && row.canonicalUrl
+    ? { stableKey: row.stableKey, canonicalUrl: row.canonicalUrl }
+    : undefined;
 }
 
 export async function readSepLibrarySourceInSnapshot(

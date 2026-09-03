@@ -1,9 +1,13 @@
 import { expect, test } from "bun:test";
-import { simulateReadableStream, type UIMessageChunk } from "ai";
+import type { UIMessageChunk } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 
 import { createResearchAssistant } from "./research-assistant";
 import { createResearchEvidenceSession } from "./research-evidence-tools";
+import {
+  textStream,
+  toolCallStream,
+} from "./research-model-stream.test-support";
 import type { ResearchThreadOperations } from "./research-thread-contract";
 import { createResearchTurnOperations } from "./research-turn";
 
@@ -13,7 +17,7 @@ test("gives an invalid answer ledger one bounded repair before synthesis", async
     doStream: async ({ toolChoice }) => {
       call += 1;
       if (toolChoice?.type === "none") return textStream("Uncertain answer.");
-      return toolCallStream(`prepare-${call}`, {
+      return toolCallStream(`prepare-${call}`, "prepareAnswer", {
         claims: [
           {
             key: "claim",
@@ -182,50 +186,4 @@ function canonicalEvidenceStream(): ReadableStream<UIMessageChunk> {
       controller.close();
     },
   });
-}
-
-function toolCallStream(id: string, input: object) {
-  return {
-    stream: simulateReadableStream({
-      chunks: [
-        {
-          type: "tool-call" as const,
-          toolCallId: id,
-          toolName: "prepareAnswer",
-          input: JSON.stringify(input),
-        },
-        finishChunk("tool-calls"),
-      ],
-    }),
-  };
-}
-
-function textStream(text: string) {
-  return {
-    stream: simulateReadableStream({
-      chunks: [
-        { type: "text-start" as const, id: "text-1" },
-        { type: "text-delta" as const, id: "text-1", delta: text },
-        { type: "text-end" as const, id: "text-1" },
-        finishChunk("stop"),
-      ],
-    }),
-  };
-}
-
-function finishChunk(unified: "stop" | "tool-calls") {
-  return {
-    type: "finish" as const,
-    finishReason: { unified, raw: undefined },
-    logprobs: undefined,
-    usage: {
-      inputTokens: {
-        total: 1,
-        noCache: 1,
-        cacheRead: undefined,
-        cacheWrite: undefined,
-      },
-      outputTokens: { total: 1, text: 1, reasoning: undefined },
-    },
-  };
 }

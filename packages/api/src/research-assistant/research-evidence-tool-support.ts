@@ -1,7 +1,8 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-import type { ReadingComponent } from "../sep-admission/reading/contract";
+import { observeQuietly } from "../observation";
+
 import type {
   EvidenceResolutionObservation,
   EvidenceResolutionResult,
@@ -10,10 +11,9 @@ import type {
   UnresolvedEvidenceResolution,
 } from "./evidence-resolution";
 
-type EvidenceComponent = Pick<
-  ReadingComponent,
-  "identity" | "label" | "plainText" | "role"
->;
+export type { EvidenceComponent } from "./evidence-resolver";
+
+import type { EvidenceComponent } from "./evidence-resolver";
 
 export function sourceComponentReader(components: EvidenceComponent[]) {
   const byIdentity = new Map(
@@ -64,13 +64,15 @@ export function unresolved<Outcome extends UnresolvedEvidenceOutcome>(
   } as Extract<UnresolvedEvidenceResolution, { outcome: Outcome }>;
 }
 
-export function observed<Result extends EvidenceResolutionResult>(
+export function observeEvidenceResolution<
+  Result extends EvidenceResolutionResult,
+>(
   result: Result,
   operation: EvidenceResolutionObservation["operation"],
   startedAt: number,
   observe?: (observation: EvidenceResolutionObservation) => void,
 ) {
-  try {
+  observeQuietly(() =>
     observe?.({
       operation,
       outcome: result.outcome,
@@ -84,9 +86,7 @@ export function observed<Result extends EvidenceResolutionResult>(
       candidateCount:
         "candidateCount" in result ? result.candidateCount : undefined,
       durationMs: performance.now() - startedAt,
-    });
-  } catch {
-    // Diagnostics must not alter evidence resolution.
-  }
+    }),
+  );
   return result;
 }

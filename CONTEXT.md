@@ -85,6 +85,26 @@ _Avoid_: authored link, navigation link
 Nathan's durable selection linking one publication mention in a Source state to one Bibliography entry after deterministic or optional inference-assisted candidate discovery.
 _Avoid_: Citation, automatic match
 
+**Research evidence session**:
+The logical transaction behind one Research-turn answer that owns evidence discovery, admission, claim-ledger validation, budgets, cancellation, and the final answer-plus-References commit. Model work happens outside any database transaction; durable writes happen only after a validated answer compiles.
+_Avoid_: tool loop, run, chat session
+
+**Evidence candidate handle**:
+An opaque, turn-local capability naming one canonical candidate passage during one Research evidence session. A handle expires with its session, its Source state, or its Reading Derivative and exposes no editable coordinates.
+_Avoid_: reference ID, offset, quote
+
+**Evidence admission**:
+Lirna's verification of one model-selected candidate against the active Reading Derivative, producing the canonical Authored target. Only admission constructs exact text and offsets; the model never supplies them.
+_Avoid_: copy, paste, quotation
+
+**Evidence alias**:
+A short answer-scoped placement instruction, such as ev_1, minted only by Evidence admission and resolved through Markdown markers per ADR 0014. An alias is a placement instruction, not Citation identity.
+_Avoid_: Citation, reference number
+
+**Evidence resolution**:
+The typed outcome of evidence discovery and admission: candidates, none, ambiguous, stale, refused, budget-exhausted, or admitted. Expected resolution outcomes are research statuses, never infrastructure failures.
+_Avoid_: tool failure, search error
+
 **Annotation**:
 A durable authored record with one or more anchored targets on a Source or Owned note and an optional body; a bodyless Annotation is a highlight. An Annotation may remain useful without becoming a Draft or Owned note.
 _Avoid_: clipping, temporary selection
@@ -190,6 +210,10 @@ _Avoid_: action, audit event, request log
 **Operation observation**:
 An operational record of one application operation's execution and outcome, correlated with the Request observation or Workflow run that caused it. An Operation observation supports diagnosis and performance analysis but does not replace the durable domain record created or changed by the operation.
 _Avoid_: action, domain event, audit event
+
+**Evidence decision receipt**:
+A durable, content-free record of one Research evidence session's outcome, budget consumption, and reason codes, kept after the session's transient tool activity is gone. A receipt diagnoses the turn without retaining questions, evidence intents, candidate passages, or model reasoning.
+_Avoid_: tool log, transcript, audit event
 
 **Audit event**:
 A security-oriented record of consequential activity attributable to Nathan, a Client installation, a Service identity, or an unauthenticated requester. An Audit event records who attempted what and the outcome without becoming the authoritative history of the affected domain object.

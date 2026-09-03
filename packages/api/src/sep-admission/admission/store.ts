@@ -22,6 +22,7 @@ import {
 } from "../capture/client";
 import { decodeCapturedHtml, parseEntryMetadata } from "../capture/html";
 import type { SepAdmittedState } from "../state/admitted-state";
+import { readSepUpdateTarget } from "../state/admitted-state-reader";
 import { readSepAdmittedState } from "../state/projection";
 import {
   buildReadingDerivative,
@@ -53,6 +54,7 @@ export function createDrizzleSepAdmissionStore(
 
   return {
     ...preview,
+    getUpdateTarget: (sourceId) => readSepUpdateTarget(database, sourceId),
     async admit(
       id: string,
       observationKeys: SepObservationKey[],

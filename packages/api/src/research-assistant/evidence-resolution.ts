@@ -1,4 +1,10 @@
-import type { EvidenceAdmission, EvidenceCandidate } from "./evidence-resolver";
+import type {
+  EvidenceAdmission,
+  EvidenceCandidate,
+  EvidenceComponent,
+} from "./evidence-resolver";
+
+export type { EvidenceComponent };
 
 export type EvidenceResolutionOutcome =
   | "candidates"
@@ -12,6 +18,7 @@ export type EvidenceResolutionOutcome =
 export type EvidenceResolutionReasonCode =
   | "no-relevant-passage"
   | "equally-ranked-passages"
+  | "close-ranked-passages"
   | "derivative-changed"
   | "session-expired"
   | "scope-denied"
@@ -28,7 +35,7 @@ export type EvidenceDiscovery = {
   componentScope: string[];
   candidateCount: number;
   candidates: EvidenceCandidate[];
-  reasonCode?: "equally-ranked-passages";
+  reasonCode?: "equally-ranked-passages" | "close-ranked-passages";
 };
 
 interface UnresolvedEvidenceResolutionFields {
@@ -72,4 +79,25 @@ export interface EvidenceResolutionObservation {
   componentScope: string[];
   candidateCount?: number;
   durationMs: number;
+}
+
+export function ambiguousDiscovery(ranked: Array<{ relevanceScore: number }>): {
+  outcome: "candidates" | "ambiguous";
+  reasonCode?: "equally-ranked-passages" | "close-ranked-passages";
+} {
+  const top = ranked[0];
+  const second = ranked[1];
+  if (!top || !second) return { outcome: "candidates" };
+  if (second.relevanceScore === top.relevanceScore)
+    return { outcome: "ambiguous", reasonCode: "equally-ranked-passages" };
+  if (closeRelevance(second.relevanceScore, top))
+    return { outcome: "ambiguous", reasonCode: "close-ranked-passages" };
+  return { outcome: "candidates" };
+}
+
+export function closeRelevance(
+  score: number,
+  top?: { relevanceScore: number },
+) {
+  return top !== undefined && score * 3 >= top.relevanceScore * 2;
 }

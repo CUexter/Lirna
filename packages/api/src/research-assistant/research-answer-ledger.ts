@@ -172,26 +172,25 @@ export function validateResearchAnswer(
     : { outcome: "valid", ledger: validated.ledger };
 }
 
+const passingMarkerSource = String.raw`\[\^([^\]|\s]+)(?:\|([^\]\s]+))?\]`;
+const quoteMarkerSource = String.raw`:::quote\[([^\]|\s]+)(?:\|([^\]\s]+))?\]\r?\n:::`;
+const passingMarkerAt = new RegExp(String.raw`^\s*` + passingMarkerSource);
+const quoteMarkerAt = new RegExp(String.raw`^\s*` + quoteMarkerSource);
+const quoteMarkerWhole = new RegExp(`^${quoteMarkerSource}${String.raw`\s*$`}`);
+const passingMarkerGlobal = new RegExp(passingMarkerSource, "g");
+
 function claimMarkers(content: string, offset: number) {
   const markers = new Set<string>();
   let suffix = content.slice(offset);
-  let match = suffix.match(/^\s*\[\^([^\]|\s]+)(?:\|([^\]\s]+))?\]/);
-  while (match) {
-    const parsedRelation = relation(match[2]);
-    if (match[1] && parsedRelation)
-      markers.add(`${match[1]}:${parsedRelation}`);
-    suffix = suffix.slice(match[0].length);
-    match = suffix.match(/^\s*\[\^([^\]|\s]+)(?:\|([^\]\s]+))?\]/);
-  }
-  match = suffix.match(/^\s*:::quote\[([^\]|\s]+)(?:\|([^\]\s]+))?\]\r?\n:::/);
-  while (match) {
-    const parsedRelation = relation(match[2]);
-    if (match[1] && parsedRelation)
-      markers.add(`${match[1]}:${parsedRelation}`);
-    suffix = suffix.slice(match[0].length);
-    match = suffix.match(
-      /^\s*:::quote\[([^\]|\s]+)(?:\|([^\]\s]+))?\]\r?\n:::/,
-    );
+  for (const pattern of [passingMarkerAt, quoteMarkerAt]) {
+    let match = suffix.match(pattern);
+    while (match) {
+      const parsedRelation = relation(match[2]);
+      if (match[1] && parsedRelation)
+        markers.add(`${match[1]}:${parsedRelation}`);
+      suffix = suffix.slice(match[0].length);
+      match = suffix.match(pattern);
+    }
   }
   return markers;
 }
@@ -217,18 +216,14 @@ function collectMarkers(
     return;
   const source = nodeSource(node, content);
   if (node.type === "paragraph" && source) {
-    const quote = source.match(
-      /^:::quote\[([^\]|\s]+)(?:\|([^\]\s]+))?\]\r?\n:::\s*$/,
-    );
+    const quote = source.match(quoteMarkerWhole);
     if (quote) {
       markers.push({ alias: quote[1] ?? "", relation: relation(quote[2]) });
       return;
     }
   }
   if (node.type === "text" && source) {
-    for (const match of source.matchAll(
-      /\[\^([^\]|\s]+)(?:\|([^\]\s]+))?\]/g,
-    )) {
+    for (const match of source.matchAll(passingMarkerGlobal)) {
       if (source[match.index - 1] !== "\\")
         markers.push({ alias: match[1] ?? "", relation: relation(match[2]) });
     }

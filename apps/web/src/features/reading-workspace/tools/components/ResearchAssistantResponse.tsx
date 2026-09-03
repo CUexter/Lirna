@@ -1,3 +1,4 @@
+import { isResearchToolName } from "@lirna/api/client";
 import {
   Source,
   Sources,
@@ -253,6 +254,8 @@ function toolOutput(part: ToolPart): ReactNode {
       offset?: number;
       endOffset?: number;
     };
+    if (result.offset === undefined && result.endOffset === undefined)
+      return `Read ${result.componentLabel ?? "the Source component"} content for evidence discovery; its text is not retained in the Research process.`;
     return `Read ${result.componentLabel ?? "Source component"}, characters ${result.offset ?? 0}-${result.endOffset ?? 0}.`;
   }
   if (isEvidenceToolPart(part) && "kind" in output) {
@@ -269,18 +272,8 @@ function toolOutput(part: ToolPart): ReactNode {
 }
 
 function isEvidenceToolPart(part: ToolPart): boolean {
-  if (
-    part.type === "tool-admitEvidence" ||
-    part.type === "tool-findEvidence" ||
-    part.type === "tool-prepareAnswer"
-  )
-    return true;
-  return (
-    part.type === "dynamic-tool" &&
-    (part.toolName === "admitEvidence" ||
-      part.toolName === "findEvidence" ||
-      part.toolName === "prepareAnswer")
-  );
+  if (part.type === "dynamic-tool") return isResearchToolName(part.toolName);
+  return isResearchToolName(part.type.slice("tool-".length));
 }
 
 function referenceKey(reference: ResearchPassageReference) {

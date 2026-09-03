@@ -5,8 +5,13 @@ import {
   authoredTargetOffsetBasis,
 } from "../authored-targets/authored-target";
 import type { ReadingComponent } from "../sep-admission/reading/contract";
+import {
+  componentSegments,
+  type EvidenceSegment,
+  lexicalTerms,
+} from "./evidence-index";
 
-type EvidenceComponent = Pick<
+export type EvidenceComponent = Pick<
   ReadingComponent,
   "identity" | "label" | "plainText" | "role"
 >;
@@ -72,26 +77,10 @@ interface ResolverOptions {
 interface StoredCandidate extends EvidenceCandidate {
   sourceStateId: string;
   derivativeId: string;
+  blockIdentity: string;
   startOffset: number;
   endOffset: number;
 }
-
-const ignoredTerms = new Set([
-  "a",
-  "an",
-  "and",
-  "for",
-  "in",
-  "is",
-  "of",
-  "on",
-  "that",
-  "the",
-  "this",
-  "to",
-  "what",
-  "with",
-]);
 
 export function createEvidenceResolver(
   options: ResolverOptions,
@@ -100,8 +89,18 @@ export function createEvidenceResolver(
     options.components.map((component) => [component.identity, component]),
   );
   const candidates = new Map<string, StoredCandidate>();
+  const segmentCache = new Map<string, EvidenceSegment[]>();
   let evidenceAliasSequence = 0;
   let expired = false;
+
+  const segmentsFor = (identity: string): EvidenceSegment[] => {
+    const cached = segmentCache.get(identity);
+    if (cached) return cached;
+    const component = components.get(identity);
+    const built = component ? componentSegments(component) : [];
+    segmentCache.set(identity, built);
+    return built;
+  };
 
   return {
     async find(input) {
@@ -109,14 +108,12 @@ export function createEvidenceResolver(
       if (input.sourceStateId !== options.sourceStateId) return [];
       const intentTerms = lexicalTerms(input.intent);
       if (intentTerms.length === 0) return [];
+      const intentTermSet = new Set(intentTerms);
       const ranked = input.componentIdentities
-        .flatMap((identity) => {
-          const component = components.get(identity);
-          return component ? segments(component) : [];
-        })
+        .flatMap((identity) => segmentsFor(identity))
         .map((segment) => ({
           ...segment,
-          score: lexicalScore(intentTerms, segment.passage),
+          score: lexicalScore(intentTermSet, new Set(segment.lexicalTerms)),
         }))
         .filter(({ score }) => score > 0)
         .sort(
@@ -215,55 +212,13 @@ export function createEvidenceResolver(
   };
 }
 
-function segments(component: EvidenceComponent) {
-  const matches = component.plainText.matchAll(/\S(?:.*?\S)?(?=\n\s*\n|$)/gs);
-  const values = [...matches].flatMap((match) =>
-    boundedSegments(match[0], match.index),
-  );
-  return values.map((value, index) => ({
-    componentIdentity: component.identity,
-    componentLabel: component.label,
-    passage: value.passage,
-    before: values[index - 1]?.passage.slice(-240) ?? "",
-    after: values[index + 1]?.passage.slice(0, 240) ?? "",
-    startOffset: value.startOffset,
-    endOffset: value.endOffset,
-  }));
-}
-
-function boundedSegments(text: string, baseOffset: number) {
-  const values: Array<{
-    passage: string;
-    startOffset: number;
-    endOffset: number;
-  }> = [];
-  let start = 0;
-  while (start < text.length) {
-    let end = Math.min(start + 20_000, text.length);
-    if (end < text.length) {
-      const boundary = text.lastIndexOf(" ", end);
-      if (boundary > start) end = boundary;
-    }
-    values.push({
-      passage: text.slice(start, end),
-      startOffset: baseOffset + start,
-      endOffset: baseOffset + end,
-    });
-    start = end;
-    while (/\s/.test(text[start] ?? "")) start += 1;
-  }
-  return values;
-}
-
-function lexicalTerms(text: string) {
-  return (text.toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).filter(
-    (term) => !ignoredTerms.has(term),
-  );
-}
-
-function lexicalScore(intentTerms: string[], passage: string) {
-  const passageTerms = new Set(lexicalTerms(passage));
-  return new Set(intentTerms.filter((term) => passageTerms.has(term))).size;
+function lexicalScore(
+  intentTermSet: ReadonlySet<string>,
+  passageTerms: ReadonlySet<string>,
+) {
+  let score = 0;
+  for (const term of intentTermSet) if (passageTerms.has(term)) score += 1;
+  return score;
 }
 
 function publicCandidate(candidate: StoredCandidate): EvidenceCandidate {

@@ -17,3 +17,7 @@ export const researchAssistantModelLabels: Record<
   "deepseek/deepseek-v4-flash-0731": "DeepSeek V4 Flash 0731",
   "z-ai/glm-5.3-flash": "GLM 5.3 Flash",
 };
+
+export function snapshotDerivativeId(sourceStateId: string) {
+  return `${sourceStateId}:snapshot`;
+}

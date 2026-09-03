@@ -65,6 +65,20 @@ export const authoredTargetInputSchema = z
 
 const contextLength = 32;
 
+export function authoredTargetSelectionEquals(
+  left: AuthoredTargetInput,
+  right: AuthoredTargetInput,
+): boolean {
+  return (
+    left.offsetBasis === right.offsetBasis &&
+    left.normalizedStartOffset === right.normalizedStartOffset &&
+    left.normalizedEndOffset === right.normalizedEndOffset &&
+    left.exactText === right.exactText &&
+    left.prefix === right.prefix &&
+    left.suffix === right.suffix
+  );
+}
+
 export class InvalidAuthoredTargetError extends Error {
   constructor(reason = "Authored target") {
     super(`${reason} does not match the active Reading derivative`);

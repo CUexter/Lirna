@@ -1,9 +1,12 @@
 import { expect, test } from "bun:test";
-import { simulateReadableStream } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 
 import type { EvidenceResolutionObservation } from "./evidence-resolution";
 import { createResearchAssistant } from "./research-assistant";
+import {
+  textStream,
+  toolCallStream,
+} from "./research-model-stream.test-support";
 
 test("reports repeated canonical passages as ambiguous candidates", async () => {
   let call = 0;
@@ -183,6 +186,39 @@ test("reports no result and out-of-scope discovery as expected outcomes", async 
   });
 });
 
+test("reports near-tied ranked passages as ambiguous candidates", async () => {
+  let call = 0;
+  const model = new MockLanguageModelV4({
+    doStream: async () => {
+      call += 1;
+      if (call === 1)
+        return toolCallStream("find", "findEvidence", {
+          componentScope: ["article"],
+          intent: "alpha beta gamma evidence",
+          limit: 5,
+        });
+      return textStream("The passages are ambiguous.");
+    },
+  });
+  const chunks = [];
+  const answer = await createResearchAssistant(model).answer(
+    request("Alpha beta gamma evidence.\n\nBeta gamma evidence."),
+  );
+
+  for await (const chunk of answer) chunks.push(chunk);
+
+  expect(chunks).toContainEqual({
+    type: "tool-output-available",
+    toolCallId: "find",
+    output: expect.objectContaining({
+      kind: "evidence-discovery",
+      outcome: "ambiguous",
+      reasonCode: "close-ranked-passages",
+      candidateCount: 2,
+    }),
+  });
+});
+
 function request(plainText: string) {
   return {
     componentLabel: "Article",
@@ -201,51 +237,5 @@ function request(plainText: string) {
     sourceStateId: "state-one",
     sourceText: plainText,
     sourceTitle: "Test source",
-  };
-}
-
-function toolCallStream(id: string, toolName: string, input: object) {
-  return {
-    stream: simulateReadableStream({
-      chunks: [
-        {
-          type: "tool-call" as const,
-          toolCallId: id,
-          toolName,
-          input: JSON.stringify(input),
-        },
-        finishChunk("tool-calls"),
-      ],
-    }),
-  };
-}
-
-function textStream(text: string) {
-  return {
-    stream: simulateReadableStream({
-      chunks: [
-        { type: "text-start" as const, id: "text-1" },
-        { type: "text-delta" as const, id: "text-1", delta: text },
-        { type: "text-end" as const, id: "text-1" },
-        finishChunk("stop"),
-      ],
-    }),
-  };
-}
-
-function finishChunk(unified: "stop" | "tool-calls") {
-  return {
-    type: "finish" as const,
-    finishReason: { unified, raw: undefined },
-    logprobs: undefined,
-    usage: {
-      inputTokens: {
-        total: 1,
-        noCache: 1,
-        cacheRead: undefined,
-        cacheWrite: undefined,
-      },
-      outputTokens: { total: 1, text: 1, reasoning: undefined },
-    },
   };
 }

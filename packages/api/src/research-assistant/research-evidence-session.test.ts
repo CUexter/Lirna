@@ -1,10 +1,78 @@
 import { expect, test } from "bun:test";
-import { simulateReadableStream, type UIMessageChunk } from "ai";
+import type { UIMessageChunk } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 
 import { activeReadingStub } from "../annotations/annotation-store.test-support";
 import type { EvidenceResolutionObservation } from "./evidence-resolution";
 import { createResearchAssistant } from "./research-assistant";
+import { createResearchEvidenceSessionCore } from "./research-evidence-session";
+
+test("a derivative change expires remaining handles and restarts discovery", async () => {
+  let derivativeId = "derivative-one";
+  const session = createResearchEvidenceSessionCore({
+    components: [
+      {
+        identity: "article",
+        label: "Article",
+        plainText:
+          "Repeated evidence.\n\nBetween occurrences.\n\nRepeated evidence.",
+        role: "main",
+      },
+    ],
+    sourceStateId: "state-one",
+    derivativeId,
+    currentDerivativeId: async () => derivativeId,
+  });
+  const discovery = await session.discover({
+    componentScope: ["article"],
+    intent: "repeated evidence",
+    limit: 5,
+  });
+  if (discovery.outcome !== "candidates" && discovery.outcome !== "ambiguous")
+    throw new Error("Expected evidence candidates");
+  const [firstHandle, secondHandle] = discovery.candidates.map(
+    ({ handle }) => handle,
+  );
+  if (!firstHandle || !secondHandle)
+    throw new Error("Expected two evidence candidates");
+  expect(await session.admit({ candidateHandle: firstHandle })).toMatchObject({
+    outcome: "admitted",
+    evidenceAlias: "ev_1",
+  });
+
+  derivativeId = "derivative-two";
+  expect(await session.admit({ candidateHandle: secondHandle })).toMatchObject({
+    outcome: "stale",
+    reasonCode: "derivative-changed",
+  });
+  expect(await session.admit({ candidateHandle: firstHandle })).toMatchObject({
+    outcome: "refused",
+    reasonCode: "outside-session-scope",
+  });
+
+  const rediscovered = await session.discover({
+    componentScope: ["article"],
+    intent: "repeated evidence",
+    limit: 5,
+  });
+  if (
+    rediscovered.outcome !== "candidates" &&
+    rediscovered.outcome !== "ambiguous"
+  )
+    throw new Error("Expected discovery to restart");
+  const readmitted = await session.admit({
+    candidateHandle: rediscovered.candidates[0]?.handle ?? "",
+  });
+  expect(readmitted).toMatchObject({
+    outcome: "admitted",
+    evidenceAlias: "ev_1",
+  });
+});
+
+import {
+  candidateHandleFromPrompt,
+  toolCallStream,
+} from "./research-model-stream.test-support";
 
 test("cancellation interrupts an admission awaiting Derivative validation", async () => {
   const activeReading = activeReadingStub(true);
@@ -84,39 +152,4 @@ async function consumeUntilClosed(
   while (!(await reader.read()).done) {
     // Keep pulling until cancellation closes the stream.
   }
-}
-
-function candidateHandleFromPrompt(prompt: unknown) {
-  const match = JSON.stringify(prompt).match(/candidate_[0-9a-f-]+/);
-  if (!match) throw new Error("Expected an evidence candidate handle");
-  return match[0];
-}
-
-function toolCallStream(id: string, toolName: string, input: object) {
-  return {
-    stream: simulateReadableStream({
-      chunks: [
-        {
-          type: "tool-call" as const,
-          toolCallId: id,
-          toolName,
-          input: JSON.stringify(input),
-        },
-        {
-          type: "finish" as const,
-          finishReason: { unified: "tool-calls" as const, raw: undefined },
-          logprobs: undefined,
-          usage: {
-            inputTokens: {
-              total: 1,
-              noCache: 1,
-              cacheRead: undefined,
-              cacheWrite: undefined,
-            },
-            outputTokens: { total: 1, text: 1, reasoning: undefined },
-          },
-        },
-      ],
-    }),
-  };
 }

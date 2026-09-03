@@ -1,31 +1,29 @@
 import type { UIMessageChunk } from "ai";
 
+import { observeQuietly } from "../observation";
 import {
   AnswerValidationError,
   AssistantAnswer,
-  type PersistResearchAnswer,
 } from "./research-answer-finalization";
-import type {
-  ResearchEvidenceDecisionReceipt,
-  ResearchEvidenceSessionOutcome,
-  ResearchEvidenceSessionSnapshot,
+import {
+  completedOutcome,
+  latencyBucket,
+  type ResearchEvidenceSessionCompletion,
+  type ResearchEvidenceSessionOutcome,
+  type ResearchEvidenceSessionSnapshot,
+  sessionReceipt,
+  terminalReason,
 } from "./research-evidence-session-contract";
 import type { AliasedResearchPassageReference } from "./research-thread-contract";
 
-export interface ResearchEvidenceSessionCompletion {
-  commit?: {
-    researchThreadId: string;
-    persist: PersistResearchAnswer;
-  };
-  onError?: (error: unknown) => string;
-  onReceipt?: (receipt: ResearchEvidenceDecisionReceipt) => void;
-}
+export type { ResearchEvidenceSessionCompletion };
 
 interface EvidenceSessionFinalizer {
   snapshot(): ResearchEvidenceSessionSnapshot;
   validateReferences(
     references: AliasedResearchPassageReference[],
   ): Promise<boolean>;
+  validAnswerLedger?: () => unknown;
   expire(): void;
 }
 
@@ -38,71 +36,81 @@ export function completeResearchEvidenceSession(
 
   const commit = options.commit;
   const startedAt = performance.now();
-  const reader = stream.getReader();
+  let reader = stream.getReader();
   const answer = new AssistantAnswer();
   let cancelled = false;
-  let finalizing = false;
+  let committing = false;
   let persisting = false;
+  let repairAttempted = false;
   let receiptEmitted = false;
   const emitReceipt = (outcome: ResearchEvidenceSessionOutcome) => {
     if (receiptEmitted) return;
     receiptEmitted = true;
-    const snapshot = session.snapshot();
-    try {
-      options.onReceipt?.({
-        sessionId: snapshot.sessionId,
-        sourceStateId: snapshot.sourceStateId,
-        resolverVersion: snapshot.resolverVersion,
-        indexVersion: snapshot.indexVersion,
-        budget: snapshot.budget,
-        consumption: snapshot.consumption,
-        candidateCount: snapshot.candidateCount,
-        reasonCodes: snapshot.reasonCodes,
-        admittedCount: snapshot.admittedCount,
-        refusedCount: snapshot.refusedCount,
-        budgetExhausted: snapshot.budgetExhausted,
-        researchThreadId: commit.researchThreadId,
-        outcome,
-        ...terminalReason(outcome),
-        latencyBucket: latencyBucket(performance.now() - startedAt),
-      });
-    } catch {
-      // Diagnostics must not alter Research Evidence Session execution.
-    }
+    observeQuietly(() =>
+      options.onReceipt?.(
+        sessionReceipt(session.snapshot(), commit, {
+          outcome,
+          ...terminalReason(outcome),
+          latencyBucket: latencyBucket(performance.now() - startedAt),
+        }),
+      ),
+    );
   };
 
   return new ReadableStream<UIMessageChunk>({
     // fallow-ignore-next-line complexity
     async pull(controller) {
       try {
-        const chunk = await nextPublicChunk(reader, answer, emitReceipt);
-        if (chunk) {
-          if (!cancelled) controller.enqueue(chunk);
-          return;
-        }
-        if (cancelled) return;
-        if (answer.streamFailed) {
+        while (true) {
+          const chunk = await nextPublicChunk(reader, answer, emitReceipt);
+          if (chunk) {
+            deliver(controller, chunk, cancelled);
+            return;
+          }
+          if (cancelled) return;
+          if (answer.streamFailed) {
+            session.expire();
+            emitReceipt("provider-failed");
+            controller.close();
+            return;
+          }
+          committing = true;
+          let committed: Awaited<ReturnType<AssistantAnswer["commit"]>>;
+          try {
+            committed = await answer.commit(async (content, references) => {
+              persisting = true;
+              await commit.persist(content, references);
+              persisting = false;
+            }, session);
+          } catch (error) {
+            committing = false;
+            if (repairable(error, session, repairAttempted) && options.repair) {
+              repairAttempted = true;
+              answer.beginRepair();
+              reader = (
+                await options.repair((error as AnswerValidationError).problems)
+              ).getReader();
+              continue;
+            }
+            throw error;
+          }
+          committing = false;
           session.expire();
-          emitReceipt("provider-failed");
-          controller.close();
+          if (committed?.references.length)
+            deliver(
+              controller,
+              {
+                type: "message-metadata",
+                messageMetadata: { references: committed.references },
+              },
+              cancelled,
+            );
+          if (answer.finishChunk)
+            deliver(controller, answer.finishChunk, cancelled);
+          emitReceipt(completedOutcome(session.snapshot()));
+          closeQuietly(controller);
           return;
         }
-        finalizing = true;
-        const committed = await answer.commit(async (content, references) => {
-          persisting = true;
-          await commit.persist(content, references);
-          persisting = false;
-        }, session);
-        finalizing = false;
-        session.expire();
-        if (committed?.references.length)
-          controller.enqueue({
-            type: "message-metadata",
-            messageMetadata: { references: committed.references },
-          });
-        if (answer.finishChunk) controller.enqueue(answer.finishChunk);
-        emitReceipt(completedOutcome(session.snapshot()));
-        controller.close();
       } catch (error) {
         if (cancelled) return;
         const errorText =
@@ -111,18 +119,23 @@ export function completeResearchEvidenceSession(
         emitReceipt(
           persisting
             ? "commit-failed"
-            : finalizing && error instanceof AnswerValidationError
+            : error instanceof AnswerValidationError
               ? "invalid-answer"
               : "provider-failed",
         );
-        controller.enqueue({
-          type: "error",
-          errorText,
-        });
-        controller.close();
+        deliver(
+          controller,
+          {
+            type: "error",
+            errorText,
+          },
+          cancelled,
+        );
+        closeQuietly(controller);
       }
     },
     async cancel(reason) {
+      if (committing) return;
       cancelled = true;
       session.expire();
       emitReceipt("cancelled");
@@ -134,31 +147,19 @@ export function completeResearchEvidenceSession(
 export function refuseResearchEvidenceSession(
   session: Pick<EvidenceSessionFinalizer, "snapshot" | "expire">,
   options: ResearchEvidenceSessionCompletion,
+  startedAt = performance.now(),
 ) {
   const snapshot = session.snapshot();
-  try {
+  observeQuietly(() => {
     if (options.commit)
-      options.onReceipt?.({
-        sessionId: snapshot.sessionId,
-        sourceStateId: snapshot.sourceStateId,
-        resolverVersion: snapshot.resolverVersion,
-        indexVersion: snapshot.indexVersion,
-        budget: snapshot.budget,
-        consumption: snapshot.consumption,
-        candidateCount: snapshot.candidateCount,
-        reasonCodes: snapshot.reasonCodes,
-        admittedCount: snapshot.admittedCount,
-        refusedCount: snapshot.refusedCount,
-        budgetExhausted: snapshot.budgetExhausted,
-        researchThreadId: options.commit.researchThreadId,
-        outcome: "refused",
-        latencyBucket: "under-100ms",
-      });
-  } catch {
-    // Diagnostics must not alter Research Evidence Session refusal.
-  } finally {
-    session.expire();
-  }
+      options.onReceipt?.(
+        sessionReceipt(snapshot, options.commit, {
+          outcome: "refused",
+          latencyBucket: latencyBucket(performance.now() - startedAt),
+        }),
+      );
+  });
+  session.expire();
   return new ReadableStream<UIMessageChunk>({
     start(controller) {
       controller.enqueue({ type: "start", messageId: crypto.randomUUID() });
@@ -174,6 +175,39 @@ export function refuseResearchEvidenceSession(
       controller.close();
     },
   });
+}
+
+function repairable(
+  error: unknown,
+  session: EvidenceSessionFinalizer,
+  attempted: boolean,
+): error is AnswerValidationError {
+  if (attempted || !(error instanceof AnswerValidationError)) return false;
+  if (!session.validAnswerLedger?.()) return false;
+  return error.problems.every(({ code }) => code !== "stale-evidence");
+}
+
+function deliver(
+  controller: ReadableStreamDefaultController<UIMessageChunk>,
+  chunk: UIMessageChunk,
+  cancelled: boolean,
+) {
+  if (cancelled) return;
+  try {
+    controller.enqueue(chunk);
+  } catch {
+    // The consumer cancelled while the atomic commit finished.
+  }
+}
+
+function closeQuietly(
+  controller: ReadableStreamDefaultController<UIMessageChunk>,
+) {
+  try {
+    controller.close();
+  } catch {
+    // The consumer cancelled while the atomic commit finished.
+  }
 }
 
 async function nextPublicChunk(
@@ -221,34 +255,4 @@ function expireUncommittedSession(
       await reader.cancel(reason);
     },
   });
-}
-
-function completedOutcome(
-  snapshot: ResearchEvidenceSessionSnapshot,
-): ResearchEvidenceSessionOutcome {
-  if (snapshot.budgetExhausted) return "exhausted";
-  if (snapshot.refusedCount > 0 && snapshot.admittedCount === 0)
-    return "refused";
-  return "successful";
-}
-
-function terminalReason(outcome: ResearchEvidenceSessionOutcome) {
-  if (outcome === "cancelled")
-    return { terminalReasonCode: "client-cancelled" as const };
-  if (outcome === "provider-failed")
-    return { terminalReasonCode: "provider-failed" as const };
-  if (outcome === "invalid-answer")
-    return { terminalReasonCode: "answer-validation-failed" as const };
-  if (outcome === "commit-failed")
-    return { terminalReasonCode: "commit-failed" as const };
-  return {};
-}
-
-function latencyBucket(
-  durationMs: number,
-): ResearchEvidenceDecisionReceipt["latencyBucket"] {
-  if (durationMs < 100) return "under-100ms";
-  if (durationMs < 1_000) return "100ms-1s";
-  if (durationMs < 5_000) return "1s-5s";
-  return "over-5s";
 }

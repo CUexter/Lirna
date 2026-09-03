@@ -1,6 +1,7 @@
-import type { ObservationLevel } from "../../observation";
+import { type ObservationLevel, observeQuietly } from "../../observation";
 import type { EvidenceResolutionObservation } from "../../research-assistant/evidence-resolution";
 import type { ResearchAssistantAnswerOptions } from "../../research-assistant/research-assistant";
+import type { ResearchEvidenceReceiptOperations } from "../../research-assistant/research-evidence-receipt-store";
 
 interface ResearchAssistantObservationContext {
   debugErrors?: boolean;
@@ -8,6 +9,7 @@ interface ResearchAssistantObservationContext {
     requestId: string;
     emit(level: ObservationLevel, record: Record<string, unknown>): void;
   };
+  researchEvidenceReceipts?: ResearchEvidenceReceiptOperations;
 }
 
 export function researchAssistantAnswerOptions(
@@ -40,6 +42,11 @@ export function researchAssistantAnswerOptions(
         event: "research_assistant.session_completed",
         ...receipt,
       });
+      observeQuietly(() => {
+        void context.researchEvidenceReceipts?.record(receipt).catch(() => {
+          // A receipt that cannot be persisted must not alter the turn.
+        });
+      });
     },
   };
 }
@@ -59,9 +66,5 @@ function emit(
   level: ObservationLevel,
   record: Record<string, unknown>,
 ) {
-  try {
-    context.observation?.emit(level, record);
-  } catch {
-    // Diagnostics must not alter stream handling.
-  }
+  observeQuietly(() => context.observation?.emit(level, record));
 }

@@ -19,6 +19,8 @@ import {
   createOpenRouterResearchAssistant,
   type ResearchAssistantOperations,
 } from "./research-assistant/research-assistant";
+import type { ResearchEvidenceReceiptOperations } from "./research-assistant/research-evidence-receipt-store";
+import { DrizzleResearchEvidenceReceiptStore } from "./research-assistant/research-evidence-receipt-store";
 import type { ResearchThreadOperations } from "./research-assistant/research-thread-contract";
 import { DrizzleResearchThreadStore } from "./research-assistant/research-thread-store";
 import {
@@ -43,6 +45,7 @@ export type ApplicationAdapters = {
   researchAssistant?: ResearchAssistantOperations | null;
   researchTurns?: ResearchTurnOperations | null;
   researchThreads?: ResearchThreadOperations;
+  researchEvidenceReceipts?: ResearchEvidenceReceiptOperations;
   derivativeUpdates?: DerivativeUpdateOperations;
   activeReadingDerivatives?: ActiveReadingDerivativeOperations;
   offlineWorkingSets?: Application["offlineWorkingSets"];
@@ -81,13 +84,16 @@ export function createApplication(
     citationResolutions:
       adapters.citationResolutions ??
       new DrizzleCitationResolutionStore(db, activeReadingDerivatives),
-    ...(citationInference ? { citationInference } : {}),
     readingPositions:
       adapters.readingPositions ??
       new DrizzleReadingPositionStore(db, activeReadingDerivatives),
     readingWorkspaces:
       adapters.readingWorkspaces ?? createReadingWorkspaceReader(db),
     researchThreads,
+    researchEvidenceReceipts:
+      adapters.researchEvidenceReceipts ??
+      new DrizzleResearchEvidenceReceiptStore(db),
+    ...(citationInference ? { citationInference } : {}),
     derivativeUpdates:
       adapters.derivativeUpdates ?? new DrizzleDerivativeUpdateStore(db),
     activeReadingDerivatives,

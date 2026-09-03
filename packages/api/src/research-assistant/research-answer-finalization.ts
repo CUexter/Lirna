@@ -9,6 +9,7 @@ import {
   validateResearchAnswer,
 } from "./research-answer-ledger";
 import { compileResearchAnswer } from "./research-answer-markers";
+import { isResearchToolName } from "./research-evidence-session-contract";
 import type { AliasedResearchPassageReference } from "./research-thread-contract";
 
 export type PersistResearchAnswer = (
@@ -33,6 +34,16 @@ export class AssistantAnswer {
   completed = false;
   completionError?: Error;
   streamFailed = false;
+
+  beginRepair() {
+    this.currentStepContent = "";
+    this.finalStepContent = "";
+    this.hasStepBoundaries = false;
+    this.finishChunk = undefined;
+    this.completed = false;
+    this.completionError = undefined;
+    this.streamFailed = false;
+  }
 
   // fallow-ignore-next-line complexity
   accept(chunk: UIMessageChunk) {
@@ -120,12 +131,7 @@ export class AnswerValidationError extends Error {
 }
 
 function researchTool(name: string | undefined) {
-  return (
-    name === "readSourceComponent" ||
-    name === "findEvidence" ||
-    name === "admitEvidence" ||
-    name === "prepareAnswer"
-  );
+  return name !== undefined && isResearchToolName(name);
 }
 
 function contentFreeToolOutput(output: unknown) {

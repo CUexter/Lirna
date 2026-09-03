@@ -3,7 +3,7 @@ import type {
   EvidenceResolutionResult,
   UnresolvedEvidenceResolution,
 } from "@lirna/api/client";
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 
 import type { ResearchAssistantMessage } from "../researchAssistantTransport";
 import { ResearchAssistantResponse } from "./ResearchAssistantResponse";
@@ -202,3 +202,34 @@ function foundOutput(): ResearchAssistantMessage["parts"][number] {
     } satisfies EvidenceResolutionResult,
   };
 }
+
+test("renders redacted Source-component reads without fabricated coordinates", async () => {
+  render(
+    <ResearchAssistantResponse
+      message={message([
+        {
+          type: "tool-readSourceComponent",
+          toolCallId: "read-call",
+          state: "output-available",
+          input: { componentIdentity: "supplement:/one", offset: 0 },
+          output: { kind: "source-component", found: true },
+        } as ResearchAssistantMessage["parts"][number],
+      ])}
+      passageForReference={() => ({ show() {}, text: "" })}
+    />,
+  );
+
+  const trigger = document.body.textContent?.includes("Read Source component")
+    ? [...document.querySelectorAll("button")].find((button) =>
+        button.textContent?.includes("Read Source component"),
+      )
+    : undefined;
+  if (!trigger) throw new Error("Expected a Read Source component header");
+  await fireEvent.click(trigger);
+  await waitFor(() => {
+    expect(document.body.textContent).toContain(
+      "Read the Source component content for evidence discovery",
+    );
+  });
+  expect(document.body.textContent).not.toContain("characters 0-0");
+});

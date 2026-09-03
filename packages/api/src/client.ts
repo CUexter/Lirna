@@ -15,3 +15,4 @@ export {
   researchAssistantModelIds,
   researchAssistantModelLabels,
 } from "./research-assistant/research-assistant-contract";
+export { isResearchToolName } from "./research-assistant/research-evidence-session-contract";

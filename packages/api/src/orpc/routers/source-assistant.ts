@@ -12,7 +12,7 @@ import {
   researchAssistantModelIds,
 } from "../../research-assistant/research-assistant-contract";
 import { publicProcedure } from "../init";
-import { researchAssistantAnswerOptions } from "./research-assistant-observation";
+import { researchAssistantAnswerOptions } from "./research-assistant-answer-options";
 import { notFoundError, sourceStateInput } from "./source-router-contracts";
 import { notFound, requireReading } from "./source-router-support";
 

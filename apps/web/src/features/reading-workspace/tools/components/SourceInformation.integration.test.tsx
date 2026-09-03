@@ -28,7 +28,7 @@ test("inspects provenance, switches states, and previews an unchanged update", a
   );
   const user = setupReadingUser();
   const router = await renderReading();
-  await waitFor(() => view().getByText("State 1 evidence"));
+  await waitFor(() => view().getByLabelText("State 1 evidence"));
 
   await user.click(view().getByText(/Resource and component manifest/));
   expect(view().getAllByText(/SHA-256/).length).toBeGreaterThan(0);

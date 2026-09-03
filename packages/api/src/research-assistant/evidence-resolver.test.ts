@@ -310,3 +310,40 @@ function component(identity: string, plainText: string) {
     role: "main" as const,
   };
 }
+
+test("splits oversized blocks by sentence and admits the canonical segment", async () => {
+  const filler = "Filler sentence repeats here. ".repeat(300);
+  const plainText = `${filler}Tail evidence remains canonical.`;
+  const resolver = createEvidenceResolver({
+    derivativeId: "derivative-one",
+    sessionId: "session-one",
+    sourceStateId: "state-one",
+    components: [component("active:/", plainText)],
+  });
+
+  const candidates = await resolver.find({
+    sourceStateId: "state-one",
+    componentIdentities: ["active:/"],
+    intent: "tail evidence remains canonical",
+    limit: 5,
+  });
+  const candidate = candidates[0];
+  if (!candidate) throw new Error("Expected an evidence candidate");
+
+  expect(candidates).toHaveLength(1);
+  expect(candidate.passage).toContain("Tail evidence remains canonical.");
+  expect(
+    await resolver.admit({
+      sessionId: "session-one",
+      sourceStateId: "state-one",
+      candidateHandle: candidate.handle,
+    }),
+  ).toMatchObject({
+    outcome: "admitted",
+    evidenceAlias: "ev_1",
+    selection: {
+      exactText: candidate.passage,
+      normalizedEndOffset: plainText.length,
+    },
+  });
+});
