@@ -115,6 +115,8 @@ test("returns one uncertainty response when ledger repair is exhausted", async (
     },
     {
       commit: {
+        answerMessageId: "50000000-0000-4000-8000-000000000000",
+        questionMessageId: "40000000-0000-4000-8000-000000000000",
         researchThreadId: "30000000-0000-4000-8000-000000000000",
         persist: async (...result) => {
           persisted.push(result);

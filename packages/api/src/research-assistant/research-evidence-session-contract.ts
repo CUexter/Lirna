@@ -70,6 +70,8 @@ export interface ResearchEvidenceDecisionReceipt
     | "budgetExhausted"
   > {
   researchThreadId: string;
+  questionMessageId: string;
+  attemptedAnswerMessageId: string;
   outcome: ResearchEvidenceSessionOutcome;
   terminalReasonCode?:
     | "client-cancelled"
@@ -134,7 +136,10 @@ function validateAmbiguityBudget(maximumCandidatesPerDiscovery: number) {
 
 export function sessionReceipt(
   snapshot: ResearchEvidenceSessionSnapshot,
-  commit: { researchThreadId: string },
+  commit: Pick<
+    NonNullable<ResearchEvidenceSessionCompletion["commit"]>,
+    "answerMessageId" | "questionMessageId" | "researchThreadId"
+  >,
   terminal: Pick<
     ResearchEvidenceDecisionReceipt,
     "outcome" | "terminalReasonCode" | "latencyBucket"
@@ -153,6 +158,8 @@ export function sessionReceipt(
     refusedCount: snapshot.refusedCount,
     budgetExhausted: snapshot.budgetExhausted,
     researchThreadId: commit.researchThreadId,
+    questionMessageId: commit.questionMessageId,
+    attemptedAnswerMessageId: commit.answerMessageId,
     ...terminal,
   };
 }
@@ -200,6 +207,8 @@ export interface ResearchEvidenceSessionOptions {
 
 export interface ResearchEvidenceSessionCompletion {
   commit?: {
+    answerMessageId: string;
+    questionMessageId: string;
     researchThreadId: string;
     persist: PersistResearchAnswer;
   };

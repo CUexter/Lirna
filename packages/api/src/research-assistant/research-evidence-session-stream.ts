@@ -88,16 +88,18 @@ export function completeResearchEvidenceSession(
             closeQuietly(controller);
             return;
           }
-          committing = true;
           let committed: Awaited<ReturnType<AssistantAnswer["commit"]>>;
           try {
             committed = await answer.commit(async (content, references) => {
+              if (cancelled) return;
+              committing = true;
               persisting = true;
               await commit.persist(content, references);
               persisting = false;
             }, session);
           } catch (error) {
             committing = false;
+            if (cancelled) return;
             if (repairable(error, session) && options.repair) {
               answer.beginRepair();
               reader = (
@@ -107,6 +109,7 @@ export function completeResearchEvidenceSession(
             }
             throw error;
           }
+          if (cancelled) return;
           committing = false;
           session.expire();
           await emitReceipt(completedOutcome(session.snapshot()));

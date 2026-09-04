@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type { UIMessageChunk } from "ai";
 import type { ResearchEvidenceDecisionReceipt } from "./research-evidence-session-contract";
+import { completeResearchEvidenceSession } from "./research-evidence-session-stream";
 import { createResearchTurnOperations } from "./research-turn";
 import {
   answerStream,
@@ -48,7 +49,13 @@ test("a late model failure returns an error chunk and commits no answer", async 
     errorText: "Failed: Provider stream disconnected",
   });
   expect(appended).toEqual([]);
-  expect(receipts).toMatchObject([{ outcome: "provider-failed" }]);
+  expect(receipts).toMatchObject([
+    {
+      outcome: "provider-failed",
+      questionMessageId: input().questionMessageId,
+      attemptedAnswerMessageId: expect.any(String),
+    },
+  ]);
 });
 
 test("a model stream that ends before its finish chunk commits no answer", async () => {
@@ -117,9 +124,14 @@ test("an error chunk from model execution commits no answer", async () => {
   ).getReader();
   const first = await reader.read();
   const second = await reader.read();
+  const third = await reader.read();
 
-  expect(first.value).toMatchObject({ type: "text-delta" });
-  expect(second.value).toEqual({
+  expect(first.value).toMatchObject({
+    type: "start",
+    messageId: expect.any(String),
+  });
+  expect(second.value).toMatchObject({ type: "text-delta" });
+  expect(third.value).toEqual({
     type: "error",
     errorText: "Provider failed",
   });
@@ -145,7 +157,13 @@ test("a failed final persistence returns an error chunk", async () => {
     type: "error",
     errorText: "Failed: Research answer could not be persisted",
   });
-  expect(receipts).toMatchObject([{ outcome: "commit-failed" }]);
+  expect(receipts).toMatchObject([
+    {
+      outcome: "commit-failed",
+      questionMessageId: input().questionMessageId,
+      attemptedAnswerMessageId: expect.any(String),
+    },
+  ]);
 });
 
 test("stream completion waits for durable receipt storage", async () => {
@@ -173,7 +191,13 @@ test("stream completion waits for durable receipt storage", async () => {
   });
   await new Promise<void>((resolve) => setTimeout(resolve, 0));
 
-  expect(receipts).toMatchObject([{ outcome: "successful" }]);
+  expect(receipts).toMatchObject([
+    {
+      outcome: "successful",
+      questionMessageId: input().questionMessageId,
+      attemptedAnswerMessageId: expect.any(String),
+    },
+  ]);
   expect(completed).toBe(false);
 
   releaseReceipt?.();
@@ -236,4 +260,60 @@ test("a cancellation during the atomic commit finishes the commit", async () => 
 
   expect(appended).toHaveLength(1);
   expect(receipts).toMatchObject([{ outcome: "successful" }]);
+});
+
+test("a cancellation during validation prevents the atomic commit", async () => {
+  const receipts: ResearchEvidenceDecisionReceipt[] = [];
+  let releaseValidation: (() => void) | undefined;
+  let validationStarted: (() => void) | undefined;
+  const validating = new Promise<void>((resolve) => {
+    validationStarted = resolve;
+  });
+  const release = new Promise<void>((resolve) => {
+    releaseValidation = resolve;
+  });
+  let persisted = false;
+  const output = completeResearchEvidenceSession(
+    answerStream("Completed answer"),
+    {
+      snapshot: evidenceSnapshot,
+      async validateReferences() {
+        validationStarted?.();
+        await release;
+        return true;
+      },
+      expire() {},
+    },
+    {
+      commit: {
+        answerMessageId: "50000000-0000-4000-8000-000000000000",
+        questionMessageId: input().questionMessageId,
+        researchThreadId: input().threadId,
+        async persist() {
+          persisted = true;
+        },
+      },
+      onReceipt: (receipt) => receipts.push(receipt),
+    },
+  );
+  const reader = output.getReader();
+  const draining = (async () => {
+    while (!(await reader.read()).done) {
+      // Pull until validation begins.
+    }
+  })();
+
+  await validating;
+  const cancelling = reader.cancel("client disconnected");
+  releaseValidation?.();
+  await cancelling;
+  await draining;
+
+  expect(persisted).toBe(false);
+  expect(receipts).toMatchObject([
+    {
+      outcome: "cancelled",
+      attemptedAnswerMessageId: "50000000-0000-4000-8000-000000000000",
+    },
+  ]);
 });

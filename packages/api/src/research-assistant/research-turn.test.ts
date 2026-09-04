@@ -9,12 +9,42 @@ import {
   evidenceSnapshot,
   evidenceStream,
   input,
+  managedResearchAssistant,
   multiStepStream,
   type RecordedAnswer,
   recordingThreads,
 } from "./research-turn.test-support";
 
 const threadId = "30000000-0000-4000-8000-000000000000";
+
+test("allocates the durable answer identity before model streaming begins", async () => {
+  let identityAvailableAtStart: string | undefined;
+  const appended: RecordedAnswer[] = [];
+  const receipts: ResearchEvidenceDecisionReceipt[] = [];
+  const turns = createResearchTurnOperations(
+    managedResearchAssistant({
+      async answer(_input, options) {
+        identityAvailableAtStart = options?.commit?.answerMessageId;
+        return answerStream("Completed answer");
+      },
+    }),
+    recordingThreads(appended),
+  );
+
+  const chunks = await collect(
+    await turns.answer(input(), {
+      onEvidenceSessionReceipt: (receipt) => receipts.push(receipt),
+    }),
+  );
+
+  expect(identityAvailableAtStart).toEqual(expect.any(String));
+  expect(chunks[0]).toEqual({
+    type: "start",
+    messageId: identityAvailableAtStart,
+  });
+  expect(appended[0]?.answerMessageId).toBe(identityAvailableAtStart);
+  expect(receipts[0]?.attemptedAnswerMessageId).toBe(identityAvailableAtStart);
+});
 
 test("streams Markdown and commits its compiled References together", async () => {
   const appended: RecordedAnswer[] = [];
@@ -24,7 +54,9 @@ test("streams Markdown and commits its compiled References together", async () =
   );
 
   const chunks = await collect(await turns.answer(input()));
+  const start = chunks.find((chunk) => chunk.type === "start");
 
+  expect(start).toMatchObject({ type: "start", messageId: expect.any(String) });
   expect(chunks).toContainEqual({
     type: "text-delta",
     id: "assistant-text",
@@ -34,6 +66,9 @@ test("streams Markdown and commits its compiled References together", async () =
     {
       threadId,
       questionMessageId: "40000000-0000-4000-8000-000000000000",
+      answerMessageId:
+        start?.type === "start" ? start.messageId : "missing-answer-id",
+      model: "z-ai/glm-5.3-flash",
       role: "assistant",
       content: expect.stringMatching(
         /^The passage grounds this claim\.\[\^[\da-f-]{36}\]$/,
@@ -101,6 +136,8 @@ test("rejects final synthesis when its transient claim ledger is missing", async
     {
       outcome: "invalid-answer",
       terminalReasonCode: "answer-validation-failed",
+      questionMessageId: input().questionMessageId,
+      attemptedAnswerMessageId: expect.any(String),
     },
   ]);
 });
@@ -140,6 +177,8 @@ test("reports successful, refused, and exhausted sessions without content", asyn
   expect(receipts[0]).toMatchObject({
     sessionId: "session-test",
     researchThreadId: threadId,
+    questionMessageId: "40000000-0000-4000-8000-000000000000",
+    attemptedAnswerMessageId: expect.any(String),
     sourceStateId: "state-one",
     resolverVersion: "lexical-v1",
     indexVersion: "reading-components-v1",
@@ -151,6 +190,14 @@ test("reports successful, refused, and exhausted sessions without content", asyn
   expect(JSON.stringify(receipts)).not.toContain("What is the central claim?");
   expect(JSON.stringify(receipts)).not.toContain("Completed answer");
   expect(JSON.stringify(receipts)).not.toContain("Verified passage");
+  expect(
+    receipts.every(
+      (receipt) => receipt.questionMessageId === input().questionMessageId,
+    ),
+  ).toBe(true);
+  expect(
+    receipts.every((receipt) => Boolean(receipt.attemptedAnswerMessageId)),
+  ).toBe(true);
 });
 
 test("cancelling a turn cancels model execution and commits no answer", async () => {
@@ -179,10 +226,19 @@ test("cancelling a turn cancels model execution and commits no answer", async ()
     })
   ).getReader();
 
-  await reader.read();
+  const first = await reader.read();
   await reader.cancel("client disconnected");
 
   expect(modelCancelled).toBe(true);
   expect(appended).toEqual([]);
-  expect(receipts).toMatchObject([{ outcome: "cancelled" }]);
+  expect(first.value).toMatchObject({
+    type: "start",
+    messageId: receipts[0]?.attemptedAnswerMessageId,
+  });
+  expect(receipts).toMatchObject([
+    {
+      outcome: "cancelled",
+      questionMessageId: input().questionMessageId,
+    },
+  ]);
 });

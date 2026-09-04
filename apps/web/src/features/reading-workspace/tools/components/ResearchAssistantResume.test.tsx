@@ -7,7 +7,6 @@ import type { ResearchAssistantMessage } from "../researchAssistantTransport";
 
 const questionId = "40000000-0000-4000-8000-000000000000";
 const answerId = "50000000-0000-4000-8000-000000000000";
-
 await mock.module("../hooks/useResearchThreads", () => ({
   useResearchThreads: () => ({
     activeThread: {
@@ -105,6 +104,12 @@ test("renders a resumed selected path with its context and References unchanged"
   expect(
     within(document.body).getByText("The existing answer remains exact."),
   ).toBeTruthy();
+  expect(
+    within(document.body)
+      .getByText("The existing answer remains exact.")
+      .closest("[data-message-id]")
+      ?.getAttribute("data-message-id"),
+  ).toBe(answerId);
   expect(within(document.body).getByText("Synthetic evidence")).toBeTruthy();
   expect(
     within(document.body).getByRole("button", { name: "Used 1 source" }),

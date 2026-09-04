@@ -20315,6 +20315,14 @@
                           "content": {
                             "type": "string"
                           },
+                          "model": {
+                            "type": "string",
+                            "enum": [
+                              "moonshotai/kimi-k3",
+                              "deepseek/deepseek-v4-flash-0731",
+                              "z-ai/glm-5.3-flash"
+                            ]
+                          },
                           "selectedText": {
                             "type": "string"
                           },
@@ -20608,6 +20616,14 @@
                           "content": {
                             "type": "string"
                           },
+                          "model": {
+                            "type": "string",
+                            "enum": [
+                              "moonshotai/kimi-k3",
+                              "deepseek/deepseek-v4-flash-0731",
+                              "z-ai/glm-5.3-flash"
+                            ]
+                          },
                           "selectedText": {
                             "type": "string"
                           },
@@ -20867,6 +20883,15 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 2000
+                  },
+                  "model": {
+                    "default": "z-ai/glm-5.3-flash",
+                    "type": "string",
+                    "enum": [
+                      "moonshotai/kimi-k3",
+                      "deepseek/deepseek-v4-flash-0731",
+                      "z-ai/glm-5.3-flash"
+                    ]
                   },
                   "question": {
                     "type": "string",

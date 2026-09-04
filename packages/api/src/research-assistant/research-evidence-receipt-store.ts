@@ -16,6 +16,8 @@ export class DrizzleResearchEvidenceReceiptStore
     await this.database.insert(researchEvidenceReceipts).values({
       sessionId: receipt.sessionId,
       researchThreadId: receipt.researchThreadId,
+      questionMessageId: receipt.questionMessageId,
+      attemptedAnswerMessageId: receipt.attemptedAnswerMessageId,
       sourceStateId: receipt.sourceStateId,
       resolverVersion: receipt.resolverVersion,
       indexVersion: receipt.indexVersion,

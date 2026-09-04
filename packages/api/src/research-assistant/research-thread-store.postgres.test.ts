@@ -69,9 +69,11 @@ describePostgres("Research thread PostgreSQL store", () => {
     });
     if (!question) throw new Error("Question was not persisted");
     const answer = await store.commitAnswer({
+      answerMessageId: "50000000-0000-4000-8000-000000000000",
       threadId: thread.id,
       questionMessageId: question.id,
       content: "A provisional answer.",
+      model: "z-ai/glm-5.3-flash",
       references: [
         {
           componentIdentity: "active:/",
@@ -107,9 +109,11 @@ describePostgres("Research thread PostgreSQL store", () => {
           selectedText: "Selected evidence",
         },
         {
+          id: "50000000-0000-4000-8000-000000000000",
           role: "assistant",
           parentMessageId: question.id,
           content: "A provisional answer.",
+          model: "z-ai/glm-5.3-flash",
           references: [
             {
               componentIdentity: "active:/",
@@ -169,14 +173,18 @@ describePostgres("Research thread PostgreSQL store", () => {
     if (!firstQuestion || !secondQuestion)
       throw new Error("Questions were not persisted");
     const firstAnswer = await store.commitAnswer({
+      answerMessageId: randomUUID(),
       threadId: first.id,
       questionMessageId: firstQuestion.id,
       content: "First answer",
+      model: "z-ai/glm-5.3-flash",
     });
     const alternative = await store.commitAnswer({
+      answerMessageId: randomUUID(),
       threadId: first.id,
       questionMessageId: firstQuestion.id,
       content: "Alternative answer",
+      model: "z-ai/glm-5.3-flash",
     });
     if (!firstAnswer || !alternative)
       throw new Error("Answers were not persisted");
@@ -203,9 +211,11 @@ describePostgres("Research thread PostgreSQL store", () => {
     if (!followUp) throw new Error("Follow-up question was not persisted");
     expect(followUp.parentMessageId).toBe(alternative.id);
     const followUpAnswer = await store.commitAnswer({
+      answerMessageId: randomUUID(),
       threadId: first.id,
       questionMessageId: followUp.id,
       content: "Follow-up answer",
+      model: "z-ai/glm-5.3-flash",
     });
     if (!followUpAnswer) throw new Error("Follow-up answer was not persisted");
     await expect(
@@ -225,9 +235,11 @@ describePostgres("Research thread PostgreSQL store", () => {
 
     await expect(
       store.commitAnswer({
+        answerMessageId: randomUUID(),
         threadId: second.id,
         questionMessageId: firstQuestion.id,
         content: "Cross-thread answer",
+        model: "z-ai/glm-5.3-flash",
       }),
     ).rejects.toBeDefined();
     await expect(

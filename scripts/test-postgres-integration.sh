@@ -134,6 +134,7 @@ if [[ "$mode" == "research-threads" ]]; then
   POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
     bun test \
       "$root/packages/db/src/research-thread-migration.postgres.test.ts" \
+      "$root/packages/api/src/research-assistant/research-evidence-receipt-store.postgres.test.ts" \
       "$root/packages/api/src/research-assistant/research-thread-store.postgres.test.ts" \
       --timeout 30000
   exit 0
@@ -180,6 +181,7 @@ POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
     "$root/packages/api/src/offline-working-set/offline-working-set-capture.postgres.test.ts" \
     "$root/packages/api/src/reading-position/reading-position-store.postgres.test.ts" \
     "$root/packages/api/src/reading-workspace/reading-workspace-reader.postgres.test.ts" \
+    "$root/packages/api/src/research-assistant/research-evidence-receipt-store.postgres.test.ts" \
     "$root/packages/api/src/research-assistant/research-thread-store.postgres.test.ts" \
     "$root/packages/api/src/sep-admission/state/active-reading-derivative-migration.postgres.test.ts" \
     "$root/packages/api/src/sep-admission/state/active-reading-derivative.postgres.test.ts" \

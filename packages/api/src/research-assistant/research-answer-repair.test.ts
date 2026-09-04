@@ -60,6 +60,8 @@ test("renders a validated ledger when final synthesis is structurally invalid", 
     request("Verified passage."),
     {
       commit: {
+        answerMessageId: "50000000-0000-4000-8000-000000000000",
+        questionMessageId: "40000000-0000-4000-8000-000000000000",
         researchThreadId: "30000000-0000-4000-8000-000000000000",
         persist: async (content, references) => {
           persisted.push({ content, references });
@@ -145,6 +147,8 @@ test("does not spend the remaining model budget repairing answer formatting", as
     request("Verified passage."),
     {
       commit: {
+        answerMessageId: "50000000-0000-4000-8000-000000000000",
+        questionMessageId: "40000000-0000-4000-8000-000000000000",
         researchThreadId: "30000000-0000-4000-8000-000000000000",
         persist: async () => {
           persisted.push("persisted");

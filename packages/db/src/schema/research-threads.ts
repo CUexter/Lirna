@@ -58,6 +58,7 @@ export const researchThreadMessages = pgTable(
     role: text("role").notNull(),
     content: text("content").notNull(),
     selectedText: text("selected_text"),
+    model: text("model"),
     references:
       jsonb("references").$type<
         Array<{
@@ -125,6 +126,8 @@ export const researchEvidenceReceipts = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     sessionId: text("session_id").notNull(),
     researchThreadId: uuid("research_thread_id").notNull(),
+    questionMessageId: uuid("question_message_id"),
+    attemptedAnswerMessageId: uuid("attempted_answer_message_id"),
     sourceStateId: uuid("source_state_id")
       .notNull()
       .references(() => sourceStates.id, { onDelete: "cascade" }),

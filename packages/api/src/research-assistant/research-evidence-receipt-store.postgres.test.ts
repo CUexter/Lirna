@@ -14,6 +14,8 @@ const databaseName = `lirna_evidence_receipts_${process.pid}_${randomUUID().repl
 const sourceId = "10000000-0000-4000-8000-000000000000";
 const stateId = "20000000-0000-4000-8000-000000000000";
 const threadId = "30000000-0000-4000-8000-000000000000";
+const questionMessageId = "40000000-0000-4000-8000-000000000000";
+const attemptedAnswerMessageId = "50000000-0000-4000-8000-000000000000";
 
 let database: Awaited<
   ReturnType<typeof createPostgresTestDatabase>
@@ -88,6 +90,8 @@ describePostgres("Research evidence receipt PostgreSQL store", () => {
       refusedCount: 1,
       budgetExhausted: false,
       researchThreadId: threadId,
+      questionMessageId,
+      attemptedAnswerMessageId,
       outcome: "successful",
       latencyBucket: "1s-5s",
     });
@@ -100,13 +104,15 @@ describePostgres("Research evidence receipt PostgreSQL store", () => {
     expect(row).toMatchObject({
       sessionId: "session_test",
       researchThreadId: threadId,
+      questionMessageId,
+      attemptedAnswerMessageId,
       sourceStateId: stateId,
       outcome: "successful",
       latencyBucket: "1s-5s",
       admittedCount: 2,
       refusedCount: 1,
       budgetExhausted: false,
-      reasonCodes: [],
+      reasonCodes: ["close-ranked-passages"],
       terminalReasonCode: null,
     });
   });
@@ -138,6 +144,8 @@ describePostgres("Research evidence receipt PostgreSQL store", () => {
         refusedCount: 0,
         budgetExhausted: false,
         researchThreadId: threadId,
+        questionMessageId,
+        attemptedAnswerMessageId,
         outcome: "mysterious" as never,
         latencyBucket: "under-100ms",
       }),

@@ -121,10 +121,12 @@ export class DrizzleResearchThreadStore implements ResearchThreadOperations {
       const inserted = await tx
         .insert(researchThreadMessages)
         .values({
+          id: input.answerMessageId,
           researchThreadId: input.threadId,
           parentMessageId: input.questionMessageId,
           role: "assistant",
           content: input.content,
+          model: input.model,
           references: input.references,
         })
         .returning();
@@ -206,6 +208,9 @@ function serializeMessage(
       : {}),
     role: message.role as ResearchThreadMessage["role"],
     content: message.content,
+    ...(message.model
+      ? { model: message.model as ResearchThreadMessage["model"] }
+      : {}),
     ...(message.selectedText ? { selectedText: message.selectedText } : {}),
     ...(message.references?.length ? { references: message.references } : {}),
     createdAt: message.createdAt.toISOString(),

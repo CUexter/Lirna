@@ -1,4 +1,5 @@
 import type { AuthoredTargetInput } from "../authored-targets/authored-target";
+import type { ResearchAssistantModel } from "./research-assistant-contract";
 
 export type EvidenceRelation =
   | "supports"
@@ -36,6 +37,7 @@ export interface ResearchThreadMessage {
   parentMessageId?: string;
   role: "user" | "assistant";
   content: string;
+  model?: ResearchAssistantModel;
   selectedText?: string;
   references?: ResearchPassageReference[];
   createdAt: string;
@@ -79,9 +81,11 @@ export interface ResearchThreadOperations {
     selectedText?: string;
   }): Promise<ResearchThreadMessage | undefined>;
   commitAnswer(input: {
+    answerMessageId: string;
     threadId: string;
     questionMessageId: string;
     content: string;
+    model: ResearchAssistantModel;
     references?: ResearchPassageReference[];
   }): Promise<ResearchThreadMessage | undefined>;
   historyThroughQuestion(input: {

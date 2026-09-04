@@ -113,10 +113,11 @@ export function recordingThreads(appended: RecordedAnswer[]) {
   return threads(async (received) => {
     appended.push({ ...received, role: "assistant" });
     return {
-      id: crypto.randomUUID(),
+      id: received.answerMessageId,
       parentMessageId: received.questionMessageId,
       role: "assistant",
       content: received.content,
+      model: received.model,
       createdAt: "2026-09-02T12:00:00.000Z",
     };
   });

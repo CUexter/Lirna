@@ -64,6 +64,7 @@ const threadMessageSchema = z.object({
   id: z.string().uuid(),
   role: z.enum(["user", "assistant"]),
   content: z.string(),
+  model: z.enum(researchAssistantModelIds).optional(),
   selectedText: z.string().optional(),
   references: z
     .array(

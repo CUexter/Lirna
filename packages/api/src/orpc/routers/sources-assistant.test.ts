@@ -3,7 +3,10 @@ import { call } from "@orpc/server";
 import type { UIMessageChunk } from "ai";
 import type { Context } from "../../context";
 import type { ResearchAssistantOperations } from "../../research-assistant/research-assistant";
-import type { ResearchThreadOperations } from "../../research-assistant/research-thread-contract";
+import type {
+  ResearchThreadMessage,
+  ResearchThreadOperations,
+} from "../../research-assistant/research-thread-contract";
 import { createResearchTurnOperations } from "../../research-assistant/research-turn";
 import { managedResearchAssistant } from "../../research-assistant/research-turn.test-support";
 import { createTestContext } from "../application-test-support";
@@ -67,6 +70,26 @@ test("asks about exact evidence with a rendered-only publisher anchor", async ()
   let received:
     | Parameters<ResearchAssistantOperations["answer"]>[0]
     | undefined;
+  const testContext = context(
+    {
+      async answer(input) {
+        received = input;
+        return assistantStream("A **provisional** answer.", {
+          componentIdentity: "active:/",
+          componentLabel: "Main entry",
+          selection: {
+            offsetBasis: "normalized-derivative-text-v1",
+            normalizedStartOffset: 0,
+            normalizedEndOffset: 9,
+            exactText: "Synthetic",
+            prefix: "",
+            suffix: " reading text.",
+          },
+        });
+      },
+    },
+    appended,
+  );
   const result = await call(
     sourcesRouter.assistant.ask,
     {
@@ -93,32 +116,20 @@ test("asks about exact evidence with a rendered-only publisher anchor", async ()
         suffix: " reading text.",
       },
     },
-    {
-      context: context(
-        {
-          async answer(input) {
-            received = input;
-            return assistantStream("A **provisional** answer.", {
-              componentIdentity: "active:/",
-              componentLabel: "Main entry",
-              selection: {
-                offsetBasis: "normalized-derivative-text-v1",
-                normalizedStartOffset: 0,
-                normalizedEndOffset: 9,
-                exactText: "Synthetic",
-                prefix: "",
-                suffix: " reading text.",
-              },
-            });
-          },
-        },
-        appended,
-      ),
-    },
+    { context: testContext },
   );
 
   const chunks: UIMessageChunk[] = [];
   for await (const chunk of result) chunks.push(chunk);
+  const streamedAnswer = chunks.find((chunk) => chunk.type === "start");
+  const committedAnswer = appended.find(({ role }) => role === "assistant");
+  expect(streamedAnswer).toMatchObject({
+    type: "start",
+    messageId:
+      committedAnswer?.role === "assistant"
+        ? committedAnswer.answerMessageId
+        : "missing-answer-id",
+  });
   expect(chunks).toContainEqual({
     type: "text-delta",
     id: "assistant-text",
@@ -168,6 +179,26 @@ test("asks about exact evidence with a rendered-only publisher anchor", async ()
       },
     ],
   });
+  expect(committedAnswer).toMatchObject({
+    model: "z-ai/glm-5.3-flash",
+  });
+  const reloaded = await call(
+    sourcesRouter.assistant.get,
+    {
+      sourceId,
+      stateId,
+      threadId: "30000000-0000-4000-8000-000000000000",
+    },
+    { context: testContext },
+  );
+  expect(reloaded.messages.at(-1)?.id).toBe(
+    streamedAnswer?.type === "start" ? streamedAnswer.messageId : undefined,
+  );
+  expect(reloaded.messages.at(-1)?.id).toBe(
+    committedAnswer?.role === "assistant"
+      ? committedAnswer.answerMessageId
+      : undefined,
+  );
 });
 
 test("observes a late assistant stream failure and returns a useful error", async () => {
@@ -283,8 +314,9 @@ test("cancelling a streamed turn preserves only the user question", async () => 
   );
 
   expect(await result.next()).toMatchObject({
-    value: { type: "text-delta" },
+    value: { type: "start", messageId: expect.any(String) },
   });
+  expect(await result.next()).toMatchObject({ value: { type: "text-delta" } });
   await result.return?.();
 
   expect(modelCancelled).toBe(true);
@@ -308,6 +340,8 @@ function context(
   appended?: PersistedMessageInput[],
   options: Parameters<typeof createTestContext>[1] = {},
 ): Context {
+  let persistedQuestion: ResearchThreadMessage | undefined;
+  let persistedAnswer: ResearchThreadMessage | undefined;
   const researchThreads: ResearchThreadOperations = {
     async create() {
       throw new Error("Unexpected Research thread creation");
@@ -325,29 +359,33 @@ function context(
         title: "Existing inquiry",
         createdAt: "2026-09-01T12:00:00.000Z",
         updatedAt: "2026-09-01T12:00:00.000Z",
-        messages: [],
+        messages: [persistedQuestion, persistedAnswer].filter(
+          (message): message is ResearchThreadMessage => Boolean(message),
+        ),
       };
     },
     async appendQuestion(input) {
       appended?.push({ ...input, role: "user" });
-      return {
+      persistedQuestion = {
         id: crypto.randomUUID(),
         role: "user",
         content: input.content,
         ...(input.selectedText ? { selectedText: input.selectedText } : {}),
         createdAt: "2026-09-01T12:00:00.000Z",
       };
+      return persistedQuestion;
     },
     async commitAnswer(input) {
       appended?.push({ ...input, role: "assistant" });
-      return {
-        id: crypto.randomUUID(),
+      persistedAnswer = {
+        id: input.answerMessageId,
         parentMessageId: input.questionMessageId,
         role: "assistant",
         content: input.content,
-        ...(input.references?.length ? { references: input.references } : {}),
+        model: input.model,
         createdAt: "2026-09-01T12:00:00.000Z",
       };
+      return persistedAnswer;
     },
     async historyThroughQuestion({ questionMessageId }) {
       return [

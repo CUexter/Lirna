@@ -156,7 +156,7 @@ function TranscriptMessage({
   if (message.role === "assistant" && !hasAssistantContent && !waiting)
     return null;
   return (
-    <MessageScrollerItem>
+    <MessageScrollerItem data-message-id={message.id}>
       {waiting ? (
         <AssistantWaiting />
       ) : message.role === "assistant" ? (

@@ -71,6 +71,8 @@ export interface ResearchAssistantAnswerOptions {
     receipt: ResearchEvidenceDecisionReceipt,
   ) => void | Promise<void>;
   commit?: {
+    answerMessageId: string;
+    questionMessageId: string;
     researchThreadId: string;
     persist: PersistResearchAnswer;
   };
