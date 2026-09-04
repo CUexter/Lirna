@@ -109,7 +109,7 @@ await mock.module("@/clients/inquiryClient", () => ({
           updatedAt: "2026-09-01T12:00:00.000Z",
           messages: [],
         }),
-        get: async () => undefined,
+        lineage: async () => ({ relatedThreads: [] }),
         list: async () => [],
       },
     },

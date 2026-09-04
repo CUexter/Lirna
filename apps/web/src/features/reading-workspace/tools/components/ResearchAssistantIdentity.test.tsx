@@ -25,6 +25,9 @@ await mock.module("@/clients/inquiryClient", () => ({
         async list() {
           return durableThread ? [durableThread] : [];
         },
+        async lineage() {
+          return { relatedThreads: [] };
+        },
       },
     },
   },
