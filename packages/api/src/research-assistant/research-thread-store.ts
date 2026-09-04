@@ -206,6 +206,63 @@ export class DrizzleResearchThreadStore implements ResearchThreadOperations {
     return message ? serializeMessage(message) : undefined;
   }
 
+  async reviseQuestion(
+    input: Parameters<ResearchThreadOperations["reviseQuestion"]>[0],
+  ): Promise<ResearchThreadMessage | undefined> {
+    const [message] = await this.database.transaction(async (tx) => {
+      const [thread] = await tx
+        .select({
+          selectedLeafMessageId: researchThreads.selectedLeafMessageId,
+        })
+        .from(researchThreads)
+        .where(eq(researchThreads.id, input.threadId))
+        .for("update")
+        .limit(1);
+      if (
+        !thread ||
+        thread.selectedLeafMessageId !== input.expectedSelectedLeafMessageId
+      )
+        return [];
+      const messages = await tx
+        .select()
+        .from(researchThreadMessages)
+        .where(eq(researchThreadMessages.researchThreadId, input.threadId))
+        .orderBy(asc(researchThreadMessages.sequence));
+      const selectedIds = new Set(
+        selectedPath(messages, thread.selectedLeafMessageId).map(
+          ({ id }) => id,
+        ),
+      );
+      const original = messages.find(
+        ({ id, role }) =>
+          id === input.questionMessageId &&
+          role === "user" &&
+          selectedIds.has(id),
+      );
+      if (!original || original.content === input.content) return [];
+      const inserted = await tx
+        .insert(researchThreadMessages)
+        .values({
+          researchThreadId: input.threadId,
+          parentMessageId: original.parentMessageId,
+          originMessageId: original.id,
+          role: "user",
+          content: input.content,
+          selectedText: original.selectedText,
+          temporaryEvidence: original.temporaryEvidence,
+        })
+        .returning();
+      const revised = inserted[0];
+      if (!revised) return [];
+      await tx
+        .update(researchThreads)
+        .set({ selectedLeafMessageId: revised.id, updatedAt: new Date() })
+        .where(eq(researchThreads.id, input.threadId));
+      return inserted;
+    });
+    return message ? serializeMessage(message) : undefined;
+  }
+
   async commitAnswer(
     input: Parameters<ResearchThreadOperations["commitAnswer"]>[0],
   ): Promise<ResearchThreadMessage | undefined> {
@@ -306,6 +363,52 @@ export class DrizzleResearchThreadStore implements ResearchThreadOperations {
         .update(researchThreads)
         .set({
           selectedLeafMessageId: latestDescendant(messages, answer.id),
+          updatedAt: new Date(),
+        })
+        .where(eq(researchThreads.id, input.threadId));
+      return true;
+    });
+  }
+
+  async selectQuestionAlternative(
+    input: Parameters<ResearchThreadOperations["selectQuestionAlternative"]>[0],
+  ): Promise<boolean> {
+    return this.database.transaction(async (tx) => {
+      const [thread] = await tx
+        .select({
+          selectedLeafMessageId: researchThreads.selectedLeafMessageId,
+        })
+        .from(researchThreads)
+        .where(eq(researchThreads.id, input.threadId))
+        .for("update")
+        .limit(1);
+      if (
+        !thread ||
+        thread.selectedLeafMessageId !== input.expectedSelectedLeafMessageId
+      )
+        return false;
+      const messages = await tx
+        .select()
+        .from(researchThreadMessages)
+        .where(eq(researchThreadMessages.researchThreadId, input.threadId))
+        .orderBy(asc(researchThreadMessages.sequence));
+      const question = messages.find(
+        ({ id, role }) => id === input.questionMessageId && role === "user",
+      );
+      if (!question) return false;
+      const selectedMessages = selectedPath(
+        messages,
+        thread.selectedLeafMessageId,
+      );
+      const selectedSibling = selectedMessages.some(
+        ({ parentMessageId, role }) =>
+          role === "user" && parentMessageId === question.parentMessageId,
+      );
+      if (!selectedSibling) return false;
+      await tx
+        .update(researchThreads)
+        .set({
+          selectedLeafMessageId: latestDescendant(messages, question.id),
           updatedAt: new Date(),
         })
         .where(eq(researchThreads.id, input.threadId));

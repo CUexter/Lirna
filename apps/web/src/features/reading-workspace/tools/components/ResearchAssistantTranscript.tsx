@@ -1,5 +1,4 @@
 import { Shimmer } from "@lirna/ui/components/ai-elements/shimmer";
-import { Bubble, BubbleContent } from "@lirna/ui/components/bubble";
 import { Button } from "@lirna/ui/components/button";
 import {
   Empty,
@@ -33,6 +32,7 @@ import type {
 } from "../researchAssistantTransport";
 import { ResearchAssistantAlternatives } from "./ResearchAssistantAlternatives";
 import { MessageAttachments } from "./ResearchAssistantComposer";
+import { ResearchAssistantQuestion } from "./ResearchAssistantQuestion";
 import { ResearchAssistantRelatedThread } from "./ResearchAssistantRelatedThread";
 import { ResearchAssistantResponse } from "./ResearchAssistantResponse";
 import {
@@ -43,13 +43,19 @@ import {
 
 interface TranscriptActions {
   canCreateRelated?: (message: ResearchAssistantMessage) => boolean;
+  canReviseQuestion?: (message: ResearchAssistantMessage) => boolean;
   regenerate?: (message: ResearchAssistantMessage) => void;
   createRelated?: (
     message: ResearchAssistantMessage,
     input: { creationId: string; title: string },
   ) => Promise<"created" | "indeterminate" | "rejected">;
   retry?: (message: ResearchAssistantMessage) => void;
+  reviseQuestion?: (
+    message: ResearchAssistantMessage,
+    question: string,
+  ) => Promise<boolean>;
   selectAlternative?: (answerId: string) => void;
+  selectQuestionAlternative?: (questionId: string) => void;
 }
 
 export function ResearchAssistantTranscript({
@@ -187,9 +193,15 @@ function TranscriptMessage({
     message.role === "assistant" &&
     pending &&
     !hasAssistantContent;
-  const messageSelection = message.metadata?.selection;
-  const { canCreateRelated, createRelated, regenerate, selectAlternative } =
-    actions ?? {};
+  const {
+    canCreateRelated,
+    canReviseQuestion,
+    createRelated,
+    regenerate,
+    reviseQuestion,
+    selectAlternative,
+    selectQuestionAlternative,
+  } = actions ?? {};
   if (message.role === "assistant" && !hasAssistantContent && !waiting)
     return null;
   if (waiting)
@@ -215,6 +227,37 @@ function TranscriptMessage({
       />
     );
   return (
+    <UserTranscriptMessage
+      canRevise={canReviseQuestion?.(message) ?? false}
+      message={message}
+      onRevise={reviseQuestion}
+      onSelectAlternative={selectQuestionAlternative}
+      passageForSelection={passageForSelection}
+      pending={pending}
+      text={text}
+    />
+  );
+}
+
+function UserTranscriptMessage({
+  canRevise,
+  message,
+  onRevise,
+  onSelectAlternative,
+  passageForSelection,
+  pending,
+  text,
+}: {
+  canRevise: boolean;
+  message: ResearchAssistantMessage;
+  onRevise?: TranscriptActions["reviseQuestion"];
+  onSelectAlternative?: (questionId: string) => void;
+  passageForSelection: (selection: SelectionDraft) => ArticlePassage;
+  pending: boolean;
+  text: string;
+}) {
+  const selection = message.metadata?.selection;
+  return (
     <MessageScrollerItem data-message-id={message.id}>
       <Message align="end">
         <MessageContent>
@@ -222,17 +265,23 @@ function TranscriptMessage({
             <MessageAttachments attachments={message.metadata.attachments} />
           ) : null}
           <TemporaryEvidenceSummary message={message} />
-          {messageSelection ? (
+          {selection ? (
             <QuotedPassageAction
               className="mb-2"
-              passage={passageForSelection(messageSelection)}
+              passage={passageForSelection(selection)}
             />
           ) : null}
-          <Bubble align="end" variant="default">
-            <BubbleContent className="rounded-2xl px-3 py-2 text-sm">
-              {text}
-            </BubbleContent>
-          </Bubble>
+          <ResearchAssistantQuestion
+            message={message}
+            onRevise={
+              canRevise && onRevise
+                ? (question) => onRevise(message, question)
+                : undefined
+            }
+            onSelect={onSelectAlternative}
+            pending={pending}
+            text={text}
+          />
         </MessageContent>
       </Message>
     </MessageScrollerItem>

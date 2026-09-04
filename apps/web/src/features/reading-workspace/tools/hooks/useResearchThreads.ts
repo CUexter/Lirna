@@ -9,7 +9,9 @@ import {
   type ResearchThread,
   type ResearchThreadLineage,
   type ResearchThreadSummary,
+  reviseResearchQuestion,
   selectResearchAnswer,
+  selectResearchQuestion,
 } from "../researchAssistantTransport";
 
 interface ResearchThreadScope {
@@ -222,6 +224,96 @@ export function useResearchThreads({
     }
   }
 
+  async function reviseQuestion(
+    questionMessageId: string,
+    expectedSelectedLeafMessageId: string,
+    question: string,
+    attachments: Parameters<typeof reviseResearchQuestion>[0]["attachments"],
+  ) {
+    if (!activeThreadId) return undefined;
+    const requestScopeKey = scopeKey;
+    const requestRevision = ++requestRevisionRef.current;
+    setLoading(true);
+    setError(undefined);
+    try {
+      const loaded = await reviseResearchQuestion({
+        ...scope,
+        threadId: activeThreadId,
+        questionMessageId,
+        expectedSelectedLeafMessageId,
+        question,
+        ...(attachments?.length ? { attachments } : {}),
+      });
+      if (
+        requestRevisionRef.current !== requestRevision ||
+        scopeKeyRef.current !== requestScopeKey
+      )
+        return undefined;
+      setActiveThread(loaded);
+      return loaded;
+    } catch (reason) {
+      if (
+        requestRevisionRef.current === requestRevision &&
+        scopeKeyRef.current === requestScopeKey
+      )
+        setError(
+          reason instanceof Error
+            ? reason.message
+            : "Research question could not be revised",
+        );
+      return undefined;
+    } finally {
+      if (
+        requestRevisionRef.current === requestRevision &&
+        scopeKeyRef.current === requestScopeKey
+      )
+        setLoading(false);
+    }
+  }
+
+  async function selectQuestion(
+    questionMessageId: string,
+    expectedSelectedLeafMessageId: string,
+  ) {
+    if (!activeThreadId) return undefined;
+    const requestScopeKey = scopeKey;
+    const requestRevision = ++requestRevisionRef.current;
+    setLoading(true);
+    setError(undefined);
+    try {
+      const loaded = await selectResearchQuestion({
+        ...scope,
+        threadId: activeThreadId,
+        questionMessageId,
+        expectedSelectedLeafMessageId,
+      });
+      if (
+        requestRevisionRef.current !== requestRevision ||
+        scopeKeyRef.current !== requestScopeKey
+      )
+        return undefined;
+      setActiveThread(loaded);
+      return loaded;
+    } catch (reason) {
+      if (
+        requestRevisionRef.current === requestRevision &&
+        scopeKeyRef.current === requestScopeKey
+      )
+        setError(
+          reason instanceof Error
+            ? reason.message
+            : "Research question could not be selected",
+        );
+      return undefined;
+    } finally {
+      if (
+        requestRevisionRef.current === requestRevision &&
+        scopeKeyRef.current === requestScopeKey
+      )
+        setLoading(false);
+    }
+  }
+
   async function resumeSourceAnswer(threadId: string, answerMessageId: string) {
     const requestScopeKey = scopeKey;
     const requestRevision = ++requestRevisionRef.current;
@@ -321,7 +413,9 @@ export function useResearchThreads({
     loading,
     resume,
     resumeSourceAnswer,
+    reviseQuestion,
     selectAnswer,
+    selectQuestion,
     startNew: () => {
       requestRevisionRef.current += 1;
       setLoading(false);

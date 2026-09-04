@@ -15,6 +15,10 @@ import {
   sourceAssistantRegenerateProcedure,
   sourceAssistantSelectProcedure,
 } from "./source-assistant-alternatives";
+import {
+  sourceAssistantReviseQuestionProcedure,
+  sourceAssistantSelectQuestionProcedure,
+} from "./source-assistant-question-alternatives";
 import { sourceAssistantRetryProcedure } from "./source-assistant-retry";
 import {
   temporaryAttachment,
@@ -65,6 +69,14 @@ const threadMessageSchema = z.object({
       total: z.number().int().positive(),
       previousAnswerId: z.string().uuid().optional(),
       nextAnswerId: z.string().uuid().optional(),
+    })
+    .optional(),
+  questionAlternatives: z
+    .object({
+      position: z.number().int().positive(),
+      total: z.number().int().positive(),
+      previousQuestionId: z.string().uuid().optional(),
+      nextQuestionId: z.string().uuid().optional(),
     })
     .optional(),
   selectedText: z.string().optional(),
@@ -212,7 +224,9 @@ export const sourceAssistantRouter = {
       return result.thread;
     }),
   regenerate: sourceAssistantRegenerateProcedure,
+  reviseQuestion: sourceAssistantReviseQuestionProcedure,
   selectAnswer: sourceAssistantSelectProcedure,
+  selectQuestion: sourceAssistantSelectQuestionProcedure,
   retry: sourceAssistantRetryProcedure,
   ask: publicProcedure
     .input(

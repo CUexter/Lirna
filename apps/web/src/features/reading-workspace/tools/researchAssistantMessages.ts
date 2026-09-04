@@ -40,5 +40,7 @@ function metadataForMessage(
     metadata.regeneratedFromAnswerId = message.regeneratedFromAnswerId;
   if (message.answerAlternatives)
     metadata.answerAlternatives = message.answerAlternatives;
+  if (message.questionAlternatives)
+    metadata.questionAlternatives = message.questionAlternatives;
   return Object.keys(metadata).length ? metadata : undefined;
 }

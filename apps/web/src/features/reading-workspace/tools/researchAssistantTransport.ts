@@ -38,6 +38,12 @@ export interface ResearchAssistantMessageMetadata {
   attachmentDescriptors?: TemporaryEvidenceDescriptor[];
   model?: ResearchAssistantModel;
   parentMessageId?: string;
+  questionAlternatives?: {
+    position: number;
+    total: number;
+    previousQuestionId?: string;
+    nextQuestionId?: string;
+  };
   regeneratedFromAnswerId?: string;
   references?: Array<ResearchPassageReference & { evidenceAlias?: string }>;
   selection?: SelectionDraft;
@@ -267,6 +273,28 @@ export function selectResearchAnswer(input: {
   expectedSelectedLeafMessageId: string;
 }) {
   return inquiryClient.sources.assistant.selectAnswer(input);
+}
+
+export function reviseResearchQuestion(input: {
+  sourceId: string;
+  stateId: string;
+  threadId: string;
+  questionMessageId: string;
+  expectedSelectedLeafMessageId: string;
+  question: string;
+  attachments?: TemporaryEvidenceAttachment[];
+}) {
+  return inquiryClient.sources.assistant.reviseQuestion(input);
+}
+
+export function selectResearchQuestion(input: {
+  sourceId: string;
+  stateId: string;
+  threadId: string;
+  questionMessageId: string;
+  expectedSelectedLeafMessageId: string;
+}) {
+  return inquiryClient.sources.assistant.selectQuestion(input);
 }
 
 export function createRelatedResearchThread(input: {

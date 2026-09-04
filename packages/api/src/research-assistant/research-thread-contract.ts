@@ -66,6 +66,12 @@ export interface ResearchThreadMessage {
     previousAnswerId?: string;
     nextAnswerId?: string;
   };
+  questionAlternatives?: {
+    position: number;
+    total: number;
+    previousQuestionId?: string;
+    nextQuestionId?: string;
+  };
   selectedText?: string;
   temporaryEvidence?: TemporaryEvidenceDescriptor[];
   references?: ResearchPassageReference[];
@@ -131,6 +137,12 @@ export interface ResearchThreadOperations {
     selectedText?: string;
     temporaryEvidence?: TemporaryEvidenceDescriptor[];
   }): Promise<ResearchThreadMessage | undefined>;
+  reviseQuestion(input: {
+    threadId: string;
+    questionMessageId: string;
+    expectedSelectedLeafMessageId: string;
+    content: string;
+  }): Promise<ResearchThreadMessage | undefined>;
   commitAnswer(input: {
     answerMessageId: string;
     threadId: string;
@@ -152,6 +164,11 @@ export interface ResearchThreadOperations {
   selectAnswerAlternative(input: {
     threadId: string;
     answerMessageId: string;
+    expectedSelectedLeafMessageId: string;
+  }): Promise<boolean>;
+  selectQuestionAlternative(input: {
+    threadId: string;
+    questionMessageId: string;
     expectedSelectedLeafMessageId: string;
   }): Promise<boolean>;
   createRelatedThread(input: {

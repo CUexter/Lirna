@@ -242,10 +242,56 @@ export function ReadingResearchAssistant({
     });
   }
 
+  async function reviseQuestion(
+    message: ResearchAssistantMessage,
+    revisedQuestion: string,
+  ) {
+    const selectedLeafMessageId = messages.at(-1)?.id;
+    if (interactionPending || !selectedLeafMessageId) return false;
+    const required = requiredAttachments(message);
+    const available = attachments;
+    if (!attachmentsMatch(required, available)) {
+      setComposerError(
+        required.length
+          ? `Reattach temporary evidence before regenerating from the revised question: ${required
+              .map(({ filename, mediaType }) => `${filename} (${mediaType})`)
+              .join(", ")}`
+          : "Remove attachments before revising; this question did not use temporary evidence.",
+      );
+      return false;
+    }
+    clearError();
+    setComposerError(undefined);
+    const revised = await researchThreads.reviseQuestion(
+      message.id,
+      selectedLeafMessageId,
+      revisedQuestion,
+      available,
+    );
+    if (!revised) return false;
+    const revisedMessages = messagesForThread(revised, plainText);
+    const revisedMessage = revisedMessages.at(-1);
+    if (revisedMessage?.role !== "user") return false;
+    setMessages(revisedMessages);
+    setAttachments([]);
+    setCancelledQuestionId(undefined);
+    void regenerate({
+      messageId: revisedMessage.id,
+      body: { operation: "retry", attachments: available },
+    });
+    return true;
+  }
+
   async function selectAlternative(answerId: string) {
     const selectedLeafMessageId = messages.at(-1)?.id;
     if (interactionPending || !selectedLeafMessageId) return;
     await researchThreads.selectAnswer(answerId, selectedLeafMessageId);
+  }
+
+  async function selectQuestionAlternative(questionId: string) {
+    const selectedLeafMessageId = messages.at(-1)?.id;
+    if (interactionPending || !selectedLeafMessageId) return;
+    await researchThreads.selectQuestion(questionId, selectedLeafMessageId);
   }
 
   async function createRelatedThread(
@@ -333,6 +379,10 @@ export function ReadingResearchAssistant({
                   (message) =>
                     message.id === id && message.role === "assistant",
                 ) ?? false,
+              canReviseQuestion: ({ id }) =>
+                researchThreads.activeThread?.messages.some(
+                  (message) => message.id === id && message.role === "user",
+                ) ?? false,
               createRelated: createRelatedThread,
               regenerate: (message) => {
                 void regenerateAnswer(message);
@@ -340,8 +390,12 @@ export function ReadingResearchAssistant({
               retry: (message) => {
                 void retryQuestion(message);
               },
+              reviseQuestion,
               selectAlternative: (answerId) => {
                 void selectAlternative(answerId);
+              },
+              selectQuestionAlternative: (questionId) => {
+                void selectQuestionAlternative(questionId);
               },
             }}
             error={composerError ?? error?.message ?? researchThreads.error}

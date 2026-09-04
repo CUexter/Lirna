@@ -84,6 +84,9 @@ export function serializeMessage(
     ...(message.role === "assistant" && messages
       ? { answerAlternatives: answerAlternatives(message, messages) }
       : {}),
+    ...(message.role === "user" && messages
+      ? { questionAlternatives: questionAlternatives(message, messages) }
+      : {}),
     ...(message.selectedText ? { selectedText: message.selectedText } : {}),
     ...(message.temporaryEvidence?.length
       ? {
@@ -98,6 +101,25 @@ export function serializeMessage(
         }
       : {}),
     createdAt: message.createdAt.toISOString(),
+  };
+}
+
+function questionAlternatives(
+  question: typeof researchThreadMessages.$inferSelect,
+  messages: Array<typeof researchThreadMessages.$inferSelect>,
+) {
+  const siblings = messages.filter(
+    ({ parentMessageId, role }) =>
+      role === "user" && parentMessageId === question.parentMessageId,
+  );
+  const index = siblings.findIndex(({ id }) => id === question.id);
+  return {
+    position: index + 1,
+    total: siblings.length,
+    ...(index > 0 ? { previousQuestionId: siblings[index - 1]?.id } : {}),
+    ...(index < siblings.length - 1
+      ? { nextQuestionId: siblings[index + 1]?.id }
+      : {}),
   };
 }
 

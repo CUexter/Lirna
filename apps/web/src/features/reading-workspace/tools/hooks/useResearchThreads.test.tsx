@@ -25,10 +25,12 @@ await mock.module("../researchAssistantTransport", () => ({
     return researchThread();
   },
   loadResearchThreadLineage: async () => ({ relatedThreads: [] }),
+  reviseResearchQuestion: async () => researchThread(),
   selectResearchAnswer: () =>
     new Promise<ReturnType<typeof researchThread>>((resolve) => {
       resolveSelection = resolve;
     }),
+  selectResearchQuestion: async () => researchThread(),
   createRelatedResearchThread: async (input: unknown) => {
     relatedInput = input;
     if (relatedError) throw relatedError;
