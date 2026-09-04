@@ -7,6 +7,7 @@ import { createRef, useState } from "react";
 import type {
   ResearchAssistantMessage,
   ResearchThread,
+  ResearchThreadLineage,
 } from "../researchAssistantTransport";
 
 const threadId = "30000000-0000-4000-8000-000000000000";
@@ -21,6 +22,8 @@ let relatedInputs: Array<{
   sourceAnswerMessageId: string;
   title: string;
 }> = [];
+let lineage: ResearchThreadLineage | undefined;
+let lineageNavigation: Array<string> = [];
 
 await mock.module("../hooks/useResearchThreads", () => ({
   useResearchThreads: () => {
@@ -32,7 +35,13 @@ await mock.module("../hooks/useResearchThreads", () => ({
       activeThreadId: threadId,
       error: undefined,
       loading: false,
-      resume: async () => {},
+      lineage,
+      resume: async (threadId: string) => {
+        lineageNavigation.push(threadId);
+      },
+      resumeSourceAnswer: async (threadId: string, answerMessageId: string) => {
+        lineageNavigation.push(`${threadId}:${answerMessageId}`);
+      },
       selectAnswer: async (answerId: string) => {
         const selected = projectedThread(answerId, attachmentBacked);
         setActiveThread(selected);
@@ -67,6 +76,8 @@ afterEach(() => {
   answerHasModel = true;
   relatedFailure = undefined;
   relatedInputs = [];
+  lineage = undefined;
+  lineageNavigation = [];
   cleanup();
 });
 
@@ -261,6 +272,45 @@ test("offers related creation for a completed answer without model metadata", ()
   expect(
     view().queryByRole("button", { name: "Regenerate answer" }),
   ).toBeNull();
+});
+
+test("navigates direct incoming and outgoing Research-thread lineage", async () => {
+  lineage = {
+    source: {
+      answerMessageId: firstAnswerId,
+      answerPreview: "The original answer.",
+      threadId: "70000000-0000-4000-8000-000000000000",
+      title: "Original inquiry",
+    },
+    relatedThreads: [
+      {
+        answerMessageId: firstAnswerId,
+        answerPreview: "The nested divergence answer.",
+        threadId: "80000000-0000-4000-8000-000000000000",
+        title: "Nested inquiry",
+      },
+    ],
+  };
+  const user = userEvent.setup();
+  renderAssistant(transport(() => {}));
+
+  const panel = view().getByRole("region", { name: "Research thread lineage" });
+  expect(within(panel).getByText(/The nested divergence answer/)).toBeTruthy();
+  await user.click(
+    within(panel).getByRole("button", {
+      name: "Open source Research thread: Original inquiry",
+    }),
+  );
+  await user.click(
+    within(panel).getByRole("button", {
+      name: "Open related Research thread: Nested inquiry",
+    }),
+  );
+
+  expect(lineageNavigation).toEqual([
+    `70000000-0000-4000-8000-000000000000:${firstAnswerId}`,
+    "80000000-0000-4000-8000-000000000000",
+  ]);
 });
 
 test("does not offer related creation for an unpersisted assistant answer", async () => {

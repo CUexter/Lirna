@@ -85,6 +85,24 @@ const threadMessageSchema = z.object({
 const threadSchema = threadSummarySchema.extend({
   messages: z.array(threadMessageSchema),
 });
+const threadLineageSchema = z.object({
+  source: z
+    .object({
+      answerMessageId: z.string().uuid(),
+      answerPreview: z.string(),
+      threadId: z.string().uuid(),
+      title: z.string(),
+    })
+    .optional(),
+  relatedThreads: z.array(
+    z.object({
+      answerMessageId: z.string().uuid(),
+      answerPreview: z.string(),
+      threadId: z.string().uuid(),
+      title: z.string(),
+    }),
+  ),
+});
 
 export const sourceAssistantRouter = {
   list: publicProcedure
@@ -117,6 +135,24 @@ export const sourceAssistantRouter = {
       const thread = await context.researchThreads.projectSelectedPath(input);
       if (!thread) throw notFound("Research thread is unavailable");
       return thread;
+    }),
+  lineage: publicProcedure
+    .input(sourceStateInput.extend({ threadId: z.string().uuid() }))
+    .output(threadLineageSchema)
+    .errors(notFoundError)
+    .meta(
+      openapi({
+        method: "GET",
+        path: "/sources/assistant/threads/{threadId}/lineage",
+        operationId: "sources.assistant.lineage",
+        summary: "Read direct Research-thread lineage",
+        tags: ["Sources"],
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      const lineage = await context.researchThreads.lineage(input);
+      if (!lineage) throw notFound("Research thread is unavailable");
+      return lineage;
     }),
   create: publicProcedure
     .input(

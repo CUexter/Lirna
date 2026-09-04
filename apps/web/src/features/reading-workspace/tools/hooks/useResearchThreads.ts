@@ -5,7 +5,9 @@ import {
   createRelatedResearchThread,
   listResearchThreads,
   loadResearchThread,
+  loadResearchThreadLineage,
   type ResearchThread,
+  type ResearchThreadLineage,
   type ResearchThreadSummary,
   selectResearchAnswer,
 } from "../researchAssistantTransport";
@@ -29,6 +31,7 @@ export function useResearchThreads({
   const [threads, setThreads] = useState<ResearchThreadSummary[]>([]);
   const [activeThread, setActiveThread] = useState<ResearchThread>();
   const [activeThreadId, setActiveThreadId] = useState<string>();
+  const [lineage, setLineage] = useState<ResearchThreadLineage>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
   const { sourceId, stateId } = scope;
@@ -45,6 +48,7 @@ export function useResearchThreads({
     setError(undefined);
     setActiveThread(undefined);
     setActiveThreadId(undefined);
+    setLineage(undefined);
     void listResearchThreads({ sourceId, stateId })
       .then(async (listed) => {
         if (
@@ -94,6 +98,28 @@ export function useResearchThreads({
       current = false;
     };
   }, [disabled, open, preferNew, scopeKey, sourceId, stateId]);
+
+  useEffect(() => {
+    if (!activeThreadId || disabled) {
+      setLineage(undefined);
+      return;
+    }
+    let current = true;
+    void loadResearchThreadLineage({
+      sourceId,
+      stateId,
+      threadId: activeThreadId,
+    })
+      .then((loaded) => {
+        if (current) setLineage(loaded);
+      })
+      .catch(() => {
+        if (current) setLineage(undefined);
+      });
+    return () => {
+      current = false;
+    };
+  }, [activeThreadId, disabled, sourceId, stateId]);
 
   async function resume(threadId: string) {
     const requestScopeKey = scopeKey;
@@ -196,6 +222,48 @@ export function useResearchThreads({
     }
   }
 
+  async function resumeSourceAnswer(threadId: string, answerMessageId: string) {
+    const requestScopeKey = scopeKey;
+    const requestRevision = ++requestRevisionRef.current;
+    setLoading(true);
+    setError(undefined);
+    try {
+      const source = await loadResearchThread({ ...scope, threadId });
+      const selectedLeafMessageId = source.messages.at(-1)?.id;
+      if (!selectedLeafMessageId)
+        throw new Error("Source Research answer is unavailable");
+      const loaded = await selectResearchAnswer({
+        ...scope,
+        threadId,
+        answerMessageId,
+        expectedSelectedLeafMessageId: selectedLeafMessageId,
+      });
+      if (
+        requestRevisionRef.current !== requestRevision ||
+        scopeKeyRef.current !== requestScopeKey
+      )
+        return;
+      setActiveThread(loaded);
+      setActiveThreadId(loaded.id);
+    } catch (reason) {
+      if (
+        requestRevisionRef.current === requestRevision &&
+        scopeKeyRef.current === requestScopeKey
+      )
+        setError(
+          reason instanceof Error
+            ? reason.message
+            : "Source Research answer is unavailable",
+        );
+    } finally {
+      if (
+        requestRevisionRef.current === requestRevision &&
+        scopeKeyRef.current === requestScopeKey
+      )
+        setLoading(false);
+    }
+  }
+
   async function createRelated(input: {
     creationId: string;
     sourceAnswerMessageId: string;
@@ -249,14 +317,17 @@ export function useResearchThreads({
     activeThreadId,
     createRelated,
     error,
+    lineage,
     loading,
     resume,
+    resumeSourceAnswer,
     selectAnswer,
     startNew: () => {
       requestRevisionRef.current += 1;
       setLoading(false);
       setActiveThread(undefined);
       setActiveThreadId(undefined);
+      setLineage(undefined);
     },
     threadCreated,
     threads,

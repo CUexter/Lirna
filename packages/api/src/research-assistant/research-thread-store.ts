@@ -1,5 +1,6 @@
 import type { db } from "@lirna/db";
 import {
+  researchThreadForks,
   researchThreadMessages,
   researchThreads,
 } from "@lirna/db/schema/research-threads";
@@ -8,6 +9,7 @@ import { and, asc, desc, eq, isNull } from "drizzle-orm";
 
 import type {
   ResearchThread,
+  ResearchThreadLineage,
   ResearchThreadMessage,
   ResearchThreadOperations,
   ResearchThreadSummary,
@@ -84,6 +86,70 @@ export class DrizzleResearchThreadStore implements ResearchThreadOperations {
         (message) => serializeMessage(message, messages),
       ),
     };
+  }
+
+  async lineage(
+    input: Parameters<ResearchThreadOperations["lineage"]>[0],
+  ): Promise<ResearchThreadLineage | undefined> {
+    const [current] = await this.database
+      .select({ id: researchThreads.id })
+      .from(researchThreads)
+      .innerJoin(
+        sourceStates,
+        eq(sourceStates.id, researchThreads.sourceStateId),
+      )
+      .where(
+        and(
+          eq(researchThreads.id, input.threadId),
+          eq(sourceStates.sourceId, input.sourceId),
+          eq(sourceStates.id, input.stateId),
+        ),
+      )
+      .limit(1);
+    if (!current) return undefined;
+    const [source] = await this.database
+      .select({
+        answerMessageId: researchThreadForks.sourceAnswerMessageId,
+        answerPreview: researchThreadMessages.content,
+        threadId: researchThreads.id,
+        title: researchThreads.title,
+      })
+      .from(researchThreadForks)
+      .innerJoin(
+        researchThreads,
+        eq(researchThreads.id, researchThreadForks.sourceThreadId),
+      )
+      .innerJoin(
+        researchThreadMessages,
+        eq(
+          researchThreadMessages.id,
+          researchThreadForks.sourceAnswerMessageId,
+        ),
+      )
+      .where(eq(researchThreadForks.newThreadId, input.threadId))
+      .limit(1);
+    const relatedThreads = await this.database
+      .select({
+        answerMessageId: researchThreadForks.sourceAnswerMessageId,
+        answerPreview: researchThreadMessages.content,
+        threadId: researchThreads.id,
+        title: researchThreads.title,
+      })
+      .from(researchThreadForks)
+      .innerJoin(
+        researchThreads,
+        eq(researchThreads.id, researchThreadForks.newThreadId),
+      )
+      .innerJoin(
+        researchThreadMessages,
+        eq(
+          researchThreadMessages.id,
+          researchThreadForks.sourceAnswerMessageId,
+        ),
+      )
+      .where(eq(researchThreadForks.sourceThreadId, input.threadId))
+      .orderBy(asc(researchThreadForks.createdAt));
+    return { ...(source ? { source } : {}), relatedThreads };
   }
 
   async appendQuestion(

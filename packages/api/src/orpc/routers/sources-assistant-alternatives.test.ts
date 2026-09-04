@@ -231,6 +231,10 @@ class MemoryThreads implements ResearchThreadOperations {
     return { ...thread(), messages: path.reverse() };
   }
 
+  async lineage() {
+    return { relatedThreads: [] };
+  }
+
   async commitAnswer(
     input: Parameters<ResearchThreadOperations["commitAnswer"]>[0],
   ) {

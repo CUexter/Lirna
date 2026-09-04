@@ -48,6 +48,8 @@ export type ResearchAssistantMessage =
 export type ResearchThreadSummary =
   InquiryOutputs["sources"]["assistant"]["list"][number];
 export type ResearchThread = InquiryOutputs["sources"]["assistant"]["get"];
+export type ResearchThreadLineage =
+  InquiryOutputs["sources"]["assistant"]["lineage"];
 export type ResearchPassageReference = NonNullable<
   ResearchThread["messages"][number]["references"]
 >[number];
@@ -247,6 +249,14 @@ export function loadResearchThread(input: {
   threadId: string;
 }) {
   return inquiryClient.sources.assistant.get(input);
+}
+
+export function loadResearchThreadLineage(input: {
+  sourceId: string;
+  stateId: string;
+  threadId: string;
+}) {
+  return inquiryClient.sources.assistant.lineage(input);
 }
 
 export function selectResearchAnswer(input: {

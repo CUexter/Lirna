@@ -75,6 +75,78 @@ test("reports creation ID input conflicts", async () => {
   ).rejects.toMatchObject({ code: "CONFLICT" });
 });
 
+test("returns the source thread and answer branch for an incoming relation", async () => {
+  const context = createTestContext({
+    researchThreads: {
+      ...unusedThreads(),
+      async lineage() {
+        return {
+          source: {
+            answerMessageId: sourceAnswerMessageId,
+            answerPreview: "The originating answer.",
+            threadId: sourceThreadId,
+            title: "Original inquiry",
+          },
+          relatedThreads: [],
+        };
+      },
+    },
+  });
+
+  await expect(
+    call(
+      sourcesRouter.assistant.lineage,
+      { sourceId, stateId, threadId: newThreadId },
+      { context },
+    ),
+  ).resolves.toEqual({
+    source: {
+      answerMessageId: sourceAnswerMessageId,
+      answerPreview: "The originating answer.",
+      threadId: sourceThreadId,
+      title: "Original inquiry",
+    },
+    relatedThreads: [],
+  });
+});
+
+test("returns related inquiries with their divergence answer branches", async () => {
+  const context = createTestContext({
+    researchThreads: {
+      ...unusedThreads(),
+      async lineage() {
+        return {
+          relatedThreads: [
+            {
+              answerMessageId: sourceAnswerMessageId,
+              answerPreview: "The divergence answer.",
+              threadId: newThreadId,
+              title: "A materially different inquiry",
+            },
+          ],
+        };
+      },
+    },
+  });
+
+  await expect(
+    call(
+      sourcesRouter.assistant.lineage,
+      { sourceId, stateId, threadId: sourceThreadId },
+      { context },
+    ),
+  ).resolves.toEqual({
+    relatedThreads: [
+      {
+        answerMessageId: sourceAnswerMessageId,
+        answerPreview: "The divergence answer.",
+        threadId: newThreadId,
+        title: "A materially different inquiry",
+      },
+    ],
+  });
+});
+
 function unusedThreads(): ResearchThreadOperations {
   const unexpected = async (): Promise<never> => {
     throw new Error("Unexpected Research thread operation");
@@ -83,6 +155,7 @@ function unusedThreads(): ResearchThreadOperations {
     create: unexpected,
     list: unexpected,
     projectSelectedPath: unexpected,
+    lineage: unexpected,
     appendQuestion: unexpected,
     commitAnswer: unexpected,
     historyThroughQuestion: unexpected,

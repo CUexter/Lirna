@@ -55,6 +55,10 @@ export class BranchingThreads implements ResearchThreadOperations {
     return { ...thread(), messages: this.pathThrough(this.selectedLeafId) };
   }
 
+  async lineage() {
+    return { relatedThreads: [] };
+  }
+
   async appendQuestion(
     input: Parameters<ResearchThreadOperations["appendQuestion"]>[0],
   ) {

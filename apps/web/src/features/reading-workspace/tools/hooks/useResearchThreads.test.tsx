@@ -24,6 +24,7 @@ await mock.module("../researchAssistantTransport", () => ({
     loadCalls += 1;
     return researchThread();
   },
+  loadResearchThreadLineage: async () => ({ relatedThreads: [] }),
   selectResearchAnswer: () =>
     new Promise<ReturnType<typeof researchThread>>((resolve) => {
       resolveSelection = resolve;

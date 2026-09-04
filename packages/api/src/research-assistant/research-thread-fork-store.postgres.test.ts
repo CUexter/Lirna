@@ -145,6 +145,29 @@ describePostgres("related Research thread PostgreSQL store", () => {
       "Unselected alternative",
     );
     await expect(
+      store.lineage({ sourceId, stateId, threadId: source.id }),
+    ).resolves.toEqual({
+      relatedThreads: [
+        {
+          answerMessageId: selectedAnswer.id,
+          answerPreview: "Selected answer",
+          threadId: result.thread.id,
+          title: "Related inquiry",
+        },
+      ],
+    });
+    await expect(
+      store.lineage({ sourceId, stateId, threadId: result.thread.id }),
+    ).resolves.toEqual({
+      source: {
+        answerMessageId: selectedAnswer.id,
+        answerPreview: "Selected answer",
+        threadId: source.id,
+        title: "Original inquiry",
+      },
+      relatedThreads: [],
+    });
+    await expect(
       store.projectSelectedPath({ sourceId, stateId, threadId: source.id }),
     ).resolves.toEqual(sourceBefore);
     expect(

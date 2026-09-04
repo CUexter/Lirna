@@ -28,6 +28,7 @@ import {
 } from "../researchAssistantTransport";
 import { QuestionComposer } from "./ResearchAssistantComposer";
 import { ResearchAssistantTranscript } from "./ResearchAssistantTranscript";
+import { ResearchThreadLineage } from "./ResearchThreadLineage";
 import { ResearchThreadPicker } from "./ResearchThreadPicker";
 
 // fallow-ignore-next-line complexity
@@ -296,6 +297,21 @@ export function ReadingResearchAssistant({
                   void researchThreads.resume(threadId);
                 }}
                 threads={researchThreads.threads}
+              />
+            ) : null}
+            {researchThreads.lineage ? (
+              <ResearchThreadLineage
+                disabled={interactionPending}
+                lineage={researchThreads.lineage}
+                onOpenRelated={(threadId) => {
+                  void researchThreads.resume(threadId);
+                }}
+                onOpenSource={(threadId, answerMessageId) => {
+                  void researchThreads.resumeSourceAnswer(
+                    threadId,
+                    answerMessageId,
+                  );
+                }}
               />
             ) : null}
           </div>

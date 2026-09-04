@@ -83,6 +83,21 @@ export interface ResearchThreadSummary {
   updatedAt: string;
 }
 
+export interface ResearchThreadLineage {
+  source?: {
+    answerMessageId: string;
+    answerPreview: string;
+    threadId: string;
+    title: string;
+  };
+  relatedThreads: Array<{
+    answerMessageId: string;
+    answerPreview: string;
+    threadId: string;
+    title: string;
+  }>;
+}
+
 export interface ResearchThread extends ResearchThreadSummary {
   messages: ResearchThreadMessage[];
 }
@@ -104,6 +119,11 @@ export interface ResearchThreadOperations {
     stateId: string;
     threadId: string;
   }): Promise<ResearchThread | undefined>;
+  lineage(input: {
+    sourceId: string;
+    stateId: string;
+    threadId: string;
+  }): Promise<ResearchThreadLineage | undefined>;
   appendQuestion(input: {
     threadId: string;
     expectedSelectedLeafMessageId: string | null;

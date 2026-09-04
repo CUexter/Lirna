@@ -375,6 +375,9 @@ function context(
         ),
       };
     },
+    async lineage() {
+      return { relatedThreads: [] };
+    },
     async appendQuestion(input) {
       appended?.push({ ...input, role: "user" });
       persistedQuestion = {
