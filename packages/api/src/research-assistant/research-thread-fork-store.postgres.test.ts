@@ -66,6 +66,7 @@ describePostgres("related Research thread PostgreSQL store", () => {
     });
     const firstQuestion = await store.appendQuestion({
       threadId: source.id,
+      expectedSelectedLeafMessageId: null,
       content: "First question",
     });
     if (!firstQuestion) throw new Error("First question was not persisted");
@@ -81,6 +82,7 @@ describePostgres("related Research thread PostgreSQL store", () => {
     if (!selectedAnswer) throw new Error("Selected answer was not persisted");
     const descendant = await store.appendQuestion({
       threadId: source.id,
+      expectedSelectedLeafMessageId: selectedAnswer.id,
       content: "A descendant that must not be copied",
     });
     if (!descendant) throw new Error("Descendant was not persisted");
@@ -169,6 +171,7 @@ describePostgres("related Research thread PostgreSQL store", () => {
     expect(copiedReceipts).toEqual([]);
     const relatedQuestion = await store.appendQuestion({
       threadId: result.thread.id,
+      expectedSelectedLeafMessageId: result.thread.messages.at(-1)?.id ?? null,
       content: "Independent follow-up",
     });
     if (!relatedQuestion) throw new Error("Related question was not persisted");
@@ -222,6 +225,7 @@ describePostgres("related Research thread PostgreSQL store", () => {
     });
     const question = await store.appendQuestion({
       threadId: source.id,
+      expectedSelectedLeafMessageId: null,
       content: "Question",
     });
     if (!question) throw new Error("Question was not persisted");
@@ -269,6 +273,7 @@ describePostgres("related Research thread PostgreSQL store", () => {
     });
     const question = await store.appendQuestion({
       threadId: source.id,
+      expectedSelectedLeafMessageId: null,
       content: "Question that cannot be copied",
     });
     if (!question) throw new Error("Question was not persisted");

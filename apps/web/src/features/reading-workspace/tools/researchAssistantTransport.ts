@@ -119,6 +119,11 @@ export function createResearchAssistantTransport({
         .join("")
         .trim();
       if (!question) throw new Error("A user question is required");
+      const messageIndex = messages.findLastIndex(
+        ({ id }) => id === message.id,
+      );
+      const expectedSelectedLeafMessageId =
+        messages[messageIndex - 1]?.id ?? null;
       let createdThreadId: string | undefined;
       if (!threadId) {
         const thread = await inquiryClient.sources.assistant.create({
@@ -135,6 +140,7 @@ export function createResearchAssistantTransport({
       const iterator = await inquiryClient.sources.assistant.ask(
         {
           componentIdentity,
+          expectedSelectedLeafMessageId,
           model,
           ...(message.metadata?.attachments?.length
             ? { attachments: message.metadata.attachments }

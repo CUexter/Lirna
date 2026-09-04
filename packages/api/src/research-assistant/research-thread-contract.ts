@@ -106,6 +106,7 @@ export interface ResearchThreadOperations {
   }): Promise<ResearchThread | undefined>;
   appendQuestion(input: {
     threadId: string;
+    expectedSelectedLeafMessageId: string | null;
     content: string;
     selectedText?: string;
     temporaryEvidence?: TemporaryEvidenceDescriptor[];

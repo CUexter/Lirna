@@ -96,6 +96,7 @@ test("asks about exact evidence with a rendered-only publisher anchor", async ()
       sourceId,
       stateId,
       componentIdentity: "active:/",
+      expectedSelectedLeafMessageId: null,
       question: "What is the central claim?",
       threadId: "30000000-0000-4000-8000-000000000000",
       attachments: [
@@ -152,6 +153,7 @@ test("asks about exact evidence with a rendered-only publisher anchor", async ()
   });
   expect(appended[0]).toEqual({
     threadId: "30000000-0000-4000-8000-000000000000",
+    expectedSelectedLeafMessageId: null,
     role: "user",
     content: "What is the central claim?",
     selectedText: "Synthetic",
@@ -215,6 +217,7 @@ test("observes a late assistant stream failure and returns a useful error", asyn
       sourceId,
       stateId,
       componentIdentity: "active:/",
+      expectedSelectedLeafMessageId: null,
       question: "What is the central claim?",
       threadId: "30000000-0000-4000-8000-000000000000",
     },
@@ -268,6 +271,7 @@ test("observes a late assistant stream failure and returns a useful error", asyn
   expect(appended).toEqual([
     {
       threadId: "30000000-0000-4000-8000-000000000000",
+      expectedSelectedLeafMessageId: null,
       role: "user",
       content: "What is the central claim?",
     },
@@ -312,6 +316,7 @@ test("cancelling a streamed turn preserves only the user question", async () => 
       sourceId,
       stateId,
       componentIdentity: "active:/",
+      expectedSelectedLeafMessageId: null,
       question: "What is the central claim?",
       threadId: "30000000-0000-4000-8000-000000000000",
     },
@@ -328,6 +333,7 @@ test("cancelling a streamed turn preserves only the user question", async () => 
   expect(appended).toEqual([
     {
       threadId: "30000000-0000-4000-8000-000000000000",
+      expectedSelectedLeafMessageId: null,
       role: "user",
       content: "What is the central claim?",
     },

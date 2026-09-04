@@ -98,6 +98,8 @@ export class DrizzleResearchThreadStore implements ResearchThreadOperations {
         .where(eq(researchThreads.id, input.threadId))
         .limit(1);
       if (!thread) return [];
+      if (thread.selectedLeafMessageId !== input.expectedSelectedLeafMessageId)
+        return [];
       const inserted = await tx
         .insert(researchThreadMessages)
         .values({
@@ -111,10 +113,27 @@ export class DrizzleResearchThreadStore implements ResearchThreadOperations {
         .returning();
       const question = inserted[0];
       if (question) {
-        await tx
+        const selected = await tx
           .update(researchThreads)
           .set({ selectedLeafMessageId: question.id, updatedAt: new Date() })
-          .where(eq(researchThreads.id, input.threadId));
+          .where(
+            and(
+              eq(researchThreads.id, input.threadId),
+              input.expectedSelectedLeafMessageId
+                ? eq(
+                    researchThreads.selectedLeafMessageId,
+                    input.expectedSelectedLeafMessageId,
+                  )
+                : isNull(researchThreads.selectedLeafMessageId),
+            ),
+          )
+          .returning({ id: researchThreads.id });
+        if (selected.length === 0) {
+          await tx
+            .delete(researchThreadMessages)
+            .where(eq(researchThreadMessages.id, question.id));
+          return [];
+        }
       }
       return inserted;
     });
@@ -194,26 +213,38 @@ export class DrizzleResearchThreadStore implements ResearchThreadOperations {
   async selectAnswerAlternative(
     input: Parameters<ResearchThreadOperations["selectAnswerAlternative"]>[0],
   ): Promise<boolean> {
-    const messages = await this.loadMessages(input.threadId);
-    const answer = messages.find(
-      ({ id, role }) => id === input.answerMessageId && role === "assistant",
-    );
-    if (!answer) return false;
-    const selectedLeafMessageId = latestDescendant(messages, answer.id);
-    const updated = await this.database
-      .update(researchThreads)
-      .set({ selectedLeafMessageId, updatedAt: new Date() })
-      .where(
-        and(
-          eq(researchThreads.id, input.threadId),
-          eq(
-            researchThreads.selectedLeafMessageId,
-            input.expectedSelectedLeafMessageId,
-          ),
-        ),
+    return this.database.transaction(async (tx) => {
+      const [thread] = await tx
+        .select({
+          selectedLeafMessageId: researchThreads.selectedLeafMessageId,
+        })
+        .from(researchThreads)
+        .where(eq(researchThreads.id, input.threadId))
+        .for("update")
+        .limit(1);
+      if (
+        !thread ||
+        thread.selectedLeafMessageId !== input.expectedSelectedLeafMessageId
       )
-      .returning({ id: researchThreads.id });
-    return updated.length === 1;
+        return false;
+      const messages = await tx
+        .select()
+        .from(researchThreadMessages)
+        .where(eq(researchThreadMessages.researchThreadId, input.threadId))
+        .orderBy(asc(researchThreadMessages.sequence));
+      const answer = messages.find(
+        ({ id, role }) => id === input.answerMessageId && role === "assistant",
+      );
+      if (!answer) return false;
+      await tx
+        .update(researchThreads)
+        .set({
+          selectedLeafMessageId: latestDescendant(messages, answer.id),
+          updatedAt: new Date(),
+        })
+        .where(eq(researchThreads.id, input.threadId));
+      return true;
+    });
   }
 
   async createRelatedThread(
@@ -235,12 +266,13 @@ function latestDescendant(
   messages: Array<typeof researchThreadMessages.$inferSelect>,
   answerId: string,
 ) {
+  const descendants = new Set([answerId]);
   let leafId = answerId;
-  while (true) {
-    const child = messages.findLast(
-      ({ parentMessageId }) => parentMessageId === leafId,
-    );
-    if (!child) return leafId;
-    leafId = child.id;
+  for (const message of messages) {
+    if (message.parentMessageId && descendants.has(message.parentMessageId)) {
+      descendants.add(message.id);
+      leafId = message.id;
+    }
   }
+  return leafId;
 }

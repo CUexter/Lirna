@@ -41,6 +41,7 @@ test("failed final persistence preserves only the user question", async () => {
       sourceId,
       stateId,
       componentIdentity: "active:/",
+      expectedSelectedLeafMessageId: null,
       question: "What is the central claim?",
       threadId,
     },
@@ -79,6 +80,7 @@ test("failed final persistence preserves only the user question", async () => {
   expect(appended).toEqual([
     {
       threadId,
+      expectedSelectedLeafMessageId: null,
       role: "user",
       content: "What is the central claim?",
     },
@@ -99,6 +101,7 @@ test("observes evidence refusal as a content-free research outcome", async () =>
       sourceId,
       stateId,
       componentIdentity: "active:/",
+      expectedSelectedLeafMessageId: null,
       question: "Do not retain this question",
       threadId,
     },

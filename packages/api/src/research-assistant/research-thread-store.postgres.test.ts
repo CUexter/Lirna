@@ -64,6 +64,7 @@ describePostgres("Research thread PostgreSQL store", () => {
     });
     const question = await store.appendQuestion({
       threadId: thread.id,
+      expectedSelectedLeafMessageId: null,
       content: "What is the central claim?",
       selectedText: "Selected evidence",
       temporaryEvidence: [
@@ -178,10 +179,12 @@ describePostgres("Research thread PostgreSQL store", () => {
     });
     const firstQuestion = await store.appendQuestion({
       threadId: first.id,
+      expectedSelectedLeafMessageId: null,
       content: "First question",
     });
     const secondQuestion = await store.appendQuestion({
       threadId: second.id,
+      expectedSelectedLeafMessageId: null,
       content: "Second question",
     });
     if (!firstQuestion || !secondQuestion)
@@ -234,6 +237,7 @@ describePostgres("Research thread PostgreSQL store", () => {
     });
     const followUp = await store.appendQuestion({
       threadId: first.id,
+      expectedSelectedLeafMessageId: alternative.id,
       content: "Follow-up question",
     });
     if (!followUp) throw new Error("Follow-up question was not persisted");
@@ -247,6 +251,41 @@ describePostgres("Research thread PostgreSQL store", () => {
       model: "z-ai/glm-5.3-flash",
     });
     if (!followUpAnswer) throw new Error("Follow-up answer was not persisted");
+    const newerFollowUpAlternative = await store.commitAnswer({
+      answerMessageId: randomUUID(),
+      threadId: first.id,
+      questionMessageId: followUp.id,
+      expectedSelectedLeafMessageId: followUpAnswer.id,
+      content: "Newer follow-up alternative",
+      model: "z-ai/glm-5.3-flash",
+      regeneratedFromAnswerId: followUpAnswer.id,
+    });
+    if (!newerFollowUpAlternative)
+      throw new Error("Follow-up alternative was not persisted");
+    expect(
+      await store.selectAnswerAlternative({
+        threadId: first.id,
+        answerMessageId: followUpAnswer.id,
+        expectedSelectedLeafMessageId: newerFollowUpAlternative.id,
+      }),
+    ).toBe(true);
+    const continuedFollowUp = await store.appendQuestion({
+      threadId: first.id,
+      expectedSelectedLeafMessageId: followUpAnswer.id,
+      content: "Continue the older follow-up answer",
+    });
+    if (!continuedFollowUp)
+      throw new Error("Continued follow-up was not persisted");
+    const continuedFollowUpAnswer = await store.commitAnswer({
+      answerMessageId: randomUUID(),
+      threadId: first.id,
+      questionMessageId: continuedFollowUp.id,
+      expectedSelectedLeafMessageId: continuedFollowUp.id,
+      content: "Later descendant answer",
+      model: "z-ai/glm-5.3-flash",
+    });
+    if (!continuedFollowUpAnswer)
+      throw new Error("Continued follow-up answer was not persisted");
     await expect(
       store.projectSelectedPath({
         sourceId,
@@ -259,14 +298,29 @@ describePostgres("Research thread PostgreSQL store", () => {
         { id: alternative.id },
         { id: followUp.id },
         { id: followUpAnswer.id },
+        { id: continuedFollowUp.id },
+        { id: continuedFollowUpAnswer.id },
       ],
     });
+    await expect(
+      store.appendQuestion({
+        threadId: first.id,
+        expectedSelectedLeafMessageId: alternative.id,
+        content: "Stale follow-up",
+      }),
+    ).resolves.toBeUndefined();
+    await expect(
+      store.listChildren({
+        threadId: first.id,
+        parentMessageId: alternative.id,
+      }),
+    ).resolves.toMatchObject([{ id: followUp.id }]);
 
     expect(
       await store.selectAnswerAlternative({
         threadId: first.id,
         answerMessageId: firstAnswer.id,
-        expectedSelectedLeafMessageId: followUpAnswer.id,
+        expectedSelectedLeafMessageId: continuedFollowUpAnswer.id,
       }),
     ).toBe(true);
     await expect(
@@ -297,6 +351,8 @@ describePostgres("Research thread PostgreSQL store", () => {
         { id: alternative.id },
         { id: followUp.id },
         { id: followUpAnswer.id },
+        { id: continuedFollowUp.id },
+        { id: continuedFollowUpAnswer.id },
       ],
     });
 
@@ -318,6 +374,8 @@ describePostgres("Research thread PostgreSQL store", () => {
         { id: alternative.id },
         { id: followUp.id },
         { id: followUpAnswer.id },
+        { id: continuedFollowUp.id },
+        { id: continuedFollowUpAnswer.id },
       ],
     });
     await expect(
@@ -327,6 +385,53 @@ describePostgres("Research thread PostgreSQL store", () => {
       }),
     ).resolves.toContainEqual(expect.objectContaining({ id: staleAnswer?.id }));
 
+    const staleDescendant = await store.commitAnswer({
+      answerMessageId: randomUUID(),
+      threadId: first.id,
+      questionMessageId: followUp.id,
+      expectedSelectedLeafMessageId: alternative.id,
+      content: "A newer descendant completed by a stale client",
+      model: "z-ai/glm-5.3-flash",
+      regeneratedFromAnswerId: newerFollowUpAlternative.id,
+    });
+    if (!staleDescendant) throw new Error("Stale descendant was not persisted");
+    expect(
+      await store.selectAnswerAlternative({
+        threadId: first.id,
+        answerMessageId: firstAnswer.id,
+        expectedSelectedLeafMessageId: continuedFollowUpAnswer.id,
+      }),
+    ).toBe(true);
+    expect(
+      await store.selectAnswerAlternative({
+        threadId: first.id,
+        answerMessageId: alternative.id,
+        expectedSelectedLeafMessageId: firstAnswer.id,
+      }),
+    ).toBe(true);
+    await expect(
+      store.projectSelectedPath({ sourceId, stateId, threadId: first.id }),
+    ).resolves.toMatchObject({
+      messages: [
+        { id: firstQuestion.id },
+        { id: alternative.id },
+        { id: followUp.id },
+        { id: staleDescendant.id },
+      ],
+    });
+    const selections = await Promise.all([
+      store.selectAnswerAlternative({
+        threadId: first.id,
+        answerMessageId: firstAnswer.id,
+        expectedSelectedLeafMessageId: staleDescendant.id,
+      }),
+      store.selectAnswerAlternative({
+        threadId: first.id,
+        answerMessageId: followUpAnswer.id,
+        expectedSelectedLeafMessageId: staleDescendant.id,
+      }),
+    ]);
+    expect(selections.toSorted()).toEqual([false, true]);
     await expect(
       store.commitAnswer({
         answerMessageId: randomUUID(),

@@ -186,6 +186,7 @@ export const sourceAssistantRouter = {
         model: z
           .enum(researchAssistantModelIds)
           .default(defaultResearchAssistantModel),
+        expectedSelectedLeafMessageId: z.string().uuid().nullable(),
         question: z.string().trim().min(1).max(4_000),
         selection: authoredTargetInputSchema.optional(),
         threadId: z.string().uuid(),
@@ -219,6 +220,7 @@ export const sourceAssistantRouter = {
       if (!thread) throw notFound("Research thread is unavailable");
       const userMessage = await context.researchThreads.appendQuestion({
         threadId: thread.id,
+        expectedSelectedLeafMessageId: input.expectedSelectedLeafMessageId,
         content: input.question,
         ...(selectedText ? { selectedText } : {}),
         ...(input.attachments?.length
@@ -230,8 +232,9 @@ export const sourceAssistantRouter = {
           : {}),
       });
       if (!userMessage) {
-        throw new ORPCError("INTERNAL_SERVER_ERROR", {
-          message: "Research question could not be persisted",
+        throw new ORPCError("BAD_REQUEST", {
+          message:
+            "The selected Research-thread branch changed; reload and try again",
         });
       }
       const history = await context.researchThreads.historyThroughQuestion({
