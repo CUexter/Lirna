@@ -14,7 +14,7 @@ interface MarkerNode {
 }
 
 const markerPattern = /\[\^([A-Za-z\d_-]+)(?:\|([a-z]+))?\]/g;
-const quotePattern = /^:::quote\[([A-Za-z\d_-]+)(?:\|([a-z]+))?\]\n:::\s*$/;
+const quotePattern = /^:::quote\[([A-Za-z\d_-]+)(?:\|([a-z]+))?\]\r?\n:::\s*$/;
 
 export function researchEvidenceMarkers() {
   return (tree: MarkerNode) => transformNode(tree);

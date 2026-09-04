@@ -50,3 +50,33 @@ test("groups only contiguous passing citation markers", () => {
     },
   ]);
 });
+
+test("transforms an exact quote marker with CRLF line endings", () => {
+  const transform = researchEvidenceMarkers();
+  const tree: Parameters<typeof transform>[0] = {
+    type: "root",
+    children: [
+      {
+        type: "paragraph",
+        children: [
+          {
+            type: "text",
+            value: ":::quote[ev_3|background]\r\n:::",
+          },
+        ],
+      },
+    ],
+  };
+
+  transform(tree);
+
+  expect(tree.children).toEqual([
+    {
+      type: "research-quote",
+      data: {
+        hName: "research-quote",
+        hProperties: { relation: "background", token: "ev_3" },
+      },
+    },
+  ]);
+});
