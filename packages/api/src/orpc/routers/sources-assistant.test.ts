@@ -15,6 +15,14 @@ import {
 } from "./sep-admission.test-fixtures";
 import { sourcesRouter } from "./sources";
 
+type PersistedMessageInput =
+  | ({ role: "user" } & Parameters<
+      ResearchThreadOperations["appendQuestion"]
+    >[0])
+  | ({ role: "assistant" } & Parameters<
+      ResearchThreadOperations["commitAnswer"]
+    >[0]);
+
 test("creates a resumable Research thread for the active component", async () => {
   const testContext = context({
     async answer() {
@@ -55,7 +63,7 @@ test("creates a resumable Research thread for the active component", async () =>
 });
 
 test("asks about exact evidence with a rendered-only publisher anchor", async () => {
-  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const appended: PersistedMessageInput[] = [];
   let received:
     | Parameters<ResearchAssistantOperations["answer"]>[0]
     | undefined;
@@ -162,108 +170,9 @@ test("asks about exact evidence with a rendered-only publisher anchor", async ()
   });
 });
 
-test("rejects temporary evidence that does not match its media type", async () => {
-  const request = call(
-    sourcesRouter.assistant.ask,
-    {
-      sourceId,
-      stateId,
-      componentIdentity: "active:/",
-      question: "What does this file add?",
-      threadId: "30000000-0000-4000-8000-000000000000",
-      attachments: [
-        {
-          dataUrl: "data:application/pdf;base64,dGVtcG9yYXJ5IGV2aWRlbmNl",
-          filename: "evidence.txt",
-          mediaType: "text/plain" as const,
-          size: 18,
-        },
-      ],
-    },
-    {
-      context: context({
-        async answer() {
-          return assistantStream("This must not be called.");
-        },
-      }),
-    },
-  );
-
-  await expect(request).rejects.toMatchObject({
-    code: "BAD_REQUEST",
-    message: "Attachment evidence.txt does not match its media type",
-  });
-});
-
-test("rejects temporary evidence with false size metadata", async () => {
-  const request = call(
-    sourcesRouter.assistant.ask,
-    {
-      sourceId,
-      stateId,
-      componentIdentity: "active:/",
-      question: "What does this file add?",
-      threadId: "30000000-0000-4000-8000-000000000000",
-      attachments: [
-        {
-          dataUrl: "data:text/plain;base64,dGVtcG9yYXJ5IGV2aWRlbmNl",
-          filename: "evidence.txt",
-          mediaType: "text/plain" as const,
-          size: 1,
-        },
-      ],
-    },
-    {
-      context: context({
-        async answer() {
-          return assistantStream("This must not be called.");
-        },
-      }),
-    },
-  );
-
-  await expect(request).rejects.toMatchObject({
-    code: "BAD_REQUEST",
-    message: "Attachment evidence.txt has invalid size metadata",
-  });
-});
-
-test("rejects selected evidence that does not match the admitted Source state", async () => {
-  const request = call(
-    sourcesRouter.assistant.ask,
-    {
-      sourceId,
-      stateId,
-      componentIdentity: "active:/",
-      question: "What does this passage claim?",
-      threadId: "30000000-0000-4000-8000-000000000000",
-      selection: {
-        offsetBasis: "normalized-derivative-text-v1" as const,
-        normalizedStartOffset: 0,
-        normalizedEndOffset: 9,
-        exactText: "Different",
-        prefix: "",
-        suffix: " reading text.",
-      },
-    },
-    {
-      context: context({
-        async answer() {
-          return assistantStream("This must not be called.");
-        },
-      }),
-    },
-  );
-
-  await expect(request).rejects.toMatchObject({
-    code: "BAD_REQUEST",
-    message: "Selected Source-state evidence no longer matches",
-  });
-});
-
 test("observes a late assistant stream failure and returns a useful error", async () => {
   const observations: Record<string, unknown>[] = [];
-  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const appended: PersistedMessageInput[] = [];
   const result = await call(
     sourcesRouter.assistant.ask,
     {
@@ -331,7 +240,7 @@ test("observes a late assistant stream failure and returns a useful error", asyn
 
 test("cancelling a streamed turn preserves only the user question", async () => {
   const observations: Record<string, unknown>[] = [];
-  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const appended: PersistedMessageInput[] = [];
   let modelCancelled = false;
   const testContext = context(
     {
@@ -396,7 +305,7 @@ test("cancelling a streamed turn preserves only the user question", async () => 
 
 function context(
   researchAssistant: ResearchAssistantOperations,
-  appended?: Array<Parameters<ResearchThreadOperations["append"]>[0]>,
+  appended?: PersistedMessageInput[],
   options: Parameters<typeof createTestContext>[1] = {},
 ): Context {
   const researchThreads: ResearchThreadOperations = {
@@ -406,7 +315,7 @@ function context(
     async list() {
       return [];
     },
-    async get() {
+    async projectSelectedPath() {
       return {
         id: "30000000-0000-4000-8000-000000000000",
         sourceId,
@@ -419,15 +328,39 @@ function context(
         messages: [],
       };
     },
-    async append(input) {
-      appended?.push(input);
+    async appendQuestion(input) {
+      appended?.push({ ...input, role: "user" });
       return {
         id: crypto.randomUUID(),
-        role: input.role,
+        role: "user",
         content: input.content,
         ...(input.selectedText ? { selectedText: input.selectedText } : {}),
         createdAt: "2026-09-01T12:00:00.000Z",
       };
+    },
+    async commitAnswer(input) {
+      appended?.push({ ...input, role: "assistant" });
+      return {
+        id: crypto.randomUUID(),
+        parentMessageId: input.questionMessageId,
+        role: "assistant",
+        content: input.content,
+        ...(input.references?.length ? { references: input.references } : {}),
+        createdAt: "2026-09-01T12:00:00.000Z",
+      };
+    },
+    async historyThroughQuestion({ questionMessageId }) {
+      return [
+        {
+          id: questionMessageId,
+          role: "user",
+          content: appended?.find(({ role }) => role === "user")?.content ?? "",
+          createdAt: "2026-09-01T12:00:00.000Z",
+        },
+      ];
+    },
+    async listChildren() {
+      return [];
     },
   };
   return createTestContext(

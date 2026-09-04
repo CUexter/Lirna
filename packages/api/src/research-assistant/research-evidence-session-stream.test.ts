@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import type { UIMessageChunk } from "ai";
 import type { ResearchEvidenceDecisionReceipt } from "./research-evidence-session-contract";
-import type { ResearchThreadOperations } from "./research-thread-contract";
 import { createResearchTurnOperations } from "./research-turn";
 import {
   answerStream,
@@ -9,12 +8,13 @@ import {
   collect,
   evidenceSnapshot,
   input,
+  type RecordedAnswer,
   recordingThreads,
   threads,
 } from "./research-turn.test-support";
 
 test("a late model failure returns an error chunk and commits no answer", async () => {
-  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const appended: RecordedAnswer[] = [];
   const receipts: ResearchEvidenceDecisionReceipt[] = [];
   let pulls = 0;
   const modelStream = new ReadableStream<UIMessageChunk>({
@@ -52,7 +52,7 @@ test("a late model failure returns an error chunk and commits no answer", async 
 });
 
 test("a model stream that ends before its finish chunk commits no answer", async () => {
-  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const appended: RecordedAnswer[] = [];
   const turns = createResearchTurnOperations(
     assistant(answerStream("Truncated answer", false)),
     recordingThreads(appended),
@@ -72,7 +72,7 @@ test("a model stream that ends before its finish chunk commits no answer", async
 });
 
 test("an error finish reason commits no answer", async () => {
-  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const appended: RecordedAnswer[] = [];
   const turns = createResearchTurnOperations(
     assistant(answerStream("Partial answer", true, "error")),
     recordingThreads(appended),
@@ -92,7 +92,7 @@ test("an error finish reason commits no answer", async () => {
 });
 
 test("an error chunk from model execution commits no answer", async () => {
-  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const appended: RecordedAnswer[] = [];
   const receipts: ResearchEvidenceDecisionReceipt[] = [];
   const modelStream = new ReadableStream<UIMessageChunk>({
     start(controller) {
@@ -183,7 +183,7 @@ test("stream completion waits for durable receipt storage", async () => {
 });
 
 test("a receipt storage failure is returned to the stream consumer", async () => {
-  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const appended: RecordedAnswer[] = [];
   const turns = createResearchTurnOperations(
     assistant(answerStream("Completed answer"), evidenceSnapshot()),
     recordingThreads(appended),
@@ -208,7 +208,7 @@ test("a receipt storage failure is returned to the stream consumer", async () =>
 
 test("a cancellation during the atomic commit finishes the commit", async () => {
   const receipts: ResearchEvidenceDecisionReceipt[] = [];
-  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const appended: RecordedAnswer[] = [];
   let reader: ReadableStreamDefaultReader<UIMessageChunk> | undefined;
   const turns = createResearchTurnOperations(
     assistant(answerStream("Completed answer"), evidenceSnapshot()),

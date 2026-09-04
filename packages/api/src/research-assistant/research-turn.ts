@@ -7,6 +7,7 @@ import type {
 import type { ResearchThreadOperations } from "./research-thread-contract";
 
 export interface ResearchTurnInput extends ResearchAssistantInput {
+  questionMessageId: string;
   threadId: string;
 }
 
@@ -19,18 +20,18 @@ export interface ResearchTurnOperations {
 
 export function createResearchTurnOperations(
   assistant: ResearchAssistantOperations,
-  threads: Pick<ResearchThreadOperations, "append">,
+  threads: Pick<ResearchThreadOperations, "commitAnswer">,
 ): ResearchTurnOperations {
   return {
-    async answer({ threadId, ...input }, options) {
+    async answer({ questionMessageId, threadId, ...input }, options) {
       return assistant.answer(input, {
         ...options,
         commit: {
           researchThreadId: threadId,
           persist: async (content, references) => {
-            const persisted = await threads.append({
+            const persisted = await threads.commitAnswer({
               threadId,
-              role: "assistant",
+              questionMessageId,
               content,
               ...(references.length ? { references } : {}),
             });

@@ -30,15 +30,20 @@ test("runs a Research turn through the answer-attempt seam before commit", async
       throw new Error("Repair should not be needed");
     },
   };
-  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const appended: Array<
+    Parameters<ResearchThreadOperations["commitAnswer"]>[0] & {
+      role: "assistant";
+    }
+  > = [];
   const turns = createResearchTurnOperations(
     createResearchAssistant(answerAttempts),
     {
-      async append(input) {
-        appended.push(input);
+      async commitAnswer(input) {
+        appended.push({ ...input, role: "assistant" });
         return {
           id: crypto.randomUUID(),
-          role: input.role,
+          parentMessageId: input.questionMessageId,
+          role: "assistant",
           content: input.content,
           createdAt: "2026-09-04T12:00:00.000Z",
         };
@@ -47,6 +52,7 @@ test("runs a Research turn through the answer-attempt seam before commit", async
   );
 
   const stream = await turns.answer({
+    questionMessageId: "40000000-0000-4000-8000-000000000000",
     threadId: "30000000-0000-4000-8000-000000000000",
     componentIdentity: "article",
     componentLabel: "Article",

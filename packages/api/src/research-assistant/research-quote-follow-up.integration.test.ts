@@ -34,15 +34,20 @@ test("answers a direct-quotation follow-up without recapping the previous answer
       return textStream("Tuvel writes:\n\n:::quote[ev_1]\n:::");
     },
   });
-  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const appended: Array<
+    Parameters<ResearchThreadOperations["commitAnswer"]>[0] & {
+      role: "assistant";
+    }
+  > = [];
   const turns = createResearchTurnOperations(
     createNativeResearchAssistant(model),
     {
-      async append(input) {
-        appended.push(input);
+      async commitAnswer(input) {
+        appended.push({ ...input, role: "assistant" });
         return {
           id: crypto.randomUUID(),
-          role: input.role,
+          parentMessageId: input.questionMessageId,
+          role: "assistant",
           content: input.content,
           createdAt: "2026-09-04T12:00:00.000Z",
         };
@@ -53,6 +58,7 @@ test("answers a direct-quotation follow-up without recapping the previous answer
     "The legitimacy of transgender entailed the legitimacy of transracialism.";
 
   const stream = await turns.answer({
+    questionMessageId: "40000000-0000-4000-8000-000000000000",
     threadId: "30000000-0000-4000-8000-000000000000",
     componentIdentity: "active:/",
     componentLabel: "Main entry",

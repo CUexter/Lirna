@@ -9,6 +9,7 @@ const threadId = "30000000-0000-4000-8000-000000000000";
 
 export function input() {
   return {
+    questionMessageId: "40000000-0000-4000-8000-000000000000",
     threadId,
     sourceId: "source-one",
     sourceStateId: "state-one",
@@ -99,19 +100,22 @@ export function evidenceSnapshot(
 }
 
 export function threads(
-  append: ResearchThreadOperations["append"],
-): Pick<ResearchThreadOperations, "append"> {
-  return { append };
+  commitAnswer: ResearchThreadOperations["commitAnswer"],
+): Pick<ResearchThreadOperations, "commitAnswer"> {
+  return { commitAnswer };
 }
 
-export function recordingThreads(
-  appended: Array<Parameters<ResearchThreadOperations["append"]>[0]>,
-) {
+export type RecordedAnswer = Parameters<
+  ResearchThreadOperations["commitAnswer"]
+>[0] & { role: "assistant" };
+
+export function recordingThreads(appended: RecordedAnswer[]) {
   return threads(async (received) => {
-    appended.push(received);
+    appended.push({ ...received, role: "assistant" });
     return {
       id: crypto.randomUUID(),
-      role: received.role,
+      parentMessageId: received.questionMessageId,
+      role: "assistant",
       content: received.content,
       createdAt: "2026-09-02T12:00:00.000Z",
     };

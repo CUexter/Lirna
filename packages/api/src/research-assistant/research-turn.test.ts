@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import type { UIMessageChunk } from "ai";
 import type { ResearchEvidenceDecisionReceipt } from "./research-evidence-session-contract";
-import type { ResearchThreadOperations } from "./research-thread-contract";
 import { createResearchTurnOperations } from "./research-turn";
 import {
   answerStream,
@@ -11,13 +10,14 @@ import {
   evidenceStream,
   input,
   multiStepStream,
+  type RecordedAnswer,
   recordingThreads,
 } from "./research-turn.test-support";
 
 const threadId = "30000000-0000-4000-8000-000000000000";
 
 test("streams Markdown and commits its compiled References together", async () => {
-  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const appended: RecordedAnswer[] = [];
   const turns = createResearchTurnOperations(
     assistant(evidenceStream()),
     recordingThreads(appended),
@@ -33,6 +33,7 @@ test("streams Markdown and commits its compiled References together", async () =
   expect(appended).toMatchObject([
     {
       threadId,
+      questionMessageId: "40000000-0000-4000-8000-000000000000",
       role: "assistant",
       content: expect.stringMatching(
         /^The passage grounds this claim\.\[\^[\da-f-]{36}\]$/,
@@ -56,7 +57,7 @@ test("streams Markdown and commits its compiled References together", async () =
 });
 
 test("commits only final synthesis Markdown from a multi-step turn", async () => {
-  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const appended: RecordedAnswer[] = [];
   const turns = createResearchTurnOperations(
     assistant(multiStepStream()),
     recordingThreads(appended),
@@ -73,7 +74,7 @@ test("commits only final synthesis Markdown from a multi-step turn", async () =>
 });
 
 test("rejects final synthesis when its transient claim ledger is missing", async () => {
-  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const appended: RecordedAnswer[] = [];
   const receipts: ResearchEvidenceDecisionReceipt[] = [];
   const turns = createResearchTurnOperations(
     assistant(
@@ -155,7 +156,7 @@ test("reports successful, refused, and exhausted sessions without content", asyn
 test("cancelling a turn cancels model execution and commits no answer", async () => {
   let modelCancelled = false;
   const receipts: ResearchEvidenceDecisionReceipt[] = [];
-  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const appended: RecordedAnswer[] = [];
   const modelStream = new ReadableStream<UIMessageChunk>({
     start(controller) {
       controller.enqueue({

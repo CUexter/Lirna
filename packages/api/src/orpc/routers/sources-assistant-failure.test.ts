@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
 import type { UIMessageChunk } from "ai";
-import type { ResearchThreadOperations } from "../../research-assistant/research-thread-contract";
+import type {
+  ResearchThreadMessage,
+  ResearchThreadOperations,
+} from "../../research-assistant/research-thread-contract";
 import { createResearchTurnOperations } from "../../research-assistant/research-turn";
 import {
   evidenceSnapshot,
@@ -17,9 +20,16 @@ import {
 import { sourcesRouter } from "./sources";
 
 const threadId = "30000000-0000-4000-8000-000000000000";
+type PersistedMessageInput =
+  | ({ role: "user" } & Parameters<
+      ResearchThreadOperations["appendQuestion"]
+    >[0])
+  | ({ role: "assistant" } & Parameters<
+      ResearchThreadOperations["commitAnswer"]
+    >[0]);
 
 test("failed final persistence preserves only the user question", async () => {
-  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const appended: PersistedMessageInput[] = [];
   const researchThreads = threads(async (input) => {
     if (input.role === "assistant") return undefined;
     appended.push(input);
@@ -219,8 +229,11 @@ function assistant(stream: ReadableStream<UIMessageChunk>) {
 }
 
 function threads(
-  append: ResearchThreadOperations["append"],
+  persist: (
+    input: PersistedMessageInput,
+  ) => Promise<ResearchThreadMessage | undefined>,
 ): ResearchThreadOperations {
+  let question: ResearchThreadMessage | undefined;
   return {
     async create() {
       throw new Error("Unexpected Research thread creation");
@@ -228,7 +241,7 @@ function threads(
     async list() {
       return [];
     },
-    async get() {
+    async projectSelectedPath() {
       return {
         id: threadId,
         sourceId,
@@ -241,7 +254,19 @@ function threads(
         messages: [],
       };
     },
-    append,
+    async appendQuestion(input) {
+      question = await persist({ ...input, role: "user" });
+      return question;
+    },
+    async commitAnswer(input) {
+      return persist({ ...input, role: "assistant" });
+    },
+    async historyThroughQuestion() {
+      return question ? [question] : undefined;
+    },
+    async listChildren() {
+      return [];
+    },
   };
 }
 

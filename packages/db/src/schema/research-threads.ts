@@ -1,10 +1,13 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   check,
+  foreignKey,
   index,
   integer,
   jsonb,
+  type PgTableExtraConfigValue,
   pgTable,
   text,
   timestamp,
@@ -29,8 +32,14 @@ export const researchThreads = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    selectedLeafMessageId: uuid("selected_leaf_message_id"),
   },
-  (table) => [
+  (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.selectedLeafMessageId],
+      foreignColumns: [researchThreadMessages.id as AnyPgColumn],
+      name: "research_threads_selected_leaf_fk",
+    }).onDelete("set null"),
     index("research_threads_scope_updated_idx").on(
       table.sourceStateId,
       table.componentIdentity,
@@ -43,9 +52,8 @@ export const researchThreadMessages = pgTable(
   "research_thread_messages",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    researchThreadId: uuid("research_thread_id")
-      .notNull()
-      .references(() => researchThreads.id, { onDelete: "cascade" }),
+    researchThreadId: uuid("research_thread_id").notNull(),
+    parentMessageId: uuid("parent_message_id"),
     sequence: integer("sequence").generatedAlwaysAsIdentity().notNull(),
     role: text("role").notNull(),
     content: text("content").notNull(),
@@ -80,11 +88,26 @@ export const researchThreadMessages = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => [
+  (table): PgTableExtraConfigValue[] => [
     index("research_thread_messages_thread_sequence_idx").on(
       table.researchThreadId,
       table.sequence,
     ),
+    index("research_thread_messages_parent_sequence_idx").on(
+      table.researchThreadId,
+      table.parentMessageId,
+      table.sequence,
+    ),
+    foreignKey({
+      columns: [table.researchThreadId],
+      foreignColumns: [researchThreads.id],
+      name: "research_thread_messages_thread_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.parentMessageId],
+      foreignColumns: [table.id],
+      name: "research_thread_messages_parent_fk",
+    }).onDelete("restrict"),
     check(
       "research_thread_messages_role_check",
       sql`${table.role} IN ('user', 'assistant')`,
@@ -101,9 +124,7 @@ export const researchEvidenceReceipts = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     sessionId: text("session_id").notNull(),
-    researchThreadId: uuid("research_thread_id")
-      .notNull()
-      .references(() => researchThreads.id, { onDelete: "cascade" }),
+    researchThreadId: uuid("research_thread_id").notNull(),
     sourceStateId: uuid("source_state_id")
       .notNull()
       .references(() => sourceStates.id, { onDelete: "cascade" }),
@@ -136,6 +157,11 @@ export const researchEvidenceReceipts = pgTable(
       .notNull(),
   },
   (table) => [
+    foreignKey({
+      columns: [table.researchThreadId],
+      foreignColumns: [researchThreads.id],
+      name: "research_evidence_receipts_thread_fk",
+    }).onDelete("cascade"),
     index("research_evidence_receipts_thread_created_idx").on(
       table.researchThreadId,
       table.createdAt,

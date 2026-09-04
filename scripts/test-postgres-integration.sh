@@ -133,6 +133,7 @@ fi
 if [[ "$mode" == "research-threads" ]]; then
   POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
     bun test \
+      "$root/packages/db/src/research-thread-migration.postgres.test.ts" \
       "$root/packages/api/src/research-assistant/research-thread-store.postgres.test.ts" \
       --timeout 30000
   exit 0
@@ -142,6 +143,7 @@ POSTGRES_ADMIN_URL="$POSTGRES_ADMIN_URL" \
   bun test \
     "$db_dir/src/postgres.integration.test.ts" \
     "$db_dir/src/annotation-migration.postgres.test.ts" \
+    "$db_dir/src/research-thread-migration.postgres.test.ts" \
     "$root/packages/api/src/source-handling-policy/source-handling-policy.postgres.test.ts" \
     --timeout 30000
 

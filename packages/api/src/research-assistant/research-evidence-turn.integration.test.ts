@@ -37,16 +37,21 @@ test("persists a canonical Reference admitted through evidence discovery", async
       return textStream("The claim is grounded.[^ev_1]");
     },
   });
-  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const appended: Array<
+    Parameters<ResearchThreadOperations["commitAnswer"]>[0] & {
+      role: "assistant";
+    }
+  > = [];
   const receipts: ResearchEvidenceDecisionReceipt[] = [];
   const turns = createResearchTurnOperations(
     createNativeResearchAssistant(model),
     {
-      async append(input) {
-        appended.push(input);
+      async commitAnswer(input) {
+        appended.push({ ...input, role: "assistant" });
         return {
           id: crypto.randomUUID(),
-          role: input.role,
+          parentMessageId: input.questionMessageId,
+          role: "assistant",
           content: input.content,
           createdAt: "2026-09-03T12:00:00.000Z",
         };
@@ -56,6 +61,7 @@ test("persists a canonical Reference admitted through evidence discovery", async
 
   const stream = await turns.answer(
     {
+      questionMessageId: "40000000-0000-4000-8000-000000000000",
       threadId: "30000000-0000-4000-8000-000000000000",
       componentIdentity: "active:/",
       componentLabel: "Main entry",
@@ -175,15 +181,20 @@ test("persists only the deliberately selected repeated occurrence", async () => 
       );
     },
   });
-  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const appended: Array<
+    Parameters<ResearchThreadOperations["commitAnswer"]>[0] & {
+      role: "assistant";
+    }
+  > = [];
   const turns = createResearchTurnOperations(
     createNativeResearchAssistant(model),
     {
-      async append(input) {
-        appended.push(input);
+      async commitAnswer(input) {
+        appended.push({ ...input, role: "assistant" });
         return {
           id: crypto.randomUUID(),
-          role: input.role,
+          parentMessageId: input.questionMessageId,
+          role: "assistant",
           content: input.content,
           createdAt: "2026-09-03T12:00:00.000Z",
         };
@@ -194,6 +205,7 @@ test("persists only the deliberately selected repeated occurrence", async () => 
   const sourceText =
     "Repeated evidence.\n\nBetween occurrences.\n\nRepeated evidence.";
   const stream = await turns.answer({
+    questionMessageId: "40000000-0000-4000-8000-000000000000",
     threadId: "30000000-0000-4000-8000-000000000000",
     componentIdentity: "active:/",
     componentLabel: "Main entry",
@@ -276,15 +288,20 @@ test("answers the trans women and trans men question without exact-text retries"
       );
     },
   });
-  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const appended: Array<
+    Parameters<ResearchThreadOperations["commitAnswer"]>[0] & {
+      role: "assistant";
+    }
+  > = [];
   const turns = createResearchTurnOperations(
     createNativeResearchAssistant(model),
     {
-      async append(input) {
-        appended.push(input);
+      async commitAnswer(input) {
+        appended.push({ ...input, role: "assistant" });
         return {
           id: crypto.randomUUID(),
-          role: input.role,
+          parentMessageId: input.questionMessageId,
+          role: "assistant",
           content: input.content,
           createdAt: "2026-09-03T12:00:00.000Z",
         };
@@ -296,6 +313,7 @@ test("answers the trans women and trans men question without exact-text retries"
   const chunks: UIMessageChunk[] = [];
 
   const stream = await turns.answer({
+    questionMessageId: "40000000-0000-4000-8000-000000000000",
     threadId: "30000000-0000-4000-8000-000000000000",
     componentIdentity: "active:/",
     componentLabel: "Main entry",

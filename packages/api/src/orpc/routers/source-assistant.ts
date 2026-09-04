@@ -110,7 +110,7 @@ export const sourceAssistantRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      const thread = await context.researchThreads.get(input);
+      const thread = await context.researchThreads.projectSelectedPath(input);
       if (!thread) throw notFound("Research thread is unavailable");
       return thread;
     }),
@@ -183,11 +183,10 @@ export const sourceAssistantRouter = {
       const attachments = input.attachments?.length
         ? input.attachments.map(temporaryAttachment)
         : undefined;
-      const thread = await context.researchThreads.get(input);
+      const thread = await context.researchThreads.projectSelectedPath(input);
       if (!thread) throw notFound("Research thread is unavailable");
-      const userMessage = await context.researchThreads.append({
+      const userMessage = await context.researchThreads.appendQuestion({
         threadId: thread.id,
-        role: "user",
         content: input.question,
         ...(selectedText ? { selectedText } : {}),
       });
@@ -196,20 +195,30 @@ export const sourceAssistantRouter = {
           message: "Research question could not be persisted",
         });
       }
+      const history = await context.researchThreads.historyThroughQuestion({
+        threadId: thread.id,
+        questionMessageId: userMessage.id,
+      });
+      if (!history) {
+        throw new ORPCError("INTERNAL_SERVER_ERROR", {
+          message: "Research question history could not be resolved",
+        });
+      }
       const answer = await context.researchTurns.answer(
         {
+          questionMessageId: userMessage.id,
           threadId: thread.id,
           ...(attachments ? { attachments } : {}),
-          history: thread.messages.map(
-            ({ role, content, references, selectedText }) => ({
+          history: history
+            .slice(0, -1)
+            .map(({ role, content, references, selectedText }) => ({
               role,
               content:
                 role === "assistant" && references?.length
                   ? researchAnswerHistoryContent(content, references)
                   : content,
               ...(selectedText ? { selectedText } : {}),
-            }),
-          ),
+            })),
           model: input.model,
           question: input.question,
           sourceId: input.sourceId,

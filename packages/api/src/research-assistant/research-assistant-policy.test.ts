@@ -39,7 +39,7 @@ test("refuses a Source policy before invoking the configured model", async () =>
       return model;
     }, activeReading),
     {
-      async append() {
+      async commitAnswer() {
         appendCalled = true;
         return undefined;
       },
@@ -49,6 +49,7 @@ test("refuses a Source policy before invoking the configured model", async () =>
   const chunks = [];
   const answer = await turns.answer(
     {
+      questionMessageId: "40000000-0000-4000-8000-000000000000",
       threadId: "30000000-0000-4000-8000-000000000000",
       componentIdentity: "article:main",
       componentLabel: "Article",

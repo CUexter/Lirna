@@ -33,6 +33,7 @@ export interface AliasedResearchPassageReference
 
 export interface ResearchThreadMessage {
   id: string;
+  parentMessageId?: string;
   role: "user" | "assistant";
   content: string;
   selectedText?: string;
@@ -67,16 +68,28 @@ export interface ResearchThreadOperations {
     sourceId: string;
     stateId: string;
   }): Promise<ResearchThreadSummary[]>;
-  get(input: {
+  projectSelectedPath(input: {
     sourceId: string;
     stateId: string;
     threadId: string;
   }): Promise<ResearchThread | undefined>;
-  append(input: {
+  appendQuestion(input: {
     threadId: string;
-    role: ResearchThreadMessage["role"];
     content: string;
     selectedText?: string;
+  }): Promise<ResearchThreadMessage | undefined>;
+  commitAnswer(input: {
+    threadId: string;
+    questionMessageId: string;
+    content: string;
     references?: ResearchPassageReference[];
   }): Promise<ResearchThreadMessage | undefined>;
+  historyThroughQuestion(input: {
+    threadId: string;
+    questionMessageId: string;
+  }): Promise<ResearchThreadMessage[] | undefined>;
+  listChildren(input: {
+    threadId: string;
+    parentMessageId?: string;
+  }): Promise<ResearchThreadMessage[]>;
 }

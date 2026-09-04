@@ -99,10 +99,19 @@ export function createTestApplication(
       async list() {
         return unexpected();
       },
-      async get() {
+      async projectSelectedPath() {
         return unexpected();
       },
-      async append() {
+      async appendQuestion() {
+        return unexpected();
+      },
+      async commitAnswer() {
+        return unexpected();
+      },
+      async historyThroughQuestion() {
+        return unexpected();
+      },
+      async listChildren() {
         return unexpected();
       },
     },

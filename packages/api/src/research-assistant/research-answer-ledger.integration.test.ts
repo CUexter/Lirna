@@ -143,7 +143,9 @@ test("revalidates canonical evidence before persistence and expires the session"
   let evidenceSession:
     | ReturnType<typeof createResearchEvidenceSession>
     | undefined;
-  const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
+  const appended: Array<
+    Parameters<ResearchThreadOperations["commitAnswer"]>[0]
+  > = [];
   const turns = createResearchTurnOperations(
     {
       async answer(_input, options) {
@@ -168,7 +170,7 @@ test("revalidates canonical evidence before persistence and expires the session"
       },
     },
     {
-      async append(input) {
+      async commitAnswer(input) {
         appended.push(input);
         return undefined;
       },
@@ -177,6 +179,7 @@ test("revalidates canonical evidence before persistence and expires the session"
 
   const chunks: UIMessageChunk[] = [];
   const stream = await turns.answer({
+    questionMessageId: "40000000-0000-4000-8000-000000000000",
     threadId: "30000000-0000-4000-8000-000000000000",
     sourceId: "source-one",
     sourceStateId: "state-one",
