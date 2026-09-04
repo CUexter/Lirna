@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { MockLanguageModelV4 } from "ai/test";
-import { createResearchAssistant } from "./research-assistant";
+import { createNativeResearchAssistant } from "./research-assistant";
 import {
   textStream,
   toolCallStream,
@@ -32,7 +32,7 @@ test("reserves the final agent step for a text answer", async () => {
     },
   });
   const chunks = [];
-  const answer = await createResearchAssistant(model).answer({
+  const answer = await createNativeResearchAssistant(model).answer({
     componentLabel: "Article",
     componentIdentity: "article",
     components: [
@@ -91,7 +91,7 @@ test("uses the configured final model step to synthesize without more tools", as
       });
     },
   });
-  const answer = await createResearchAssistant(model, undefined, {
+  const answer = await createNativeResearchAssistant(model, undefined, {
     evidenceBudget: {
       maximumDiscoveries: 2,
       maximumCandidatesPerDiscovery: 2,
@@ -154,7 +154,7 @@ test("forces synthesis immediately after an evidence budget is exhausted", async
       });
     },
   });
-  const answer = await createResearchAssistant(model, undefined, {
+  const answer = await createNativeResearchAssistant(model, undefined, {
     evidenceBudget: {
       maximumDiscoveries: 1,
       maximumCandidatesPerDiscovery: 2,

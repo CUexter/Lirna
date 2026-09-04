@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { MockLanguageModelV4 } from "ai/test";
-import { createResearchAssistant } from "./research-assistant";
+import { createNativeResearchAssistant } from "./research-assistant";
 import {
   textStream,
   toolCallStream,
@@ -56,7 +56,7 @@ test("renders a validated ledger when final synthesis is structurally invalid", 
       return textStream("Verified prose claim[^ev_1]");
     },
   });
-  const answer = await createResearchAssistant(model).answer(
+  const answer = await createNativeResearchAssistant(model).answer(
     request("Verified passage."),
     {
       commit: {
@@ -141,7 +141,7 @@ test("does not spend the remaining model budget repairing answer formatting", as
       return textStream("Unrelated prose.");
     },
   });
-  const answer = await createResearchAssistant(model).answer(
+  const answer = await createNativeResearchAssistant(model).answer(
     request("Verified passage."),
     {
       commit: {

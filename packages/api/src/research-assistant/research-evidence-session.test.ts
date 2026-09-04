@@ -4,7 +4,7 @@ import { MockLanguageModelV4 } from "ai/test";
 
 import { activeReadingStub } from "../annotations/annotation-store.test-support";
 import type { EvidenceResolutionObservation } from "./evidence-resolution";
-import { createResearchAssistant } from "./research-assistant";
+import { createNativeResearchAssistant } from "./research-assistant";
 import { createResearchEvidenceSessionCore } from "./research-evidence-session";
 
 test("a derivative change expires remaining handles and restarts discovery", async () => {
@@ -91,7 +91,7 @@ test("cancellation interrupts an admission awaiting Derivative validation", asyn
         limit: 5,
       }),
   });
-  const answer = await createResearchAssistant(model, {
+  const answer = await createNativeResearchAssistant(model, {
     async read(input) {
       readCount += 1;
       if (readCount > 1) {

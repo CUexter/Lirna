@@ -6,7 +6,11 @@ import type {
   EvidenceResolutionResult,
 } from "./evidence-resolution";
 import type { PersistResearchAnswer } from "./research-answer-finalization";
-import type { AnswerValidationProblem } from "./research-answer-ledger";
+import type {
+  AnswerLedger,
+  AnswerValidationProblem,
+  AnswerValidationResult,
+} from "./research-answer-ledger";
 import type { EvidenceComponent } from "./research-evidence-tool-support";
 import type { AliasedResearchPassageReference } from "./research-thread-contract";
 
@@ -216,10 +220,12 @@ export interface ResearchEvidenceSession {
     limit: number;
   }): Promise<EvidenceResolutionResult>;
   admit(input: { candidateHandle: string }): Promise<EvidenceResolutionResult>;
-  prepareAnswer(input: { claims: unknown[] }): Record<string, unknown>;
+  prepareAnswer(input: {
+    claims: unknown[];
+  }): { kind: "answer-ledger" } & AnswerValidationResult;
   snapshot(): ResearchEvidenceSessionSnapshot;
   hasValidAnswerLedger(): boolean;
-  validAnswerLedger(): unknown;
+  validAnswerLedger(): AnswerLedger | undefined;
   answerLedgerAttempts(): number;
   validateReferences(
     references: AliasedResearchPassageReference[],

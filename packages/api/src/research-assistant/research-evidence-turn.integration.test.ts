@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import type { UIMessageChunk } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 
-import { createResearchAssistant } from "./research-assistant";
+import { createNativeResearchAssistant } from "./research-assistant";
 import type { ResearchEvidenceDecisionReceipt } from "./research-evidence-session-contract";
 import {
   candidateHandleFromPrompt,
@@ -39,17 +39,20 @@ test("persists a canonical Reference admitted through evidence discovery", async
   });
   const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
   const receipts: ResearchEvidenceDecisionReceipt[] = [];
-  const turns = createResearchTurnOperations(createResearchAssistant(model), {
-    async append(input) {
-      appended.push(input);
-      return {
-        id: crypto.randomUUID(),
-        role: input.role,
-        content: input.content,
-        createdAt: "2026-09-03T12:00:00.000Z",
-      };
+  const turns = createResearchTurnOperations(
+    createNativeResearchAssistant(model),
+    {
+      async append(input) {
+        appended.push(input);
+        return {
+          id: crypto.randomUUID(),
+          role: input.role,
+          content: input.content,
+          createdAt: "2026-09-03T12:00:00.000Z",
+        };
+      },
     },
-  });
+  );
 
   const stream = await turns.answer(
     {
@@ -173,17 +176,20 @@ test("persists only the deliberately selected repeated occurrence", async () => 
     },
   });
   const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
-  const turns = createResearchTurnOperations(createResearchAssistant(model), {
-    async append(input) {
-      appended.push(input);
-      return {
-        id: crypto.randomUUID(),
-        role: input.role,
-        content: input.content,
-        createdAt: "2026-09-03T12:00:00.000Z",
-      };
+  const turns = createResearchTurnOperations(
+    createNativeResearchAssistant(model),
+    {
+      async append(input) {
+        appended.push(input);
+        return {
+          id: crypto.randomUUID(),
+          role: input.role,
+          content: input.content,
+          createdAt: "2026-09-03T12:00:00.000Z",
+        };
+      },
     },
-  });
+  );
 
   const sourceText =
     "Repeated evidence.\n\nBetween occurrences.\n\nRepeated evidence.";
@@ -271,17 +277,20 @@ test("answers the trans women and trans men question without exact-text retries"
     },
   });
   const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
-  const turns = createResearchTurnOperations(createResearchAssistant(model), {
-    async append(input) {
-      appended.push(input);
-      return {
-        id: crypto.randomUUID(),
-        role: input.role,
-        content: input.content,
-        createdAt: "2026-09-03T12:00:00.000Z",
-      };
+  const turns = createResearchTurnOperations(
+    createNativeResearchAssistant(model),
+    {
+      async append(input) {
+        appended.push(input);
+        return {
+          id: crypto.randomUUID(),
+          role: input.role,
+          content: input.content,
+          createdAt: "2026-09-03T12:00:00.000Z",
+        };
+      },
     },
-  });
+  );
   const canonicalPassage =
     "Gender-critical feminism is typified by its rejection of trans women's identities.";
   const chunks: UIMessageChunk[] = [];

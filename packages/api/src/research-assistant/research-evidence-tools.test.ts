@@ -3,7 +3,7 @@ import { MockLanguageModelV4 } from "ai/test";
 
 import type { EvidenceResolutionObservation } from "./evidence-resolution";
 import { answerLedgerSchema } from "./research-answer-ledger";
-import { createResearchAssistant } from "./research-assistant";
+import { createNativeResearchAssistant } from "./research-assistant";
 import { createResearchEvidenceSession } from "./research-evidence-tools";
 import {
   textStream,
@@ -37,7 +37,7 @@ test("reports repeated canonical passages as ambiguous candidates", async () => 
     },
   });
   const chunks = [];
-  const answer = await createResearchAssistant(model).answer(
+  const answer = await createNativeResearchAssistant(model).answer(
     request("Repeated evidence.\n\nBetween.\n\nRepeated evidence."),
     {
       onEvidenceResolution(observation) {
@@ -95,7 +95,7 @@ test("reports distinct equally ranked passages as ambiguous candidates", async (
     },
   });
   const chunks = [];
-  const answer = await createResearchAssistant(model).answer(
+  const answer = await createNativeResearchAssistant(model).answer(
     request("Alpha evidence.\n\nBeta evidence."),
   );
 
@@ -128,7 +128,7 @@ test("detects ambiguity even when the model requests one candidate", async () =>
     },
   });
   const chunks = [];
-  const answer = await createResearchAssistant(model).answer(
+  const answer = await createNativeResearchAssistant(model).answer(
     request("Alpha evidence.\n\nBeta evidence."),
   );
 
@@ -169,7 +169,7 @@ test("reports no result and out-of-scope discovery as expected outcomes", async 
     },
   });
   const chunks = [];
-  const answer = await createResearchAssistant(model).answer(
+  const answer = await createNativeResearchAssistant(model).answer(
     request("Verified passage."),
   );
 
@@ -213,7 +213,7 @@ test("reports near-tied ranked passages as ambiguous candidates", async () => {
     },
   });
   const chunks = [];
-  const answer = await createResearchAssistant(model).answer(
+  const answer = await createNativeResearchAssistant(model).answer(
     request("Alpha beta gamma evidence.\n\nBeta gamma evidence."),
   );
 

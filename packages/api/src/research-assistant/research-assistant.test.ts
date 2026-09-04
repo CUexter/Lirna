@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { activeReadingStub } from "../annotations/annotation-store.test-support";
-import { createResearchAssistant } from "./research-assistant";
+import { createNativeResearchAssistant } from "./research-assistant";
 import {
   textStream,
   toolCallStream,
@@ -35,7 +35,7 @@ test("sends temporary evidence as an AI SDK file part", async () => {
       }),
     }),
   });
-  const answer = await createResearchAssistant((modelId) => {
+  const answer = await createNativeResearchAssistant((modelId) => {
     selectedModel = modelId;
     return model;
   }).answer({
@@ -110,7 +110,7 @@ test("builds prompt evidence from the active Reading Derivative", async () => {
   const model = new MockLanguageModelV4({
     doStream: async () => textStream("Grounded answer."),
   });
-  const answer = await createResearchAssistant(
+  const answer = await createNativeResearchAssistant(
     model,
     activeReadingStub(true),
   ).answer({
@@ -176,7 +176,7 @@ test("discovers and admits a canonical passage from a supplementary component", 
     },
   });
   const chunks = [];
-  const answer = await createResearchAssistant(model).answer({
+  const answer = await createNativeResearchAssistant(model).answer({
     componentLabel: "Article",
     componentIdentity: "article",
     components: [

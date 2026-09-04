@@ -3,7 +3,7 @@ import { simulateReadableStream } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 
 import { activeReadingStub } from "../annotations/annotation-store.test-support";
-import { createResearchAssistant } from "./research-assistant";
+import { createNativeResearchAssistant } from "./research-assistant";
 import type { ResearchEvidenceDecisionReceipt } from "./research-evidence-session-contract";
 import { createResearchTurnOperations } from "./research-turn";
 
@@ -34,7 +34,7 @@ test("refuses a Source policy before invoking the configured model", async () =>
   const receipts: ResearchEvidenceDecisionReceipt[] = [];
   let appendCalled = false;
   const turns = createResearchTurnOperations(
-    createResearchAssistant(() => {
+    createNativeResearchAssistant(() => {
       modelSelected = true;
       return model;
     }, activeReading),

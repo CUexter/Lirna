@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import type { UIMessageChunk } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 
-import { createResearchAssistant } from "./research-assistant";
+import { createNativeResearchAssistant } from "./research-assistant";
 import { createResearchEvidenceSession } from "./research-evidence-tools";
 import {
   textStream,
@@ -30,7 +30,7 @@ test("gives an invalid answer ledger one bounded repair before synthesis", async
     },
   });
   const chunks = [];
-  const answer = await createResearchAssistant(model, undefined, {
+  const answer = await createNativeResearchAssistant(model, undefined, {
     evidenceBudget: {
       maximumDiscoveries: 1,
       maximumCandidatesPerDiscovery: 2,
@@ -86,7 +86,7 @@ test("returns one uncertainty response when ledger repair is exhausted", async (
         ],
       }),
   });
-  const answer = await createResearchAssistant(model, undefined, {
+  const answer = await createNativeResearchAssistant(model, undefined, {
     evidenceBudget: {
       maximumDiscoveries: 1,
       maximumCandidatesPerDiscovery: 2,

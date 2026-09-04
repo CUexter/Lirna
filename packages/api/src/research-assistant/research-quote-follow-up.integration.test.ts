@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { MockLanguageModelV4 } from "ai/test";
 
-import { createResearchAssistant } from "./research-assistant";
+import { createNativeResearchAssistant } from "./research-assistant";
 import {
   textStream,
   toolCallStream,
@@ -35,17 +35,20 @@ test("answers a direct-quotation follow-up without recapping the previous answer
     },
   });
   const appended: Array<Parameters<ResearchThreadOperations["append"]>[0]> = [];
-  const turns = createResearchTurnOperations(createResearchAssistant(model), {
-    async append(input) {
-      appended.push(input);
-      return {
-        id: crypto.randomUUID(),
-        role: input.role,
-        content: input.content,
-        createdAt: "2026-09-04T12:00:00.000Z",
-      };
+  const turns = createResearchTurnOperations(
+    createNativeResearchAssistant(model),
+    {
+      async append(input) {
+        appended.push(input);
+        return {
+          id: crypto.randomUUID(),
+          role: input.role,
+          content: input.content,
+          createdAt: "2026-09-04T12:00:00.000Z",
+        };
+      },
     },
-  });
+  );
   const passage =
     "The legitimacy of transgender entailed the legitimacy of transracialism.";
 
