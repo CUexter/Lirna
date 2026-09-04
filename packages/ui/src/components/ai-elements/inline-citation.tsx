@@ -38,7 +38,6 @@ export const InlineCitation = ({
 
 export type InlineCitationTextProps = ComponentProps<"span">;
 
-// fallow-ignore-next-line unused-export
 export const InlineCitationText = ({
   className,
   ...props
@@ -145,7 +144,6 @@ export const InlineCitationCarouselItem = ({
 
 export type InlineCitationCarouselHeaderProps = ComponentProps<"div">;
 
-// fallow-ignore-next-line unused-export
 export const InlineCitationCarouselHeader = ({
   className,
   ...props
@@ -161,7 +159,6 @@ export const InlineCitationCarouselHeader = ({
 
 export type InlineCitationCarouselIndexProps = ComponentProps<"div">;
 
-// fallow-ignore-next-line unused-export
 export const InlineCitationCarouselIndex = ({
   children,
   className,
@@ -199,7 +196,6 @@ export const InlineCitationCarouselIndex = ({
 
 export type InlineCitationCarouselPrevProps = ComponentProps<"button">;
 
-// fallow-ignore-next-line unused-export
 export const InlineCitationCarouselPrev = ({
   className,
   ...props
@@ -229,7 +225,6 @@ export const InlineCitationCarouselPrev = ({
 
 export type InlineCitationCarouselNextProps = ComponentProps<"button">;
 
-// fallow-ignore-next-line unused-export
 export const InlineCitationCarouselNext = ({
   className,
   ...props

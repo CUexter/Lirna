@@ -1,6 +1,6 @@
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { z } from "zod";
-
+import { type MarkdownNode, nodeSource } from "./markdown-node-source";
 import type { EvidenceRelation } from "./research-thread-contract";
 
 const evidenceRelationSchema = z.enum([
@@ -236,18 +236,4 @@ function relation(value: string | undefined): EvidenceRelation | undefined {
   if (!value) return "supports";
   const parsed = evidenceRelationSchema.safeParse(value);
   return parsed.success ? parsed.data : undefined;
-}
-
-function nodeSource(node: MarkdownNode, content: string) {
-  const start = node.position?.start.offset;
-  const end = node.position?.end.offset;
-  return start === undefined || end === undefined
-    ? undefined
-    : content.slice(start, end);
-}
-
-interface MarkdownNode {
-  type: string;
-  children?: MarkdownNode[];
-  position?: { start: { offset?: number }; end: { offset?: number } };
 }

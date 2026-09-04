@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { fromMarkdown } from "mdast-util-from-markdown";
-
+import { type MarkdownNode, nodeSource } from "./markdown-node-source";
 import type {
   AliasedResearchPassageReference,
   EvidenceRelation,
@@ -254,14 +254,6 @@ function afterLast(value: string, delimiter: string) {
   return index < 0 ? 0 : index + delimiter.length;
 }
 
-function nodeSource(node: MarkdownNode, content: string) {
-  const start = node.position?.start.offset;
-  const end = node.position?.end.offset;
-  return start === undefined || end === undefined
-    ? undefined
-    : content.slice(start, end);
-}
-
 function evidenceRelation(
   value: string | undefined,
 ): EvidenceRelation | undefined {
@@ -269,12 +261,6 @@ function evidenceRelation(
   return relations.has(value as EvidenceRelation)
     ? (value as EvidenceRelation)
     : undefined;
-}
-
-interface MarkdownNode {
-  type: string;
-  children?: MarkdownNode[];
-  position?: { start: { offset?: number }; end: { offset?: number } };
 }
 
 interface MarkerCompiler {
