@@ -9,7 +9,9 @@ import { defaultResearchAssistantModel } from "./research-assistant-contract";
 import type { ResearchThreadOperations } from "./research-thread-contract";
 
 export interface ResearchTurnInput extends ResearchAssistantInput {
+  expectedSelectedLeafMessageId?: string;
   questionMessageId: string;
+  regeneratedFromAnswerId?: string;
   threadId: string;
 }
 
@@ -25,7 +27,16 @@ export function createResearchTurnOperations(
   threads: Pick<ResearchThreadOperations, "commitAnswer">,
 ): ResearchTurnOperations {
   return {
-    async answer({ questionMessageId, threadId, ...input }, options) {
+    async answer(
+      {
+        expectedSelectedLeafMessageId,
+        questionMessageId,
+        regeneratedFromAnswerId,
+        threadId,
+        ...input
+      },
+      options,
+    ) {
       const answerMessageId = randomUUID();
       const model = input.model ?? defaultResearchAssistantModel;
       const stream = await assistant.answer(
@@ -41,8 +52,11 @@ export function createResearchTurnOperations(
                 answerMessageId,
                 threadId,
                 questionMessageId,
+                expectedSelectedLeafMessageId:
+                  expectedSelectedLeafMessageId ?? questionMessageId,
                 content,
                 model,
+                ...(regeneratedFromAnswerId ? { regeneratedFromAnswerId } : {}),
                 ...(references.length ? { references } : {}),
               });
               if (!persisted)

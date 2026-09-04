@@ -31,33 +31,39 @@ import type {
   ResearchAssistantMessage,
   ResearchPassageReference,
 } from "../researchAssistantTransport";
+import { ResearchAssistantAlternatives } from "./ResearchAssistantAlternatives";
 import { MessageAttachments } from "./ResearchAssistantComposer";
+import { ResearchAssistantResponse } from "./ResearchAssistantResponse";
 import {
   ResearchAssistantRetryStatus,
   retryQuestionFor,
   TemporaryEvidenceSummary,
 } from "./ResearchAssistantRetryStatus";
-import { ResearchAssistantResponse } from "./ResearchAssistantResponse";
 
 export function ResearchAssistantTranscript({
+  actions,
   error,
   messages,
   passageForReference,
   passageForSelection,
   pending,
-  onRetry,
   retryableQuestionId,
   selection,
 }: {
+  actions?: {
+    regenerate?: (message: ResearchAssistantMessage) => void;
+    retry?: (message: ResearchAssistantMessage) => void;
+    selectAlternative?: (answerId: string) => void;
+  };
   error?: string;
   messages: ResearchAssistantMessage[];
   passageForReference: (reference: ResearchPassageReference) => ArticlePassage;
   passageForSelection: (selection: SelectionDraft) => ArticlePassage;
   pending: boolean;
-  onRetry?: (message: ResearchAssistantMessage) => void;
   retryableQuestionId?: string;
   selection?: SelectionDraft;
 }) {
+  const { regenerate, retry, selectAlternative } = actions ?? {};
   const lastMessage = messages.at(-1);
   const retryQuestion = retryQuestionFor(
     messages,
@@ -107,6 +113,8 @@ export function ResearchAssistantTranscript({
                 key={message.id}
                 lastMessageId={lastMessage?.id}
                 message={message}
+                onRegenerate={regenerate}
+                onSelectAlternative={selectAlternative}
                 passageForReference={passageForReference}
                 passageForSelection={passageForSelection}
                 pending={pending}
@@ -121,7 +129,7 @@ export function ResearchAssistantTranscript({
               <MessageScrollerItem>
                 <ResearchAssistantRetryStatus
                   message={retryQuestion}
-                  onRetry={onRetry}
+                  onRetry={retry}
                   pending={pending}
                 />
               </MessageScrollerItem>
@@ -144,12 +152,16 @@ export function ResearchAssistantTranscript({
 function TranscriptMessage({
   lastMessageId,
   message,
+  onRegenerate,
+  onSelectAlternative,
   passageForReference,
   passageForSelection,
   pending,
 }: {
   lastMessageId?: string;
   message: ResearchAssistantMessage;
+  onRegenerate?: (message: ResearchAssistantMessage) => void;
+  onSelectAlternative?: (answerId: string) => void;
   passageForReference: (reference: ResearchPassageReference) => ArticlePassage;
   passageForSelection: (selection: SelectionDraft) => ArticlePassage;
   pending: boolean;
@@ -170,36 +182,78 @@ function TranscriptMessage({
   const messageSelection = message.metadata?.selection;
   if (message.role === "assistant" && !hasAssistantContent && !waiting)
     return null;
+  if (waiting)
+    return (
+      <MessageScrollerItem data-message-id={message.id}>
+        <AssistantWaiting />
+      </MessageScrollerItem>
+    );
+  if (message.role === "assistant")
+    return (
+      <AssistantTranscriptMessage
+        message={message}
+        onRegenerate={onRegenerate}
+        onSelectAlternative={onSelectAlternative}
+        passageForReference={passageForReference}
+        pending={pending}
+      />
+    );
   return (
     <MessageScrollerItem data-message-id={message.id}>
-      {waiting ? (
-        <AssistantWaiting />
-      ) : message.role === "assistant" ? (
+      <Message align="end">
+        <MessageContent>
+          {message.metadata?.attachments?.length ? (
+            <MessageAttachments attachments={message.metadata.attachments} />
+          ) : null}
+          <TemporaryEvidenceSummary message={message} />
+          {messageSelection ? (
+            <QuotedPassageAction
+              className="mb-2"
+              passage={passageForSelection(messageSelection)}
+            />
+          ) : null}
+          <Bubble align="end" variant="default">
+            <BubbleContent className="rounded-2xl px-3 py-2 text-sm">
+              {text}
+            </BubbleContent>
+          </Bubble>
+        </MessageContent>
+      </Message>
+    </MessageScrollerItem>
+  );
+}
+
+function AssistantTranscriptMessage({
+  message,
+  onRegenerate,
+  onSelectAlternative,
+  passageForReference,
+  pending,
+}: {
+  message: ResearchAssistantMessage;
+  onRegenerate?: (message: ResearchAssistantMessage) => void;
+  onSelectAlternative?: (answerId: string) => void;
+  passageForReference: (reference: ResearchPassageReference) => ArticlePassage;
+  pending: boolean;
+}) {
+  return (
+    <MessageScrollerItem data-message-id={message.id}>
+      <div className="flex flex-col gap-2">
         <ResearchAssistantResponse
           message={message}
           passageForReference={passageForReference}
         />
-      ) : (
-        <Message align="end">
-          <MessageContent>
-            {message.metadata?.attachments?.length ? (
-              <MessageAttachments attachments={message.metadata.attachments} />
-            ) : null}
-            <TemporaryEvidenceSummary message={message} />
-            {messageSelection ? (
-              <QuotedPassageAction
-                className="mb-2"
-                passage={passageForSelection(messageSelection)}
-              />
-            ) : null}
-            <Bubble align="end" variant="default">
-              <BubbleContent className="rounded-2xl px-3 py-2 text-sm">
-                {text}
-              </BubbleContent>
-            </Bubble>
-          </MessageContent>
-        </Message>
-      )}
+        <ResearchAssistantAlternatives
+          disabled={pending}
+          message={message}
+          onRegenerate={
+            message.metadata?.model && onRegenerate
+              ? () => onRegenerate(message)
+              : undefined
+          }
+          onSelect={onSelectAlternative}
+        />
+      </div>
     </MessageScrollerItem>
   );
 }

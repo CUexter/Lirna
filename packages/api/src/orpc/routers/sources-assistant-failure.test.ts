@@ -267,6 +267,9 @@ function threads(
     async listChildren() {
       return [];
     },
+    async selectAnswerAlternative() {
+      return false;
+    },
   };
 }
 

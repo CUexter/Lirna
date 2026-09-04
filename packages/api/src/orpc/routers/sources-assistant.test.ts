@@ -408,6 +408,9 @@ function context(
     async listChildren() {
       return [];
     },
+    async selectAnswerAlternative() {
+      return false;
+    },
   };
   return createTestContext(
     {

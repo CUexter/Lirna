@@ -114,6 +114,9 @@ export function createTestApplication(
       async listChildren() {
         return unexpected();
       },
+      async selectAnswerAlternative() {
+        return unexpected();
+      },
     },
     derivativeUpdates: {
       async generate() {

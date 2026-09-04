@@ -144,6 +144,7 @@ test("rejects final synthesis when its transient claim ledger is missing", async
 
 test("reports successful, refused, and exhausted sessions without content", async () => {
   const receipts: ResearchEvidenceDecisionReceipt[] = [];
+  const committed: RecordedAnswer[] = [];
   for (const snapshot of [
     evidenceSnapshot(),
     evidenceSnapshot({
@@ -158,7 +159,7 @@ test("reports successful, refused, and exhausted sessions without content", asyn
   ]) {
     const turns = createResearchTurnOperations(
       assistant(answerStream("Completed answer"), snapshot),
-      recordingThreads([]),
+      recordingThreads(committed),
     );
     await collect(
       await turns.answer(input(), {
@@ -174,6 +175,7 @@ test("reports successful, refused, and exhausted sessions without content", asyn
     "refused",
     "exhausted",
   ]);
+  expect(committed).toHaveLength(1);
   expect(receipts[0]).toMatchObject({
     sessionId: "session-test",
     researchThreadId: threadId,

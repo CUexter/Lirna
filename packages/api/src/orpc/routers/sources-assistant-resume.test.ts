@@ -178,5 +178,6 @@ function unusedResearchThreadOperations(): ResearchThreadOperations {
     commitAnswer: unexpected,
     historyThroughQuestion: unexpected,
     listChildren: unexpected,
+    selectAnswerAlternative: unexpected,
   };
 }

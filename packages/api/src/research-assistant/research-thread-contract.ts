@@ -58,6 +58,13 @@ export interface ResearchThreadMessage {
   role: "user" | "assistant";
   content: string;
   model?: ResearchAssistantModel;
+  regeneratedFromAnswerId?: string;
+  answerAlternatives?: {
+    position: number;
+    total: number;
+    previousAnswerId?: string;
+    nextAnswerId?: string;
+  };
   selectedText?: string;
   temporaryEvidence?: TemporaryEvidenceDescriptor[];
   references?: ResearchPassageReference[];
@@ -106,8 +113,10 @@ export interface ResearchThreadOperations {
     answerMessageId: string;
     threadId: string;
     questionMessageId: string;
+    expectedSelectedLeafMessageId: string;
     content: string;
     model: ResearchAssistantModel;
+    regeneratedFromAnswerId?: string;
     references?: ResearchPassageReference[];
   }): Promise<ResearchThreadMessage | undefined>;
   historyThroughQuestion(input: {
@@ -118,4 +127,9 @@ export interface ResearchThreadOperations {
     threadId: string;
     parentMessageId?: string;
   }): Promise<ResearchThreadMessage[]>;
+  selectAnswerAlternative(input: {
+    threadId: string;
+    answerMessageId: string;
+    expectedSelectedLeafMessageId: string;
+  }): Promise<boolean>;
 }

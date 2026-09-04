@@ -19,24 +19,28 @@ import {
 import { notFoundError, sourceStateInput } from "./source-router-contracts";
 import { notFound } from "./source-router-support";
 
-export const sourceAssistantRetryProcedure = publicProcedure
+const alternativeInput = sourceStateInput.extend({
+  answerMessageId: z.string().uuid(),
+  expectedSelectedLeafMessageId: z.string().uuid(),
+  threadId: z.string().uuid(),
+});
+
+export const sourceAssistantRegenerateProcedure = publicProcedure
   .input(
-    sourceStateInput.extend({
+    alternativeInput.extend({
       attachments: z.array(temporaryAttachmentInput).max(3).optional(),
       model: z
         .enum(researchAssistantModelIds)
         .default(defaultResearchAssistantModel),
-      questionMessageId: z.string().uuid(),
-      threadId: z.string().uuid(),
     }),
   )
   .errors(notFoundError)
   .meta(
     openapi({
       method: "POST",
-      path: "/sources/assistant/retry",
-      operationId: "sources.assistant.retry",
-      summary: "Retry an unanswered Research question",
+      path: "/sources/assistant/regenerate",
+      operationId: "sources.assistant.regenerate",
+      summary: "Regenerate a completed Research answer",
       tags: ["Sources"],
     }),
   )
@@ -48,26 +52,30 @@ export const sourceAssistantRetryProcedure = publicProcedure
     }
     const thread = await context.researchThreads.projectSelectedPath(input);
     if (!thread) throw notFound("Research thread is unavailable");
-    const question = thread.messages.at(-1);
+    const selectedLeaf = thread.messages.at(-1);
+    const answer = thread.messages.find(
+      ({ id, role }) => id === input.answerMessageId && role === "assistant",
+    );
+    const question = answer?.parentMessageId
+      ? thread.messages.find(
+          ({ id, role }) => id === answer.parentMessageId && role === "user",
+        )
+      : undefined;
     if (
-      question?.id !== input.questionMessageId ||
-      question.role !== "user" ||
-      (
-        await context.researchThreads.listChildren({
-          threadId: thread.id,
-          parentMessageId: input.questionMessageId,
-        })
-      ).some(({ role }) => role === "assistant")
+      !answer ||
+      !question ||
+      selectedLeaf?.id !== input.expectedSelectedLeafMessageId
     ) {
       throw new ORPCError("BAD_REQUEST", {
         message:
-          "Only the selected unanswered Research question can be retried",
+          "Only an answer on the current selected path can be regenerated",
       });
     }
     const suppliedAttachments = input.attachments ?? [];
     requireTemporaryEvidence(
       question.temporaryEvidence ?? [],
       suppliedAttachments,
+      "regenerating",
     );
     const { reading, component } = await requireReadingComponent(context, {
       ...input,
@@ -82,17 +90,49 @@ export const sourceAssistantRetryProcedure = publicProcedure
         message: "Research question history could not be resolved",
       });
     }
-    const answer = await answerQuestion(context, {
+    const regenerated = await answerQuestion(context, {
       attachments: suppliedAttachments.map(temporaryAttachment),
       component,
-      expectedSelectedLeafMessageId: question.id,
+      expectedSelectedLeafMessageId: input.expectedSelectedLeafMessageId,
       history,
       model: input.model,
       question,
       reading,
+      regeneratedFromAnswerId: answer.id,
       sourceId: input.sourceId,
       sourceStateId: input.stateId,
       threadId: thread.id,
     });
-    return streamToAsyncIteratorObject(answer);
+    return streamToAsyncIteratorObject(regenerated);
+  });
+
+export const sourceAssistantSelectProcedure = publicProcedure
+  .input(alternativeInput)
+  .errors(notFoundError)
+  .meta(
+    openapi({
+      method: "POST",
+      path: "/sources/assistant/select-answer",
+      operationId: "sources.assistant.selectAnswer",
+      summary: "Select a Research answer alternative",
+      tags: ["Sources"],
+    }),
+  )
+  .handler(async ({ context, input }) => {
+    const current = await context.researchThreads.projectSelectedPath(input);
+    if (!current) throw notFound("Research thread is unavailable");
+    const selected =
+      await context.researchThreads.selectAnswerAlternative(input);
+    if (!selected) {
+      throw new ORPCError("BAD_REQUEST", {
+        message: "The Research answer selection changed; reload and try again",
+      });
+    }
+    const thread = await context.researchThreads.projectSelectedPath(input);
+    if (!thread) {
+      throw new ORPCError("INTERNAL_SERVER_ERROR", {
+        message: "Selected Research thread could not be reloaded",
+      });
+    }
+    return thread;
   });

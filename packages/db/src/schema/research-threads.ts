@@ -63,6 +63,7 @@ export const researchThreadMessages = pgTable(
         Array<{ filename: string; mediaType: string }>
       >(),
     model: text("model"),
+    regeneratedFromAnswerId: uuid("regenerated_from_answer_id"),
     references:
       jsonb("references").$type<
         Array<{
@@ -112,6 +113,11 @@ export const researchThreadMessages = pgTable(
       columns: [table.parentMessageId],
       foreignColumns: [table.id],
       name: "research_thread_messages_parent_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.regeneratedFromAnswerId],
+      foreignColumns: [table.id],
+      name: "research_thread_messages_regenerated_from_fk",
     }).onDelete("restrict"),
     check(
       "research_thread_messages_role_check",

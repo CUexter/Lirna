@@ -51,6 +51,7 @@ export function temporaryAttachment(
 export function requireTemporaryEvidence(
   required: Array<{ filename: string; mediaType: string }>,
   supplied: Array<z.infer<typeof temporaryAttachmentInput>>,
+  action = "retrying",
 ) {
   const orderedRequired = [...required].sort(compareTemporaryEvidence);
   const orderedSupplied = [...supplied].sort(compareTemporaryEvidence);
@@ -69,7 +70,7 @@ export function requireTemporaryEvidence(
     .join(", ");
   throw new ORPCError("BAD_REQUEST", {
     message: description
-      ? `Reattach temporary evidence before retrying: ${description}`
+      ? `Reattach temporary evidence before ${action}: ${description}`
       : "This question did not use temporary evidence",
   });
 }

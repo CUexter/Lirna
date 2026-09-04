@@ -126,7 +126,8 @@ test("retries an unanswered question after required evidence is reattached", asy
     trigger: "regenerate-message",
     messageId: questionId,
     body: {
-      retryAttachments: [
+      operation: "retry",
+      attachments: [
         {
           dataUrl: "data:text/plain;base64,dGVtcG9yYXJ5IGV2aWRlbmNl",
           filename: "evidence.txt",

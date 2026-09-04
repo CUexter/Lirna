@@ -27,9 +27,11 @@ export async function answerQuestion(
     attachments?: Array<{ data: URL; filename: string; mediaType: string }>;
     component: Reading["components"][number];
     history: ResearchThreadMessage[];
+    expectedSelectedLeafMessageId: string;
     model: ResearchAssistantModel;
     question: ResearchThreadMessage;
     reading: Reading;
+    regeneratedFromAnswerId?: string;
     sourceId: string;
     sourceStateId: string;
     threadId: string;
@@ -40,6 +42,10 @@ export async function answerQuestion(
   return context.researchTurns.answer(
     {
       questionMessageId: question.id,
+      expectedSelectedLeafMessageId: input.expectedSelectedLeafMessageId,
+      ...(input.regeneratedFromAnswerId
+        ? { regeneratedFromAnswerId: input.regeneratedFromAnswerId }
+        : {}),
       threadId: input.threadId,
       ...(input.attachments?.length ? { attachments: input.attachments } : {}),
       history: history

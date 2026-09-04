@@ -9,6 +9,7 @@ const threadId = "30000000-0000-4000-8000-000000000000";
 
 export function input() {
   return {
+    expectedSelectedLeafMessageId: "40000000-0000-4000-8000-000000000000",
     questionMessageId: "40000000-0000-4000-8000-000000000000",
     threadId,
     sourceId: "source-one",

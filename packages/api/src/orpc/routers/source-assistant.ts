@@ -11,8 +11,10 @@ import {
   researchAssistantModelIds,
 } from "../../research-assistant/research-assistant-contract";
 import { publicProcedure } from "../init";
-import { notFoundError, sourceStateInput } from "./source-router-contracts";
-import { notFound } from "./source-router-support";
+import {
+  sourceAssistantRegenerateProcedure,
+  sourceAssistantSelectProcedure,
+} from "./source-assistant-alternatives";
 import { sourceAssistantRetryProcedure } from "./source-assistant-retry";
 import {
   temporaryAttachment,
@@ -23,6 +25,9 @@ import {
   answerQuestion,
   requireReadingComponent,
 } from "./source-assistant-turn";
+import { notFoundError, sourceStateInput } from "./source-router-contracts";
+import { notFound } from "./source-router-support";
+
 const threadScopeInput = sourceStateInput.extend({
   componentIdentity: z.string().trim().min(1).max(2_000),
 });
@@ -48,9 +53,19 @@ const citationOccurrenceSchema = z.object({
 });
 const threadMessageSchema = z.object({
   id: z.string().uuid(),
+  parentMessageId: z.string().uuid().optional(),
   role: z.enum(["user", "assistant"]),
   content: z.string(),
   model: z.enum(researchAssistantModelIds).optional(),
+  regeneratedFromAnswerId: z.string().uuid().optional(),
+  answerAlternatives: z
+    .object({
+      position: z.number().int().positive(),
+      total: z.number().int().positive(),
+      previousAnswerId: z.string().uuid().optional(),
+      nextAnswerId: z.string().uuid().optional(),
+    })
+    .optional(),
   selectedText: z.string().optional(),
   temporaryEvidence: z.array(temporaryEvidenceDescriptorSchema).optional(),
   references: z
@@ -129,6 +144,8 @@ export const sourceAssistantRouter = {
         title: threadTitle(input.question),
       });
     }),
+  regenerate: sourceAssistantRegenerateProcedure,
+  selectAnswer: sourceAssistantSelectProcedure,
   retry: sourceAssistantRetryProcedure,
   ask: publicProcedure
     .input(
@@ -198,6 +215,7 @@ export const sourceAssistantRouter = {
       const answer = await answerQuestion(context, {
         attachments,
         component,
+        expectedSelectedLeafMessageId: userMessage.id,
         history,
         model: input.model,
         question: userMessage,

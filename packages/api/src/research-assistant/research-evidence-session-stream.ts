@@ -88,6 +88,15 @@ export function completeResearchEvidenceSession(
             closeQuietly(controller);
             return;
           }
+          const sessionOutcome = completedOutcome(session.snapshot());
+          if (sessionOutcome !== "successful") {
+            session.expire();
+            await emitReceipt(sessionOutcome);
+            if (answer.finishChunk)
+              deliver(controller, answer.finishChunk, cancelled);
+            closeQuietly(controller);
+            return;
+          }
           let committed: Awaited<ReturnType<AssistantAnswer["commit"]>>;
           try {
             committed = await answer.commit(async (content, references) => {
@@ -112,7 +121,7 @@ export function completeResearchEvidenceSession(
           if (cancelled) return;
           committing = false;
           session.expire();
-          await emitReceipt(completedOutcome(session.snapshot()));
+          await emitReceipt(sessionOutcome);
           if (committed && deferFinalAnswer)
             deliverValidatedAnswer(
               controller,

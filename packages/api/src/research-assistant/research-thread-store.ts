@@ -75,7 +75,7 @@ export class DrizzleResearchThreadStore implements ResearchThreadOperations {
     return {
       ...serializeThread(row.thread, input.sourceId),
       messages: selectedPath(messages, row.thread.selectedLeafMessageId).map(
-        serializeMessage,
+        (message) => serializeMessage(message, messages),
       ),
     };
   }
@@ -128,6 +128,7 @@ export class DrizzleResearchThreadStore implements ResearchThreadOperations {
           role: "assistant",
           content: input.content,
           model: input.model,
+          regeneratedFromAnswerId: input.regeneratedFromAnswerId,
           references: input.references,
         })
         .returning();
@@ -136,7 +137,15 @@ export class DrizzleResearchThreadStore implements ResearchThreadOperations {
         await tx
           .update(researchThreads)
           .set({ selectedLeafMessageId: answer.id, updatedAt: new Date() })
-          .where(eq(researchThreads.id, input.threadId));
+          .where(
+            and(
+              eq(researchThreads.id, input.threadId),
+              eq(
+                researchThreads.selectedLeafMessageId,
+                input.expectedSelectedLeafMessageId,
+              ),
+            ),
+          );
       }
       return inserted;
     });
@@ -151,7 +160,9 @@ export class DrizzleResearchThreadStore implements ResearchThreadOperations {
       ({ id, role }) => id === input.questionMessageId && role === "user",
     );
     return question
-      ? selectedPath(messages, question.id).map(serializeMessage)
+      ? selectedPath(messages, question.id).map((message) =>
+          serializeMessage(message),
+        )
       : undefined;
   }
 
@@ -171,7 +182,32 @@ export class DrizzleResearchThreadStore implements ResearchThreadOperations {
         ),
       )
       .orderBy(asc(researchThreadMessages.sequence));
-    return messages.map(serializeMessage);
+    return messages.map((message) => serializeMessage(message));
+  }
+
+  async selectAnswerAlternative(
+    input: Parameters<ResearchThreadOperations["selectAnswerAlternative"]>[0],
+  ): Promise<boolean> {
+    const messages = await this.loadMessages(input.threadId);
+    const answer = messages.find(
+      ({ id, role }) => id === input.answerMessageId && role === "assistant",
+    );
+    if (!answer) return false;
+    const selectedLeafMessageId = latestDescendant(messages, answer.id);
+    const updated = await this.database
+      .update(researchThreads)
+      .set({ selectedLeafMessageId, updatedAt: new Date() })
+      .where(
+        and(
+          eq(researchThreads.id, input.threadId),
+          eq(
+            researchThreads.selectedLeafMessageId,
+            input.expectedSelectedLeafMessageId,
+          ),
+        ),
+      )
+      .returning({ id: researchThreads.id });
+    return updated.length === 1;
   }
 
   private loadMessages(threadId: string) {
@@ -201,6 +237,7 @@ function serializeThread(
 
 function serializeMessage(
   message: typeof researchThreadMessages.$inferSelect,
+  messages?: Array<typeof researchThreadMessages.$inferSelect>,
 ): ResearchThreadMessage {
   return {
     id: message.id,
@@ -212,13 +249,55 @@ function serializeMessage(
     ...(message.model
       ? { model: message.model as ResearchThreadMessage["model"] }
       : {}),
+    ...(message.regeneratedFromAnswerId
+      ? { regeneratedFromAnswerId: message.regeneratedFromAnswerId }
+      : {}),
+    ...(message.role === "assistant" && messages
+      ? { answerAlternatives: answerAlternatives(message, messages) }
+      : {}),
     ...(message.selectedText ? { selectedText: message.selectedText } : {}),
     ...(message.temporaryEvidence?.length
-      ? { temporaryEvidence: message.temporaryEvidence }
+      ? {
+          temporaryEvidence:
+            message.temporaryEvidence as ResearchThreadMessage["temporaryEvidence"],
+        }
       : {}),
     ...(message.references?.length ? { references: message.references } : {}),
     createdAt: message.createdAt.toISOString(),
   };
+}
+
+function answerAlternatives(
+  answer: typeof researchThreadMessages.$inferSelect,
+  messages: Array<typeof researchThreadMessages.$inferSelect>,
+) {
+  const siblings = messages.filter(
+    ({ parentMessageId, role }) =>
+      role === "assistant" && parentMessageId === answer.parentMessageId,
+  );
+  const index = siblings.findIndex(({ id }) => id === answer.id);
+  return {
+    position: index + 1,
+    total: siblings.length,
+    ...(index > 0 ? { previousAnswerId: siblings[index - 1]?.id } : {}),
+    ...(index < siblings.length - 1
+      ? { nextAnswerId: siblings[index + 1]?.id }
+      : {}),
+  };
+}
+
+function latestDescendant(
+  messages: Array<typeof researchThreadMessages.$inferSelect>,
+  answerId: string,
+) {
+  let leafId = answerId;
+  while (true) {
+    const child = messages.findLast(
+      ({ parentMessageId }) => parentMessageId === leafId,
+    );
+    if (!child) return leafId;
+    leafId = child.id;
+  }
 }
 
 function selectedPath(

@@ -75,6 +75,7 @@ describePostgres("Research thread PostgreSQL store", () => {
       answerMessageId: "50000000-0000-4000-8000-000000000000",
       threadId: thread.id,
       questionMessageId: question.id,
+      expectedSelectedLeafMessageId: question.id,
       content: "A provisional answer.",
       model: "z-ai/glm-5.3-flash",
       references: [
@@ -189,6 +190,7 @@ describePostgres("Research thread PostgreSQL store", () => {
       answerMessageId: randomUUID(),
       threadId: first.id,
       questionMessageId: firstQuestion.id,
+      expectedSelectedLeafMessageId: firstQuestion.id,
       content: "First answer",
       model: "z-ai/glm-5.3-flash",
     });
@@ -196,8 +198,10 @@ describePostgres("Research thread PostgreSQL store", () => {
       answerMessageId: randomUUID(),
       threadId: first.id,
       questionMessageId: firstQuestion.id,
+      expectedSelectedLeafMessageId: firstAnswer?.id ?? firstQuestion.id,
       content: "Alternative answer",
       model: "z-ai/glm-5.3-flash",
+      regeneratedFromAnswerId: firstAnswer?.id,
     });
     if (!firstAnswer || !alternative)
       throw new Error("Answers were not persisted");
@@ -215,7 +219,18 @@ describePostgres("Research thread PostgreSQL store", () => {
         threadId: first.id,
       }),
     ).resolves.toMatchObject({
-      messages: [{ id: firstQuestion.id }, { id: alternative.id }],
+      messages: [
+        { id: firstQuestion.id },
+        {
+          id: alternative.id,
+          regeneratedFromAnswerId: firstAnswer.id,
+          answerAlternatives: {
+            position: 2,
+            total: 2,
+            previousAnswerId: firstAnswer.id,
+          },
+        },
+      ],
     });
     const followUp = await store.appendQuestion({
       threadId: first.id,
@@ -227,6 +242,7 @@ describePostgres("Research thread PostgreSQL store", () => {
       answerMessageId: randomUUID(),
       threadId: first.id,
       questionMessageId: followUp.id,
+      expectedSelectedLeafMessageId: followUp.id,
       content: "Follow-up answer",
       model: "z-ai/glm-5.3-flash",
     });
@@ -246,11 +262,89 @@ describePostgres("Research thread PostgreSQL store", () => {
       ],
     });
 
+    expect(
+      await store.selectAnswerAlternative({
+        threadId: first.id,
+        answerMessageId: firstAnswer.id,
+        expectedSelectedLeafMessageId: followUpAnswer.id,
+      }),
+    ).toBe(true);
+    await expect(
+      store.projectSelectedPath({
+        sourceId,
+        stateId,
+        threadId: first.id,
+      }),
+    ).resolves.toMatchObject({
+      messages: [{ id: firstQuestion.id }, { id: firstAnswer.id }],
+    });
+    expect(
+      await store.selectAnswerAlternative({
+        threadId: first.id,
+        answerMessageId: alternative.id,
+        expectedSelectedLeafMessageId: firstAnswer.id,
+      }),
+    ).toBe(true);
+    await expect(
+      store.projectSelectedPath({
+        sourceId,
+        stateId,
+        threadId: first.id,
+      }),
+    ).resolves.toMatchObject({
+      messages: [
+        { id: firstQuestion.id },
+        { id: alternative.id },
+        { id: followUp.id },
+        { id: followUpAnswer.id },
+      ],
+    });
+
+    const staleAnswer = await store.commitAnswer({
+      answerMessageId: randomUUID(),
+      threadId: first.id,
+      questionMessageId: firstQuestion.id,
+      expectedSelectedLeafMessageId: alternative.id,
+      content: "Completed by a stale client",
+      model: "z-ai/glm-5.3-flash",
+      regeneratedFromAnswerId: firstAnswer.id,
+    });
+    expect(staleAnswer).toBeDefined();
+    await expect(
+      store.projectSelectedPath({ sourceId, stateId, threadId: first.id }),
+    ).resolves.toMatchObject({
+      messages: [
+        { id: firstQuestion.id },
+        { id: alternative.id },
+        { id: followUp.id },
+        { id: followUpAnswer.id },
+      ],
+    });
+    await expect(
+      store.listChildren({
+        threadId: first.id,
+        parentMessageId: firstQuestion.id,
+      }),
+    ).resolves.toContainEqual(expect.objectContaining({ id: staleAnswer?.id }));
+
+    await expect(
+      store.commitAnswer({
+        answerMessageId: randomUUID(),
+        threadId: first.id,
+        questionMessageId: firstQuestion.id,
+        expectedSelectedLeafMessageId: followUpAnswer.id,
+        content: "Invalid cross-question regeneration",
+        model: "z-ai/glm-5.3-flash",
+        regeneratedFromAnswerId: followUpAnswer.id,
+      }),
+    ).rejects.toBeDefined();
+
     await expect(
       store.commitAnswer({
         answerMessageId: randomUUID(),
         threadId: second.id,
         questionMessageId: firstQuestion.id,
+        expectedSelectedLeafMessageId: secondQuestion.id,
         content: "Cross-thread answer",
         model: "z-ai/glm-5.3-flash",
       }),

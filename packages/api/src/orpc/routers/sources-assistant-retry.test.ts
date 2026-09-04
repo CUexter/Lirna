@@ -292,6 +292,9 @@ function threadOperations(
     async listChildren() {
       return [];
     },
+    async selectAnswerAlternative() {
+      return false;
+    },
   };
 }
 

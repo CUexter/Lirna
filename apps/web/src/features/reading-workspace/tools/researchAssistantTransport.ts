@@ -28,8 +28,17 @@ export interface TemporaryEvidenceDescriptor {
 }
 
 export interface ResearchAssistantMessageMetadata {
+  answerAlternatives?: {
+    position: number;
+    total: number;
+    previousAnswerId?: string;
+    nextAnswerId?: string;
+  };
   attachments?: TemporaryEvidenceAttachment[];
   attachmentDescriptors?: TemporaryEvidenceDescriptor[];
+  model?: ResearchAssistantModel;
+  parentMessageId?: string;
+  regeneratedFromAnswerId?: string;
   references?: Array<ResearchPassageReference & { evidenceAlias?: string }>;
   selection?: SelectionDraft;
 }
@@ -51,6 +60,7 @@ export function createResearchAssistantTransport({
   stateId,
   threadId: initialThreadId,
   onThreadAllocated,
+  onAnswerCommitted,
   onThreadCreated,
 }: {
   componentIdentity: string;
@@ -60,29 +70,49 @@ export function createResearchAssistantTransport({
   stateId: string;
   threadId?: string;
   onThreadAllocated?: (threadId: string) => void;
-  onThreadCreated?: (threadId: string) => void;
+  onAnswerCommitted?: (threadId: string) => void | Promise<void>;
+  onThreadCreated?: (threadId: string) => void | Promise<void>;
 }): ChatTransport<ResearchAssistantMessage> {
   let threadId = initialThreadId;
   return {
     async sendMessages({ abortSignal, body, messageId, messages, trigger }) {
+      if (trigger === "regenerate-message") {
+        if (!threadId || !messageId)
+          throw new Error("A Research answer operation is required");
+        const activeThreadId = threadId;
+        const operation = answerOperation(body);
+        const iterator =
+          operation.kind === "regenerate"
+            ? await inquiryClient.sources.assistant.regenerate(
+                {
+                  model,
+                  answerMessageId: messageId,
+                  expectedSelectedLeafMessageId:
+                    operation.expectedSelectedLeafMessageId,
+                  sourceId,
+                  stateId,
+                  threadId: activeThreadId,
+                  ...attachmentInput(operation.attachments),
+                },
+                { signal: abortSignal },
+              )
+            : await inquiryClient.sources.assistant.retry(
+                {
+                  model,
+                  questionMessageId: messageId,
+                  sourceId,
+                  stateId,
+                  threadId: activeThreadId,
+                  ...attachmentInput(operation.attachments),
+                },
+                { signal: abortSignal },
+              );
+        return streamFromIterator(iterator, () =>
+          onAnswerCommitted?.(activeThreadId),
+        );
+      }
       const message = latestUserMessage(messages);
       if (!message) throw new Error("A user question is required");
-      if (trigger === "regenerate-message") {
-        if (!threadId || message.id !== messageId)
-          throw new Error("An unanswered Research question is required");
-        const iterator = await inquiryClient.sources.assistant.retry(
-          {
-            model,
-            questionMessageId: message.id,
-            sourceId,
-            stateId,
-            threadId,
-            ...retryAttachmentInput(body),
-          },
-          { signal: abortSignal },
-        );
-        return streamFromIterator(iterator);
-      }
       const question = message.parts
         .filter((part) => part.type === "text")
         .map((part) => part.text)
@@ -117,8 +147,9 @@ export function createResearchAssistantTransport({
         },
         { signal: abortSignal },
       );
-      return streamFromIterator(iterator, () => {
-        if (createdThreadId) onThreadCreated?.(createdThreadId);
+      return streamFromIterator(iterator, async () => {
+        await onAnswerCommitted?.(threadId as string);
+        if (createdThreadId) await onThreadCreated?.(createdThreadId);
       });
     },
     async reconnectToStream() {
@@ -127,12 +158,41 @@ export function createResearchAssistantTransport({
   };
 }
 
-function retryAttachmentInput(body: object | undefined) {
-  const attachments =
-    body && "retryAttachments" in body ? body.retryAttachments : undefined;
+function attachmentInput(attachments: unknown) {
   return Array.isArray(attachments) && attachments.length
     ? { attachments: attachments as TemporaryEvidenceAttachment[] }
     : {};
+}
+
+function answerOperation(body: object | undefined):
+  | {
+      kind: "regenerate";
+      expectedSelectedLeafMessageId: string;
+      attachments?: unknown;
+    }
+  | { kind: "retry"; attachments?: unknown } {
+  if (body && "operation" in body && body.operation === "regenerate") {
+    if (
+      !("expectedSelectedLeafMessageId" in body) ||
+      typeof body.expectedSelectedLeafMessageId !== "string"
+    )
+      throw new Error("The selected Research path is required");
+    return {
+      kind: "regenerate",
+      expectedSelectedLeafMessageId: body.expectedSelectedLeafMessageId,
+      ...(body && "attachments" in body
+        ? { attachments: body.attachments }
+        : {}),
+    };
+  }
+  if (body && "operation" in body && body.operation === "retry")
+    return {
+      kind: "retry",
+      ...(body && "attachments" in body
+        ? { attachments: body.attachments }
+        : {}),
+    };
+  throw new Error("A Research answer operation is required");
 }
 
 function latestUserMessage(messages: ResearchAssistantMessage[]) {
@@ -145,7 +205,7 @@ function latestUserMessage(messages: ResearchAssistantMessage[]) {
 
 function streamFromIterator(
   iterator: AsyncIterator<UIMessageChunk>,
-  onFinish?: () => void,
+  onFinish?: () => void | Promise<void>,
 ): ReadableStream<UIMessageChunk> {
   let cancelled = false;
   return new ReadableStream({
@@ -154,7 +214,7 @@ function streamFromIterator(
         const next = await iterator.next();
         if (cancelled) return;
         if (next.done) {
-          onFinish?.();
+          await onFinish?.();
           controller.close();
         } else controller.enqueue(next.value);
       } catch (error) {
@@ -181,6 +241,16 @@ export function loadResearchThread(input: {
   threadId: string;
 }) {
   return inquiryClient.sources.assistant.get(input);
+}
+
+export function selectResearchAnswer(input: {
+  sourceId: string;
+  stateId: string;
+  threadId: string;
+  answerMessageId: string;
+  expectedSelectedLeafMessageId: string;
+}) {
+  return inquiryClient.sources.assistant.selectAnswer(input);
 }
 
 export function requiredAttachments(message: ResearchAssistantMessage) {

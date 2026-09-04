@@ -14,12 +14,10 @@ import {
   useState,
 } from "react";
 
-import {
-  type SelectionDraft,
-  selectionDraftForText,
-} from "../../annotations/domUtils";
+import type { SelectionDraft } from "../../annotations/domUtils";
 import type { ArticlePassage } from "../../navigation/hooks/useShowInArticle";
 import { useResearchThreads } from "../hooks/useResearchThreads";
+import { messagesForThread } from "../researchAssistantMessages";
 import {
   attachmentsMatch,
   createResearchAssistantTransport,
@@ -77,6 +75,7 @@ export function ReadingResearchAssistant({
   );
   const questionRef = useRef<HTMLTextAreaElement>(null);
   const draftThreadIdRef = useRef<string | undefined>(undefined);
+  const synchronizedThreadRevisionRef = useRef<string | undefined>(undefined);
   const scope = { sourceId, stateId };
   const researchThreads = useResearchThreads({
     disabled: Boolean(transport),
@@ -84,60 +83,57 @@ export function ReadingResearchAssistant({
     preferNew: Boolean(selection),
     scope,
   });
-  const initialMessages: ResearchAssistantMessage[] =
-    researchThreads.activeThread?.messages.map((message) => {
-      const messageSelection = message.selectedText
-        ? selectionDraftForText(plainText, message.selectedText)
-        : undefined;
-      return {
-        id: message.id,
-        role: message.role,
-        parts: [{ type: "text", text: message.content }],
-        ...(messageSelection ||
-        message.references?.length ||
-        message.temporaryEvidence?.length
-          ? {
-              metadata: {
-                ...(messageSelection ? { selection: messageSelection } : {}),
-                ...(message.references?.length
-                  ? { references: message.references }
-                  : {}),
-                ...(message.temporaryEvidence?.length
-                  ? { attachmentDescriptors: message.temporaryEvidence }
-                  : {}),
-              },
-            }
-          : {}),
-      };
-    }) ?? [];
-  const { clearError, error, messages, regenerate, sendMessage, status, stop } =
-    useChat<ResearchAssistantMessage>({
-      id: researchThreads.activeThread?.id ?? `new:${sourceId}:${stateId}`,
-      messages: initialMessages,
-      transport:
-        transport ??
-        createResearchAssistantTransport({
-          componentIdentity,
-          model,
-          selection,
-          sourceId,
-          stateId,
-          threadId:
-            researchThreads.activeThread?.id ?? draftThreadIdRef.current,
-          onThreadAllocated: (threadId) => {
-            draftThreadIdRef.current = threadId;
-          },
-          onThreadCreated: (threadId) => {
-            void researchThreads.threadCreated(threadId);
-          },
-        }),
-    });
+  const initialMessages = messagesForThread(
+    researchThreads.activeThread,
+    plainText,
+  );
+  const {
+    clearError,
+    error,
+    messages,
+    regenerate,
+    sendMessage,
+    setMessages,
+    status,
+    stop,
+  } = useChat<ResearchAssistantMessage>({
+    id: researchThreads.activeThread?.id ?? `new:${sourceId}:${stateId}`,
+    messages: initialMessages,
+    transport:
+      transport ??
+      createResearchAssistantTransport({
+        componentIdentity,
+        model,
+        selection,
+        sourceId,
+        stateId,
+        threadId: researchThreads.activeThread?.id ?? draftThreadIdRef.current,
+        onThreadAllocated: (threadId) => {
+          draftThreadIdRef.current = threadId;
+        },
+        onAnswerCommitted: (threadId) => researchThreads.resume(threadId),
+        onThreadCreated: (threadId) => {
+          void researchThreads.threadCreated(threadId);
+        },
+      }),
+  });
   const pending = status === "submitted" || status === "streaming";
   const latestQuestionId = messages.findLast(({ role }) => role === "user")?.id;
-
   useEffect(() => {
     if (open) questionRef.current?.focus({ preventScroll: Boolean(selection) });
   }, [open, selection]);
+
+  useEffect(() => {
+    const thread = researchThreads.activeThread;
+    if (!thread) {
+      synchronizedThreadRevisionRef.current = undefined;
+      return;
+    }
+    const revision = `${thread.id}:${thread.updatedAt}:${thread.messages.at(-1)?.id ?? "empty"}:${plainText}`;
+    if (synchronizedThreadRevisionRef.current === revision) return;
+    synchronizedThreadRevisionRef.current = revision;
+    setMessages(messagesForThread(thread, plainText));
+  }, [plainText, researchThreads.activeThread, setMessages]);
 
   useEffect(
     () => () => {
@@ -207,8 +203,47 @@ export function ReadingResearchAssistant({
     setCancelledQuestionId(undefined);
     await regenerate({
       messageId: message.id,
-      body: { retryAttachments: available },
+      body: { operation: "retry", attachments: available },
     });
+  }
+
+  async function regenerateAnswer(message: ResearchAssistantMessage) {
+    if (pending) return;
+    const answerIndex = messages.findIndex(({ id }) => id === message.id);
+    const questionMessage = messages
+      .slice(0, answerIndex)
+      .findLast(({ role }) => role === "user");
+    const selectedLeafMessageId = messages.at(-1)?.id;
+    if (!questionMessage || !selectedLeafMessageId) return;
+    const required = requiredAttachments(questionMessage);
+    const available = attachments;
+    if (!attachmentsMatch(required, available)) {
+      setComposerError(
+        required.length
+          ? `Reattach temporary evidence before regenerating: ${required
+              .map(({ filename, mediaType }) => `${filename} (${mediaType})`)
+              .join(", ")}`
+          : "Remove attachments before regenerating; this question did not use temporary evidence.",
+      );
+      return;
+    }
+    setComposerError(undefined);
+    clearError();
+    setAttachments([]);
+    await regenerate({
+      messageId: message.id,
+      body: {
+        operation: "regenerate",
+        attachments: available,
+        expectedSelectedLeafMessageId: selectedLeafMessageId,
+      },
+    });
+  }
+
+  async function selectAlternative(answerId: string) {
+    const selectedLeafMessageId = messages.at(-1)?.id;
+    if (pending || !selectedLeafMessageId) return;
+    await researchThreads.selectAnswer(answerId, selectedLeafMessageId);
   }
 
   return open ? (
@@ -256,14 +291,22 @@ export function ReadingResearchAssistant({
         </header>
         <div className="min-h-0 flex-1 overflow-hidden">
           <ResearchAssistantTranscript
+            actions={{
+              regenerate: (message) => {
+                void regenerateAnswer(message);
+              },
+              retry: (message) => {
+                void retryQuestion(message);
+              },
+              selectAlternative: (answerId) => {
+                void selectAlternative(answerId);
+              },
+            }}
             error={composerError ?? error?.message ?? researchThreads.error}
             messages={messages}
             passageForReference={passageForReference}
             passageForSelection={passageForSelection}
             pending={pending}
-            onRetry={(message) => {
-              void retryQuestion(message);
-            }}
             retryableQuestionId={error ? latestQuestionId : cancelledQuestionId}
             selection={selection}
           />

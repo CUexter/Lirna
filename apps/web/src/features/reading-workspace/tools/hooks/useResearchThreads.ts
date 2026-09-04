@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   listResearchThreads,
   loadResearchThread,
   type ResearchThread,
   type ResearchThreadSummary,
+  selectResearchAnswer,
 } from "../researchAssistantTransport";
 
 interface ResearchThreadScope {
@@ -29,17 +30,27 @@ export function useResearchThreads({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
   const { sourceId, stateId } = scope;
+  const requestRevisionRef = useRef(0);
+  const scopeKey = `${sourceId}:${stateId}`;
+  const scopeKeyRef = useRef(scopeKey);
+  scopeKeyRef.current = scopeKey;
 
   useEffect(() => {
     if (!open || disabled) return;
     let current = true;
+    const requestRevision = ++requestRevisionRef.current;
     setLoading(true);
     setError(undefined);
     setActiveThread(undefined);
     setActiveThreadId(undefined);
     void listResearchThreads({ sourceId, stateId })
       .then(async (listed) => {
-        if (!current) return;
+        if (
+          !current ||
+          requestRevisionRef.current !== requestRevision ||
+          scopeKeyRef.current !== scopeKey
+        )
+          return;
         setThreads(listed);
         const latest = preferNew ? undefined : listed[0];
         if (!latest) return;
@@ -48,13 +59,21 @@ export function useResearchThreads({
           stateId,
           threadId: latest.id,
         });
-        if (current) {
+        if (
+          current &&
+          requestRevisionRef.current === requestRevision &&
+          scopeKeyRef.current === scopeKey
+        ) {
           setActiveThread(loaded);
           setActiveThreadId(loaded?.id);
         }
       })
       .catch((reason: unknown) => {
-        if (current)
+        if (
+          current &&
+          requestRevisionRef.current === requestRevision &&
+          scopeKeyRef.current === scopeKey
+        )
           setError(
             reason instanceof Error
               ? reason.message
@@ -62,42 +81,116 @@ export function useResearchThreads({
           );
       })
       .finally(() => {
-        if (current) setLoading(false);
+        if (
+          current &&
+          requestRevisionRef.current === requestRevision &&
+          scopeKeyRef.current === scopeKey
+        )
+          setLoading(false);
       });
     return () => {
       current = false;
     };
-  }, [disabled, open, preferNew, sourceId, stateId]);
+  }, [disabled, open, preferNew, scopeKey, sourceId, stateId]);
 
   async function resume(threadId: string) {
+    const requestScopeKey = scopeKey;
+    const requestRevision = ++requestRevisionRef.current;
     setLoading(true);
     setError(undefined);
     try {
       const loaded = await loadResearchThread({ ...scope, threadId });
+      if (
+        requestRevisionRef.current !== requestRevision ||
+        scopeKeyRef.current !== requestScopeKey
+      )
+        return;
       setActiveThread(loaded);
       setActiveThreadId(loaded?.id);
     } catch (reason) {
-      setError(
-        reason instanceof Error
-          ? reason.message
-          : "Research thread could not be resumed",
-      );
+      if (
+        requestRevisionRef.current === requestRevision &&
+        scopeKeyRef.current === requestScopeKey
+      )
+        setError(
+          reason instanceof Error
+            ? reason.message
+            : "Research thread could not be resumed",
+        );
     } finally {
-      setLoading(false);
+      if (
+        requestRevisionRef.current === requestRevision &&
+        scopeKeyRef.current === requestScopeKey
+      )
+        setLoading(false);
     }
   }
 
   async function threadCreated(threadId: string) {
+    const requestScopeKey = scopeKey;
+    const requestRevision = ++requestRevisionRef.current;
     try {
       const listed = await listResearchThreads(scope);
+      if (
+        requestRevisionRef.current !== requestRevision ||
+        scopeKeyRef.current !== requestScopeKey
+      )
+        return;
       setThreads(listed);
       setActiveThreadId(threadId);
     } catch (reason) {
-      setError(
-        reason instanceof Error
-          ? reason.message
-          : "Research thread could not be refreshed",
-      );
+      if (
+        requestRevisionRef.current === requestRevision &&
+        scopeKeyRef.current === requestScopeKey
+      )
+        setError(
+          reason instanceof Error
+            ? reason.message
+            : "Research thread could not be refreshed",
+        );
+    }
+  }
+
+  async function selectAnswer(
+    answerMessageId: string,
+    expectedSelectedLeafMessageId: string,
+  ) {
+    if (!activeThreadId) return undefined;
+    const requestScopeKey = scopeKey;
+    const requestRevision = ++requestRevisionRef.current;
+    setLoading(true);
+    setError(undefined);
+    try {
+      const loaded = await selectResearchAnswer({
+        ...scope,
+        threadId: activeThreadId,
+        answerMessageId,
+        expectedSelectedLeafMessageId,
+      });
+      if (
+        requestRevisionRef.current !== requestRevision ||
+        scopeKeyRef.current !== requestScopeKey
+      )
+        return undefined;
+      setActiveThread(loaded);
+      return loaded;
+    } catch (reason) {
+      if (
+        requestRevisionRef.current === requestRevision &&
+        scopeKeyRef.current === requestScopeKey
+      )
+        setError(
+          reason instanceof Error
+            ? reason.message
+            : "Research answer could not be selected",
+        );
+      return undefined;
+    } finally {
+      if (
+        requestRevisionRef.current === requestRevision &&
+        scopeKeyRef.current === requestScopeKey
+      )
+        setLoading(false);
     }
   }
 
@@ -107,7 +200,10 @@ export function useResearchThreads({
     error,
     loading,
     resume,
+    selectAnswer,
     startNew: () => {
+      requestRevisionRef.current += 1;
+      setLoading(false);
       setActiveThread(undefined);
       setActiveThreadId(undefined);
     },
