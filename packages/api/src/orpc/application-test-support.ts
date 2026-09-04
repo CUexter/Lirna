@@ -117,6 +117,9 @@ export function createTestApplication(
       async selectAnswerAlternative() {
         return unexpected();
       },
+      async createRelatedThread() {
+        return unexpected();
+      },
     },
     derivativeUpdates: {
       async generate() {

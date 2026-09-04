@@ -54,6 +54,7 @@ export interface TemporaryEvidenceDescriptor {
 
 export interface ResearchThreadMessage {
   id: string;
+  originMessageId?: string;
   parentMessageId?: string;
   role: "user" | "assistant";
   content: string;
@@ -132,4 +133,16 @@ export interface ResearchThreadOperations {
     answerMessageId: string;
     expectedSelectedLeafMessageId: string;
   }): Promise<boolean>;
+  createRelatedThread(input: {
+    creationId: string;
+    sourceId: string;
+    stateId: string;
+    sourceThreadId: string;
+    sourceAnswerMessageId: string;
+    title: string;
+  }): Promise<
+    | { status: "created" | "existing"; thread: ResearchThread }
+    | { status: "conflict" }
+    | { status: "source-answer-not-found" }
+  >;
 }

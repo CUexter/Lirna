@@ -253,6 +253,17 @@ export function selectResearchAnswer(input: {
   return inquiryClient.sources.assistant.selectAnswer(input);
 }
 
+export function createRelatedResearchThread(input: {
+  creationId: string;
+  sourceId: string;
+  stateId: string;
+  sourceThreadId: string;
+  sourceAnswerMessageId: string;
+  title: string;
+}) {
+  return inquiryClient.sources.assistant.createRelated(input);
+}
+
 export function requiredAttachments(message: ResearchAssistantMessage) {
   return (
     message.metadata?.attachmentDescriptors ??

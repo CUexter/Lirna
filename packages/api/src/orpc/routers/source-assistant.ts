@@ -53,6 +53,7 @@ const citationOccurrenceSchema = z.object({
 });
 const threadMessageSchema = z.object({
   id: z.string().uuid(),
+  originMessageId: z.string().uuid().optional(),
   parentMessageId: z.string().uuid().optional(),
   role: z.enum(["user", "assistant"]),
   content: z.string(),
@@ -143,6 +144,36 @@ export const sourceAssistantRouter = {
         componentLabel: component.label,
         title: threadTitle(input.question),
       });
+    }),
+  createRelated: publicProcedure
+    .input(
+      sourceStateInput.extend({
+        creationId: z.string().uuid(),
+        sourceThreadId: z.string().uuid(),
+        sourceAnswerMessageId: z.string().uuid(),
+        title: z.string().trim().min(1).max(120),
+      }),
+    )
+    .output(threadSchema)
+    .errors({ ...notFoundError, CONFLICT: {} })
+    .meta(
+      openapi({
+        method: "POST",
+        path: "/sources/assistant/related-threads",
+        operationId: "sources.assistant.createRelated",
+        summary: "Start a related Research thread",
+        tags: ["Sources"],
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      const result = await context.researchThreads.createRelatedThread(input);
+      if (result.status === "source-answer-not-found")
+        throw notFound("Source Research answer is unavailable");
+      if (result.status === "conflict")
+        throw new ORPCError("CONFLICT", {
+          message: "Creation ID was already used with different input",
+        });
+      return result.thread;
     }),
   regenerate: sourceAssistantRegenerateProcedure,
   selectAnswer: sourceAssistantSelectProcedure,

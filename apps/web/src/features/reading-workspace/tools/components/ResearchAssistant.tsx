@@ -118,6 +118,7 @@ export function ReadingResearchAssistant({
       }),
   });
   const pending = status === "submitted" || status === "streaming";
+  const interactionPending = pending || researchThreads.loading;
   const latestQuestionId = messages.findLast(({ role }) => role === "user")?.id;
   useEffect(() => {
     if (open) questionRef.current?.focus({ preventScroll: Boolean(selection) });
@@ -152,7 +153,7 @@ export function ReadingResearchAssistant({
   function submitQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextQuestion = question.trim();
-    if (!nextQuestion || pending) return;
+    if (!nextQuestion || interactionPending) return;
     setCancelledQuestionId(undefined);
     const submittedAttachments = attachments;
     setQuestion("");
@@ -184,7 +185,7 @@ export function ReadingResearchAssistant({
   }
 
   async function retryQuestion(message: ResearchAssistantMessage) {
-    if (pending) return;
+    if (interactionPending) return;
     const required = requiredAttachments(message);
     const available = message.metadata?.attachments ?? attachments;
     if (!attachmentsMatch(required, available)) {
@@ -208,7 +209,7 @@ export function ReadingResearchAssistant({
   }
 
   async function regenerateAnswer(message: ResearchAssistantMessage) {
-    if (pending) return;
+    if (interactionPending) return;
     const answerIndex = messages.findIndex(({ id }) => id === message.id);
     const questionMessage = messages
       .slice(0, answerIndex)
@@ -242,8 +243,27 @@ export function ReadingResearchAssistant({
 
   async function selectAlternative(answerId: string) {
     const selectedLeafMessageId = messages.at(-1)?.id;
-    if (pending || !selectedLeafMessageId) return;
+    if (interactionPending || !selectedLeafMessageId) return;
     await researchThreads.selectAnswer(answerId, selectedLeafMessageId);
+  }
+
+  async function createRelatedThread(
+    message: ResearchAssistantMessage,
+    input: { creationId: string; title: string },
+  ) {
+    const sourceThreadId = researchThreads.activeThreadId;
+    if (!sourceThreadId || interactionPending) return "indeterminate" as const;
+    clearError();
+    setComposerError(undefined);
+    const created = await researchThreads.createRelated({
+      ...input,
+      sourceAnswerMessageId: message.id,
+      sourceThreadId,
+    });
+    if (created.status !== "created") return created.status;
+    draftThreadIdRef.current = created.thread.id;
+    requestAnimationFrame(() => questionRef.current?.focus());
+    return "created" as const;
   }
 
   return open ? (
@@ -292,6 +312,12 @@ export function ReadingResearchAssistant({
         <div className="min-h-0 flex-1 overflow-hidden">
           <ResearchAssistantTranscript
             actions={{
+              canCreateRelated: ({ id }) =>
+                researchThreads.activeThread?.messages.some(
+                  (message) =>
+                    message.id === id && message.role === "assistant",
+                ) ?? false,
+              createRelated: createRelatedThread,
               regenerate: (message) => {
                 void regenerateAnswer(message);
               },
@@ -306,7 +332,7 @@ export function ReadingResearchAssistant({
             messages={messages}
             passageForReference={passageForReference}
             passageForSelection={passageForSelection}
-            pending={pending}
+            pending={interactionPending}
             retryableQuestionId={error ? latestQuestionId : cancelledQuestionId}
             selection={selection}
           />
@@ -321,7 +347,7 @@ export function ReadingResearchAssistant({
             onQuestionChange={setQuestion}
             model={{ onChange: setModel, value: model }}
             onSubmit={submitQuestion}
-            pending={pending}
+            pending={interactionPending}
             question={question}
             questionRef={questionRef}
             selection={selection}

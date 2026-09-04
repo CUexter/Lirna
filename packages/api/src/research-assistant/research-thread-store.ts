@@ -12,6 +12,12 @@ import type {
   ResearchThreadOperations,
   ResearchThreadSummary,
 } from "./research-thread-contract";
+import { createRelatedResearchThread } from "./research-thread-fork-store";
+import {
+  selectedPath,
+  serializeMessage,
+  serializeThread,
+} from "./research-thread-projection";
 
 export class DrizzleResearchThreadStore implements ResearchThreadOperations {
   constructor(private readonly database: typeof db) {}
@@ -210,6 +216,12 @@ export class DrizzleResearchThreadStore implements ResearchThreadOperations {
     return updated.length === 1;
   }
 
+  async createRelatedThread(
+    input: Parameters<ResearchThreadOperations["createRelatedThread"]>[0],
+  ): ReturnType<ResearchThreadOperations["createRelatedThread"]> {
+    return createRelatedResearchThread(this.database, input);
+  }
+
   private loadMessages(threadId: string) {
     return this.database
       .select()
@@ -217,73 +229,6 @@ export class DrizzleResearchThreadStore implements ResearchThreadOperations {
       .where(eq(researchThreadMessages.researchThreadId, threadId))
       .orderBy(asc(researchThreadMessages.sequence));
   }
-}
-
-function serializeThread(
-  thread: typeof researchThreads.$inferSelect,
-  sourceId: string,
-): ResearchThreadSummary {
-  return {
-    id: thread.id,
-    sourceId,
-    stateId: thread.sourceStateId,
-    componentIdentity: thread.componentIdentity,
-    componentLabel: thread.componentLabel,
-    title: thread.title,
-    createdAt: thread.createdAt.toISOString(),
-    updatedAt: thread.updatedAt.toISOString(),
-  };
-}
-
-function serializeMessage(
-  message: typeof researchThreadMessages.$inferSelect,
-  messages?: Array<typeof researchThreadMessages.$inferSelect>,
-): ResearchThreadMessage {
-  return {
-    id: message.id,
-    ...(message.parentMessageId
-      ? { parentMessageId: message.parentMessageId }
-      : {}),
-    role: message.role as ResearchThreadMessage["role"],
-    content: message.content,
-    ...(message.model
-      ? { model: message.model as ResearchThreadMessage["model"] }
-      : {}),
-    ...(message.regeneratedFromAnswerId
-      ? { regeneratedFromAnswerId: message.regeneratedFromAnswerId }
-      : {}),
-    ...(message.role === "assistant" && messages
-      ? { answerAlternatives: answerAlternatives(message, messages) }
-      : {}),
-    ...(message.selectedText ? { selectedText: message.selectedText } : {}),
-    ...(message.temporaryEvidence?.length
-      ? {
-          temporaryEvidence:
-            message.temporaryEvidence as ResearchThreadMessage["temporaryEvidence"],
-        }
-      : {}),
-    ...(message.references?.length ? { references: message.references } : {}),
-    createdAt: message.createdAt.toISOString(),
-  };
-}
-
-function answerAlternatives(
-  answer: typeof researchThreadMessages.$inferSelect,
-  messages: Array<typeof researchThreadMessages.$inferSelect>,
-) {
-  const siblings = messages.filter(
-    ({ parentMessageId, role }) =>
-      role === "assistant" && parentMessageId === answer.parentMessageId,
-  );
-  const index = siblings.findIndex(({ id }) => id === answer.id);
-  return {
-    position: index + 1,
-    total: siblings.length,
-    ...(index > 0 ? { previousAnswerId: siblings[index - 1]?.id } : {}),
-    ...(index < siblings.length - 1
-      ? { nextAnswerId: siblings[index + 1]?.id }
-      : {}),
-  };
 }
 
 function latestDescendant(
@@ -298,21 +243,4 @@ function latestDescendant(
     if (!child) return leafId;
     leafId = child.id;
   }
-}
-
-function selectedPath(
-  messages: Array<typeof researchThreadMessages.$inferSelect>,
-  leafId: string | null,
-) {
-  if (!leafId) return [];
-  const byId = new Map(messages.map((message) => [message.id, message]));
-  const path: Array<typeof researchThreadMessages.$inferSelect> = [];
-  let current = byId.get(leafId);
-  while (current) {
-    path.push(current);
-    current = current.parentMessageId
-      ? byId.get(current.parentMessageId)
-      : undefined;
-  }
-  return path.reverse();
 }

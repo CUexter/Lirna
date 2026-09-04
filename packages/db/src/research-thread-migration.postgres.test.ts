@@ -27,6 +27,7 @@ let admin: Client | undefined;
 let pool: Pool | undefined;
 let migrationsDirectory: string | undefined;
 let beforeMigration: unknown;
+let beforeForkMigration: unknown;
 
 describePostgres("Research-thread selected-path migration", () => {
   beforeAll(async () => {
@@ -89,6 +90,11 @@ describePostgres("Research-thread selected-path migration", () => {
     );
     beforeMigration = await persistedPayload(pool);
     await applyMigration(pool, "0019_last_post.sql");
+    await applyMigration(pool, "0020_amused_speed_demon.sql");
+    await applyMigration(pool, "0021_charming_marvel_zombies.sql");
+    await applyMigration(pool, "0022_sad_emma_frost.sql");
+    beforeForkMigration = await persistedPayload(pool);
+    await applyMigration(pool, "0023_melodic_aqueduct.sql");
   }, 30_000);
 
   afterAll(async () => {
@@ -120,6 +126,24 @@ describePostgres("Research-thread selected-path migration", () => {
       [threadId],
     );
     expect(thread?.rows[0]?.selected_leaf_message_id).toBe(answerId);
+  });
+
+  test("adds related-thread provenance without changing existing messages", async () => {
+    expect(await persistedPayload(pool as Pool)).toEqual(beforeForkMigration);
+    const columns = await pool?.query(
+      `SELECT column_name
+       FROM information_schema.columns
+       WHERE table_name = 'research_thread_forks'
+       ORDER BY column_name`,
+    );
+    expect(columns?.rows.map(({ column_name }) => column_name)).toEqual([
+      "created_at",
+      "creation_id",
+      "id",
+      "new_thread_id",
+      "source_answer_message_id",
+      "source_thread_id",
+    ]);
   });
 });
 

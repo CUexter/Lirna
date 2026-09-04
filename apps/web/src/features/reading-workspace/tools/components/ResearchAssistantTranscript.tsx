@@ -33,12 +33,24 @@ import type {
 } from "../researchAssistantTransport";
 import { ResearchAssistantAlternatives } from "./ResearchAssistantAlternatives";
 import { MessageAttachments } from "./ResearchAssistantComposer";
+import { ResearchAssistantRelatedThread } from "./ResearchAssistantRelatedThread";
 import { ResearchAssistantResponse } from "./ResearchAssistantResponse";
 import {
   ResearchAssistantRetryStatus,
   retryQuestionFor,
   TemporaryEvidenceSummary,
 } from "./ResearchAssistantRetryStatus";
+
+interface TranscriptActions {
+  canCreateRelated?: (message: ResearchAssistantMessage) => boolean;
+  regenerate?: (message: ResearchAssistantMessage) => void;
+  createRelated?: (
+    message: ResearchAssistantMessage,
+    input: { creationId: string; title: string },
+  ) => Promise<"created" | "indeterminate" | "rejected">;
+  retry?: (message: ResearchAssistantMessage) => void;
+  selectAlternative?: (answerId: string) => void;
+}
 
 export function ResearchAssistantTranscript({
   actions,
@@ -50,11 +62,7 @@ export function ResearchAssistantTranscript({
   retryableQuestionId,
   selection,
 }: {
-  actions?: {
-    regenerate?: (message: ResearchAssistantMessage) => void;
-    retry?: (message: ResearchAssistantMessage) => void;
-    selectAlternative?: (answerId: string) => void;
-  };
+  actions?: TranscriptActions;
   error?: string;
   messages: ResearchAssistantMessage[];
   passageForReference: (reference: ResearchPassageReference) => ArticlePassage;
@@ -63,7 +71,7 @@ export function ResearchAssistantTranscript({
   retryableQuestionId?: string;
   selection?: SelectionDraft;
 }) {
-  const { regenerate, retry, selectAlternative } = actions ?? {};
+  const { retry } = actions ?? {};
   const lastMessage = messages.at(-1);
   const retryQuestion = retryQuestionFor(
     messages,
@@ -108,16 +116,16 @@ export function ResearchAssistantTranscript({
                 <QuotedPassageAction passage={passageForSelection(selection)} />
               </MessageScrollerItem>
             ) : null}
-            {messages.map((message) => (
+            {messages.map((message, index) => (
               <TranscriptMessage
                 key={message.id}
+                actions={actions}
                 lastMessageId={lastMessage?.id}
                 message={message}
-                onRegenerate={regenerate}
-                onSelectAlternative={selectAlternative}
                 passageForReference={passageForReference}
                 passageForSelection={passageForSelection}
                 pending={pending}
+                prefix={messages.slice(0, index + 1)}
               />
             ))}
             {pending && lastMessage?.role === "user" ? (
@@ -150,21 +158,21 @@ export function ResearchAssistantTranscript({
 }
 
 function TranscriptMessage({
+  actions,
   lastMessageId,
   message,
-  onRegenerate,
-  onSelectAlternative,
   passageForReference,
   passageForSelection,
   pending,
+  prefix,
 }: {
+  actions?: TranscriptActions;
   lastMessageId?: string;
   message: ResearchAssistantMessage;
-  onRegenerate?: (message: ResearchAssistantMessage) => void;
-  onSelectAlternative?: (answerId: string) => void;
   passageForReference: (reference: ResearchPassageReference) => ArticlePassage;
   passageForSelection: (selection: SelectionDraft) => ArticlePassage;
   pending: boolean;
+  prefix: ResearchAssistantMessage[];
 }) {
   const text = message.parts
     .filter((part) => part.type === "text")
@@ -180,6 +188,8 @@ function TranscriptMessage({
     pending &&
     !hasAssistantContent;
   const messageSelection = message.metadata?.selection;
+  const { canCreateRelated, createRelated, regenerate, selectAlternative } =
+    actions ?? {};
   if (message.role === "assistant" && !hasAssistantContent && !waiting)
     return null;
   if (waiting)
@@ -192,10 +202,16 @@ function TranscriptMessage({
     return (
       <AssistantTranscriptMessage
         message={message}
-        onRegenerate={onRegenerate}
-        onSelectAlternative={onSelectAlternative}
+        onCreateRelated={
+          createRelated && canCreateRelated?.(message)
+            ? createRelated
+            : undefined
+        }
+        onRegenerate={regenerate}
+        onSelectAlternative={selectAlternative}
         passageForReference={passageForReference}
         pending={pending}
+        prefix={prefix}
       />
     );
   return (
@@ -225,16 +241,23 @@ function TranscriptMessage({
 
 function AssistantTranscriptMessage({
   message,
+  onCreateRelated,
   onRegenerate,
   onSelectAlternative,
   passageForReference,
   pending,
+  prefix,
 }: {
   message: ResearchAssistantMessage;
+  onCreateRelated?: (
+    message: ResearchAssistantMessage,
+    input: { creationId: string; title: string },
+  ) => Promise<"created" | "indeterminate" | "rejected">;
   onRegenerate?: (message: ResearchAssistantMessage) => void;
   onSelectAlternative?: (answerId: string) => void;
   passageForReference: (reference: ResearchPassageReference) => ArticlePassage;
   pending: boolean;
+  prefix: ResearchAssistantMessage[];
 }) {
   return (
     <MessageScrollerItem data-message-id={message.id}>
@@ -253,6 +276,14 @@ function AssistantTranscriptMessage({
           }
           onSelect={onSelectAlternative}
         />
+        {onCreateRelated ? (
+          <ResearchAssistantRelatedThread
+            disabled={pending}
+            onCreate={(input) => onCreateRelated(message, input)}
+            prefix={prefix}
+            sourceAnswerMessageId={message.id}
+          />
+        ) : null}
       </div>
     </MessageScrollerItem>
   );

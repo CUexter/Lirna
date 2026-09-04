@@ -1,6 +1,8 @@
+import { ORPCError } from "@orpc/client";
 import { useEffect, useRef, useState } from "react";
 
 import {
+  createRelatedResearchThread,
   listResearchThreads,
   loadResearchThread,
   type ResearchThread,
@@ -194,9 +196,58 @@ export function useResearchThreads({
     }
   }
 
+  async function createRelated(input: {
+    creationId: string;
+    sourceAnswerMessageId: string;
+    sourceThreadId: string;
+    title: string;
+  }) {
+    const requestScopeKey = scopeKey;
+    const requestRevision = ++requestRevisionRef.current;
+    setLoading(true);
+    setError(undefined);
+    try {
+      const created = await createRelatedResearchThread({ ...scope, ...input });
+      const listed = await listResearchThreads(scope);
+      if (
+        requestRevisionRef.current !== requestRevision ||
+        scopeKeyRef.current !== requestScopeKey
+      )
+        return { status: "indeterminate" as const };
+      setThreads(listed);
+      setActiveThread(created);
+      setActiveThreadId(created.id);
+      return { status: "created" as const, thread: created };
+    } catch (reason) {
+      if (
+        requestRevisionRef.current === requestRevision &&
+        scopeKeyRef.current === requestScopeKey
+      )
+        setError(
+          reason instanceof Error
+            ? reason.message
+            : "Related Research thread could not be created",
+        );
+      return {
+        status:
+          reason instanceof ORPCError &&
+          (reason.code === "NOT_FOUND" || reason.code === "CONFLICT")
+            ? ("rejected" as const)
+            : ("indeterminate" as const),
+      };
+    } finally {
+      if (
+        requestRevisionRef.current === requestRevision &&
+        scopeKeyRef.current === requestScopeKey
+      )
+        setLoading(false);
+    }
+  }
+
   return {
     activeThread,
     activeThreadId,
+    createRelated,
     error,
     loading,
     resume,

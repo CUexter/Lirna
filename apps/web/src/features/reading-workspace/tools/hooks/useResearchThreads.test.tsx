@@ -1,4 +1,5 @@
 import { afterEach, expect, mock, test } from "bun:test";
+import { ORPCError } from "@orpc/client";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 
 const threadId = "30000000-0000-4000-8000-000000000000";
@@ -8,6 +9,8 @@ let resolveThreadList: (() => void) | undefined;
 let resolveSelection:
   | ((thread: ReturnType<typeof researchThread>) => void)
   | undefined;
+let relatedInput: unknown;
+let relatedError: Error | undefined;
 
 await mock.module("../researchAssistantTransport", () => ({
   listResearchThreads: async () => {
@@ -25,6 +28,11 @@ await mock.module("../researchAssistantTransport", () => ({
     new Promise<ReturnType<typeof researchThread>>((resolve) => {
       resolveSelection = resolve;
     }),
+  createRelatedResearchThread: async (input: unknown) => {
+    relatedInput = input;
+    if (relatedError) throw relatedError;
+    return researchThread("related-thread");
+  },
 }));
 
 const { useResearchThreads } = await import("./useResearchThreads");
@@ -35,6 +43,8 @@ afterEach(() => {
   deferThreadList = false;
   resolveThreadList = undefined;
   resolveSelection = undefined;
+  relatedInput = undefined;
+  relatedError = undefined;
 });
 
 test("does not replace a live response when its Research thread finishes", async () => {
@@ -117,9 +127,77 @@ test("does not restore a late created thread after starting another thread", asy
   expect(result.current.activeThreadId).toBeUndefined();
 });
 
-function researchThread() {
+test("opens a newly created related Research thread in the current Source-state scope", async () => {
+  const { result } = renderHook(() =>
+    useResearchThreads({
+      disabled: false,
+      open: true,
+      preferNew: false,
+      scope: { sourceId: "source-id", stateId: "state-id" },
+    }),
+  );
+  await waitFor(() => expect(result.current.loading).toBe(false));
+
+  await act(async () => {
+    await result.current.createRelated({
+      creationId: "creation-id",
+      sourceThreadId: threadId,
+      sourceAnswerMessageId: "assistant-message",
+      title: "Related inquiry",
+    });
+  });
+
+  expect(relatedInput).toEqual({
+    creationId: "creation-id",
+    sourceId: "source-id",
+    stateId: "state-id",
+    sourceThreadId: threadId,
+    sourceAnswerMessageId: "assistant-message",
+    title: "Related inquiry",
+  });
+  expect(result.current.activeThreadId).toBe("related-thread");
+  expect(result.current.activeThread?.id).toBe("related-thread");
+});
+
+test("distinguishes rejected creation from an indeterminate failure", async () => {
+  const { result } = renderHook(() =>
+    useResearchThreads({
+      disabled: false,
+      open: true,
+      preferNew: false,
+      scope: { sourceId: "source-id", stateId: "state-id" },
+    }),
+  );
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  const input = {
+    creationId: "creation-id",
+    sourceThreadId: threadId,
+    sourceAnswerMessageId: "assistant-message",
+    title: "Related inquiry",
+  };
+
+  relatedError = new ORPCError("CONFLICT");
+  let rejected:
+    | Awaited<ReturnType<typeof result.current.createRelated>>
+    | undefined;
+  await act(async () => {
+    rejected = await result.current.createRelated(input);
+  });
+  expect(rejected).toEqual({ status: "rejected" });
+
+  relatedError = new Error("Network response was lost");
+  let indeterminate:
+    | Awaited<ReturnType<typeof result.current.createRelated>>
+    | undefined;
+  await act(async () => {
+    indeterminate = await result.current.createRelated(input);
+  });
+  expect(indeterminate).toEqual({ status: "indeterminate" });
+});
+
+function researchThread(id = threadId) {
   return {
-    id: threadId,
+    id,
     sourceId: "source-id",
     stateId: "state-id",
     componentIdentity: "article",

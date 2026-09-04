@@ -11,6 +11,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -64,6 +65,7 @@ export const researchThreadMessages = pgTable(
       >(),
     model: text("model"),
     regeneratedFromAnswerId: uuid("regenerated_from_answer_id"),
+    originMessageId: uuid("origin_message_id"),
     references:
       jsonb("references").$type<
         Array<{
@@ -104,6 +106,10 @@ export const researchThreadMessages = pgTable(
       table.parentMessageId,
       table.sequence,
     ),
+    uniqueIndex("research_thread_messages_thread_id_idx").on(
+      table.researchThreadId,
+      table.id,
+    ),
     foreignKey({
       columns: [table.researchThreadId],
       foreignColumns: [researchThreads.id],
@@ -119,6 +125,11 @@ export const researchThreadMessages = pgTable(
       foreignColumns: [table.id],
       name: "research_thread_messages_regenerated_from_fk",
     }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.originMessageId],
+      foreignColumns: [table.id],
+      name: "research_thread_messages_origin_fk",
+    }).onDelete("restrict"),
     check(
       "research_thread_messages_role_check",
       sql`${table.role} IN ('user', 'assistant')`,
@@ -126,6 +137,44 @@ export const researchThreadMessages = pgTable(
     check(
       "research_thread_messages_content_check",
       sql`length(${table.content}) > 0`,
+    ),
+  ],
+);
+
+export const researchThreadForks = pgTable(
+  "research_thread_forks",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    creationId: uuid("creation_id").notNull().unique(),
+    sourceThreadId: uuid("source_thread_id")
+      .notNull()
+      .references(() => researchThreads.id, { onDelete: "restrict" }),
+    sourceAnswerMessageId: uuid("source_answer_message_id").notNull(),
+    newThreadId: uuid("new_thread_id")
+      .notNull()
+      .unique()
+      .references(() => researchThreads.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("research_thread_forks_source_idx").on(
+      table.sourceThreadId,
+      table.sourceAnswerMessageId,
+      table.createdAt,
+    ),
+    foreignKey({
+      columns: [table.sourceThreadId, table.sourceAnswerMessageId],
+      foreignColumns: [
+        researchThreadMessages.researchThreadId,
+        researchThreadMessages.id,
+      ],
+      name: "research_thread_forks_source_answer_fk",
+    }).onDelete("restrict"),
+    check(
+      "research_thread_forks_distinct_threads_check",
+      sql`${table.sourceThreadId} <> ${table.newThreadId}`,
     ),
   ],
 );

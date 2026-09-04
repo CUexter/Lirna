@@ -14,6 +14,13 @@ const questionId = "40000000-0000-4000-8000-000000000000";
 const firstAnswerId = "50000000-0000-4000-8000-000000000000";
 const secondAnswerId = "60000000-0000-4000-8000-000000000000";
 let attachmentBacked = false;
+let answerHasModel = true;
+let relatedFailure: "indeterminate" | "rejected" | undefined;
+let relatedInputs: Array<{
+  creationId: string;
+  sourceAnswerMessageId: string;
+  title: string;
+}> = [];
 
 await mock.module("../hooks/useResearchThreads", () => ({
   useResearchThreads: () => {
@@ -31,6 +38,21 @@ await mock.module("../hooks/useResearchThreads", () => ({
         setActiveThread(selected);
         return selected;
       },
+      createRelated: async (input: {
+        creationId: string;
+        sourceAnswerMessageId: string;
+        title: string;
+      }) => {
+        relatedInputs.push(input);
+        if (relatedFailure) {
+          const status = relatedFailure;
+          relatedFailure = undefined;
+          return { status };
+        }
+        const related = relatedThread();
+        setActiveThread(related);
+        return { status: "created", thread: related };
+      },
       startNew: () => {},
       threadCreated: async () => {},
       threads: [],
@@ -42,6 +64,9 @@ const { ReadingResearchAssistant } = await import("./ResearchAssistant");
 
 afterEach(() => {
   attachmentBacked = false;
+  answerHasModel = true;
+  relatedFailure = undefined;
+  relatedInputs = [];
   cleanup();
 });
 
@@ -125,6 +150,150 @@ test("requires temporary evidence to be reattached before regeneration", async (
   await waitFor(() => expect(sent).toBe(true));
 });
 
+test("previews, names, and opens a related Research thread", async () => {
+  attachmentBacked = true;
+  const user = userEvent.setup();
+  renderAssistant(transport(() => {}));
+
+  const action = view().getByRole("button", {
+    name: "Start related Research thread",
+  });
+  action.focus();
+  await user.keyboard("{Enter}");
+  const preview = view().getByRole("region", {
+    name: "Related Research thread preview",
+  });
+  expect(within(preview).getByText("What is the central claim?")).toBeTruthy();
+  expect(within(preview).getByText("First durable answer.")).toBeTruthy();
+  expect(within(preview).getByText(/Selected context:/)).toBeTruthy();
+  expect(
+    within(preview).getByText(/Temporary evidence: evidence.txt/),
+  ).toBeTruthy();
+  expect(
+    within(preview).getByText(/Reference from Main entry: Evidence/),
+  ).toBeTruthy();
+
+  const title = view().getByRole("textbox", {
+    name: "New Research thread name",
+  });
+  expect(document.activeElement).toBe(title);
+  await user.type(title, "A materially different inquiry");
+  await user.click(
+    view().getByRole("button", { name: "Create related Research thread" }),
+  );
+
+  await waitFor(() =>
+    expect(view().getByText("Copied final answer.")).toBeTruthy(),
+  );
+  expect(relatedInputs[0]).toMatchObject({
+    sourceAnswerMessageId: firstAnswerId,
+    title: "A materially different inquiry",
+  });
+  expect(relatedInputs[0]?.creationId).toMatch(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+  );
+  expect(document.activeElement).toBe(
+    view().getByRole("textbox", { name: "Question" }),
+  );
+});
+
+test("retries an indeterminate creation with the same ID and locked input", async () => {
+  relatedFailure = "indeterminate";
+  const user = userEvent.setup();
+  renderAssistant(transport(() => {}));
+  await user.click(
+    view().getByRole("button", { name: "Start related Research thread" }),
+  );
+  await user.type(
+    view().getByRole("textbox", { name: "New Research thread name" }),
+    "Stable inquiry name",
+  );
+  await user.click(
+    view().getByRole("button", { name: "Create related Research thread" }),
+  );
+
+  const lockedTitle = view().getByRole<HTMLInputElement>("textbox", {
+    name: "New Research thread name",
+  });
+  expect(lockedTitle.disabled).toBe(true);
+  expect(
+    view().queryByRole("button", { name: "Begin new attempt" }),
+  ).toBeNull();
+  await user.click(view().getByRole("button", { name: "Retry creation" }));
+  await waitFor(() => expect(relatedInputs).toHaveLength(2));
+  expect(relatedInputs[1]).toEqual(relatedInputs[0]);
+});
+
+test("can abandon a rejected creation and begin with a new ID", async () => {
+  relatedFailure = "rejected";
+  const user = userEvent.setup();
+  renderAssistant(transport(() => {}));
+  await user.click(
+    view().getByRole("button", { name: "Start related Research thread" }),
+  );
+  await user.type(
+    view().getByRole("textbox", { name: "New Research thread name" }),
+    "Rejected inquiry",
+  );
+  await user.click(
+    view().getByRole("button", { name: "Create related Research thread" }),
+  );
+  await user.click(view().getByRole("button", { name: "Begin new attempt" }));
+  expect(
+    view().getByRole<HTMLInputElement>("textbox", {
+      name: "New Research thread name",
+    }).disabled,
+  ).toBe(false);
+  await user.click(
+    view().getByRole("button", { name: "Create related Research thread" }),
+  );
+  await waitFor(() => expect(relatedInputs).toHaveLength(2));
+  expect(relatedInputs[1]?.creationId).not.toBe(relatedInputs[0]?.creationId);
+});
+
+test("offers related creation for a completed answer without model metadata", () => {
+  answerHasModel = false;
+  renderAssistant(transport(() => {}));
+
+  expect(
+    view().getByRole("button", { name: "Start related Research thread" }),
+  ).toBeTruthy();
+  expect(
+    view().queryByRole("button", { name: "Regenerate answer" }),
+  ).toBeNull();
+});
+
+test("does not offer related creation for an unpersisted assistant answer", async () => {
+  const user = userEvent.setup();
+  renderAssistant(transport(() => {}));
+  await user.click(view().getByRole("button", { name: "Regenerate answer" }));
+  await waitFor(() =>
+    expect(view().getByText("A regenerated answer.")).toBeTruthy(),
+  );
+
+  expect(
+    view().queryByRole("button", { name: "Start related Research thread" }),
+  ).toBeNull();
+});
+
+test("disables related-thread creation while a local turn is running", async () => {
+  const user = userEvent.setup();
+  renderAssistant(pendingTransport());
+  await user.type(
+    view().getByRole("textbox", { name: "Question" }),
+    "Continue the current inquiry",
+  );
+  await user.click(view().getByRole("button", { name: "Send question" }));
+
+  await waitFor(() =>
+    expect(
+      view().getByRole<HTMLButtonElement>("button", {
+        name: "Start related Research thread",
+      }).disabled,
+    ).toBe(true),
+  );
+});
+
 function transport(
   record: (
     options: Parameters<
@@ -150,6 +319,22 @@ function transport(
           controller.enqueue({ type: "text-end", id: "answer" });
           controller.enqueue({ type: "finish", finishReason: "stop" });
           controller.close();
+        },
+      });
+    },
+    async reconnectToStream() {
+      return null;
+    },
+  };
+}
+
+function pendingTransport(): ChatTransport<ResearchAssistantMessage> {
+  return {
+    async sendMessages() {
+      return new ReadableStream<UIMessageChunk>({
+        start(controller) {
+          controller.enqueue({ type: "start", messageId: "pending-answer" });
+          controller.enqueue({ type: "text-start", id: "answer" });
         },
       });
     },
@@ -209,6 +394,7 @@ function projectedThread(
         content: "What is the central claim?",
         ...(withAttachment
           ? {
+              selectedText: "Synthetic reading text.",
               temporaryEvidence: [
                 { filename: "evidence.txt", mediaType: "text/plain" },
               ],
@@ -221,7 +407,7 @@ function projectedThread(
         parentMessageId: questionId,
         role: "assistant",
         content: second ? "Second durable answer." : "First durable answer.",
-        model: "z-ai/glm-5.3-flash",
+        ...(answerHasModel ? { model: "z-ai/glm-5.3-flash" as const } : {}),
         answerAlternatives: {
           position: second ? 2 : 1,
           total: 2,
@@ -229,9 +415,49 @@ function projectedThread(
             ? { previousAnswerId: firstAnswerId }
             : { nextAnswerId: secondAnswerId }),
         },
+        references: [reference()],
         createdAt: second
           ? "2026-09-04T12:02:00.000Z"
           : "2026-09-04T12:01:00.000Z",
+      },
+    ],
+  };
+}
+
+function reference() {
+  return {
+    componentIdentity: "active:/",
+    componentLabel: "Main entry",
+    selection: {
+      offsetBasis: "normalized-derivative-text-v1" as const,
+      normalizedStartOffset: 0,
+      normalizedEndOffset: 8,
+      exactText: "Evidence",
+      prefix: "",
+      suffix: "",
+    },
+  };
+}
+
+function relatedThread(): ResearchThread {
+  return {
+    ...projectedThread(firstAnswerId, false),
+    id: "70000000-0000-4000-8000-000000000000",
+    title: "A materially different inquiry",
+    messages: [
+      {
+        id: "80000000-0000-4000-8000-000000000000",
+        role: "user",
+        content: "What is the central claim?",
+        createdAt: "2026-09-04T12:03:00.000Z",
+      },
+      {
+        id: "90000000-0000-4000-8000-000000000000",
+        parentMessageId: "80000000-0000-4000-8000-000000000000",
+        role: "assistant",
+        content: "Copied final answer.",
+        model: "z-ai/glm-5.3-flash",
+        createdAt: "2026-09-04T12:04:00.000Z",
       },
     ],
   };
