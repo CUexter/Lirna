@@ -66,6 +66,9 @@ describePostgres("Research thread PostgreSQL store", () => {
       threadId: thread.id,
       content: "What is the central claim?",
       selectedText: "Selected evidence",
+      temporaryEvidence: [
+        { filename: "evidence.txt", mediaType: "text/plain" },
+      ],
     });
     if (!question) throw new Error("Question was not persisted");
     const answer = await store.commitAnswer({
@@ -107,6 +110,9 @@ describePostgres("Research thread PostgreSQL store", () => {
           role: "user",
           content: "What is the central claim?",
           selectedText: "Selected evidence",
+          temporaryEvidence: [
+            { filename: "evidence.txt", mediaType: "text/plain" },
+          ],
         },
         {
           id: "50000000-0000-4000-8000-000000000000",
@@ -135,6 +141,13 @@ describePostgres("Research thread PostgreSQL store", () => {
         parentMessageId: question.id,
       }),
     ).resolves.toMatchObject([{ id: answer.id }]);
+    const [persistedQuestion] = await database
+      .select({ temporaryEvidence: researchThreadMessages.temporaryEvidence })
+      .from(researchThreadMessages)
+      .where(eq(researchThreadMessages.id, question.id));
+    expect(persistedQuestion?.temporaryEvidence).toEqual([
+      { filename: "evidence.txt", mediaType: "text/plain" },
+    ]);
     await database
       .delete(researchThreads)
       .where(eq(researchThreads.id, thread.id));

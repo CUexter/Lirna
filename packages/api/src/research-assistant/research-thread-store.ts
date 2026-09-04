@@ -100,6 +100,7 @@ export class DrizzleResearchThreadStore implements ResearchThreadOperations {
           role: "user",
           content: input.content,
           selectedText: input.selectedText,
+          temporaryEvidence: input.temporaryEvidence,
         })
         .returning();
       const question = inserted[0];
@@ -212,6 +213,9 @@ function serializeMessage(
       ? { model: message.model as ResearchThreadMessage["model"] }
       : {}),
     ...(message.selectedText ? { selectedText: message.selectedText } : {}),
+    ...(message.temporaryEvidence?.length
+      ? { temporaryEvidence: message.temporaryEvidence }
+      : {}),
     ...(message.references?.length ? { references: message.references } : {}),
     createdAt: message.createdAt.toISOString(),
   };

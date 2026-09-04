@@ -32,6 +32,26 @@ export interface AliasedResearchPassageReference
   id: string;
 }
 
+export const temporaryEvidenceMediaTypes = [
+  "application/json",
+  "application/pdf",
+  "image/gif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "text/csv",
+  "text/markdown",
+  "text/plain",
+] as const;
+
+export type TemporaryEvidenceMediaType =
+  (typeof temporaryEvidenceMediaTypes)[number];
+
+export interface TemporaryEvidenceDescriptor {
+  filename: string;
+  mediaType: TemporaryEvidenceMediaType;
+}
+
 export interface ResearchThreadMessage {
   id: string;
   parentMessageId?: string;
@@ -39,6 +59,7 @@ export interface ResearchThreadMessage {
   content: string;
   model?: ResearchAssistantModel;
   selectedText?: string;
+  temporaryEvidence?: TemporaryEvidenceDescriptor[];
   references?: ResearchPassageReference[];
   createdAt: string;
 }
@@ -79,6 +100,7 @@ export interface ResearchThreadOperations {
     threadId: string;
     content: string;
     selectedText?: string;
+    temporaryEvidence?: TemporaryEvidenceDescriptor[];
   }): Promise<ResearchThreadMessage | undefined>;
   commitAnswer(input: {
     answerMessageId: string;

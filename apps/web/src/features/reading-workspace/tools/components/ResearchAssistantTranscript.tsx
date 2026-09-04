@@ -32,6 +32,11 @@ import type {
   ResearchPassageReference,
 } from "../researchAssistantTransport";
 import { MessageAttachments } from "./ResearchAssistantComposer";
+import {
+  ResearchAssistantRetryStatus,
+  retryQuestionFor,
+  TemporaryEvidenceSummary,
+} from "./ResearchAssistantRetryStatus";
 import { ResearchAssistantResponse } from "./ResearchAssistantResponse";
 
 export function ResearchAssistantTranscript({
@@ -40,6 +45,8 @@ export function ResearchAssistantTranscript({
   passageForReference,
   passageForSelection,
   pending,
+  onRetry,
+  retryableQuestionId,
   selection,
 }: {
   error?: string;
@@ -47,9 +54,16 @@ export function ResearchAssistantTranscript({
   passageForReference: (reference: ResearchPassageReference) => ArticlePassage;
   passageForSelection: (selection: SelectionDraft) => ArticlePassage;
   pending: boolean;
+  onRetry?: (message: ResearchAssistantMessage) => void;
+  retryableQuestionId?: string;
   selection?: SelectionDraft;
 }) {
   const lastMessage = messages.at(-1);
+  const retryQuestion = retryQuestionFor(
+    messages,
+    pending,
+    retryableQuestionId,
+  );
   const selectionIsInTranscript = messages.some(
     (message) =>
       message.metadata?.selection?.exactText === selection?.exactText,
@@ -103,12 +117,13 @@ export function ResearchAssistantTranscript({
                 <AssistantWaiting />
               </MessageScrollerItem>
             ) : null}
-            {!pending && lastMessage?.role === "user" ? (
+            {retryQuestion?.role === "user" ? (
               <MessageScrollerItem>
-                <p className="text-muted-foreground text-sm">
-                  This response did not complete. Ask the question again to
-                  retry.
-                </p>
+                <ResearchAssistantRetryStatus
+                  message={retryQuestion}
+                  onRetry={onRetry}
+                  pending={pending}
+                />
               </MessageScrollerItem>
             ) : null}
             {error ? (
@@ -170,6 +185,7 @@ function TranscriptMessage({
             {message.metadata?.attachments?.length ? (
               <MessageAttachments attachments={message.metadata.attachments} />
             ) : null}
+            <TemporaryEvidenceSummary message={message} />
             {messageSelection ? (
               <QuotedPassageAction
                 className="mb-2"

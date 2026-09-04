@@ -1,0 +1,1 @@
+ALTER TABLE "research_thread_messages" ADD COLUMN "temporary_evidence" jsonb;

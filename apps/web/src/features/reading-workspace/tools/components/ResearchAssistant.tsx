@@ -21,9 +21,11 @@ import {
 import type { ArticlePassage } from "../../navigation/hooks/useShowInArticle";
 import { useResearchThreads } from "../hooks/useResearchThreads";
 import {
+  attachmentsMatch,
   createResearchAssistantTransport,
   type ResearchAssistantMessage,
   type ResearchPassageReference,
+  requiredAttachments,
   type TemporaryEvidenceAttachment,
 } from "../researchAssistantTransport";
 import { QuestionComposer } from "./ResearchAssistantComposer";
@@ -69,6 +71,7 @@ export function ReadingResearchAssistant({
     [],
   );
   const [composerError, setComposerError] = useState<string>();
+  const [cancelledQuestionId, setCancelledQuestionId] = useState<string>();
   const [model, setModel] = useState<ResearchAssistantModel>(
     defaultResearchAssistantModel,
   );
@@ -90,19 +93,24 @@ export function ReadingResearchAssistant({
         id: message.id,
         role: message.role,
         parts: [{ type: "text", text: message.content }],
-        ...(messageSelection || message.references?.length
+        ...(messageSelection ||
+        message.references?.length ||
+        message.temporaryEvidence?.length
           ? {
               metadata: {
                 ...(messageSelection ? { selection: messageSelection } : {}),
                 ...(message.references?.length
                   ? { references: message.references }
                   : {}),
+                ...(message.temporaryEvidence?.length
+                  ? { attachmentDescriptors: message.temporaryEvidence }
+                  : {}),
               },
             }
           : {}),
       };
     }) ?? [];
-  const { clearError, error, messages, sendMessage, status, stop } =
+  const { clearError, error, messages, regenerate, sendMessage, status, stop } =
     useChat<ResearchAssistantMessage>({
       id: researchThreads.activeThread?.id ?? `new:${sourceId}:${stateId}`,
       messages: initialMessages,
@@ -125,6 +133,7 @@ export function ReadingResearchAssistant({
         }),
     });
   const pending = status === "submitted" || status === "streaming";
+  const latestQuestionId = messages.findLast(({ role }) => role === "user")?.id;
 
   useEffect(() => {
     if (open) questionRef.current?.focus({ preventScroll: Boolean(selection) });
@@ -138,6 +147,7 @@ export function ReadingResearchAssistant({
   );
 
   function close() {
+    if (pending) setCancelledQuestionId(latestQuestionId);
     void stop();
     onClose();
     requestAnimationFrame(() => triggerRef.current?.focus());
@@ -147,6 +157,7 @@ export function ReadingResearchAssistant({
     event.preventDefault();
     const nextQuestion = question.trim();
     if (!nextQuestion || pending) return;
+    setCancelledQuestionId(undefined);
     const submittedAttachments = attachments;
     setQuestion("");
     setComposerError(undefined);
@@ -173,6 +184,30 @@ export function ReadingResearchAssistant({
             },
           }
         : {}),
+    });
+  }
+
+  async function retryQuestion(message: ResearchAssistantMessage) {
+    if (pending) return;
+    const required = requiredAttachments(message);
+    const available = message.metadata?.attachments ?? attachments;
+    if (!attachmentsMatch(required, available)) {
+      setComposerError(
+        required.length
+          ? `Reattach temporary evidence before retrying: ${required
+              .map(({ filename, mediaType }) => `${filename} (${mediaType})`)
+              .join(", ")}`
+          : "Remove attachments before retrying; this question did not use temporary evidence.",
+      );
+      return;
+    }
+    setComposerError(undefined);
+    clearError();
+    setAttachments([]);
+    setCancelledQuestionId(undefined);
+    await regenerate({
+      messageId: message.id,
+      body: { retryAttachments: available },
     });
   }
 
@@ -226,6 +261,10 @@ export function ReadingResearchAssistant({
             passageForReference={passageForReference}
             passageForSelection={passageForSelection}
             pending={pending}
+            onRetry={(message) => {
+              void retryQuestion(message);
+            }}
+            retryableQuestionId={error ? latestQuestionId : cancelledQuestionId}
             selection={selection}
           />
         </div>

@@ -58,6 +58,10 @@ export const researchThreadMessages = pgTable(
     role: text("role").notNull(),
     content: text("content").notNull(),
     selectedText: text("selected_text"),
+    temporaryEvidence:
+      jsonb("temporary_evidence").$type<
+        Array<{ filename: string; mediaType: string }>
+      >(),
     model: text("model"),
     references:
       jsonb("references").$type<

@@ -489,11 +489,7 @@ test("explains when a saved Research response did not complete", () => {
     />,
   );
 
-  expect(
-    view().getByText(
-      "This response did not complete. Ask the question again to retry.",
-    ),
-  ).toBeTruthy();
+  expect(view().getByText("This response did not complete.")).toBeTruthy();
 });
 
 function view() {

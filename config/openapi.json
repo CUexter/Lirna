@@ -20326,6 +20326,36 @@
                           "selectedText": {
                             "type": "string"
                           },
+                          "temporaryEvidence": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "filename": {
+                                  "type": "string"
+                                },
+                                "mediaType": {
+                                  "type": "string",
+                                  "enum": [
+                                    "application/json",
+                                    "application/pdf",
+                                    "image/gif",
+                                    "image/jpeg",
+                                    "image/png",
+                                    "image/webp",
+                                    "text/csv",
+                                    "text/markdown",
+                                    "text/plain"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "filename",
+                                "mediaType"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
                           "references": {
                             "type": "array",
                             "items": {
@@ -20627,6 +20657,36 @@
                           "selectedText": {
                             "type": "string"
                           },
+                          "temporaryEvidence": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "filename": {
+                                  "type": "string"
+                                },
+                                "mediaType": {
+                                  "type": "string",
+                                  "enum": [
+                                    "application/json",
+                                    "application/pdf",
+                                    "image/gif",
+                                    "image/jpeg",
+                                    "image/png",
+                                    "image/webp",
+                                    "text/csv",
+                                    "text/markdown",
+                                    "text/plain"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "filename",
+                                "mediaType"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
                           "references": {
                             "type": "array",
                             "items": {
@@ -20791,6 +20851,128 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "404",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/NotFound"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UndefinedError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sources/assistant/retry": {
+      "post": {
+        "operationId": "sources.assistant.retry",
+        "summary": "Retry an unanswered Research question",
+        "tags": [
+          "Sources"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sourceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "stateId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "attachments": {
+                    "maxItems": 3,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "dataUrl": {
+                          "type": "string",
+                          "maxLength": 7000000
+                        },
+                        "filename": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 255
+                        },
+                        "mediaType": {
+                          "type": "string",
+                          "enum": [
+                            "application/json",
+                            "application/pdf",
+                            "image/gif",
+                            "image/jpeg",
+                            "image/png",
+                            "image/webp",
+                            "text/csv",
+                            "text/markdown",
+                            "text/plain"
+                          ]
+                        },
+                        "size": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 5242880
+                        }
+                      },
+                      "required": [
+                        "dataUrl",
+                        "filename",
+                        "mediaType",
+                        "size"
+                      ]
+                    }
+                  },
+                  "model": {
+                    "default": "z-ai/glm-5.3-flash",
+                    "type": "string",
+                    "enum": [
+                      "moonshotai/kimi-k3",
+                      "deepseek/deepseek-v4-flash-0731",
+                      "z-ai/glm-5.3-flash"
+                    ]
+                  },
+                  "questionMessageId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "threadId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "sourceId",
+                  "stateId",
+                  "questionMessageId",
+                  "threadId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {}
           },
           "404": {
             "description": "404",

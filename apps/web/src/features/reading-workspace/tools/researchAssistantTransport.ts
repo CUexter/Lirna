@@ -22,8 +22,14 @@ export interface TemporaryEvidenceAttachment {
   size: number;
 }
 
+export interface TemporaryEvidenceDescriptor {
+  filename: string;
+  mediaType: string;
+}
+
 export interface ResearchAssistantMessageMetadata {
   attachments?: TemporaryEvidenceAttachment[];
+  attachmentDescriptors?: TemporaryEvidenceDescriptor[];
   references?: Array<ResearchPassageReference & { evidenceAlias?: string }>;
   selection?: SelectionDraft;
 }
@@ -58,9 +64,25 @@ export function createResearchAssistantTransport({
 }): ChatTransport<ResearchAssistantMessage> {
   let threadId = initialThreadId;
   return {
-    async sendMessages({ abortSignal, messages }) {
+    async sendMessages({ abortSignal, body, messageId, messages, trigger }) {
       const message = latestUserMessage(messages);
       if (!message) throw new Error("A user question is required");
+      if (trigger === "regenerate-message") {
+        if (!threadId || message.id !== messageId)
+          throw new Error("An unanswered Research question is required");
+        const iterator = await inquiryClient.sources.assistant.retry(
+          {
+            model,
+            questionMessageId: message.id,
+            sourceId,
+            stateId,
+            threadId,
+            ...retryAttachmentInput(body),
+          },
+          { signal: abortSignal },
+        );
+        return streamFromIterator(iterator);
+      }
       const question = message.parts
         .filter((part) => part.type === "text")
         .map((part) => part.text)
@@ -103,6 +125,14 @@ export function createResearchAssistantTransport({
       return null;
     },
   };
+}
+
+function retryAttachmentInput(body: object | undefined) {
+  const attachments =
+    body && "retryAttachments" in body ? body.retryAttachments : undefined;
+  return Array.isArray(attachments) && attachments.length
+    ? { attachments: attachments as TemporaryEvidenceAttachment[] }
+    : {};
 }
 
 function latestUserMessage(messages: ResearchAssistantMessage[]) {
@@ -151,4 +181,43 @@ export function loadResearchThread(input: {
   threadId: string;
 }) {
   return inquiryClient.sources.assistant.get(input);
+}
+
+export function requiredAttachments(message: ResearchAssistantMessage) {
+  return (
+    message.metadata?.attachmentDescriptors ??
+    message.metadata?.attachments?.map(({ filename, mediaType }) => ({
+      filename,
+      mediaType,
+    })) ??
+    []
+  );
+}
+
+export function attachmentsMatch(
+  required: TemporaryEvidenceDescriptor[],
+  available: TemporaryEvidenceAttachment[],
+) {
+  const orderedRequired = [...required].sort(compareTemporaryEvidence);
+  const orderedAvailable = [...available].sort(compareTemporaryEvidence);
+  return (
+    orderedRequired.length === orderedAvailable.length &&
+    orderedRequired.every((descriptor, index) => {
+      const attachment = orderedAvailable[index];
+      return (
+        attachment?.filename === descriptor.filename &&
+        attachment.mediaType === descriptor.mediaType
+      );
+    })
+  );
+}
+
+function compareTemporaryEvidence(
+  left: TemporaryEvidenceDescriptor,
+  right: TemporaryEvidenceDescriptor,
+) {
+  return (
+    left.filename.localeCompare(right.filename) ||
+    left.mediaType.localeCompare(right.mediaType)
+  );
 }

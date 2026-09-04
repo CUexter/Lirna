@@ -6,37 +6,23 @@ import {
   InvalidAuthoredTargetError,
   validateAuthoredTarget,
 } from "../../authored-targets/authored-target";
-import { researchAnswerHistoryContent } from "../../research-assistant/research-answer-markers";
 import {
   defaultResearchAssistantModel,
   researchAssistantModelIds,
 } from "../../research-assistant/research-assistant-contract";
 import { publicProcedure } from "../init";
-import { researchAssistantAnswerOptions } from "./research-assistant-answer-options";
 import { notFoundError, sourceStateInput } from "./source-router-contracts";
-import { notFound, requireReading } from "./source-router-support";
-
-const attachmentMediaTypes = [
-  "application/json",
-  "application/pdf",
-  "image/gif",
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "text/csv",
-  "text/markdown",
-  "text/plain",
-] as const;
-const temporaryAttachmentInput = z.object({
-  dataUrl: z.string().max(7_000_000),
-  filename: z.string().trim().min(1).max(255),
-  mediaType: z.enum(attachmentMediaTypes),
-  size: z
-    .number()
-    .int()
-    .nonnegative()
-    .max(5 * 1024 * 1024),
-});
+import { notFound } from "./source-router-support";
+import { sourceAssistantRetryProcedure } from "./source-assistant-retry";
+import {
+  temporaryAttachment,
+  temporaryAttachmentInput,
+  temporaryEvidenceDescriptorSchema,
+} from "./source-assistant-temporary-evidence";
+import {
+  answerQuestion,
+  requireReadingComponent,
+} from "./source-assistant-turn";
 const threadScopeInput = sourceStateInput.extend({
   componentIdentity: z.string().trim().min(1).max(2_000),
 });
@@ -66,6 +52,7 @@ const threadMessageSchema = z.object({
   content: z.string(),
   model: z.enum(researchAssistantModelIds).optional(),
   selectedText: z.string().optional(),
+  temporaryEvidence: z.array(temporaryEvidenceDescriptorSchema).optional(),
   references: z
     .array(
       z.object({
@@ -133,11 +120,7 @@ export const sourceAssistantRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      const reading = await requireReading(context, input);
-      const component = reading.components.find(
-        ({ identity }) => identity === input.componentIdentity,
-      );
-      if (!component) throw notFound("SEP Reading component is unavailable");
+      const { component } = await requireReadingComponent(context, input);
       return context.researchThreads.create({
         sourceId: input.sourceId,
         stateId: input.stateId,
@@ -146,6 +129,7 @@ export const sourceAssistantRouter = {
         title: threadTitle(input.question),
       });
     }),
+  retry: sourceAssistantRetryProcedure,
   ask: publicProcedure
     .input(
       sourceStateInput.extend({
@@ -170,11 +154,10 @@ export const sourceAssistantRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      const reading = await requireReading(context, input);
-      const component = reading.components.find(
-        ({ identity }) => identity === input.componentIdentity,
+      const { reading, component } = await requireReadingComponent(
+        context,
+        input,
       );
-      if (!component) throw notFound("SEP Reading component is unavailable");
       if (!context.researchTurns) {
         throw new ORPCError("INTERNAL_SERVER_ERROR", {
           message: "Research assistant is not configured",
@@ -190,6 +173,13 @@ export const sourceAssistantRouter = {
         threadId: thread.id,
         content: input.question,
         ...(selectedText ? { selectedText } : {}),
+        ...(input.attachments?.length
+          ? {
+              temporaryEvidence: input.attachments.map(
+                ({ filename, mediaType }) => ({ filename, mediaType }),
+              ),
+            }
+          : {}),
       });
       if (!userMessage) {
         throw new ORPCError("INTERNAL_SERVER_ERROR", {
@@ -205,76 +195,23 @@ export const sourceAssistantRouter = {
           message: "Research question history could not be resolved",
         });
       }
-      const answer = await context.researchTurns.answer(
-        {
-          questionMessageId: userMessage.id,
-          threadId: thread.id,
-          ...(attachments ? { attachments } : {}),
-          history: history
-            .slice(0, -1)
-            .map(({ role, content, references, selectedText }) => ({
-              role,
-              content:
-                role === "assistant" && references?.length
-                  ? researchAnswerHistoryContent(content, references)
-                  : content,
-              ...(selectedText ? { selectedText } : {}),
-            })),
-          model: input.model,
-          question: input.question,
-          sourceId: input.sourceId,
-          sourceStateId: input.stateId,
-          sourceTitle: reading.source.title,
-          componentIdentity: component.identity,
-          componentLabel: component.label,
-          ...(selectedText ? { selectedText } : {}),
-          sourceText: component.plainText,
-          components: reading.components.map(
-            ({ identity, label, plainText, role }) => ({
-              identity,
-              label,
-              plainText,
-              role,
-            }),
-          ),
-        },
-        researchAssistantAnswerOptions(context),
-      );
+      const answer = await answerQuestion(context, {
+        attachments,
+        component,
+        history,
+        model: input.model,
+        question: userMessage,
+        reading,
+        sourceId: input.sourceId,
+        sourceStateId: input.stateId,
+        threadId: thread.id,
+      });
       return streamToAsyncIteratorObject(answer);
     }),
 };
 
 function threadTitle(question: string) {
   return question.length <= 120 ? question : `${question.slice(0, 117)}...`;
-}
-
-function temporaryAttachment(
-  attachment: z.infer<typeof temporaryAttachmentInput>,
-) {
-  const prefix = `data:${attachment.mediaType};base64,`;
-  if (!attachment.dataUrl.startsWith(prefix)) {
-    throw new ORPCError("BAD_REQUEST", {
-      message: `Attachment ${attachment.filename} does not match its media type`,
-    });
-  }
-  const encoded = attachment.dataUrl.slice(prefix.length);
-  const padding = encoded.endsWith("==") ? 2 : encoded.endsWith("=") ? 1 : 0;
-  const validBase64 =
-    encoded.length % 4 === 0 &&
-    /^(?:[A-Za-z\d+/]{4})*(?:[A-Za-z\d+/]{2}==|[A-Za-z\d+/]{3}=)?$/.test(
-      encoded,
-    );
-  const decodedSize = (encoded.length / 4) * 3 - padding;
-  if (!validBase64 || decodedSize !== attachment.size) {
-    throw new ORPCError("BAD_REQUEST", {
-      message: `Attachment ${attachment.filename} has invalid size metadata`,
-    });
-  }
-  return {
-    data: new URL(attachment.dataUrl),
-    filename: attachment.filename,
-    mediaType: attachment.mediaType,
-  };
 }
 
 function validatedSelectionText(

@@ -155,6 +155,7 @@ test("asks about exact evidence with a rendered-only publisher anchor", async ()
     role: "user",
     content: "What is the central claim?",
     selectedText: "Synthetic",
+    temporaryEvidence: [{ filename: "evidence.txt", mediaType: "text/plain" }],
   });
   expect(appended[1]).toMatchObject({
     threadId: "30000000-0000-4000-8000-000000000000",
@@ -199,6 +200,10 @@ test("asks about exact evidence with a rendered-only publisher anchor", async ()
       ? committedAnswer.answerMessageId
       : undefined,
   );
+  expect(reloaded.messages[0]?.temporaryEvidence).toEqual([
+    { filename: "evidence.txt", mediaType: "text/plain" },
+  ]);
+  expect(JSON.stringify(reloaded.messages[0])).not.toContain("data:text/plain");
 });
 
 test("observes a late assistant stream failure and returns a useful error", async () => {
@@ -371,6 +376,9 @@ function context(
         role: "user",
         content: input.content,
         ...(input.selectedText ? { selectedText: input.selectedText } : {}),
+        ...(input.temporaryEvidence
+          ? { temporaryEvidence: input.temporaryEvidence }
+          : {}),
         createdAt: "2026-09-01T12:00:00.000Z",
       };
       return persistedQuestion;
