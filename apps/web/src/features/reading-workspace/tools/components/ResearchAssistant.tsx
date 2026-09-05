@@ -282,6 +282,25 @@ export function ReadingResearchAssistant({
     return true;
   }
 
+  async function reviseQuestionWithHistory(
+    message: ResearchAssistantMessage,
+    revisedQuestion: string,
+  ) {
+    const selectedLeafMessageId = messages.at(-1)?.id;
+    if (interactionPending || !selectedLeafMessageId) return false;
+    clearError();
+    setComposerError(undefined);
+    const revised = await researchThreads.reviseQuestionWithHistory(
+      message.id,
+      selectedLeafMessageId,
+      revisedQuestion,
+    );
+    if (!revised) return false;
+    setMessages(messagesForThread(revised, plainText));
+    setCancelledQuestionId(undefined);
+    return true;
+  }
+
   async function selectAlternative(answerId: string) {
     const selectedLeafMessageId = messages.at(-1)?.id;
     if (interactionPending || !selectedLeafMessageId) return;
@@ -391,6 +410,7 @@ export function ReadingResearchAssistant({
                 void retryQuestion(message);
               },
               reviseQuestion,
+              reviseQuestionWithHistory,
               selectAlternative: (answerId) => {
                 void selectAlternative(answerId);
               },

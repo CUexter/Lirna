@@ -284,6 +284,9 @@ class MemoryThreads implements ResearchThreadOperations {
   async appendQuestion(): Promise<never> {
     throw new Error("Unexpected append");
   }
+  async reviseQuestionWithHistory(): Promise<never> {
+    throw new Error("Unexpected history revision");
+  }
 }
 
 function testContext(

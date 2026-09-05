@@ -10,6 +10,10 @@ await mock.module("@/clients/inquiryClient", () => ({
           calls.push({ operation: "revise", input });
           return { id: "thread-id", messages: [] };
         },
+        reviseQuestionWithHistory: async (input: unknown) => {
+          calls.push({ operation: "revise-history", input });
+          return { id: "thread-id", messages: [] };
+        },
         selectQuestion: async (input: unknown) => {
           calls.push({ operation: "select", input });
           return { id: "thread-id", messages: [] };
@@ -19,9 +23,11 @@ await mock.module("@/clients/inquiryClient", () => ({
   },
 }));
 
-const { reviseResearchQuestion, selectResearchQuestion } = await import(
-  "./researchAssistantTransport"
-);
+const {
+  reviseResearchQuestion,
+  reviseResearchQuestionWithHistory,
+  selectResearchQuestion,
+} = await import("./researchAssistantTransport");
 
 test("transports question revision and selection concurrency tokens", async () => {
   const scope = {
@@ -43,6 +49,12 @@ test("transports question revision and selection concurrency tokens", async () =
       },
     ],
   });
+  await reviseResearchQuestionWithHistory({
+    ...scope,
+    questionMessageId: "question-id",
+    expectedSelectedLeafMessageId: "selected-leaf-id",
+    question: "Revised question with existing history",
+  });
   await selectResearchQuestion({
     ...scope,
     questionMessageId: "alternative-question-id",
@@ -57,6 +69,15 @@ test("transports question revision and selection concurrency tokens", async () =
         expectedSelectedLeafMessageId: "selected-leaf-id",
         question: "Revised question",
       }),
+    },
+    {
+      operation: "revise-history",
+      input: {
+        ...scope,
+        questionMessageId: "question-id",
+        expectedSelectedLeafMessageId: "selected-leaf-id",
+        question: "Revised question with existing history",
+      },
     },
     {
       operation: "select",

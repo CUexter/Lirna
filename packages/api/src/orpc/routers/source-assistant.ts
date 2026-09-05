@@ -17,6 +17,7 @@ import {
 } from "./source-assistant-alternatives";
 import {
   sourceAssistantReviseQuestionProcedure,
+  sourceAssistantReviseQuestionWithHistoryProcedure,
   sourceAssistantSelectQuestionProcedure,
 } from "./source-assistant-question-alternatives";
 import { sourceAssistantRetryProcedure } from "./source-assistant-retry";
@@ -225,6 +226,7 @@ export const sourceAssistantRouter = {
     }),
   regenerate: sourceAssistantRegenerateProcedure,
   reviseQuestion: sourceAssistantReviseQuestionProcedure,
+  reviseQuestionWithHistory: sourceAssistantReviseQuestionWithHistoryProcedure,
   selectAnswer: sourceAssistantSelectProcedure,
   selectQuestion: sourceAssistantSelectQuestionProcedure,
   retry: sourceAssistantRetryProcedure,

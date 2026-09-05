@@ -94,6 +94,10 @@ export class BranchingThreads implements ResearchThreadOperations {
     return answer;
   }
 
+  async reviseQuestionWithHistory(): Promise<never> {
+    throw new Error("Unexpected history revision");
+  }
+
   async historyThroughQuestion({
     questionMessageId,
   }: Parameters<ResearchThreadOperations["historyThroughQuestion"]>[0]) {

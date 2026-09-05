@@ -6,7 +6,7 @@ import {
 } from "@lirna/db/schema/research-threads";
 import { sourceStates } from "@lirna/db/schema/sources";
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
-
+import { reviseResearchQuestionWithHistory } from "./research-question-history-revision-store";
 import type {
   ResearchThread,
   ResearchThreadLineage,
@@ -261,6 +261,12 @@ export class DrizzleResearchThreadStore implements ResearchThreadOperations {
       return inserted;
     });
     return message ? serializeMessage(message) : undefined;
+  }
+
+  async reviseQuestionWithHistory(
+    input: Parameters<ResearchThreadOperations["reviseQuestionWithHistory"]>[0],
+  ): Promise<ResearchThreadMessage | undefined> {
+    return reviseResearchQuestionWithHistory(this.database, input);
   }
 
   async commitAnswer(

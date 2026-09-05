@@ -185,6 +185,87 @@ test("rejects missing temporary evidence and stale selection before revision", a
   expect(threads.messages).toHaveLength(5);
 });
 
+test("revises a question with its selected history without invoking a model", async () => {
+  const threads = new RevisionThreads();
+  const answerInputs: Parameters<ResearchAssistantOperations["answer"]>[0][] =
+    [];
+  const context = testContext(
+    threads,
+    managedResearchAssistant({
+      async answer(input) {
+        answerInputs.push(input);
+        return evidenceStream();
+      },
+    }),
+  );
+
+  const revised = await call(
+    sourcesRouter.assistant.reviseQuestionWithHistory,
+    historyRevisionInput(),
+    { context },
+  );
+
+  expect(answerInputs).toHaveLength(0);
+  expect(revised.messages).toHaveLength(4);
+  expect(
+    revised.messages.map(({ originMessageId }) => originMessageId),
+  ).toEqual([
+    originalQuestionId,
+    originalAnswerId,
+    followUpQuestionId,
+    followUpAnswerId,
+  ]);
+  expect(revised.messages.map(({ content }) => content)).toEqual([
+    "What does the edited history establish?",
+    "Original answer",
+    "Original follow-up",
+    "Original downstream answer",
+  ]);
+  expect(threads.messages).toHaveLength(8);
+  await expect(
+    call(
+      sourcesRouter.assistant.reviseQuestionWithHistory,
+      {
+        ...historyRevisionInput(),
+        questionMessageId: revised.messages[0]?.id ?? "missing",
+        question: "Another edit from a stale leaf",
+      },
+      { context },
+    ),
+  ).rejects.toMatchObject({
+    code: "BAD_REQUEST",
+    message:
+      "The selected Research-thread branch changed; reload and try again",
+  });
+  expect(threads.messages).toHaveLength(8);
+
+  const copiedLeafId = revised.messages.at(-1)?.id;
+  if (!copiedLeafId) throw new Error("Copied history has no selected leaf");
+  const stream = await call(
+    sourcesRouter.assistant.ask,
+    {
+      sourceId,
+      stateId,
+      componentIdentity: "active:/",
+      expectedSelectedLeafMessageId: copiedLeafId,
+      question: "What should we ask next?",
+      threadId,
+    },
+    { context },
+  );
+  await collect(stream);
+  expect(answerInputs[0]?.history).toEqual([
+    {
+      role: "user",
+      content: "What does the edited history establish?",
+      selectedText: "Verified passage.",
+    },
+    { role: "assistant", content: "Original answer" },
+    { role: "user", content: "Original follow-up" },
+    { role: "assistant", content: "Original downstream answer" },
+  ]);
+});
+
 class RevisionThreads implements ResearchThreadOperations {
   selectedLeafId = followUpAnswerId;
   revisionAttempts = 0;
@@ -233,6 +314,34 @@ class RevisionThreads implements ResearchThreadOperations {
     return revised;
   }
 
+  async reviseQuestionWithHistory(
+    input: Parameters<ResearchThreadOperations["reviseQuestionWithHistory"]>[0],
+  ) {
+    if (this.selectedLeafId !== input.expectedSelectedLeafMessageId)
+      return undefined;
+    const path = this.pathThrough(this.selectedLeafId);
+    const questionIndex = path.findIndex(
+      ({ id, role }) => id === input.questionMessageId && role === "user",
+    );
+    const original = path[questionIndex];
+    if (!original) return undefined;
+    let parentMessageId = original.parentMessageId;
+    let leaf: ResearchThreadMessage | undefined;
+    for (const [index, source] of path.slice(questionIndex).entries()) {
+      leaf = {
+        ...source,
+        id: crypto.randomUUID(),
+        content: index === 0 ? input.content : source.content,
+        originMessageId: source.id,
+        parentMessageId,
+      };
+      this.messages.push(leaf);
+      parentMessageId = leaf.id;
+    }
+    if (leaf) this.selectedLeafId = leaf.id;
+    return leaf;
+  }
+
   async commitAnswer(
     input: Parameters<ResearchThreadOperations["commitAnswer"]>[0],
   ) {
@@ -270,8 +379,19 @@ class RevisionThreads implements ResearchThreadOperations {
   async lineage() {
     return { relatedThreads: [] };
   }
-  async appendQuestion(): Promise<never> {
-    throw new Error("Unexpected append");
+  async appendQuestion(
+    input: Parameters<ResearchThreadOperations["appendQuestion"]>[0],
+  ) {
+    if (this.selectedLeafId !== input.expectedSelectedLeafMessageId)
+      return undefined;
+    const question = message(crypto.randomUUID(), "user", input.content, {
+      parentMessageId: this.selectedLeafId,
+      selectedText: input.selectedText,
+      temporaryEvidence: input.temporaryEvidence,
+    });
+    this.messages.push(question);
+    this.selectedLeafId = question.id;
+    return question;
   }
   async selectAnswerAlternative() {
     return false;
@@ -323,6 +443,17 @@ function revisionInput() {
     expectedSelectedLeafMessageId: followUpAnswerId,
     question: "What does the revised evidence establish?",
     attachments: [attachment],
+  };
+}
+
+function historyRevisionInput() {
+  return {
+    sourceId,
+    stateId,
+    threadId,
+    questionMessageId: originalQuestionId,
+    expectedSelectedLeafMessageId: followUpAnswerId,
+    question: "What does the edited history establish?",
   };
 }
 

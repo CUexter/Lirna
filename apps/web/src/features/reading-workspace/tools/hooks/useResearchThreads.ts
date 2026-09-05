@@ -10,6 +10,7 @@ import {
   type ResearchThreadLineage,
   type ResearchThreadSummary,
   reviseResearchQuestion,
+  reviseResearchQuestionWithHistory,
   selectResearchAnswer,
   selectResearchQuestion,
 } from "../researchAssistantTransport";
@@ -231,19 +232,30 @@ export function useResearchThreads({
     attachments: Parameters<typeof reviseResearchQuestion>[0]["attachments"],
   ) {
     if (!activeThreadId) return undefined;
+    return updateActiveThread(
+      () =>
+        reviseResearchQuestion({
+          ...scope,
+          threadId: activeThreadId,
+          questionMessageId,
+          expectedSelectedLeafMessageId,
+          question,
+          ...(attachments?.length ? { attachments } : {}),
+        }),
+      "Research question could not be revised",
+    );
+  }
+
+  async function updateActiveThread(
+    request: () => Promise<ResearchThread>,
+    fallbackError: string,
+  ) {
     const requestScopeKey = scopeKey;
     const requestRevision = ++requestRevisionRef.current;
     setLoading(true);
     setError(undefined);
     try {
-      const loaded = await reviseResearchQuestion({
-        ...scope,
-        threadId: activeThreadId,
-        questionMessageId,
-        expectedSelectedLeafMessageId,
-        question,
-        ...(attachments?.length ? { attachments } : {}),
-      });
+      const loaded = await request();
       if (
         requestRevisionRef.current !== requestRevision ||
         scopeKeyRef.current !== requestScopeKey
@@ -256,11 +268,7 @@ export function useResearchThreads({
         requestRevisionRef.current === requestRevision &&
         scopeKeyRef.current === requestScopeKey
       )
-        setError(
-          reason instanceof Error
-            ? reason.message
-            : "Research question could not be revised",
-        );
+        setError(reason instanceof Error ? reason.message : fallbackError);
       return undefined;
     } finally {
       if (
@@ -276,42 +284,35 @@ export function useResearchThreads({
     expectedSelectedLeafMessageId: string,
   ) {
     if (!activeThreadId) return undefined;
-    const requestScopeKey = scopeKey;
-    const requestRevision = ++requestRevisionRef.current;
-    setLoading(true);
-    setError(undefined);
-    try {
-      const loaded = await selectResearchQuestion({
-        ...scope,
-        threadId: activeThreadId,
-        questionMessageId,
-        expectedSelectedLeafMessageId,
-      });
-      if (
-        requestRevisionRef.current !== requestRevision ||
-        scopeKeyRef.current !== requestScopeKey
-      )
-        return undefined;
-      setActiveThread(loaded);
-      return loaded;
-    } catch (reason) {
-      if (
-        requestRevisionRef.current === requestRevision &&
-        scopeKeyRef.current === requestScopeKey
-      )
-        setError(
-          reason instanceof Error
-            ? reason.message
-            : "Research question could not be selected",
-        );
-      return undefined;
-    } finally {
-      if (
-        requestRevisionRef.current === requestRevision &&
-        scopeKeyRef.current === requestScopeKey
-      )
-        setLoading(false);
-    }
+    return updateActiveThread(
+      () =>
+        selectResearchQuestion({
+          ...scope,
+          threadId: activeThreadId,
+          questionMessageId,
+          expectedSelectedLeafMessageId,
+        }),
+      "Research question could not be selected",
+    );
+  }
+
+  async function reviseQuestionWithHistory(
+    questionMessageId: string,
+    expectedSelectedLeafMessageId: string,
+    question: string,
+  ) {
+    if (!activeThreadId) return undefined;
+    return updateActiveThread(
+      () =>
+        reviseResearchQuestionWithHistory({
+          ...scope,
+          threadId: activeThreadId,
+          questionMessageId,
+          expectedSelectedLeafMessageId,
+          question,
+        }),
+      "Research question history could not be revised",
+    );
   }
 
   async function resumeSourceAnswer(threadId: string, answerMessageId: string) {
@@ -414,6 +415,7 @@ export function useResearchThreads({
     resume,
     resumeSourceAnswer,
     reviseQuestion,
+    reviseQuestionWithHistory,
     selectAnswer,
     selectQuestion,
     startNew: () => {

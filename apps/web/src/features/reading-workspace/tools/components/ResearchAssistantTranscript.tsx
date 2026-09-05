@@ -54,6 +54,10 @@ interface TranscriptActions {
     message: ResearchAssistantMessage,
     question: string,
   ) => Promise<boolean>;
+  reviseQuestionWithHistory?: (
+    message: ResearchAssistantMessage,
+    question: string,
+  ) => Promise<boolean>;
   selectAlternative?: (answerId: string) => void;
   selectQuestionAlternative?: (questionId: string) => void;
 }
@@ -199,6 +203,7 @@ function TranscriptMessage({
     createRelated,
     regenerate,
     reviseQuestion,
+    reviseQuestionWithHistory,
     selectAlternative,
     selectQuestionAlternative,
   } = actions ?? {};
@@ -231,6 +236,7 @@ function TranscriptMessage({
       canRevise={canReviseQuestion?.(message) ?? false}
       message={message}
       onRevise={reviseQuestion}
+      onUseEditedHistory={reviseQuestionWithHistory}
       onSelectAlternative={selectQuestionAlternative}
       passageForSelection={passageForSelection}
       pending={pending}
@@ -243,6 +249,7 @@ function UserTranscriptMessage({
   canRevise,
   message,
   onRevise,
+  onUseEditedHistory,
   onSelectAlternative,
   passageForSelection,
   pending,
@@ -251,6 +258,7 @@ function UserTranscriptMessage({
   canRevise: boolean;
   message: ResearchAssistantMessage;
   onRevise?: TranscriptActions["reviseQuestion"];
+  onUseEditedHistory?: TranscriptActions["reviseQuestionWithHistory"];
   onSelectAlternative?: (questionId: string) => void;
   passageForSelection: (selection: SelectionDraft) => ArticlePassage;
   pending: boolean;
@@ -276,6 +284,11 @@ function UserTranscriptMessage({
             onRevise={
               canRevise && onRevise
                 ? (question) => onRevise(message, question)
+                : undefined
+            }
+            onUseEditedHistory={
+              canRevise && onUseEditedHistory
+                ? (question) => onUseEditedHistory(message, question)
                 : undefined
             }
             onSelect={onSelectAlternative}

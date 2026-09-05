@@ -287,6 +287,17 @@ export function reviseResearchQuestion(input: {
   return inquiryClient.sources.assistant.reviseQuestion(input);
 }
 
+export function reviseResearchQuestionWithHistory(input: {
+  sourceId: string;
+  stateId: string;
+  threadId: string;
+  questionMessageId: string;
+  expectedSelectedLeafMessageId: string;
+  question: string;
+}) {
+  return inquiryClient.sources.assistant.reviseQuestionWithHistory(input);
+}
+
 export function selectResearchQuestion(input: {
   sourceId: string;
   stateId: string;

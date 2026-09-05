@@ -14,6 +14,7 @@ const questionId = "40000000-0000-4000-8000-000000000000";
 const answerId = "50000000-0000-4000-8000-000000000000";
 const revisedQuestionId = "60000000-0000-4000-8000-000000000000";
 let revisionInputs: unknown[] = [];
+let historyRevisionInputs: unknown[] = [];
 let attachmentBacked = false;
 
 await mock.module("../hooks/useResearchThreads", () => ({
@@ -28,6 +29,12 @@ await mock.module("../hooks/useResearchThreads", () => ({
       reviseQuestion: async (...input: unknown[]) => {
         revisionInputs.push(input);
         const revised = revisedThread(input[2] as string);
+        setActiveThread(revised);
+        return revised;
+      },
+      reviseQuestionWithHistory: async (...input: unknown[]) => {
+        historyRevisionInputs.push(input);
+        const revised = copiedHistoryThread(input[2] as string);
         setActiveThread(revised);
         return revised;
       },
@@ -47,6 +54,7 @@ const { ReadingResearchAssistant } = await import("./ResearchAssistant");
 
 afterEach(() => {
   revisionInputs = [];
+  historyRevisionInputs = [];
   attachmentBacked = false;
   cleanup();
 });
@@ -168,6 +176,40 @@ test("keeps a failed revised question selected and retries it", async () => {
   expect(attempt).toBe(2);
 });
 
+test("uses edited history without reattaching evidence or invoking a model", async () => {
+  attachmentBacked = true;
+  const user = userEvent.setup();
+  let modelInvocations = 0;
+  renderAssistant({
+    async sendMessages() {
+      modelInvocations += 1;
+      return answerStream();
+    },
+    async reconnectToStream() {
+      return null;
+    },
+  });
+
+  await user.click(view().getByRole("button", { name: "Edit question" }));
+  const editor = view().getByRole("textbox", { name: "Revised question" });
+  await user.clear(editor);
+  await user.type(editor, "Question edited without regeneration");
+  await user.click(view().getByRole("button", { name: "Use edited history" }));
+
+  await waitFor(() => expect(historyRevisionInputs).toHaveLength(1));
+  expect(historyRevisionInputs[0]).toEqual([
+    questionId,
+    answerId,
+    "Question edited without regeneration",
+  ]);
+  expect(modelInvocations).toBe(0);
+  expect(view().getByText("Question edited without regeneration")).toBeTruthy();
+  expect(view().getByText("Original answer.")).toBeTruthy();
+  expect(view().getByText(/Temporary evidence:/).textContent).toContain(
+    "evidence.txt",
+  );
+});
+
 test("keeps a cancelled revised question available to retry", async () => {
   const user = userEvent.setup();
   renderAssistant({
@@ -274,6 +316,37 @@ function revisedThread(content: string): ResearchThread {
           total: 2,
           previousQuestionId: questionId,
         },
+      },
+    ],
+  };
+}
+
+function copiedHistoryThread(content: string): ResearchThread {
+  return {
+    ...thread(),
+    updatedAt: "2026-09-05T12:03:00.000Z",
+    messages: [
+      {
+        ...message(revisedQuestionId, "user", content),
+        originMessageId: questionId,
+        temporaryEvidence: [
+          { filename: "evidence.txt", mediaType: "text/plain" },
+        ],
+        questionAlternatives: {
+          position: 2,
+          total: 2,
+          previousQuestionId: questionId,
+        },
+      },
+      {
+        ...message(
+          "80000000-0000-4000-8000-000000000000",
+          "assistant",
+          "Original answer.",
+        ),
+        originMessageId: answerId,
+        parentMessageId: revisedQuestionId,
+        model: "z-ai/glm-5.3-flash",
       },
     ],
   };

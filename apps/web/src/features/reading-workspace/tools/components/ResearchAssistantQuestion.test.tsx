@@ -83,6 +83,44 @@ test("cancels editing with Escape without closing the surrounding surface", asyn
   document.removeEventListener("keydown", recordBubble);
 });
 
+test("offers edited history separately from regeneration and cancellation", async () => {
+  const user = userEvent.setup();
+  const actions: string[] = [];
+  render(
+    <ResearchAssistantQuestion
+      message={question()}
+      onRevise={async () => {
+        actions.push("regenerate");
+        return true;
+      }}
+      onUseEditedHistory={async (value) => {
+        actions.push(`history:${value}`);
+        return true;
+      }}
+      pending={false}
+      text="Original question"
+    />,
+  );
+
+  await user.click(view().getByRole("button", { name: "Edit question" }));
+  const editor = view().getByRole("textbox", { name: "Revised question" });
+  await user.clear(editor);
+  await user.type(editor, "Edited question");
+  expect(
+    view().getByRole("button", { name: "Use edited history" }),
+  ).toBeTruthy();
+  expect(
+    view().getByRole("button", { name: "Regenerate from here" }),
+  ).toBeTruthy();
+  expect(view().getByRole("button", { name: "Cancel" })).toBeTruthy();
+  await user.click(view().getByRole("button", { name: "Use edited history" }));
+
+  await waitFor(() => expect(actions).toEqual(["history:Edited question"]));
+  expect(
+    view().queryByRole("textbox", { name: "Revised question" }),
+  ).toBeNull();
+});
+
 test("renders question alternatives beside the question and selects them", async () => {
   const user = userEvent.setup();
   const selected: string[] = [];

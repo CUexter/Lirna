@@ -143,6 +143,12 @@ export interface ResearchThreadOperations {
     expectedSelectedLeafMessageId: string;
     content: string;
   }): Promise<ResearchThreadMessage | undefined>;
+  reviseQuestionWithHistory(input: {
+    threadId: string;
+    questionMessageId: string;
+    expectedSelectedLeafMessageId: string;
+    content: string;
+  }): Promise<ResearchThreadMessage | undefined>;
   commitAnswer(input: {
     answerMessageId: string;
     threadId: string;

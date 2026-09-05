@@ -4,6 +4,7 @@ import { Textarea } from "@lirna/ui/components/textarea";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
+  HistoryIcon,
   PencilIcon,
   RefreshCwIcon,
 } from "lucide-react";
@@ -15,69 +16,30 @@ export function ResearchAssistantQuestion({
   message,
   onRevise,
   onSelect,
+  onUseEditedHistory,
   pending,
   text,
 }: {
   message: ResearchAssistantMessage;
   onRevise?: (question: string) => Promise<boolean>;
   onSelect?: (questionId: string) => void;
+  onUseEditedHistory?: (question: string) => Promise<boolean>;
   pending: boolean;
   text: string;
 }) {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(text);
-  const editorRef = useRef<HTMLTextAreaElement>(null);
   const alternatives = message.metadata?.questionAlternatives;
-  useEffect(() => {
-    if (editing) editorRef.current?.focus();
-  }, [editing]);
 
-  function cancel() {
-    setDraft(text);
-    setEditing(false);
-  }
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const revised = draft.trim();
-    if (!revised || revised === text || pending) return;
-    if (await onRevise?.(revised)) setEditing(false);
-  }
-
-  if (editing) {
+  if (editing && onRevise) {
     return (
-      <form className="w-full max-w-xl space-y-2" onSubmit={submit}>
-        <label className="sr-only" htmlFor={`revise-${message.id}`}>
-          Revised question
-        </label>
-        <Textarea
-          className="field-sizing-content min-h-24 w-full resize-y"
-          disabled={pending}
-          id={`revise-${message.id}`}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key !== "Escape") return;
-            event.preventDefault();
-            event.stopPropagation();
-            cancel();
-          }}
-          ref={editorRef}
-          value={draft}
-        />
-        <div className="flex justify-end gap-2">
-          <Button onClick={cancel} size="sm" type="button" variant="ghost">
-            Cancel
-          </Button>
-          <Button
-            disabled={!draft.trim() || draft.trim() === text || pending}
-            size="sm"
-            type="submit"
-          >
-            <RefreshCwIcon />
-            Regenerate from here
-          </Button>
-        </div>
-      </form>
+      <QuestionEditor
+        messageId={message.id}
+        onCancel={() => setEditing(false)}
+        onRevise={onRevise}
+        onUseEditedHistory={onUseEditedHistory}
+        pending={pending}
+        text={text}
+      />
     );
   }
 
@@ -143,5 +105,79 @@ export function ResearchAssistantQuestion({
         ) : null}
       </div>
     </div>
+  );
+}
+
+function QuestionEditor({
+  messageId,
+  onCancel,
+  onRevise,
+  onUseEditedHistory,
+  pending,
+  text,
+}: {
+  messageId: string;
+  onCancel: () => void;
+  onRevise: (question: string) => Promise<boolean>;
+  onUseEditedHistory?: (question: string) => Promise<boolean>;
+  pending: boolean;
+  text: string;
+}) {
+  const [draft, setDraft] = useState(text);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
+  const revised = draft.trim();
+  const disabled = !revised || revised === text || pending;
+  useEffect(() => editorRef.current?.focus(), []);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!disabled && (await onRevise(revised))) onCancel();
+  }
+
+  async function useEditedHistory() {
+    if (!disabled && (await onUseEditedHistory?.(revised))) onCancel();
+  }
+
+  return (
+    <form className="w-full max-w-xl space-y-2" onSubmit={submit}>
+      <label className="sr-only" htmlFor={`revise-${messageId}`}>
+        Revised question
+      </label>
+      <Textarea
+        className="field-sizing-content min-h-24 w-full resize-y"
+        disabled={pending}
+        id={`revise-${messageId}`}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key !== "Escape") return;
+          event.preventDefault();
+          event.stopPropagation();
+          onCancel();
+        }}
+        ref={editorRef}
+        value={draft}
+      />
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button onClick={onCancel} size="sm" type="button" variant="ghost">
+          Cancel
+        </Button>
+        {onUseEditedHistory ? (
+          <Button
+            disabled={disabled}
+            onClick={() => void useEditedHistory()}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <HistoryIcon />
+            Use edited history
+          </Button>
+        ) : null}
+        <Button disabled={disabled} size="sm" type="submit">
+          <RefreshCwIcon />
+          Regenerate from here
+        </Button>
+      </div>
+    </form>
   );
 }

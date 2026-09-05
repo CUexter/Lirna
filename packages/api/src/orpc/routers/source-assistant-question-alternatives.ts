@@ -88,6 +88,59 @@ export const sourceAssistantReviseQuestionProcedure = publicProcedure
     return selected;
   });
 
+export const sourceAssistantReviseQuestionWithHistoryProcedure = publicProcedure
+  .input(
+    questionAlternativeInput.extend({
+      question: z.string().trim().min(1).max(4_000),
+    }),
+  )
+  .errors(notFoundError)
+  .meta(
+    openapi({
+      method: "POST",
+      path: "/sources/assistant/revise-question-with-history",
+      operationId: "sources.assistant.reviseQuestionWithHistory",
+      summary: "Revise a Research question while preserving selected history",
+      tags: ["Sources"],
+    }),
+  )
+  .handler(async ({ context, input }) => {
+    const thread = await context.researchThreads.projectSelectedPath(input);
+    if (!thread) throw notFound("Research thread is unavailable");
+    const original = thread.messages.find(
+      ({ id, role }) => id === input.questionMessageId && role === "user",
+    );
+    if (!original) {
+      throw new ORPCError("BAD_REQUEST", {
+        message: "Only a question on the current selected path can be revised",
+      });
+    }
+    if (original.content === input.question) {
+      throw new ORPCError("BAD_REQUEST", {
+        message: "The revised Research question must be different",
+      });
+    }
+    const copiedLeaf = await context.researchThreads.reviseQuestionWithHistory({
+      threadId: thread.id,
+      questionMessageId: original.id,
+      expectedSelectedLeafMessageId: input.expectedSelectedLeafMessageId,
+      content: input.question,
+    });
+    if (!copiedLeaf) {
+      throw new ORPCError("BAD_REQUEST", {
+        message:
+          "The selected Research-thread branch changed; reload and try again",
+      });
+    }
+    const selected = await context.researchThreads.projectSelectedPath(input);
+    if (!selected) {
+      throw new ORPCError("INTERNAL_SERVER_ERROR", {
+        message: "Revised Research thread could not be reloaded",
+      });
+    }
+    return selected;
+  });
+
 export const sourceAssistantSelectQuestionProcedure = publicProcedure
   .input(questionAlternativeInput)
   .errors(notFoundError)
